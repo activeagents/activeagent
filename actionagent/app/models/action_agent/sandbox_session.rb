@@ -298,9 +298,12 @@ module ActionAgent
     # The owner's record in +scope+, found through that model's own owner
     # column. GitHub connections and provider keys are account-owned before
     # user-owned, the opposite of a session, so the session's #owner is not
-    # necessarily theirs.
+    # necessarily theirs. Only the rows the model's .owned_rows admits are
+    # read, so a member's personal provider key never reaches a sandbox,
+    # which every member of the account shares.
     def owners_record(scope)
       scope = scope.all
+      scope = scope.merge(scope.klass.owned_rows)
       case scope.klass.owner_association
       when :account then account_id && scope.find_by(account_id: account_id)
       when :user then user_id && scope.find_by(user_id: user_id)

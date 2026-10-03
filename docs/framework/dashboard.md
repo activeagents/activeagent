@@ -1326,7 +1326,7 @@ end
 
 | Action | Asked by |
 |---|---|
-| `:manage_credentials` | storing, testing and deleting a provider credential (`POST /api/provider_keys`, `POST /api/provider_keys/test`, `DELETE /api/provider_keys/:provider`) |
+| `:manage_credentials` | storing, testing and deleting an organization provider credential (`POST /api/provider_keys`, `POST /api/provider_keys/test`, `DELETE /api/provider_keys/:provider`), and storing or testing a member's personal Ollama host; a member's other personal keys need no permission |
 | `:manage_github` | connecting GitHub, choosing its repositories, and disconnecting it (`GET /api/github_connection/connect` and `/callback`, `PATCH` and `DELETE /api/github_connection`) |
 | `:manage_api_keys` | creating and revoking dashboard API keys (`POST /api/api_keys`, `DELETE /api/api_keys/:id`) |
 | `:publish_pull_request` | reserved: opening a pull request from a sandbox |
@@ -1353,6 +1353,85 @@ and no checker is set. With a checker set:
   asking the checker, and a `nil` answer denies.
 - In single-tenant mode, a `nil` answer allows, so a checker can leave the
   actions it has no rule for alone.
+
+### Organization and personal provider keys
+
+A provider key belongs to the owner keys are stored under: with an
+`account_class`, the account, which shares it with every member. That is an
+organization key, and it is what runs use by default.
+
+With `config.provider_key_scope = :personal_override`, a member may also
+save a personal key per provider in Settings → API Keys. A personal key sends
+the organization's agent traffic to that member's own provider account, so an
+install opts in, and the setting has no effect without an `account_class`.
+
+Every generation resolves its credentials through
+`ActionAgent::ProviderCredentials.resolve(owner:, actor:, provider:)`, which
+tries these sources in order:
+
+1. the actor's personal key, under `:personal_override` when there is an
+   actor;
+2. `config.provider_credentials_resolver`;
+3. the organization key;
+4. nothing, so `config/active_agent.yml` and ENV apply.
+
+| Generation | Actor |
+|---|---|
+| Agent runs | the user who started the run; over MCP, the user who created the API key |
+| The agent builder's model pickers, the dashboard assistant | the signed-in user |
+| Scenario replays, and the evaluation form's provider list | the caller a replay runs as (`ScenarioEvaluationRunner.replay_actor_for`): none on a multi-tenant install, so the organization key |
+| The evaluation judge | none, so the organization key |
+| Sandbox environments, Claude Code and Codex status | none: personal keys never reach a sandbox, and Claude Code and Codex keys are organization keys only |
+
+A resolver that declares an `actor:` keyword, or accepts `**`, is told the
+actor; a two-argument resolver is called as `(owner, provider)`:
+
+```ruby
+config.provider_credentials_resolver = ->(owner, provider, actor: nil) do
+  owner.provider_credentials_for(provider)
+end
+```
+
+With `multi_tenant` on, resolution fails closed: when the owner does not
+resolve to the configured owner class, or the resolver raises, the run, judge
+call or assistant request fails with `ActionAgent::ProviderCredentials::Unresolved`
+instead of continuing on `config/active_agent.yml` or ENV credentials. On a
+single-tenant install a raising resolver is logged and the next source is
+tried.
+
+`ActionAgent::ProviderKey.for_owner` and the dashboard API read organization
+keys only. `ActionAgent::ProviderKey.personal_for(owner, actor)` is the one way
+to reach a member's personal keys.
+
+The provider keys endpoints take `scope=organization` (the default) or
+`scope=personal`. Organization writes ask `permission_checker` for
+`:manage_credentials`; personal writes change only the signed-in user's own
+key, and are refused with 422 when personal keys are off. Claude Code and
+Codex keys cannot be personal. `GET /api/provider_keys` rows carry `scope`,
+`editable`, `effective_source` (`personal`, `host_resolver`, `organization`,
+`config` or `none`, for the caller's own runs), `set_by` and `updated_at`.
+`POST /api/provider_keys/test` sends a stored key only to the stored host.
+
+A personal Ollama host decides where the server sends requests: the
+connection test, the model list and every run the member starts reach it. So
+storing or testing one asks `permission_checker` for `:manage_credentials`,
+with the personal key as the subject, and a checker that wants members to
+choose their own hosts allows it when `subject.personal?`. Removing one's own
+key never asks.
+
+The Organization page lists the members `config.members_resolver` returns,
+and links "+ Invite Member" to `config.member_invite_url`:
+
+```ruby
+config.members_resolver = ->(account) do
+  account.members.map { |user| { id: user.id, name: user.name, email: user.email, role: user.role } }
+end
+config.member_invite_url = "/team/invitations/new"
+```
+
+`GET /api/members` renders only `id`, `name`, `email` and `role`. With no
+resolver, or one that raises, it lists the signed-in user alone, and with no
+invite URL the button is hidden.
 
 ## Sending traces to a remote endpoint instead
 
@@ -1382,6 +1461,14 @@ ActionAgent.configure do |config|
   config.trace_model_class = "TelemetryTrace" # optional model override
 end
 ```
+
+Every owned model reads and writes its owner by class. If you also set
+`config.user_class`, agents, sandboxes, recordings and code sessions are owned
+per user while keys and connections are owned per account; a platform that
+scopes everything by account re-declares `owned_by :account, :user` on the
+user-first models from `to_prepare` and sets `config.tenant_resolver` so a
+user maps to its account. The install generator's template shows both. An
+owner of another class than a model is owned by reads nothing.
 
 In multi-tenant mode the ingest API authenticates with
 `Authorization: Bearer <account.telemetry_api_key>` and processes traces

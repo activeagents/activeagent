@@ -79,6 +79,24 @@ ActionAgent.configure do |config|
   # With an owner model configured, an owner that does not resolve sees
   # nothing rather than everything. An empty dashboard for a signed-in user
   # means the resolver above returned nil.
+  #
+  # Each model is owned by one class: agents, sandboxes, recordings and code
+  # sessions name the user first, keys and connections the account. With
+  # both classes configured, the dashboard still resolves the account as the
+  # owner, so a platform that scopes everything by account re-declares the
+  # user-first models from `to_prepare` and maps a user to its account:
+  #
+  # Rails.application.config.to_prepare do
+  #   [ActionAgent::Agent, ActionAgent::SandboxSession,
+  #    ActionAgent::SessionRecording, ActionAgent::CodeSession].each do |model|
+  #     model.owned_by :account, :user
+  #   end
+  # end
+  # config.tenant_resolver = ->(owner) { owner.is_a?(User) ? owner.account : owner }
+  #
+  # An owner of another class than the one a model is owned by reads nothing
+  # and is refused as a writer, so leaving this out shows an empty dashboard
+  # rather than another tenant's records.
 
   # ==========================================================================
   # Permissions
@@ -100,6 +118,44 @@ ActionAgent.configure do |config|
   # config.permission_checker = ->(user, action, subject) {
   #   user.present? && user.admin?
   # }
+
+  # ==========================================================================
+  # Provider keys and members
+  # ==========================================================================
+  #
+  # Agent runs, the evaluation judge and the assistant use the account's
+  # provider keys (Settings -> API Keys, or the Organization page) before
+  # config/active_agent.yml. With :personal_override, each member may also
+  # save a personal key per provider, which the runs they start use first.
+  # A personal key sends the organization's agent traffic to that member's
+  # own provider account, so it is off by default. It needs account_class;
+  # the judge, sandboxes, Claude Code and Codex always use the account's keys.
+  # A personal Ollama host decides where the server sends requests, so
+  # saving or testing one asks the permission_checker above for
+  # :manage_credentials, with the personal key (subject.personal?) as the
+  # subject.
+  #
+  # config.provider_key_scope = :personal_override
+  #
+  # Credentials your app keeps elsewhere, tried after a personal key and
+  # before the account's stored key. Declare actor: to learn who is acting
+  # (nil for the judge and unattributed runs). With multi_tenant on, a
+  # resolver that raises fails the run rather than falling back to
+  # config/active_agent.yml. If it reads the provider_keys table, keep it
+  # to organization rows (ActionAgent::ProviderKey.for_owner does).
+  #
+  # config.provider_credentials_resolver = ->(owner, provider, actor: nil) {
+  #   owner.provider_credentials_for(provider)
+  # }
+  #
+  # The Organization page's Team Members table, as
+  # [{ id:, name:, email:, role: }], and where "+ Invite Member" links. Both
+  # unset, the table lists the signed-in user and the button is hidden.
+  #
+  # config.members_resolver = ->(account) {
+  #   account.members.map { |user| { id: user.id, name: user.name, email: user.email, role: user.role } }
+  # }
+  # config.member_invite_url = "/team/invitations/new"
 
   # ==========================================================================
   # Host integration

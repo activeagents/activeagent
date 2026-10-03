@@ -594,13 +594,12 @@ module ActionAgent
 
     # The evaluated agent owner's credential for +name+ (Settings ->
     # Provider API Keys, or whatever the host app resolves); preferred over
-    # the host's config/active_agent.yml credentials for the judge.
+    # the host's config/active_agent.yml credentials for the judge. Resolved
+    # with no actor: the judge scores for the organization, so it never runs
+    # on a member's personal key.
     def owner_provider_options(name)
       @owner_provider_options ||= {}
-      @owner_provider_options[name.to_s] ||= begin
-        from_host = ActionAgent.provider_credentials(owner, name.to_s)
-        from_host.presence || ProviderKey.for_owner(owner).find_by(provider: name.to_s)&.generation_options || {}
-      end
+      @owner_provider_options[name.to_s] ||= ProviderCredentials.resolve(owner: owner, actor: nil, provider: name).options
     end
 
     def owner

@@ -44,6 +44,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   stores the signed-in user beside its owner, and an MCP call made with an
   account's key runs as that user. Keys created earlier have no creator and
   behave as before.
+- **Organization and personal provider keys** (`actionagent`). A provider
+  key is an organization key, shared by the account's members, or a member's
+  personal key. With `ActionAgent.provider_key_scope = :personal_override`, a
+  member saves personal keys in Settings → API Keys, and the runs they start,
+  the dashboard assistant and the model pickers use them before the
+  organization's; the judge, sandboxes, Claude Code and Codex use organization
+  keys only, as do scenario replays on a multi-tenant install, so the
+  evaluation form offers only the providers those keys cover. A personal
+  Ollama host decides where the server sends requests, so saving or testing
+  one asks `permission_checker` for `:manage_credentials`, with the personal
+  key as the subject, as an organization key does. Every lookup goes through
+  `ActionAgent::ProviderCredentials.resolve(owner:, actor:, provider:)`: the
+  actor's personal key, then `provider_credentials_resolver`, then the
+  organization key, then `config/active_agent.yml`. A resolver that declares
+  `actor:` is told who is acting. With `multi_tenant` on, an owner that does
+  not resolve to the configured owner class, or a resolver that raises, fails
+  the generation with `ProviderCredentials::Unresolved` instead of using the
+  platform's credentials. The provider keys API takes `scope=organization` or
+  `scope=personal` and returns `scope`, `effective_source`, `set_by` and
+  `updated_at`, and `POST /api/provider_keys/test` sends a stored key only to
+  the stored host. The Organization page manages the
+  organization's keys and lists the members `ActionAgent.members_resolver`
+  returns, with "+ Invite Member" linking to `ActionAgent.member_invite_url`
+  (`GET /api/members`). **Upgrading:** run the new `add_provider_key_scope`
+  migration (`rails g action_agent:install` emits it); it stops and lists the
+  keys if an account holds two for one provider. A host that keeps its own
+  `provider_keys` table with a unique `(account_id, provider)` index replaces
+  it with `(account_id, scope_key, provider)`. Before turning on
+  `:personal_override`, change any `provider_credentials_resolver` that reads
+  `provider_keys` by provider alone so it reads organization rows only
+  (`ProviderKey.for_owner`), or remove it.
 - **Declare optional sandbox backend verbs** (`actionagent`).
   `SandboxOrchestrator` dispatches `changed_files`, `read_file`,
   `start_browser`, `stop_browser` and `resume_boot` to a backend that defines
@@ -63,6 +94,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **An owner of another class reads no other tenant's rows** (`actionagent`).
+  `Ownable.for_owner` scoped by the owner's id alone, so an account-owned
+  model handed a user — the stored provider-key fallback of an agent run,
+  `ProviderKey.for_owner(agent.owner)`, when agents are owned per user — read
+  whichever account shared that user's id, and the run generated with that
+  account's key. The scope now matches the owner by class: a user handed to an
+  account-owned model maps to its tenant through `ActionAgent.tenant_for`, and
+  any other mismatch scopes to nothing. `TelemetryTrace.for_account` matches
+  the same way, and `owner=` raises `ArgumentError` for an owner that resolves
+  to nothing rather than writing its id into another class's column.
+  **Upgrading:** a multi-tenant install that configures both `account_class`
+  and `user_class` must own every model by one class or map between them.
+  Re-declare `owned_by :account, :user` on `Agent`, `SandboxSession`,
+  `SessionRecording` and `CodeSession` from `to_prepare` and set
+  `tenant_resolver`, as the install generator's template now shows; rows those
+  models stored under `user_id` with the account's id need `account_id`
+  backfilled, or the dashboard lists nothing for them.
 - **Fix Anthropic structured output mapping** (`activeagent`). Preserve caller
   `output_config` and ignore unsupported response formats.
 - **Fix Anthropic JSON emulation with thinking enabled** (`activeagent`).
