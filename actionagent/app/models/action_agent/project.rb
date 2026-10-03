@@ -20,8 +20,8 @@ module ActionAgent
   #   any other repository   the "App assistant", whose tools are everything
   #                          the sandbox's facade serves
   #
-  # Either way the agent's mcp_servers name the current sandbox, and a new
-  # sandbox replaces it there.
+  # Either way the agent's mcp_servers name the current sandbox, in place of
+  # any earlier sandbox, and keep the servers added in the agent editor.
   #
   # The sandbox, the agent and the evaluation carry the project's own owner
   # columns, whoever starts a boot, so the agent's runs always reach the
@@ -415,14 +415,15 @@ module ActionAgent
     end
 
     # Creates or updates the project's one agent, and creates the project's
-    # evaluation on it when there is none.
+    # evaluation on it when there is none. Choosing the target the agent
+    # already has keeps its name, description and instructions as edited.
     def assign_target!(name:, description:, instructions:, provider:, model:, slug:, tools:)
       transaction do
         agent = target_agent || Agent.new(user_id: user_id, account_id: account_id, status: :active)
-        agent.assign_attributes(
-          name: name, description: description, instructions: instructions,
-          mcp_servers: sandbox_servers(current_sandbox_session, tools: tools)
-        )
+        if agent.new_record? || settings["target_slug"] != slug
+          agent.assign_attributes(name: name, description: description, instructions: instructions)
+        end
+        agent.mcp_servers = servers_with_sandbox(agent, current_sandbox_session, tools: tools)
         if agent.new_record?
           agent.provider = provider
           agent.model = model
@@ -464,15 +465,20 @@ module ActionAgent
       return if target_agent.nil?
 
       slug = settings["target_slug"]
-      target_agent.update!(mcp_servers: sandbox_servers(sandbox, tools: slug.present? ? [ "run_#{slug}" ] : nil))
+      target_agent.update!(mcp_servers: servers_with_sandbox(target_agent, sandbox, tools: slug.present? ? [ "run_#{slug}" ] : nil))
     end
 
-    def sandbox_servers(sandbox, tools:)
-      return [] if sandbox.nil?
+    # +agent+'s mcp_servers with every checkout sandbox's entry replaced by
+    # +sandbox+'s, allowing only +tools+ when given. Other servers are kept.
+    def servers_with_sandbox(agent, sandbox, tools:)
+      kept = Array(agent.mcp_servers).reject do |entry|
+        SandboxSession.runtime_server_key?(entry.is_a?(Hash) ? entry["key"] || entry[:key] : entry)
+      end
+      return kept if sandbox.nil?
 
       entry = { "key" => sandbox.runtime_server_key, "name" => "#{repository} (sandbox)" }
       entry["tools"] = tools if tools
-      [ entry ]
+      [ entry, *kept ]
     end
 
     def start_url_is_a_path

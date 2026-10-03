@@ -655,6 +655,30 @@ class ProjectsApiTest < ActionDispatch::IntegrationTest
     assert_equal [ fresh.runtime_server_key ], project.target_agent.mcp_servers.map { |entry| entry["key"] }
   end
 
+  test "the agent follows each new sandbox and keeps the servers and edits made in the agent editor" do
+    project = create_project!
+    agent = project.target_agent
+    agent.update!(instructions: "Edited by hand.", mcp_servers: [ { "key" => "github" }, "sandbox:gone", "docs" ])
+
+    perform_enqueued_jobs { post "#{BASE}/#{project.id}/boot", as: :json }
+
+    first = project.reload.current_sandbox_session
+    assert_equal [ { "key" => first.runtime_server_key, "name" => "acme/shop (sandbox)" }, { "key" => "github" }, "docs" ],
+      agent.reload.mcp_servers
+
+    patch "#{BASE}/#{project.id}/target", params: { app_assistant: true }, as: :json
+    assert_response :success
+    assert_equal "Edited by hand.", agent.reload.instructions, "choosing the target it has keeps the edits"
+    assert_equal [ first.runtime_server_key, "github", "docs" ],
+      agent.mcp_servers.map { |entry| entry.is_a?(Hash) ? entry["key"] : entry }
+
+    first.update_columns(expires_at: 1.minute.ago)
+    perform_enqueued_jobs { post "#{BASE}/#{project.id}/boot", as: :json }
+    second = project.reload.current_sandbox_session
+    assert_equal [ second.runtime_server_key, "github", "docs" ],
+      agent.reload.mcp_servers.map { |entry| entry.is_a?(Hash) ? entry["key"] : entry }
+  end
+
   test "boot progress lists each step with its elapsed time and the scrubbed tail of the failing step's log" do
     project = create_project!(secrets: { "STRIPE_SECRET_KEY" => SECRET })
     perform_enqueued_jobs { post "#{BASE}/#{project.id}/boot", as: :json }
