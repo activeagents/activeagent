@@ -1184,7 +1184,7 @@ module ActionAgent
         end
         plan = spec_plan(boot_spec, (facts&.dig("gems") || {}).keys.to_set)
       else
-        plan = config_plan(Config.load(app), secrets: boot_spec&.step_environment || {})
+        plan = config_plan(Config.load(app), secrets: boot_spec&.step_environment || {}, steps: boot_spec&.always_steps || [])
       end
 
       update_state(workspace) do |state|
@@ -1254,12 +1254,17 @@ module ActionAgent
     end
 
     # +secrets+ are the env and secrets of a boot spec that does not apply to
-    # the checkout: it boots as its sandbox.yml says, with them added to that
-    # file's env.
-    def config_plan(config, secrets: {})
+    # the checkout, and +steps+ its `always` steps: it boots as its
+    # sandbox.yml says, with them added to that file's env, and the steps
+    # run after that file's setup.
+    def config_plan(config, secrets: {}, steps: [])
+      extra = steps.map do |entry|
+        BootStep.new(name: entry["name"], command: entry["command"], timeout: entry["timeout"], log: entry["name"], label: entry["name"],
+          if_task: entry["if_task"])
+      end
       BootPlan.new(
         mode: "config", spec: nil,
-        steps: config.setup.map { |command| BootStep.new(name: "setup", command: command, log: "setup", label: "setup") },
+        steps: config.setup.map { |command| BootStep.new(name: "setup", command: command, log: "setup", label: "setup") } + extra,
         manifest: BootStep.new(name: "manifest", command: config.manifest, log: "manifest", label: "manifest"),
         start: BootStep.new(name: "start", command: config.start, log: "server", label: "server"),
         env: config.env.merge(secrets), start_url: nil, keep_on_failure: false

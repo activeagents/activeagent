@@ -16,7 +16,8 @@
 #                                   and mounts the engine
 #   generate active_agent:schema_tools MODEL --filterable … --returns …
 #                                   writes app/agent_tools/<model>_tools.rb
-#                                   declaring those columns
+#                                   declaring those columns, headed by the
+#                                   dashboard's marker with --managed
 #   db:prepare                      writes db/schema.rb
 #   action_agent:sandbox:manifest   writes the runtime manifest
 #   server ...                      runs fake_app_server.rb
@@ -81,7 +82,8 @@ when "generate active_agent:schema_tools"
   file = model.gsub("::", "/").gsub(/([a-z\d])([A-Z])/, '\1_\2').downcase
   path = "app/agent_tools/#{file}_tools.rb"
   FileUtils.mkdir_p(File.dirname(path))
-  File.write(path, "class #{model}Tools < ActiveAgent::SchemaTools\n  model #{model}\n" \
+  header = ARGV.include?("--managed") ? "# Managed by the ActiveAgent dashboard: fixture\n" : ""
+  File.write(path, "#{header}class #{model}Tools < ActiveAgent::SchemaTools\n  model #{model}\n" \
     "  filterable #{[ "id", *declared["filterable"] ].map { |name| ":#{name}" }.join(", ")}\n" \
     "  returns #{[ "id", *declared["returns"] ].map { |name| ":#{name}" }.join(", ")}\nend\n")
 when "db:prepare"

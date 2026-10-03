@@ -84,9 +84,68 @@ class ProjectSchemaToolsTest < ActionDispatch::IntegrationTest
     steps = ListingBackend.calls.last[2]["steps"]
     names = steps.map { |step| step["name"] }
     assert_equal names.index("db_prepare") + 1, names.index("schema_tools")
-    assert_equal "bin/rails generate active_agent:schema_tools Reservation --force --filterable status --returns status starts_at && " \
-      "bin/rails generate active_agent:schema_tools Admin::Note --force --returns body",
-      steps.find { |step| step["name"] == "schema_tools" }["command"], "the choices survive the sandbox's expiry"
+    step = steps.find { |entry| entry["name"] == "schema_tools" }
+    assert step["always"], "a checkout that boots from its own sandbox.yml writes them too"
+    remove, reservation, note = Shellwords.split(step["command"]).join(" ").split(" && ")
+    assert remove.start_with?("[ ! -d app/agent_tools ] || find app/agent_tools "), remove
+    assert_includes remove, "-exec grep -qF Managed by the ActiveAgent dashboard {} ; -exec rm -f {} ;",
+      "first the files an earlier boot wrote go, so a model taken off the list loses its tools"
+    assert reservation.start_with?("if [ -e app/agent_tools/reservation_tools.rb ]; then echo "), reservation
+    assert reservation.end_with?("; else bin/rails generate active_agent:schema_tools Reservation --force --managed --filterable status " \
+      "--returns status starts_at; fi"), "the choices survive the sandbox's expiry"
+    assert_match(/generate active_agent:schema_tools Admin::Note --force --managed --returns body; fi\z/, note)
+  end
+
+  test "an installed project's boots, which run the checkout's own sandbox.yml, still write the choices" do
+    boot!
+    put "#{BASE}/#{@project.id}/schema_tools", params: { schema_tools: [ { model: "Reservation", returns: [ "status" ] } ] }, as: :json
+    assert_response :success, response.body
+
+    @project.reload.update!(install_state: "installed")
+    spec = @project.boot_spec
+
+    assert spec.without_engine_only?, "a checkout that bundles the engine boots as its sandbox.yml says"
+    assert_equal [ "schema_tools" ], spec.always_steps.map { |step| step["name"] }
+  end
+
+  test "taking every model off the list leaves a step that removes the files the dashboard wrote" do
+    boot!
+    put "#{BASE}/#{@project.id}/schema_tools", params: { schema_tools: [ { model: "Reservation", returns: [ "status" ] } ] }, as: :json
+    put "#{BASE}/#{@project.id}/schema_tools", params: { schema_tools: [] }, as: :json
+    assert_response :success, response.body
+
+    steps = @project.reload.boot_spec.always_steps
+    assert_equal [ "schema_tools" ], steps.map { |step| step["name"] }
+    assert_no_match(/generate/, steps.sole["command"])
+    assert_match(/-exec rm -f/, steps.sole["command"])
+    assert_empty ActionAgent::Project.new.then { |project| ActionAgent::SandboxBootSpec.schema_tools_steps(nil) },
+      "a project that never chose writes and removes nothing"
+  end
+
+  test "many models are spread over several steps, and choices no boot could hold are refused" do
+    columns = (1..20).map { |index| { "name" => "a_fairly_long_column_name_#{index}", "type" => "string" } }
+    models = (1..12).map { |index| { "name" => "Model#{index}", "table" => "model#{index}s", "columns" => columns } }
+    @project.update!(settings: @project.settings.merge("app_models" => models))
+    choices = models.map { |model| { model: model["name"], filterable: columns.map { |c| c["name"] }, returns: columns.map { |c| c["name"] } } }
+
+    put "#{BASE}/#{@project.id}/schema_tools", params: { schema_tools: choices }, as: :json
+
+    assert_response :success, response.body
+    steps = @project.reload.boot_spec.steps.select { |step| ActionAgent::SandboxBootSpec.schema_tools_step?(step["name"]) }
+    assert_operator steps.size, :>, 1
+    assert steps.all? { |step| step["command"].length <= ActionAgent::SandboxBootSpec::MAX_COMMAND_LENGTH }
+    assert_equal models.map { |model| model["name"] },
+      steps.flat_map { |step| step["command"].scan(/active_agent:schema_tools (\S+)/).flatten }
+    assert_equal steps.map { |step| step["name"] }, [ "schema_tools", *(2..steps.size).map { |index| "schema_tools_#{index}" } ]
+
+    wide = (1..100).map { |index| { "name" => "#{"c" * 50}_#{index}", "type" => "string" } }
+    @project.update!(settings: @project.settings.merge("app_models" => [ { "name" => "Wide", "table" => "wides", "columns" => wide } ]))
+    put "#{BASE}/#{@project.id}/schema_tools", params: { schema_tools: [ { model: "Wide", returns: wide.map { |c| c["name"] } } ] },
+      as: :json
+
+    assert_response :unprocessable_entity
+    assert_match(/Wide has more columns chosen than one boot step can hold/, JSON.parse(response.body)["error"])
+    assert_equal 12, @project.reload.schema_tools.size, "a refused choice changes nothing"
   end
 
   test "applying the choices boots the project again, and the App assistant follows the new sandbox with every facade tool" do
@@ -138,13 +197,16 @@ class ProjectSchemaToolsTest < ActionDispatch::IntegrationTest
 
   test "a column that looks like a secret is never written into a step" do
     error = assert_raises(ActionAgent::SandboxBootSpec::Invalid) do
-      ActionAgent::SandboxBootSpec.schema_tools_step([ { "model" => "User", "returns" => [ "password_digest" ] } ])
+      ActionAgent::SandboxBootSpec.schema_tools_steps([ { "model" => "User", "returns" => [ "password_digest" ] } ])
     end
     assert_match(/User.password_digest looks like it holds a secret/, error.message)
     assert_raises(ActionAgent::SandboxBootSpec::Invalid) do
-      ActionAgent::SandboxBootSpec.schema_tools_step([ { "model" => "user; rm -rf /", "returns" => [] } ])
+      ActionAgent::SandboxBootSpec.schema_tools_steps([ { "model" => "user; rm -rf /", "returns" => [] } ])
     end
-    assert_nil ActionAgent::SandboxBootSpec.schema_tools_step([])
+  end
+
+  test "the marker the steps look for is the one the framework's generator writes" do
+    assert_equal ActiveAgent::SchemaTools::MANAGED_MARKER, ActionAgent::SandboxBootSpec::SCHEMA_TOOLS_MARKER
   end
 
   private

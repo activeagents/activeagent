@@ -114,18 +114,54 @@ class LocalSandboxBootstrapTest < ActiveSupport::TestCase
     sandbox = sandbox_double(rails_origin!)
     models = [ { "name" => "Reservation", "table" => "reservations", "columns" => [ { "name" => "status", "type" => "string" } ] } ]
     control("models" => models)
-    step = Spec.schema_tools_step([ { "model" => "Reservation", "filterable" => [ "status" ], "returns" => %w[status starts_at] } ])
+    steps = Spec.schema_tools_steps([ { "model" => "Reservation", "filterable" => [ "status" ], "returns" => %w[status starts_at] } ])
 
-    result = with_fake_tools { @backend.create_sandbox(sandbox, boot_config: Spec.bootstrap(engine: ENGINE, steps: [ step ]).to_h) }
+    result = with_fake_tools { @backend.create_sandbox(sandbox, boot_config: Spec.bootstrap(engine: ENGINE, steps: steps).to_h) }
 
     calls = tool_calls
     assert_operator calls.index("rails db:prepare"),
-      :<, calls.index("rails generate active_agent:schema_tools Reservation --force --filterable status --returns status starts_at")
+      :<, calls.index("rails generate active_agent:schema_tools Reservation --force --managed --filterable status --returns status starts_at")
     tools = workspace(sandbox).join("app/app/agent_tools/reservation_tools.rb").read
+    assert tools.start_with?("# #{Spec::SCHEMA_TOOLS_MARKER}"), tools
     assert_includes tools, "filterable :id, :status\n"
     assert_includes tools, "returns :id, :status, :starts_at\n"
     assert_equal models, result[:app_models]
     assert_equal "succeeded", @backend.boot_status(sandbox)[:steps].find { |entry| entry[:name] == "schema_tools" }[:status]
+  end
+
+  test "a checkout that bundles the engine writes the chosen schema tools after its own sandbox.yml setup" do
+    sandbox = sandbox_double(rails_origin!(gems: [ "actionagent (1.9.0)", "activeagent (1.9.0)" ]))
+    steps = Spec.schema_tools_steps([ { "model" => "Reservation", "returns" => [ "status" ] } ])
+    spec = Spec.bootstrap(engine: ENGINE, apply: "without_engine", steps: steps)
+
+    with_fake_tools { @backend.create_sandbox(sandbox, boot_config: spec.to_h) }
+
+    status = @backend.boot_status(sandbox)
+    assert_equal "config", status[:mode]
+    assert_equal %w[checkout setup setup schema_tools manifest start], status[:steps].map { |step| step[:name] }
+    assert_equal "succeeded", status[:steps].find { |step| step[:name] == "schema_tools" }[:status]
+    assert_equal [ "bundle install", "rails db:prepare", "rails generate active_agent:schema_tools Reservation --force --managed --returns status" ],
+      tool_calls.first(3), "no install step runs: the checkout boots as its sandbox.yml says"
+    assert_includes workspace(sandbox).join("app/app/agent_tools/reservation_tools.rb").read, "returns :id, :status\n"
+  end
+
+  test "the schema tools steps remove the files the dashboard wrote for models taken off the list, and leave others alone" do
+    managed = "# #{Spec::SCHEMA_TOOLS_MARKER}: fixture\nclass PostTools < ActiveAgent::SchemaTools\nend\n"
+    own = "class ReservationTools < ActiveAgent::SchemaTools\n  returns :id, :total\nend\n"
+    sandbox = sandbox_double(rails_origin!(gems: [ "actionagent (1.9.0)", "activeagent (1.9.0)" ],
+      files: { "app/agent_tools/post_tools.rb" => managed, "app/agent_tools/reservation_tools.rb" => own,
+               "app/agent_tools/admin/note_tools.rb" => managed.sub("PostTools", "Admin::NoteTools") }))
+    steps = Spec.schema_tools_steps([ { "model" => "Reservation", "returns" => [ "status" ] }, { "model" => "Admin::Note", "returns" => [ "body" ] } ])
+
+    with_fake_tools { @backend.create_sandbox(sandbox, boot_config: Spec.bootstrap(engine: ENGINE, apply: "without_engine", steps: steps).to_h) }
+
+    tools = workspace(sandbox).join("app/app/agent_tools")
+    assert_not tools.join("post_tools.rb").exist?, "Post is no longer chosen"
+    assert_equal own, tools.join("reservation_tools.rb").read, "a file the dashboard did not write is the repository's own"
+    assert_includes tools.join("admin/note_tools.rb").read, "returns :id, :body\n"
+    assert_not_includes tool_calls.join("\n"), "schema_tools Reservation"
+    assert_includes workspace(sandbox).join("logs/schema_tools.log").read,
+      "app/agent_tools/reservation_tools.rb was not written by the dashboard, so it is left as it is"
   end
 
   test "the checkout holds only what the generators, bundle add and db:prepare wrote" do

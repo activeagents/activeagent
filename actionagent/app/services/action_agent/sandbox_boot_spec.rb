@@ -13,17 +13,20 @@ module ActionAgent
   #   apply            "always", or "without_engine": only when the checkout
   #                    has a Gemfile.lock that locks no actionagent and its
   #                    sandbox.yml names no manifest. Otherwise the checkout
-  #                    boots as it would without a spec, with only the
-  #                    spec's secrets added to its sandbox.yml env.
+  #                    boots as it would without a spec, with the spec's env
+  #                    and secrets added to its sandbox.yml env and the
+  #                    spec's `always` steps run after that file's setup.
   #   preflight        refuse, before any repository command runs, a
   #                    checkout without a Gemfile.lock or a
   #                    config/application.rb at its root, or one locking Ruby
   #                    or railties older than the engine supports
-  #   steps            [{ name, command, timeout, unless_locked?, if_task? }],
-  #                    run in order, each with a log of its own. A step with
-  #                    unless_locked is skipped when the checkout's
-  #                    Gemfile.lock, as checked out, locks that gem; one with
-  #                    if_task when the app defines no such Rake task.
+  #   steps            [{ name, command, timeout, unless_locked?, if_task?,
+  #                    always? }], run in order, each with a log of its own.
+  #                    A step with unless_locked is skipped when the
+  #                    checkout's Gemfile.lock, as checked out, locks that
+  #                    gem; one with if_task when the app defines no such
+  #                    Rake task. A step with always runs whether the spec
+  #                    applies or not, so it cannot have unless_locked.
   #   env              environment for the steps, manifest and start
   #   secrets          environment too, masked in every log and message the
   #                    backend produces and never written down
@@ -75,11 +78,19 @@ module ActionAgent
     # The steps that install the engine, which a checkout that bundles it
     # already (a project's install pull request branch) does not run.
     INSTALL_STEPS = %w[bundle_config add_framework add_engine install_framework install_engine].freeze
-    # A schema tools choice (see .schema_tools_step).
+    # A schema tools choice (see .schema_tools_steps).
     MODEL_NAME = /\A[A-Z][A-Za-z0-9]{0,99}(?:::[A-Z][A-Za-z0-9]{0,99}){0,4}\z/
     COLUMN_NAME = /\A[a-z_][a-z0-9_]{0,62}\z/
     MAX_SCHEMA_TOOL_MODELS = 50
     MAX_SCHEMA_TOOL_COLUMNS = 100
+    # Leaves room within MAX_STEPS for every step of a bootstrap's own.
+    MAX_SCHEMA_TOOL_STEPS = 10
+    SCHEMA_TOOLS_STEP = /\Aschema_tools(?:_\d+)?\z/
+    SCHEMA_TOOLS_DIR = "app/agent_tools"
+    # ActiveAgent::SchemaTools::MANAGED_MARKER, spelled out because the
+    # checkout's framework writes it and this dashboard's own framework can
+    # predate the constant.
+    SCHEMA_TOOLS_MARKER = "Managed by the ActiveAgent dashboard"
 
     attr_reader :kind, :apply, :steps, :env, :secrets, :manifest, :start, :start_url, :timeout, :engine,
       :secret_names
@@ -148,32 +159,52 @@ module ActionAgent
         )
       end
 
-      # The step that writes app/agent_tools/<model>_tools.rb for each model
-      # in +choices+ with `active_agent:schema_tools`, exposing only the
-      # columns chosen, or nil when nothing is chosen.
+      # The steps that write the schema tools in +choices+ after db_prepare,
+      # which a checkout booting from its own sandbox.yml runs too (they are
+      # `always` steps):
       #
       #   [{ "model" => "Reservation", "filterable" => ["status"], "returns" => ["status", "starts_at"] }]
       #
-      # @raise [Invalid] for a model or column name that is not one, or more
-      #   than MAX_SCHEMA_TOOL_MODELS models
-      def schema_tools_step(choices)
+      # The first command removes every app/agent_tools file headed by
+      # SCHEMA_TOOLS_MARKER, so a model that is no longer chosen loses its
+      # tools. Each chosen model's file is then written by
+      # `active_agent:schema_tools --managed`, exposing only the columns
+      # chosen, except where a file the dashboard did not write is already
+      # there: that file is left as it is. The commands are packed into as
+      # few steps as MAX_COMMAND_LENGTH allows, named schema_tools,
+      # schema_tools_2 and so on.
+      #
+      # nil gives no steps. An empty list gives the step that only removes.
+      #
+      # @raise [Invalid] for a model or column name that is not one, a column
+      #   that looks like a secret, more than MAX_SCHEMA_TOOL_MODELS models,
+      #   or choices that need more than MAX_SCHEMA_TOOL_STEPS steps
+      def schema_tools_steps(choices)
+        return [] if choices.nil?
+
         choices = Array(choices)
-        return nil if choices.empty?
         raise Invalid, "at most #{MAX_SCHEMA_TOOL_MODELS} models can have schema tools" if choices.size > MAX_SCHEMA_TOOL_MODELS
 
-        commands = choices.map do |choice|
-          choice = choice.to_h.stringify_keys
-          model = choice["model"].to_s
-          raise Invalid, "#{model.truncate(60).inspect} is not a model name" unless MODEL_NAME.match?(model)
-
-          words = [ "bin/rails", "generate", "active_agent:schema_tools", model, "--force" ]
-          %w[filterable returns].each do |option|
-            columns = schema_tool_columns(choice[option], model, option)
-            words.push("--#{option}", *columns) if columns.any?
+        commands = [ remove_managed_tools_command, *choices.map { |choice| schema_tools_command(choice.to_h.stringify_keys) } ]
+        packed = commands.each_with_object([]) do |command, chunks|
+          if chunks.last && chunks.last.length + command.length + 4 <= MAX_COMMAND_LENGTH
+            chunks.last << " && " << command
+          else
+            chunks << command.dup
           end
-          words.shelljoin
         end
-        step("schema_tools", commands.join(" && "), 900)
+        if packed.size > MAX_SCHEMA_TOOL_STEPS
+          raise Invalid, "the chosen models and columns need more than #{MAX_SCHEMA_TOOL_STEPS} boot steps: choose fewer"
+        end
+
+        packed.each_with_index.map do |command, index|
+          step(index.zero? ? "schema_tools" : "schema_tools_#{index + 1}", command, 900, always: true)
+        end
+      end
+
+      # Whether +name+ is one of the steps .schema_tools_steps names.
+      def schema_tools_step?(name)
+        SCHEMA_TOOLS_STEP.match?(name.to_s)
       end
 
       # A sandbox request's boot options, checked and in the shape a job
@@ -285,6 +316,34 @@ module ActionAgent
         ASSET_TASKS.map { |task| step(task.tr(":", "_"), "bin/rails #{task}", 600, if_task: task) }
       end
 
+      def remove_managed_tools_command
+        find = [ "find", SCHEMA_TOOLS_DIR, "-type", "f", "-name", "*_tools.rb", "-exec", "grep", "-qF", SCHEMA_TOOLS_MARKER, "{}", ";",
+                 "-exec", "rm", "-f", "{}", ";" ]
+        "[ ! -d #{SCHEMA_TOOLS_DIR} ] || #{find.shelljoin}"
+      end
+
+      # Writes +choice+'s file unless one is there: after
+      # remove_managed_tools_command, only a file the dashboard did not
+      # write can be.
+      def schema_tools_command(choice)
+        model = choice["model"].to_s
+        raise Invalid, "#{model.truncate(60).inspect} is not a model name" unless MODEL_NAME.match?(model)
+
+        path = "#{SCHEMA_TOOLS_DIR}/#{model.underscore}_tools.rb"
+        words = [ "bin/rails", "generate", "active_agent:schema_tools", model, "--force", "--managed" ]
+        %w[filterable returns].each do |option|
+          columns = schema_tool_columns(choice[option], model, option)
+          words.push("--#{option}", *columns) if columns.any?
+        end
+        skip = [ "echo", "#{path} was not written by the dashboard, so it is left as it is" ].shelljoin
+        command = "if [ -e #{path} ]; then #{skip}; else #{words.shelljoin}; fi"
+        if command.length > MAX_COMMAND_LENGTH
+          raise Invalid, "#{model} has more columns chosen than one boot step can hold: choose fewer"
+        end
+
+        command
+      end
+
       def schema_tool_columns(value, model, option)
         columns = Array(value).map(&:to_s).uniq
         raise Invalid, "#{model} has more than #{MAX_SCHEMA_TOOL_COLUMNS} #{option} columns" if columns.size > MAX_SCHEMA_TOOL_COLUMNS
@@ -361,6 +420,12 @@ module ActionAgent
       @apply == "without_engine"
     end
 
+    # The steps a checkout the spec does not apply to runs after its
+    # sandbox.yml setup.
+    def always_steps
+      @steps.select { |step| step["always"] }
+    end
+
     # Secret names the spec names without carrying their values: a
     # #redacted spec read back.
     def missing_secrets
@@ -432,6 +497,14 @@ module ActionAgent
         raise Invalid, "step #{name}'s if_task must name a Rake task" unless TASK_NAME.match?(entry["if_task"].to_s)
 
         step["if_task"] = entry["if_task"].to_s
+      end
+      if entry.key?("always")
+        raise Invalid, "step #{name}'s always must be true or false" unless [ true, false ].include?(entry["always"])
+        if entry["always"] && step.key?("unless_locked")
+          raise Invalid, "step #{name} runs always, so it cannot be skipped by what the checkout locks"
+        end
+
+        step["always"] = true if entry["always"]
       end
       step
     end
