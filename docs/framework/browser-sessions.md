@@ -113,8 +113,9 @@ Each browser opens a `SessionRecording` of its own for the sandbox
 posts to it, through the recording's ingest token:
 
 - `rrweb` events from every page and frame, recorded with `@rrweb/record`.
-  Every input is masked in the page, before an event leaves it, so typed
-  values and passwords are stored as `*`.
+  Input values, and the text of `contenteditable` elements such as rich-text
+  editors, are masked in the page before an event leaves it, so typed values
+  and passwords are stored as `*`.
 - `console` events for errors and warnings.
 - `marker` events for each page opening, navigating and closing, with its
   URL less the query and fragment.
@@ -123,6 +124,11 @@ The events reach the sidecar through a Playwright binding rather than a
 request from the page, so the app's Content Security Policy and CORS rules do
 not stop them, and the sidecar posts them gzipped in batches the size the
 ingest accepts.
+
+The recording takes events only while its sandbox is live. Deleting the
+sandbox therefore stops its browser before the sandbox expires, and a browser
+left to run stops itself 30 seconds before its sandbox's expiry, so the last
+events reach the recording either way.
 
 ### What the recording cannot show
 
@@ -139,7 +145,10 @@ Starting a browser asks the quota checker about `:browser_minutes`, and a
 denial answers 402 with the checker's payload. When the browser stops,
 whether through `DELETE`, the sandbox's own `DELETE`, its expiry or
 `action_agent:sandbox:reap`, the usage recorder is told the minutes it ran,
-rounded up, as a third argument:
+rounded up, as a third argument. The minutes are counted to when the browser
+stopped itself at the latest, however late the reaper runs. In a multi-tenant
+install both are asked about the tenant (the sandbox's account), the owner a
+request's quota is checked against.
 
 ```ruby
 ActionAgent.configure do |config|
@@ -149,8 +158,9 @@ end
 ```
 
 A recorder that takes two arguments is still called as `(owner, kind)`. A
-browser never outlives its sandbox: the reaper stops it when the sandbox
-expires, and the sidecar also stops itself at the sandbox's expiry.
+browser never outlives its sandbox: the sidecar stops itself 30 seconds
+before the sandbox expires, and the reaper stops it when the sandbox expires.
+A browser is not started for a sandbox that expires within those 30 seconds.
 
 ## Security
 
@@ -171,18 +181,31 @@ expires, and the sidecar also stops itself at the sandbox's expiry.
   upgrade, whose `Host` is not its own address, and any request carrying an
   `Origin` header. A page the browser visits therefore cannot reach the
   sidecar, through a loopback request or DNS rebinding.
+- **No private addresses.** Chromium makes every HTTP, HTTPS and WebSocket
+  connection, loopback included, through a proxy inside the sidecar, and
+  WebRTC may not send UDP around it. The proxy resolves the host itself,
+  refuses one that is a loopback, link-local or private address, or that
+  resolves to one, and connects to the address it checked. The app's own
+  host and port are the exception. This holds for every page and frame,
+  after a redirect, and for a host name whose answer changes between two
+  lookups. Service workers are blocked. Pages may still load public
+  resources, such as fonts and scripts from a CDN.
 - **Navigation pinned to the app.** A top-level navigation, from a tool or a
   link, may open only the sandbox app's origin; a path such as `/login` is
-  resolved against it. No request from any page or frame may reach a
-  loopback, link-local or private address other than the app's, whether the
-  URL names the address or a host name that resolves to one. Service
-  workers are blocked so that every request passes this check. Pages may
-  still load public resources, such as fonts and scripts from a CDN.
+  resolved against it, and anywhere else is refused before anything loads.
+  A redirect is followed without that check, so a tab that an HTTP redirect
+  from an app page takes to another public origin is closed as soon as it
+  lands there. The tool call that led there returns an error instead of its
+  result, and the requests and console messages Playwright MCP collected
+  from the tab go with it. Chromium has loaded the page by then, so its
+  sandbox's recording can hold a moment of it.
 - **No code in the sidecar.** Playwright MCP's `browser_run_code_unsafe`,
   which runs code in the sidecar's own process, is never offered or called,
   and pages cannot add tools of their own.
-- **Uploads from an empty directory.** File uploads read only from a
-  directory made empty for the session.
+- **Uploads from the sidecar's own directories.** File uploads read only
+  from a directory made empty for the session, and from the sidecar's output
+  directory, which holds the snapshots, screenshots and console logs the
+  browser's own tools wrote.
 
 ## For backend authors
 
@@ -197,7 +220,7 @@ columns, for that call only:
 | `token` | the bearer token the browser's MCP endpoint is to expect |
 | `app_url` | the sandbox app, the only origin the browser may open |
 | `capabilities` | the optional tool groups to enable |
-| `stop_at` | when the browser is to stop on its own (the sandbox's expiry) |
+| `stop_at` | when the browser is to stop on its own (`SandboxSession#browser_stops_at`, 30 seconds before the sandbox expires) |
 | `recording` | `{ url:, token:, batch_events:, batch_bytes: }`: where to post recorded events, or nil |
 
 `start_browser` returns `{ mcp_url:, mcp_token: }`, and optionally a

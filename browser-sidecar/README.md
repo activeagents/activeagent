@@ -30,16 +30,25 @@ other version.
   them. `browser_run_code_unsafe`, which runs code in the sidecar's own
   process, is never offered. A page snapshot an action writes to a file is
   returned inline.
+- **Network.** Chromium makes every connection through a forward proxy in
+  the sidecar, loopback included, and WebRTC may not send UDP around it. The
+  proxy resolves each host itself, refuses a loopback, link-local or private
+  address, or a name that resolves to one, and connects to the address it
+  checked. Only the app's own host and port are exempt. Redirects, frames
+  and names whose answer changes between lookups all pass through it.
+  Service workers are blocked.
 - **Navigation.** A top-level navigation may only open the sandbox app's own
-  origin; a path such as `/login` is resolved against it. No request, from any
-  page or frame, may reach a loopback, link-local or private address other
-  than the app's, whether the URL names the address or a host name that
-  resolves to one. Service workers are blocked so that every request passes
-  this check.
+  origin; a path such as `/login` is resolved against it. Chromium follows a
+  redirect without that check, so a tab a redirect takes to another origin
+  is closed as soon as it lands, and the tool call that led there returns an
+  error instead of its result.
 - **Uploads.** Playwright MCP reads files to upload from the process's
-  working directory, which is an empty directory made for the session.
+  working directory, which is an empty directory made for the session, and
+  from the sidecar's output directory, where its own snapshots, screenshots
+  and console logs are written.
 - **Recording.** `@rrweb/record` runs in every page and frame, injected with
-  `addInitScript`, with every input masked before an event leaves the page.
+  `addInitScript`, with input values and the text of `contenteditable`
+  elements masked before an event leaves the page.
   Events reach the sidecar through a Playwright binding, so the app's CSP and
   CORS do not apply, and are posted, gzipped, to the recording's ingest with
   a token that can only write to that one recording. Console errors and
