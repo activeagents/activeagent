@@ -246,7 +246,6 @@ function DraftPullRequestDialog({ sandbox, pullRequest, publishing, mode, onClos
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    setError(null);
     (async () => {
       try {
         const res = await fetch(`${base}/preview`, {
@@ -304,7 +303,7 @@ function DraftPullRequestDialog({ sandbox, pullRequest, publishing, mode, onClos
       fields={{ title, body, branch, message, allowlist: allowlistText }}
       onField={(name, value) => ({ title: setTitle, body: setBody, branch: setBranch, message: setMessage, allowlist: setAllowlistText })[name](value)}
       allowlistApplied={Boolean(allowlist)}
-      onApplyAllowlist={() => setAllowlist(parseAllowlist(allowlistText))}
+      onApplyAllowlist={() => { setError(null); setAllowlist(parseAllowlist(allowlistText)); }}
       mode={mode}
       submitting={submitting}
       onSubmit={submit}
