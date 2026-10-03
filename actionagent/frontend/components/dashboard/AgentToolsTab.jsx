@@ -4,6 +4,8 @@ import { dashboardPath, navigateTo } from '../../utils/dashboardPath';
 import {
   RANGES,
   SOURCE_LABELS,
+  approvalNames,
+  approvalState,
   changeCount,
   emptyToolsHint,
   fmtAgo,
@@ -17,6 +19,7 @@ import {
   serviceState,
   toolGroups,
   toolsFor,
+  withApproval,
 } from '../../utils/toolRoster.mjs';
 
 // The agent's Tools tab: the MCP services it can be given and the tools it
@@ -30,12 +33,15 @@ import {
 //
 // Editing writes straight into the editor's form buffer, so the header's
 // "unsaved" badge, the sticky bar's count and Save all follow one state.
+//
+// An enabled tool's Approval switch puts its names on the agent's approval
+// list: each call then pauses the run until a person approves it.
 
 const STATUS_TONES = { active: 'success', configured: 'info', available: 'warning', idle: 'muted' };
 const SOURCE_TONES = { agent_defined: 'success', dashboard: 'success', mcp: 'info' };
 
 const SERVICE_COLUMNS = '44px minmax(0, 1fr) 108px 60px 52px 58px 74px 26px';
-const TOOL_COLUMNS = '26px minmax(0, 1fr) 108px 52px 52px 52px 74px';
+const TOOL_COLUMNS = '26px minmax(0, 1fr) 108px 52px 52px 52px 74px 64px';
 
 const SERVICE_FILTERS = [
   { value: 'enabled', label: 'Enabled' },
@@ -106,6 +112,30 @@ function CheckBox({ on, dim = false }) {
   );
 }
 
+// The Approval column of a tool row: a switch for a row the approval list
+// can hold, nothing for one it cannot. A row whose names are only partly
+// listed (an approval list edited through the API) reads as on, and
+// switching it lists the rest. The row underneath toggles the tool itself,
+// so the click stops here.
+function ApprovalSwitch({ tool, state, onToggle }) {
+  if (!state) return <span />;
+  const on = state !== 'off';
+  const title = on
+    ? `Each ${tool.name} call waits for approval${state === 'partial' ? ' (some of its functions only)' : ''}. Click to let it run without asking.`
+    : `Click to make each ${tool.name} call wait for a person to approve it`;
+  return (
+    <span
+      data-testid={`tool-approval-${tool.key}`}
+      data-approval={state}
+      onClick={(event) => event.stopPropagation()}
+      onKeyDown={(event) => event.stopPropagation()}
+      style={{ display: 'flex', justifyContent: 'center' }}
+    >
+      <Switch on={on} title={title} onClick={() => onToggle(tool)} />
+    </span>
+  );
+}
+
 // A mono text button, for the bulk controls that sit inside a list.
 function MicroButton({ children, onClick, disabled, title }) {
   return (
@@ -167,6 +197,7 @@ export default function AgentToolsTab({ agent, formData, updateField, onSave, ha
   // Stable identities: every view below is memoized on these.
   const selectedTools = useMemo(() => formData.tools || [], [formData.tools]);
   const configuredServers = useMemo(() => formData.mcp_servers || [], [formData.mcp_servers]);
+  const approvalList = useMemo(() => formData.approval_required_tools || [], [formData.approval_required_tools]);
 
   const state = useMemo(() => serviceState(roster, configuredServers), [roster, configuredServers]);
   const services = useMemo(
@@ -179,8 +210,12 @@ export default function AgentToolsTab({ agent, formData, updateField, onSave, ha
   );
   const stats = useMemo(() => rosterStats(roster, state, selectedTools, { range }), [roster, state, selectedTools, range]);
   const changes = useMemo(
-    () => changeCount(roster, { tools: selectedTools, mcpServers: configuredServers }, { tools: agent.tools || [], mcpServers: agent.mcp_servers || [] }),
-    [roster, selectedTools, configuredServers, agent],
+    () => changeCount(
+      roster,
+      { tools: selectedTools, mcpServers: configuredServers, approvalRequiredTools: approvalList },
+      { tools: agent.tools || [], mcpServers: agent.mcp_servers || [], approvalRequiredTools: agent.approval_required_tools || [] },
+    ),
+    [roster, selectedTools, configuredServers, approvalList, agent],
   );
 
   const usage = roster.usage_available !== false;
@@ -225,9 +260,15 @@ export default function AgentToolsTab({ agent, formData, updateField, onSave, ha
     updateField('tools', toolsFor(roster, next));
   }, [roster, selectedTools, updateField]);
 
+  const toggleApproval = useCallback((tool) => {
+    const on = approvalState(tool, approvalList) !== 'on';
+    updateField('approval_required_tools', withApproval(approvalList, approvalNames(tool), on));
+  }, [approvalList, updateField]);
+
   const discard = useCallback(() => {
     updateField('tools', agent.tools || []);
     updateField('mcp_servers', agent.mcp_servers || []);
+    updateField('approval_required_tools', agent.approval_required_tools || []);
   }, [agent, updateField]);
 
   const enabledServices = (roster.services || []).filter((service) => state[service.key]?.on);
@@ -493,6 +534,7 @@ export default function AgentToolsTab({ agent, formData, updateField, onSave, ha
             <span style={{ textAlign: 'right' }}>Errors</span>
             <span style={{ textAlign: 'right' }}>Avg</span>
             <span style={{ textAlign: 'right' }}>Last seen</span>
+            <span style={{ textAlign: 'center' }} title="Pause the run for a person to approve each call before the tool runs">Approval</span>
           </div>
 
           {groups.map((group) => {
@@ -553,6 +595,7 @@ export default function AgentToolsTab({ agent, formData, updateField, onSave, ha
                     <span style={{ ...numeric, color: tool.errors ? 'var(--color-error-text)' : 'var(--color-text-secondary)' }}>{cell(tool.errors)}</span>
                     <span style={{ ...numeric, color: 'var(--color-text-secondary)' }}>{cell(fmtDuration(tool.avg_duration_ms))}</span>
                     <span style={{ ...numeric, color: 'var(--color-text-muted)' }}>{cell(fmtAgo(tool.last_seen))}</span>
+                    <ApprovalSwitch tool={tool} state={approvalState(tool, approvalList)} onToggle={toggleApproval} />
                   </div>
                 ))}
               </div>

@@ -268,8 +268,37 @@ export function rosterStats(payload, state, tools, { range = '7d' } = {}) {
   ];
 }
 
+// The names the agent's approval list takes for a row while the row is on:
+// its `approval_names` from the roster endpoint, which are the names the
+// model calls the tool by. Empty for a row that is off, and for one whose
+// calls the dashboard cannot hold for approval.
+export function approvalNames(row) {
+  return row?.on && Array.isArray(row.approval_names) ? row.approval_names.map(String) : [];
+}
+
+// Whether the approval list holds a row's calls: 'on' when it names every
+// one of the row's names, 'partial' when only some, 'off' when none, and
+// null for a row that offers no approval (see approvalNames).
+export function approvalState(row, approvalList = []) {
+  const names = approvalNames(row);
+  if (names.length === 0) return null;
+  const listed = new Set((approvalList || []).map(String));
+  const held = names.filter((name) => listed.has(name)).length;
+  if (held === 0) return 'off';
+  return held === names.length ? 'on' : 'partial';
+}
+
+// The approval list with every one of `names` added, or removed when `on`
+// is false. Names it holds for other rows stay where they are.
+export function withApproval(approvalList = [], names = [], on = true) {
+  const list = (approvalList || []).map(String);
+  if (on) return list.concat(names.filter((name) => !list.includes(name)));
+  return list.filter((name) => !names.includes(name));
+}
+
 // How many toggles differ from the saved roster — what the sticky bar counts
-// and what drives the header's "unsaved" badge.
+// and what drives the header's "unsaved" badge. An approval change counts
+// once per row, however many names the row stands for.
 export function changeCount(payload, current, saved) {
   const now = serviceState(payload, current.mcpServers);
   const before = serviceState(payload, saved.mcpServers);
@@ -287,6 +316,13 @@ export function changeCount(payload, current, saved) {
   (payload.tools || []).forEach((tool) => {
     if (!tool.editable) return;
     if (selected.has(tool.key) !== wasSelected.has(tool.key)) changes += 1;
+  });
+
+  const approved = new Set((current.approvalRequiredTools || []).map(String));
+  const wasApproved = new Set((saved.approvalRequiredTools || []).map(String));
+  const approvalRows = (payload.tools || []).concat((payload.services || []).flatMap((service) => service.tools || []));
+  approvalRows.forEach((row) => {
+    if ((row.approval_names || []).some((name) => approved.has(name) !== wasApproved.has(name))) changes += 1;
   });
 
   return changes;
