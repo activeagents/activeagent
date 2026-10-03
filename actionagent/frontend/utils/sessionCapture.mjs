@@ -21,9 +21,11 @@
  */
 
 // Elements rrweb records as empty boxes, with no attributes but their class
-// and no content: credential fields and displays, and the CSRF token the
-// page's head carries.
-export const CAPTURE_BLOCK_SELECTOR = '[data-aa-secret], meta[name="csrf-token"]';
+// and no content: credential fields and displays, the CSRF token the page's
+// head carries, and hidden inputs, where a form such as the header's sign-out
+// form carries that token. `maskAllInputs` does not mask a hidden input's
+// value.
+export const CAPTURE_BLOCK_SELECTOR = '[data-aa-secret], meta[name="csrf-token"], input[type="hidden"]';
 
 export const FLUSH_INTERVAL_MS = 5000;
 

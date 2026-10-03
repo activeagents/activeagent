@@ -107,11 +107,12 @@ test('records with every input masked and secret elements blocked', () => {
   assert.equal(options.blockSelector, CAPTURE_BLOCK_SELECTOR);
 });
 
-test('the block selector matches credential elements and the CSRF meta tag, and nothing else', () => {
+test('the block selector matches credential elements, the CSRF meta tag and hidden inputs, and nothing else', () => {
   const { document } = new JSDOM(`<!doctype html><html><head>
     <meta name="csrf-token" content="t"><meta name="viewport" content="width=device-width">
   </head><body>
     <code data-aa-secret="">aa_key</code><input type="password" data-aa-secret=""><div>Run Agent</div><input>
+    <form><input type="hidden" name="authenticity_token" value="t"><input type="text" name="q"></form>
   </body></html>`).window;
 
   const blocked = [...document.querySelectorAll(CAPTURE_BLOCK_SELECTOR)].map((element) => element.outerHTML);
@@ -120,6 +121,7 @@ test('the block selector matches credential elements and the CSRF meta tag, and 
     '<meta name="csrf-token" content="t">',
     '<code data-aa-secret="">aa_key</code>',
     '<input type="password" data-aa-secret="">',
+    '<input type="hidden" name="authenticity_token" value="t">',
   ]);
 });
 
