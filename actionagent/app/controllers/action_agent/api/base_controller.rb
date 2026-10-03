@@ -17,7 +17,8 @@ module ActionAgent
     # the page's CSRF token with every mutating request (frontend
     # utils/apiFetch.mjs). Endpoints that authenticate with a bearer token
     # instead — the telemetry ingest endpoint (Api::TracesController), the
-    # evaluation report collector (Api::EvaluationReportsController) and the
+    # evaluation report collector (Api::EvaluationReportsController), a
+    # recording's event ingest (Api::RecordingEventIngestController) and the
     # MCP facade (Api::MCPController) — are exempt.
     class BaseController < ActionAgent::ApplicationController
       # Rails 8.2 verifies forgery protection from the browser's Sec-Fetch-Site

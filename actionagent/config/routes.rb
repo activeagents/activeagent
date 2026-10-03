@@ -110,6 +110,13 @@ ActionAgent::Engine.routes.draw do
 
     resources :session_recordings, only: [ :index, :show, :destroy ] do
       member do
+        # A recorder holding the recording's ingest token posts its events
+        # here without a dashboard session; any other post is a dashboard
+        # session's, checked for forgery like the rest of the API.
+        post :events, to: "recording_event_ingest#create",
+          constraints: ->(request) { request.authorization.to_s.match?(/\ABearer\s/i) }
+        post :events, action: :create_events
+        get :events
         get :actions
         get "snapshot/:action_id", action: :snapshot, as: :snapshot
         post :export
