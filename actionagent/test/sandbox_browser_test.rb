@@ -11,13 +11,14 @@ class SandboxBrowserTest < ActionDispatch::IntegrationTest
 
   class BrowserBackend
     class << self
-      attr_accessor :calls, :start_error, :modes, :stop_result
+      attr_accessor :calls, :start_error, :modes, :stop_result, :at_stop
 
       def reset!
         self.calls = []
         self.start_error = nil
         self.modes = %i[headless headed]
         self.stop_result = true
+        self.at_stop = []
       end
     end
 
@@ -36,8 +37,12 @@ class SandboxBrowserTest < ActionDispatch::IntegrationTest
       { mcp_url: MCP_URL, mcp_token: sandbox.browser_launch[:token] }
     end
 
+    # Also notes whether the sandbox and its browser's recording were still
+    # live when the browser was stopped, which is when its last events post.
     def stop_browser(sandbox)
       self.class.calls << [ :stop_browser, sandbox.session_id ]
+      live = ActionAgent::SandboxSession.active.where(id: sandbox.id).exists?
+      self.class.at_stop << { sandbox_live: live, recordings: ActionAgent::SessionRecording.where(sandbox_session_id: sandbox.id).pluck(:status) }
       self.class.stop_result
     end
   end
@@ -78,7 +83,7 @@ class SandboxBrowserTest < ActionDispatch::IntegrationTest
     assert_match(/\Aaabrw_\w{40}\z/, launch[:token])
     assert_equal "http://127.0.0.1:4100", launch[:app_url]
     assert_equal [], launch[:capabilities]
-    assert_equal @sandbox.expires_at.to_i, launch[:stop_at].to_i
+    assert_equal (@sandbox.expires_at - 30.seconds).to_i, launch[:stop_at].to_i, "it stops itself before the sandbox expires"
 
     recording = ActionAgent::SessionRecording.sole
     assert_equal [ @sandbox.id, "agent" ], [ recording.sandbox_session_id, recording.source ]
@@ -230,7 +235,7 @@ class SandboxBrowserTest < ActionDispatch::IntegrationTest
     assert_equal "running", @sandbox.reload.browser_status
   end
 
-  test "terminating the sandbox stops its browser and counts its minutes" do
+  test "terminating the sandbox stops its browser while its recording still takes events, and counts its minutes" do
     recorded = []
     ActionAgent.usage_recorder = ->(owner, kind, quantity) { recorded << [ owner, kind, quantity ] }
     post browser_path, as: :json
@@ -240,13 +245,29 @@ class SandboxBrowserTest < ActionDispatch::IntegrationTest
     end
 
     assert_response :success
+    assert_equal({ sandbox_live: true, recordings: [ "recording" ] }, BrowserBackend.at_stop.first)
     assert_equal [ [ nil, :browser_minutes, 1 ] ], recorded
-    assert_equal "stopped", @sandbox.reload.browser_status
-    assert_includes BrowserBackend.calls, [ :stop_browser, @sandbox.session_id ]
+    assert @sandbox.reload.expired?
+    assert_equal "stopped", @sandbox.browser_status
     assert ActionAgent::SessionRecording.sole.completed?
   end
 
-  test "the reaper stops the browser of a sandbox past its expiry" do
+  test "terminating the sandbox still expires it when its browser cannot be stopped" do
+    recorded = []
+    ActionAgent.usage_recorder = ->(owner, kind, quantity) { recorded << [ owner, kind, quantity ] }
+    post browser_path, as: :json
+    BrowserBackend.stop_result = false
+
+    delete "/activeagents/api/sandboxes/#{@sandbox.session_id}", as: :json
+
+    assert_response :success
+    assert @sandbox.reload.expired?
+    assert_equal "stopped", @sandbox.browser_status, "no run reaches it any more"
+    assert_equal [ [ nil, :browser_minutes, 1 ] ], recorded
+    assert_enqueued_with(job: ActionAgent::SandboxCleanupJob, args: [ @sandbox.id ])
+  end
+
+  test "the reaper stops the browser of a sandbox past its expiry, counting the minutes to when it stopped itself" do
     recorded = []
     ActionAgent.usage_recorder = ->(owner, kind, quantity) { recorded << [ owner, kind, quantity ] }
     post browser_path, as: :json
@@ -257,8 +278,31 @@ class SandboxBrowserTest < ActionDispatch::IntegrationTest
 
     assert @sandbox.reload.expired?
     assert_equal "stopped", @sandbox.browser_status
-    assert_equal [ [ nil, :browser_minutes, 121 ] ], recorded
+    assert_equal [ [ nil, :browser_minutes, 120 ] ], recorded
     assert_includes BrowserBackend.calls, [ :stop_browser, @sandbox.session_id ]
+    assert_equal [ false ], BrowserBackend.at_stop.map { |seen| seen[:sandbox_live] }, "past its expiry, it is left to the cleanup job"
+  end
+
+  test "a reaper that runs a day late counts no more minutes than the browser ran" do
+    recorded = []
+    ActionAgent.usage_recorder = ->(owner, kind, quantity) { recorded << [ owner, kind, quantity ] }
+    post browser_path, as: :json
+
+    travel ActionAgent::SandboxSession::APP_RUNTIME_SESSION_DURATION + 1.day do
+      ActionAgent::SandboxCleanupJob.cleanup_expired!
+    end
+
+    assert_equal [ [ nil, :browser_minutes, 120 ] ], recorded
+  end
+
+  test "a browser is not started for a sandbox about to expire" do
+    @sandbox.update_columns(expires_at: 20.seconds.from_now)
+
+    post browser_path, as: :json
+
+    assert_response :unprocessable_entity
+    assert_match(/expires too soon to start a browser/, response.parsed_body["error"])
+    assert_empty BrowserBackend.calls
   end
 
   test "a backend that fails to start the browser fails it, without its token in the message" do

@@ -39,6 +39,11 @@ module ActionAgent
     BROWSER_STATUSES = %w[starting running stopped failed].freeze
     # Optional Playwright MCP tool groups a browser may be started with.
     BROWSER_CAPABILITIES = %w[testing vision pdf].freeze
+    # A browser stops on its own this long before its session expires, so the
+    # last events it records are posted while its recording still takes them:
+    # SessionRecording#ingest_token_valid? refuses every post once the session
+    # has expired.
+    BROWSER_STOP_LEAD = 30.seconds
 
     # Free tier limits
     FREE_TIER_LIMITS = {
@@ -64,7 +69,7 @@ module ActionAgent
     #   token         the bearer token the browser's MCP endpoint is to expect
     #   app_url       the sandbox app the browser may open
     #   capabilities  BROWSER_CAPABILITIES to enable
-    #   stop_at       when the browser stops on its own (the session's expiry)
+    #   stop_at       when the browser stops on its own (browser_stops_at)
     #   recording     where to post recorded events: { url:, token:,
     #                 batch_events:, batch_bytes: }, or nil to record nothing
     #
@@ -192,14 +197,25 @@ module ActionAgent
       }
     end
 
-    # The minutes the browser has run, from its start to +at+, rounded up to
-    # a whole minute and at least 1; 0 when it never started.
+    # When the browser stops on its own: BROWSER_STOP_LEAD before the session
+    # expires.
+    #
+    # @return [Time, nil]
+    def browser_stops_at
+      expires_at && expires_at - BROWSER_STOP_LEAD
+    end
+
+    # The minutes the browser has run, from its start to +at+ or to
+    # browser_stops_at if that is sooner, rounded up to a whole minute and at
+    # least 1; 0 when it never started. Capped so that a reaper running late
+    # does not count time the browser was no longer running.
     #
     # @return [Integer]
     def browser_minutes(at = Time.current)
       return 0 unless browser_started_at
 
-      [ ((at - browser_started_at) / 60.0).ceil, 1 ].max
+      stopped_at = [ at, browser_stops_at ].compact.min
+      [ ((stopped_at - browser_started_at) / 60.0).ceil, 1 ].max
     end
 
     # The browser for an API response: never its token or its MCP endpoint.
@@ -335,9 +351,13 @@ module ActionAgent
     # endpoint it recorded (nil -> nil writes nothing) nor see the handle to
     # terminate, leaving the booted sandbox running.
     #
-    # Its browser stops being reachable the same way, and its minutes are
-    # counted here (SandboxBrowser.finish!); the cleanup job stops it.
+    # Its browser is stopped first while the session is still live, so the
+    # browser's last recorded events are accepted (SandboxBrowser.stop_before_expiry).
+    # When that cannot be done, it stops being reachable the same way as the
+    # runtime, its minutes are counted here (SandboxBrowser.finish!), and the
+    # cleanup job stops it.
     def expire!
+      SandboxBrowser.stop_before_expiry(self)
       with_lock { update!(status: :expired, runtime_mcp_url: nil, runtime_mcp_token: nil) }
       SandboxBrowser.finish!(self)
       # A checkout with no handle may still have a boot behind it (its job
