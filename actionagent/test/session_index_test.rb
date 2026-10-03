@@ -51,6 +51,12 @@ class SessionIndexTest < ActionDispatch::IntegrationTest
     [ result, run, context ]
   end
 
+  # A run of +agent+ that wrote to no conversation, as a browser-only task
+  # does.
+  def lone_run(agent: @agent, at: T0, status: :complete, input_params: {})
+    agent.agent_runs.create!(status: status, started_at: at, input_params: input_params)
+  end
+
   def recording(at: T0, **attributes)
     recording = ActionAgent::SessionRecording.start!(**{ source: "agent" }.merge(attributes))
     recording.update_columns(created_at: at)
@@ -79,9 +85,10 @@ class SessionIndexTest < ActionDispatch::IntegrationTest
   test "lists conversations, evaluation replays and lone browser recordings, newest first" do
     context, run = conversation(at: T0)
     result, replay_run, = replay(at: T0 + 60)
-    lone = recording(agent_run: run, at: T0 + 120)
+    lone = recording(agent_run: lone_run, at: T0 + 120)
     recording(agent_run: replay_run, at: T0 + 130)
     recording(agent_context: context, source: "dashboard", at: T0 + 140)
+    recording(agent_run: run, at: T0 + 150)
 
     body = sessions
 
@@ -92,7 +99,7 @@ class SessionIndexTest < ActionDispatch::IntegrationTest
     conversation_row = body["sessions"].last
     assert_equal "SupportBot#ask", conversation_row["title"]
     assert_equal "Where is my order?", conversation_row["preview"]
-    assert_equal 1, conversation_row["recording_count"]
+    assert_equal 2, conversation_row["recording_count"], "linked to the conversation, or made by its run"
     assert_equal({ "id" => @agent.id, "name" => "Support Bot", "slug" => @agent.slug }, conversation_row["agent"])
     replay_row = body["sessions"].second
     assert_equal "order_status", replay_row["title"]
@@ -112,10 +119,23 @@ class SessionIndexTest < ActionDispatch::IntegrationTest
     assert_equal 3, rows.size, "a conversation only evaluation replays wrote to is not listed"
   end
 
-  test "the source filter narrows the query to one kind" do
+  test "a browser recording made by a conversation's run is replayed with the conversation, not listed alone" do
     context, run = conversation(at: T0)
+    made = recording(agent_run: run, at: T0 + 60)
+
+    body = sessions
+
+    assert_equal [ [ "context", context.id ] ], body["sessions"].map { |row| [ row["kind"], row["id"] ] }
+    assert_equal 1, body["sessions"].sole["recording_count"]
+    assert_equal [], listed(source: "agent")
+    get "/activeagents/api/sessions/context/#{context.id}/timeline"
+    assert_equal [ made.id ], response.parsed_body["timeline"]["recordings"].map { |summary| summary["id"] }
+  end
+
+  test "the source filter narrows the query to one kind" do
+    context, = conversation(at: T0)
     result, = replay(at: T0 + 60)
-    lone = recording(agent_run: run, at: T0 + 120)
+    lone = recording(agent_run: lone_run, at: T0 + 120)
 
     assert_equal [ [ "context", context.id ] ], listed(source: "dashboard")
     assert_equal [ [ "scenario_result", result.id ] ], listed(source: "evaluation")
@@ -124,10 +144,10 @@ class SessionIndexTest < ActionDispatch::IntegrationTest
   end
 
   test "the agent filter narrows the query to one agent's sessions" do
-    mine, run = conversation(at: T0)
+    mine, = conversation(at: T0)
     theirs, = conversation(agent: @other_agent, at: T0 + 1)
     replay(agent: @other_agent, at: T0 + 2)
-    lone = recording(agent_run: run, at: T0 + 3)
+    lone = recording(agent_run: lone_run, at: T0 + 3)
     recording(sandbox_session: nil, agent_run: nil, name: "lander_demo", at: T0 + 4)
 
     assert_equal [ [ "recording", lone.id ], [ "context", mine.id ] ], listed(agent_id: @agent.id)
@@ -135,7 +155,7 @@ class SessionIndexTest < ActionDispatch::IntegrationTest
   end
 
   test "the failed outcome narrows to failed replays, conversations with a failed run and failed recordings" do
-    ok_context, ok_run = conversation(at: T0)
+    ok_context, = conversation(at: T0)
     failed_context, = conversation(at: T0 + 1, status: :failed)
     pinned = ActionAgent::AgentContext.create!(contextable: @agent, agent_name: "SupportBot", action_name: "ask",
       created_at: T0 + 2, updated_at: T0 + 2)
@@ -143,9 +163,10 @@ class SessionIndexTest < ActionDispatch::IntegrationTest
     passed, = replay(at: T0 + 3)
     failed, = replay(at: T0 + 4, status: :failed)
     errored, = replay(at: T0 + 5, status: :errored)
-    broken = recording(agent_run: ok_run, at: T0 + 6)
+    browser_run = lone_run
+    broken = recording(agent_run: browser_run, at: T0 + 6)
     broken.update_columns(status: ActionAgent::SessionRecording.statuses[:failed])
-    recording(agent_run: ok_run, at: T0 + 7)
+    recording(agent_run: browser_run, at: T0 + 7)
 
     failed_rows = listed(outcome: "failed")
 
@@ -162,12 +183,13 @@ class SessionIndexTest < ActionDispatch::IntegrationTest
     me = User.create!(email: "me-#{SecureRandom.hex(3)}@example.com", name: "Me", age: 30)
     colleague = User.create!(email: "colleague-#{SecureRandom.hex(3)}@example.com", name: "Colleague", age: 30)
     ActionAgent.current_user_resolver = ->(_controller) { me }
-    mine, my_run = conversation(at: T0, input_params: ActionAgent::AgentRun.params_with_actor({}, me))
+    mine, = conversation(at: T0, input_params: ActionAgent::AgentRun.params_with_actor({}, me))
     conversation(at: T0 + 1, input_params: ActionAgent::AgentRun.params_with_actor({}, colleague))
-    my_recording = recording(agent_run: my_run, at: T0 + 2)
+    my_recording = recording(agent_run: lone_run(input_params: ActionAgent::AgentRun.params_with_actor({}, me)), at: T0 + 2)
+    recording(agent_run: lone_run(input_params: ActionAgent::AgentRun.params_with_actor({}, colleague)), at: T0 + 3)
 
     assert_equal [ [ "recording", my_recording.id ], [ "context", mine.id ] ], listed(user: "me")
-    assert_equal 3, sessions["total"]
+    assert_equal 4, sessions["total"]
   end
 
   test "user=me with nobody signed in matches nothing" do
@@ -190,8 +212,9 @@ class SessionIndexTest < ActionDispatch::IntegrationTest
     expected = []
     3.times { expected << [ "context", conversation(at: T0).first.id ] }
     2.times { expected << [ "scenario_result", replay(at: T0).first.id ] }
-    older, run = conversation(at: T0 - 60)
+    older, = conversation(at: T0 - 60)
     expected << [ "context", older.id ]
+    run = lone_run
     2.times { expected << [ "recording", recording(agent_run: run, at: T0).id ] }
 
     seen = []
@@ -224,9 +247,9 @@ class SessionIndexTest < ActionDispatch::IntegrationTest
     ActionAgent.user_class = "User"
     @agent.update!(user_id: owner.id)
     @other_agent.update!(user_id: owner.id)
-    context, run = conversation(at: T0)
+    context, = conversation(at: T0)
     result, = replay(at: T0 + 1)
-    lone = recording(agent_run: run, at: T0 + 2)
+    lone = recording(agent_run: lone_run, at: T0 + 2)
 
     ActionAgent.current_user_resolver = ->(_controller) { stranger }
     assert_equal [], listed

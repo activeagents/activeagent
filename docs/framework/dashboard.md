@@ -1265,7 +1265,7 @@ dashboard's user.
 |---|---|
 | `dashboard` | a conversation with one of your agents |
 | `evaluation` | the run that replayed one evaluation scenario under one model |
-| `agent` | a browser recording that belongs to no conversation and to no evaluation replay |
+| `agent` | a browser recording that belongs to no conversation and to no evaluation replay. A recording made by a run that wrote to a conversation is replayed with that conversation. |
 
 An evaluation replay writes to its agent's conversation too, so a conversation
 that only evaluation replays wrote to is not listed: each replay appears once,
