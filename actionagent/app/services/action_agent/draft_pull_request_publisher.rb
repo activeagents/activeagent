@@ -359,8 +359,8 @@ module ActionAgent
 
       client = writing_client(credential)
       record.update!(credential_kind: credential.kind, base_branch: record.base_branch || base_branch(client))
-      if record.operation == "open_regular"
-        open_pull_request!(record, client, draft: false)
+      if record.operation.in?(%w[open_draft open_regular])
+        open_pull_request!(record, client, draft: record.operation == "open_draft", allow_non_draft: allow_non_draft)
       else
         push!(record, client)
         record.operation == "create" ? open_pull_request!(record, client, draft: true, allow_non_draft: allow_non_draft) : record.update!(status: "published")
@@ -528,7 +528,7 @@ module ActionAgent
       tree = client.create_tree(record.repository, base_tree: base_tree, entries: entries)
       commit = client.create_commit(record.repository, message: commit_message(record), tree: tree, parents: [ parent ])
       point_branch!(record, client, commit)
-      record.update!(head_commit: commit)
+      record.update!(head_commit: commit, compare_url: record.opened? ? nil : compare_url(record))
     end
 
     # The commit the new one goes on top of: the checkout commit for a new

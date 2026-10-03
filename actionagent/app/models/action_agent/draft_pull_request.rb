@@ -4,12 +4,15 @@ module ActionAgent
   # A pull request opened from a checkout sandbox's changes (see
   # DraftPullRequestPublisher), and how its last publish went.
   #
-  # A publish is one of three operations:
+  # A publish is one of four operations:
   #
   #   create        a new branch and a draft pull request for it
-  #   update        a new commit on the branch an earlier create published
-  #   open_regular  a regular pull request for the branch of a create that
-  #                 GitHub refused to open as a draft
+  #   update        a new commit on the branch of an opened pull request,
+  #                 with +commit_message+ as its message
+  #   open_draft    a draft pull request for a branch that was published
+  #                 without one (see #branch_only?)
+  #   open_regular  a regular pull request for such a branch, which only an
+  #                 explicit request opens
   #
   # +status+ is how the last one went: queued, publishing, published,
   # draft_refused (the branch was pushed, the draft was not opened) or
@@ -24,7 +27,7 @@ module ActionAgent
     include Ownable
     owned_by :account, :user
 
-    OPERATIONS = %w[create update open_regular].freeze
+    OPERATIONS = %w[create update open_draft open_regular].freeze
     STATUSES = %w[queued publishing published draft_refused failed].freeze
     CREDENTIAL_KINDS = %w[app oauth].freeze
     STATES = %w[open closed merged].freeze
@@ -70,6 +73,12 @@ module ActionAgent
     # Whether the pull request exists on GitHub.
     def opened?
       number.present?
+    end
+
+    # Whether the branch is on GitHub with no pull request for it: GitHub
+    # refused the draft, or opening it failed after the branch was pushed.
+    def branch_only?
+      head_commit.present? && !opened?
     end
 
     # The user who published, under the host's user model, or nil.
