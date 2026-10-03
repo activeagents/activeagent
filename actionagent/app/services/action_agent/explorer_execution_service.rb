@@ -26,12 +26,13 @@ module ActionAgent
   #   finish             ends the walk
   #
   # Every browser result is scrubbed of the project's secrets before the
-  # model, the trace or the run's log sees it.
+  # model, the trace or the run's log sees it, and cut to RESULT_TEXT_LIMIT.
   #
   # The exploration's budget is checked after every tool call. Once its
-  # minutes, steps or cost are used up, or someone chose Stop and review,
-  # every tool but finish answers that the walk is over, and a model that
-  # keeps calling tools is cut short with WalkCutShort.
+  # minutes, steps or cost are used up, the results the model was answered
+  # with reach CONVERSATION_LIMIT, or someone chose Stop and review, every
+  # tool but finish answers that the walk is over, and a model that keeps
+  # calling tools is cut short with WalkCutShort.
   class ExplorerExecutionService < AgentExecutionService
     # Raised out of the generation when the model keeps calling tools after
     # the walk ended. #reason is why it ended.
@@ -65,12 +66,21 @@ module ActionAgent
     TOOL_TURN_MARGIN = 60
     ROSTER_DESCRIPTION_LIMIT = 200
     ROSTER_TOOL_LIMIT = 100
+    # Characters of a browser result the model sees; the rest of a long
+    # page snapshot is cut.
+    RESULT_TEXT_LIMIT = 24_000
+    # Characters of tool results, in all, after which the walk ends. Every
+    # result stays in the conversation, so this keeps it within a model's
+    # context window (about 100,000 tokens), and the walk ends in review
+    # rather than failing on an overlong request.
+    CONVERSATION_LIMIT = 400_000
 
     END_MESSAGES = {
       "finished" => "You called finish.",
       "budget_minutes" => "The exploration's time budget is used up.",
       "budget_steps" => "The exploration's browser step budget is used up.",
       "budget_cost" => "The exploration's cost budget is used up.",
+      "budget_context" => "The exploration's conversation is full.",
       "stopped" => "The exploration was stopped for review."
     }.freeze
 
@@ -152,6 +162,7 @@ module ActionAgent
       @provider_class = provider_class
       @steps = 0
       @cost = 0.0
+      @answered = 0
       @calls_after_end = 0
       @ended = nil
       @summary = nil
@@ -180,6 +191,7 @@ module ActionAgent
     # model that keeps calling tools after the walk ended is cut short.
     def execute_tool(name, **kwargs)
       result = super
+      @answered += result.to_json.length
       check_budget!
       raise WalkCutShort, @ended if @ended && @calls_after_end > CALLS_AFTER_END
 
@@ -282,8 +294,15 @@ module ActionAgent
         note_step(name, kwargs)
         result = browser_call(name, kwargs.except(*FILE_ARGUMENTS.map(&:to_sym)))
         note_page(result)
-        result
+        cut(result)
       end
+    end
+
+    def cut(result)
+      text = result.is_a?(Hash) ? result[:text] : nil
+      return result unless text.is_a?(String) && text.length > RESULT_TEXT_LIMIT
+
+      result.merge(text: "#{text[0, RESULT_TEXT_LIMIT]}\n# … (cut, #{text.length} characters in all)")
     end
 
     # Calls browser tool +name+ on the sandbox's browser, recorded on the
@@ -437,6 +456,7 @@ module ActionAgent
       @ended ||= "budget_steps" if @steps >= budget["steps"].to_i
       @ended ||= "budget_minutes" if minutes >= budget["minutes"].to_f
       @ended ||= "budget_cost" if budget["cost"].present? && @cost >= budget["cost"].to_f
+      @ended ||= "budget_context" if @answered >= CONVERSATION_LIMIT
     end
 
     def meter_cost(payload)
