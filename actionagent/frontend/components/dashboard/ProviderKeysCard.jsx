@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useTheme } from '../../contexts/ThemeContext';
 import { clearProviderModels } from '../../utils/providerModels';
-import { effectiveSourceLabel, keyAuditLine, providerKeysPath } from '../../utils/providerKeys.mjs';
+import { effectiveSourceLabel, keyAuditLine, providerKeysPath, providerRowActions } from '../../utils/providerKeys.mjs';
 
 const PROVIDER_META = {
   openai: { label: 'OpenAI', icon: '🤖', placeholder: 'sk-…' },
@@ -152,7 +152,8 @@ const CARD_COPY = {
 // (Ollama), test.
 //
 // providerKeys: the rows GET /api/provider_keys returns; connection rows
-//   (Claude Code, Codex) are left to their own cards.
+//   (Claude Code, Codex) are left to their own cards. In the personal scope
+//   a row whose `editable` is false offers only Remove (providerRowActions).
 // editor: what useProviderKeyEditor returns, for the same scope.
 // scope: 'organization' (the Organization page: who set each key and when)
 //   or 'personal' (Settings with personal keys on: a badge for the source
@@ -201,6 +202,7 @@ export default function ProviderKeysCard({ providerKeys, editor, scope, editable
             ? (hostBased ? `${hint}${apiKeyConfigured ? ` · key ${apiKeyHint}` : ''}` : `Configured (${hint})`)
             : (hostBased && platformDefault ? `Platform default: ${platformDefault}` : 'Not configured');
           const sourceBadge = scope === 'personal' ? effectiveSourceLabel(row.effective_source) : null;
+          const { canChange, canRemove, note } = providerRowActions({ editable, scope, row });
           const audit = scope === 'organization' && configured ? keyAuditLine(row) : null;
           return (
             <div key={provider} className="p-4 rounded-lg" style={{ backgroundColor: darkMode ? '#252525' : '#f9fafb' }}>
@@ -225,9 +227,9 @@ export default function ProviderKeysCard({ providerKeys, editor, scope, editable
                     </span>
                   )}
                 </div>
-                {editable && (
+                {(canChange || canRemove) && (
                 <div className="flex items-center space-x-2">
-                  {hostBased && !editing && testable && (
+                  {canChange && hostBased && !editing && testable && (
                     <button
                       onClick={() => testProviderHost(provider)}
                       disabled={testing}
@@ -236,7 +238,7 @@ export default function ProviderKeysCard({ providerKeys, editor, scope, editable
                       {testing ? 'Testing…' : 'Test connection'}
                     </button>
                   )}
-                  {configured && !editing && (
+                  {canRemove && !editing && (
                     <button
                       onClick={() => removeProviderKey(provider)}
                       className={`px-3 py-1 text-sm rounded ${darkMode ? 'text-red-300 hover:bg-red-900/40' : 'text-red-600 hover:bg-red-50'}`}
@@ -244,6 +246,7 @@ export default function ProviderKeysCard({ providerKeys, editor, scope, editable
                       Remove
                     </button>
                   )}
+                  {canChange && (
                   <button
                     onClick={() => {
                       setEditingProvider(editing ? null : provider);
@@ -256,9 +259,15 @@ export default function ProviderKeysCard({ providerKeys, editor, scope, editable
                   >
                     {editing ? 'Cancel' : configured ? 'Update' : 'Configure'}
                   </button>
+                  )}
                 </div>
                 )}
               </div>
+              {note && (
+                <p className={`mt-2 text-xs ${darkMode ? 'text-gray-500' : 'text-gray-400'}`} data-testid="provider-key-locked">
+                  {note}
+                </p>
+              )}
               {editing && (
                 <div className="mt-3 space-y-2">
                   <div className="flex items-center space-x-2">

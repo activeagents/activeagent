@@ -171,6 +171,17 @@ test('the personal card badges the source each provider uses for the caller', ()
   assert.doesNotMatch(html, /provider-key-audit/);
 });
 
+test('the personal card offers no way to set a host the caller may not set', () => {
+  const ollama = { ...providerKeys[2], configured: false, hint: null, api_key_configured: false, editable: false };
+  const html = render('ProviderKeys', { providerKeys: [{ ...providerKeys[1], editable: true }, ollama], scope: 'personal' });
+
+  assert.deepEqual([...html.matchAll(/<button[^>]*>([^<]+)<\/button>/g)].map(([, text]) => text), ['Configure']);
+  assert.match(html, /data-testid="provider-key-locked"[^>]*>\s*Setting your own host needs permission/);
+
+  const held = render('ProviderKeys', { providerKeys: [{ ...providerKeys[2], editable: false }], scope: 'personal' });
+  assert.deepEqual([...held.matchAll(/<button[^>]*>([^<]+)<\/button>/g)].map(([, text]) => text), ['Remove']);
+});
+
 // The hosted application's browser tests open this tab by the 'API Keys'
 // button and create a key through the 'Key name' field.
 test('the API Keys tab keeps its tab button, key name field and provider keys card', () => {
