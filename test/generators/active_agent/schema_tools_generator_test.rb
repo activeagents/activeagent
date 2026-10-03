@@ -90,4 +90,43 @@ class ActiveAgent::Generators::SchemaToolsGeneratorTest < Rails::Generators::Tes
   ensure
     Object.send(:remove_const, :Member) if Object.const_defined?(:Member)
   end
+
+  test "declared columns are written as the allowlist, and nothing else is exposed" do
+    run_generator [ "post", "--filterable", "published", "user_id", "--returns", "title", "published_at" ]
+
+    assert_file "app/agent_tools/post_tools.rb" do |content|
+      assert_match(/^\s+filterable :id, :published, :user_id$/, content)
+      assert_match(/^\s+returns :id, :title, :published_at$/, content)
+      assert_no_match(/^\s+# (filterable|returns) /, content, "a declared list replaces the commented suggestions")
+    end
+
+    tools = Class.new(ActiveAgent::SchemaTools) do
+      def self.name = "DeclaredPostTools"
+    end
+    tools.model(Post)
+    tools.filterable(:id, :published, :user_id)
+    tools.returns(:id, :title, :published_at)
+    get = tools.tool_definitions.find { |definition| definition[:name] == "get_post" }
+    assert get, "the declared columns load as a SchemaTools class"
+  end
+
+  test "declared columns that look like secrets, or that the model lacks, are left out" do
+    run_generator [ "post", "--filterable", "password_digest", "nonexistent", "published", "--returns", "api_token", "title" ]
+
+    assert_file "app/agent_tools/post_tools.rb" do |content|
+      assert_match(/^\s+filterable :id, :published$/, content)
+      assert_match(/^\s+returns :id, :title$/, content)
+      assert_no_match(/password_digest|api_token|nonexistent/, content.lines.grep(/^\s+(filterable|returns) /).join)
+    end
+  end
+
+  test "a declared list may be given for one option and suggested for the other" do
+    run_generator [ "post", "--returns", "title" ]
+
+    assert_file "app/agent_tools/post_tools.rb" do |content|
+      assert_match(/^\s+returns :id, :title$/, content)
+      assert_match(/^\s+filterable :id$/, content)
+      assert_match(/^\s+# filterable /, content)
+    end
+  end
 end
