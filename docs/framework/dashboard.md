@@ -608,6 +608,8 @@ calls.
 |---|---|
 | `evaluations_list` | Lists the evaluations of the key's agents, newest first, each with its latest run's status and score; `agent` (slug or id) filters to one agent |
 | `evaluations_get` | One evaluation: its criteria, its scenarios and its 10 most recent runs |
+| `evaluations_create` | Creates an evaluation of one of the key's agents (`agent`, slug or id) named `name`, with optional `judge_kind`, `judge_model`, `criteria` and `compare_models`. Given scenarios it is a scenario suite; without them it scores the agent's recorded generations. Runs nothing |
+| `scenarios_merge` | Adds scenarios to an evaluation (`evaluation_id`) and updates the ones whose keys it already holds. Returns the `added`, `updated` and `unchanged` keys and the suite's size |
 | `evaluations_run` | Starts a run. Takes the same selection as `POST /api/evaluations/:id/run`: `scenario_ids`, `keys`, `group`, `models` and `sandbox_id`. A scenario suite runs in the background and comes back `pending` with its run id; a sampling evaluation finishes before the call returns |
 | `evaluation_runs_get` | One run (the latest by default): status, scores, usage, fix items and per-scenario, per-model results, each naming its telemetry trace when one was recorded. `failed_only` and `limit` narrow the results |
 | `evaluation_runs_compare` | Two runs of one evaluation, result by result: fixed, regressed, still failing, added, removed. Defaults to the latest run against the one before it |
@@ -638,6 +640,56 @@ These names are a noun family followed by a verb. Schema tools are always
 `run_<slug>`, so no host model (a `Trace` or `Evaluation` model included) and
 no agent slug can produce one of them. Set `ActionAgent.mcp_dashboard_tools =
 false` to leave the facade serving agents and schema tools only.
+
+### Writing a suite from your harness
+
+A harness that has read or browsed the app can write the questions its users
+would ask, create the evaluation with `evaluations_create`, and add more later
+with `scenarios_merge`. Both take scenarios in the forms the New Evaluation
+form takes: `scenarios_text` (the [pasted line format](#scenario-evaluations),
+a JSON array, or a YAML or JSON suite document) or `scenarios`, an array of
+`{ prompt, key, group, notes, tools, contains, not_contains }` objects. A suite
+document's `production_only` scenarios are left out unless
+`include_production_only` is true. Put the expected-answer rubric in `notes`:
+it is what the judge grades the answer against.
+
+`scenarios_merge` never removes, disables or reorders a scenario the call does
+not name, so a second batch cannot undo the first or the scenarios someone
+wrote by hand. For each scenario it is given:
+
+- **A key the evaluation holds** updates that scenario's prompt, group, notes
+  and expectations in place. It keeps its results, its position and whether it
+  is enabled. A group, notes or expectations the call leaves out are cleared,
+  so send the whole scenario, not only the fields that change.
+- **A new key** is added after the suite's last scenario, in the order given.
+- **No key** gets the next `<group>_<n>` the evaluation does not use, so the
+  same keyless batch merged twice is added twice, under distinct keys.
+  `key_prefix` puts a namespace in front of generated keys (`batch2` makes
+  `batch2_orders_1`), and leaves keys you give alone.
+
+The dashboard's suite editor replaces the whole suite when you save it.
+
+Neither tool runs anything, so neither needs `execution_enabled` or execution
+quota; start a run with `evaluations_run`. Both ask the host's
+[permission checker](#permissions) about `:replace_scenarios` as the key's
+user (the user who created the key), with the evaluation as the subject: the
+unsaved one for `evaluations_create`. A refusal answers as a JSON-RPC error
+(`-32003`) and writes nothing. With a checker set, a multi-tenant key that
+records no creator is refused without asking it. With no checker set, every
+key may use both tools, and a multi-tenant install logs a warning at boot.
+
+Each call is checked whole against the limits the report collector uses: 100
+evaluations per agent, 2,000 scenarios per evaluation, 2 MiB of scenarios in
+one call (their keys, groups, prompts, notes and expectations as JSON), and
+200 characters for a scenario's key or group or the judge model. A prompt or
+notes larger than 65,535 bytes is refused too. A call that would pass any of
+these is refused and writes nothing. Split a larger suite over several
+`scenarios_merge` calls.
+
+An observed agent's suite is refused, as `evaluations_run` refuses it, unless
+a host adapter replays it. A duplicate name, unknown criteria, a scenario list
+that does not parse, or an agent or evaluation outside the key's reach comes
+back as a tool result with `isError`.
 
 ## GitHub connections and checkout sandboxes
 
@@ -1334,7 +1386,7 @@ end
 | `:manage_project_secrets` | reserved: setting a project's secrets |
 | `:take_over_browser` | reserved: driving a run's browser by hand |
 | `:manage_recordings` | reserved: viewing and deleting session recordings |
-| `:replace_scenarios` | reserved: replacing an evaluation's scenarios |
+| `:replace_scenarios` | creating an evaluation or merging scenarios into one over the MCP facade (`evaluations_create`, `scenarios_merge`), asked as the API key's user |
 
 The list is `ActionAgent::PERMISSION_ACTIONS`. `ActionAgent.permitted?(user,
 action, subject)` asks the checker the same way the endpoints do, and raises
