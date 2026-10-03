@@ -61,11 +61,12 @@ module ActionAgent
     # directory to the host app's asset paths is what lets a plain
     # `mount ActionAgent::Engine` work without the host running a
     # JavaScript build — or having a JavaScript build at all.
-    # Provider credentials and API keys are posted to the dashboard in the
-    # clear and encrypted at rest — filtering keeps them out of the request
-    # logs in between, where the gem would otherwise print them verbatim.
+    # Provider credentials, API keys and answers to a run's requests for
+    # input (a secret among them) are posted to the dashboard in the clear
+    # and encrypted at rest — filtering keeps them out of the request logs
+    # in between, where the gem would otherwise print them verbatim.
     initializer "action_agent.filter_parameters" do |app|
-      app.config.filter_parameters += [ :credential, :api_key, :access_token ]
+      app.config.filter_parameters += [ :credential, :api_key, :access_token, :answer, :value ]
     end
 
     # This engine's constants are spelled the way Zeitwerk's own inflector

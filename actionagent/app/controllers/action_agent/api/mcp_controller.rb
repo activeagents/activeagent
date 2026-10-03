@@ -188,7 +188,9 @@ module ActionAgent
           "telemetry: edit the agent in your own checkout, start a run with evaluations_run (pass sandbox_id to run " \
           "against a checkout sandbox), poll evaluation_runs_get for its status, results and fix items, compare runs " \
           "with evaluation_runs_compare, and read a failing result's trace with traces_get (traces_search finds " \
-          "recent failures)."
+          "recent failures). A run_<slug> call that pauses to ask for input returns its input request ids: " \
+          "input_requests_list shows what paused runs are waiting on, and input_requests_answer answers a text or " \
+          "choice request."
       end
 
       MESSAGE_INPUT_SCHEMA = {
@@ -267,7 +269,9 @@ module ActionAgent
         run = agent.test_execute(message, action: action, actor: agent_actor)
         ActionAgent.record_usage(@owner, :execution)
 
-        if run.failed?
+        if run.awaiting_input?
+          awaiting_input_result(run)
+        elsif run.failed?
           # A refusal is not a result. An agent that declined on this
           # caller's behalf answers as a JSON-RPC error, so the client sees
           # "not allowed" rather than an empty, confident answer — the
@@ -287,6 +291,24 @@ module ActionAgent
             }
           }
         end
+      end
+
+      # A run that paused to ask a person: its id, status and pending
+      # requests, which the dashboard, or input_requests_answer for a text or
+      # choice request, answers.
+      def awaiting_input_result(run)
+        requests = run.input_requests.pending.order(:id).to_a
+        lines = requests.map { |request| "- input request #{request.id} (#{request.kind}): #{request.prompt}" }
+
+        {
+          content: [ { type: "text", text: "The agent paused to ask for input:\n#{lines.join("\n")}" } ],
+          structuredContent: {
+            run_id: run.id,
+            trace_id: run.trace_id,
+            status: run.status,
+            input_request_ids: requests.map(&:id)
+          }
+        }
       end
 
       # Calls a schema tool directly, as this key's caller. No generation runs,
