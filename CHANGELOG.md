@@ -198,6 +198,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `ActionAgent.record_usage(owner, kind, quantity)` passes the quantity to a
   `usage_recorder` that takes a third argument; one that takes two is still
   called as `(owner, kind)`.
+- **Explore a project's app with the engine's explorer agent**
+  (`actionagent`). `POST <mount>/api/projects/:id/explorations` (and
+  **Explore the app** on the Project page) asks the quota checker about the
+  new `:exploration` kind (402 and nothing started on a denial), gives the
+  project's ready sandbox a browser, records `:exploration` once and walks
+  the app within a budget of minutes, browser steps and an optional cost
+  (15 minutes and 150 steps by default). The explorer is an agent run of a
+  project-owned agent, traced and recorded: it is offered an allowlist of
+  the browser's tools pinned to the app, `sign_in(secret_ref:)`,
+  `read_last_email(to:)`, `propose_candidate` (verdicts against the target
+  agent's real tools, provenance with the pages, steps and recording range
+  filled in server-side) and `finish`. Browser results are scrubbed of the
+  project's secrets. Running out of budget, or Stop and review, moves the
+  exploration to review with its candidates; a crash fails it and keeps
+  them.
+- **Sign a project's browser in without a model seeing the credentials**
+  (`actionagent`, `@activeagents/browser-sidecar`). A project secret now has
+  a `kind`: `env` (as before), `sign_in` (login URL, login, password and
+  optional field selectors) or `storage_state` (a saved browser sign-in).
+  Only `env` secrets reach the sandbox's environment, and each part of a
+  sign-in secret is scrubbed on its own. `sign_in` types the credentials
+  from the Rails process and answers only whether the browser left the
+  login page, or `unsupported` when the login page has no password field.
+  `<mount>/api/projects/:id/sign_in` sets, checks, saves from the running
+  browser and removes them, asked as `:manage_project_secrets`. The sidecar
+  takes a `storage_state` to start with and answers `GET /storage-state`.
+  Adds migration `add_kind_to_active_agent_project_secrets`.
+- **Read the mail a sandbox app sends** (`actionagent`). Sandbox backends set
+  `ACTION_AGENT_SANDBOX_MAIL_DIR`, which switches the sandbox app's Action
+  Mailer to file delivery, and `ActionAgent::SandboxMail.last_message`
+  reads the newest message for an address through the backend's
+  `read_file` verb.
+- **Give a project's evaluation runs the sandbox's browser**
+  (`actionagent`). A run started from the project page reaches the
+  sandbox's browser in every replay, starting it headless with the
+  project's saved sign-in when none runs and opening the start URL before
+  each replay, and records the browser in its selection. A browser that
+  cannot start fails the run before any replay.
 
 ### Changed
 
