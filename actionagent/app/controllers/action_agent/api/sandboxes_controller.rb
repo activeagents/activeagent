@@ -16,13 +16,15 @@ module ActionAgent
       BOOT_LOG_PAGE_BYTES = 64 * 1024
       BOOT_LOG_MAX_PAGE_BYTES = 1024 * 1024
 
-      before_action :require_execution_enabled!, only: [ :run, :compare ]
+      # Declared once per method: Rails replaces an earlier callback for the
+      # same method whatever its `only:`, so a second declaration would ungate
+      # the first one's actions.
+      before_action :require_execution_enabled!, only: [ :run, :compare, :resume_boot ]
       # A checkout runs the owner's code (setup, server): the same gates as
       # running an agent, like MCPServersController#launch.
       before_action :gate_checkout!, only: [ :create ]
-      # A resume runs the checkout's code again, but continues the boot its
-      # create already counted.
-      before_action :require_execution_enabled!, only: [ :resume_boot ]
+      # A resume runs the checkout's code again, so it answers to the quota,
+      # but continues the boot its create already counted and spends nothing.
       before_action :enforce_execution_quota!, only: [ :compare, :resume_boot ]
       before_action :set_sandbox, only: [ :show, :run, :destroy, :boot, :boot_log, :resume_boot ]
 

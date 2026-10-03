@@ -289,6 +289,22 @@ class SandboxBootApiTest < ActionDispatch::IntegrationTest
     assert_not SpecBackend.calls.any? { |call| call.first == :resume_boot }
   end
 
+  test "the execution switch refuses a run, a comparison and a resume alike" do
+    ready = start_checkout
+    failed = failed_checkout
+    SpecBackend.boot_state = { mode: "spec", kept: true, failed_step: "db_prepare", steps: [] }
+    ActionAgent.execution_enabled = false
+
+    post "/activeagents/api/sandboxes/#{ready}/run", params: { task: "Summarize the home page" }, as: :json
+    assert_response :forbidden, "run"
+    post "/activeagents/api/sandboxes/compare", params: { task: "Summarize the home page", providers: %w[anthropic openai] }, as: :json
+    assert_response :forbidden, "compare"
+    post "/activeagents/api/sandboxes/#{failed}/resume_boot", as: :json
+    assert_response :forbidden, "resume_boot"
+
+    assert_no_enqueued_jobs
+  end
+
   test "POST resume_boot refuses a backend that cannot resume" do
     ActionAgent.sandbox_service = :plain
     session = ActionAgent::SandboxSession.create!(sandbox_type: "app_runtime", repository: "acme/shop", status: :failed)
