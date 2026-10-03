@@ -108,7 +108,8 @@ ActionAgent::Engine.routes.draw do
       end
     end
 
-    resources :session_recordings, only: [ :index, :show, :destroy ] do
+    # create is the Run Agent workbench's recording of a conversation.
+    resources :session_recordings, only: [ :index, :show, :create, :destroy ] do
       member do
         # A recorder holding the recording's ingest token posts its events
         # here without a dashboard session; any other post is a dashboard
@@ -195,6 +196,9 @@ ActionAgent::Engine.routes.draw do
     # against a plan answers through ActionAgent.usage_resolver, and a bare
     # mount reports unlimited rather than 404.
     resource :usage, only: [ :show ], controller: "usage"
+
+    # The owner's trace ingest key, read by the Organization view.
+    resource :telemetry_key, only: [ :show ], controller: "telemetry_keys"
   end
 
   # The account's agents presented as an authenticated MCP server (tools +

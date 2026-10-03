@@ -7,6 +7,7 @@ import { paletteFor, ACCENT } from '../../utils/dashboardTheme';
 import { dashboardPath, navigateTo } from '../../utils/dashboardPath';
 import { sessionReplayPath } from '../../utils/dashboardRoutes.mjs';
 import { attachmentKind } from '../../utils/attachments';
+import useSessionCapture from '../../hooks/useSessionCapture';
 import { Badge, Button } from './AgentEditor';
 import InteractionStream, { roleBubble, streamPreStyle, AttachmentChips } from './InteractionStream';
 import Markdown from './Markdown';
@@ -202,7 +203,7 @@ function RunVitals({ run, darkMode, colors }) {
   );
 }
 
-export default function AgentRunner({ agent, onBack }) {
+export default function AgentRunner({ agent, onBack, recorderUrl = null }) {
   const { darkMode } = useTheme();
   const colors = paletteFor(darkMode);
 
@@ -262,6 +263,8 @@ export default function AgentRunner({ agent, onBack }) {
   const messagesRef = useRef(null);
   const fileInputRef = useRef(null);
   const addMenuRef = useRef(null);
+
+  const captureState = useSessionCapture(conversationId, recorderUrl);
 
   const visibleMessages = (conversation?.messages || []).filter((message) => CONVERSATION_ROLES.includes(message.role));
 
@@ -824,6 +827,27 @@ export default function AgentRunner({ agent, onBack }) {
               {conversation && (
                 <span className="text-xs font-mono" style={{ color: colors.textMuted }}>
                   #{conversation.id} · {visibleMessages.length} message{visibleMessages.length === 1 ? '' : 's'}
+                </span>
+              )}
+              {captureState === 'recording' && (
+                <span
+                  data-testid="runner-recording-notice"
+                  className="text-xs inline-flex items-center gap-1"
+                  style={{ color: colors.textMuted }}
+                  title="This view is recorded for the conversation's replay. Field values are masked and keys are left out; the conversation is recorded as shown."
+                >
+                  <span aria-hidden="true" style={{ color: '#ef4444' }}>●</span>
+                  Recording
+                </span>
+              )}
+              {captureState === 'limit' && (
+                <span
+                  data-testid="runner-recording-stopped"
+                  className="text-xs"
+                  style={{ color: colors.textMuted }}
+                  title="This visit reached the size limit for a recording, so the rest of it is not recorded. Open the conversation again to start a new recording."
+                >
+                  Recording stopped
                 </span>
               )}
             </div>
