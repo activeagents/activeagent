@@ -15,6 +15,7 @@ module ActionAgent
       # after a failed terminate, nothing would ever know the process (or
       # container) was still there. cleanup_expired! retries these.
       handle = sandbox.cloud_run_job_id.presence || derived_handle(sandbox)
+      stop_browser(sandbox)
       return if handle.present? && !released?(sandbox, handle)
 
       # Optionally delete old sandbox records
@@ -79,6 +80,17 @@ module ActionAgent
     rescue StandardError => e
       Rails.logger.warn("[ActionAgent] could not derive a sandbox handle: #{e.message}")
       nil
+    end
+
+    # A checkout's browser, which a backend may run apart from the sandbox
+    # itself. Best effort: the :local backend's terminate stops it as well.
+    def stop_browser(sandbox)
+      return unless sandbox.app_runtime?
+
+      orchestrator = SandboxOrchestrator.new
+      orchestrator.stop_browser(sandbox) if orchestrator.supports?(:stop_browser)
+    rescue StandardError, LoadError => e
+      Rails.logger.warn("[ActionAgent] could not stop the browser of sandbox #{sandbox.session_id}: #{e.message}")
     end
 
     # Whether the backend behind +handle+ let go of it.

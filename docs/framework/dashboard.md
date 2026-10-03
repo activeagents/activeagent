@@ -692,15 +692,17 @@ defines, and `orchestrator.supports?(:verb)` answers whether it defines one:
 | `run_code_session(session, code_session, &on_event)`, `cancel_code_session(session, code_session)` | no | `{ exit_status:, diff: }`, true |
 | `changed_files(session)` | no | `{ base_commit:, files: [{ path:, status:, mode: }] }`: what the checkout changed since it was cloned, read without running the checkout's git hooks, filters or configuration |
 | `read_file(session, path)` | no | the file's current bytes, or nil; a symlink reads as its target. `path` is always relative and inside the checkout |
-| `start_browser(session, mode:)` | no | `{ mcp_url:, mcp_token: }` for a browser of the sandbox's own; `mode` is `:headless` or `:headed` |
+| `start_browser(session, mode:)` | no | `{ mcp_url:, mcp_token: }`, optionally `live_url:`, for a browser of the sandbox's own; `mode` is `:headless` or `:headed`, and `session.browser_launch` carries the rest (see [Browser sessions](./browser-sessions#for-backend-authors)) |
 | `stop_browser(session)` | no | true, also when none was running |
+| `browser_modes` | no | the modes `start_browser` can run in; a backend without it is asked for either |
 | `resume_boot(session, from:)` | no | what `create_sandbox` returns, after re-running a failed boot from the step named `from` |
 
 `session` is the `ActionAgent::SandboxSession`, and `handle` is the
 `container_name` that `create_sandbox` returned. Calling a verb the backend
 does not define raises `SandboxOrchestrator::UnsupportedBackendError`. The
-engine's `:mock` and `:local` backends define none of the optional verbs from
-`changed_files` down.
+engine's `:mock` backend defines none of the optional verbs from
+`changed_files` down; `:local` defines `start_browser`, `stop_browser` and
+`browser_modes`, which [Browser sessions](./browser-sessions) describes.
 
 ### Running against a sandbox without editing the agent
 
@@ -1340,7 +1342,9 @@ log. A batch authenticates with either:
   `SessionRecording#issue_ingest_token!` returns it and stores only its
   digest. It is accepted for that recording alone, cannot read anything back,
   and stops working when it expires (two hours by default), when the
-  recording completes, or when the recording's sandbox stops;
+  recording completes, or when the recording's sandbox stops. A batch sent
+  this way may be gzipped, with `Content-Encoding: gzip`, as a sandbox's
+  browser sends it; it is inflated no further than `batch_bytes`;
 - a dashboard session with its CSRF token, for a recording the user owns.
 
 A batch is stored whole or not at all. It answers 422 when it holds a kind a
@@ -1370,8 +1374,8 @@ When an agent calls one of the Playwright browser tools in
 `ActionAgent::MCPRecordingMiddleware::PLAYWRIGHT_TOOLS` (navigating, clicking,
 typing, filling forms, taking snapshots and the like), the call is stored as
 an `action` event on its run's recording, which the first call starts with
-`source: "agent"`. Other browser tools, such as `browser_tabs` and
-`browser_console_messages`, are not recorded. Typed values are masked and the
+`source: "agent"`. Listing console messages or network requests is not
+recorded. Typed values are masked and the
 owner's credentials are scrubbed before anything is stored. A failure to
 record is logged and leaves the tool's result unchanged.
 

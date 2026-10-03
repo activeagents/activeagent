@@ -48,9 +48,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `SandboxOrchestrator` dispatches `changed_files`, `read_file`,
   `start_browser`, `stop_browser` and `resume_boot` to a backend that defines
   them, and `supports?` is false for one that does not. Their signatures are
-  documented on the orchestrator and in the dashboard guide; the `:mock` and
-  `:local` backends implement none of them. `read_file` refuses a path outside
-  the checkout before the backend sees it.
+  documented on the orchestrator and in the dashboard guide; the `:mock`
+  backend implements none of them, and `:local` implements `start_browser` and
+  `stop_browser`. `read_file` refuses a path outside the checkout before the
+  backend sees it.
 - **Store browser events on session recordings, and read any session as a
   timeline** (`actionagent`). `POST <mount>/api/session_recordings/:id/events`
   takes a batch of `rrweb`, `console` and `marker` events under the
@@ -70,9 +71,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   conversation (`agent_context_id`) and records its `source`. Deleting a
   recording asks the permission checker about `:manage_recordings`. Adds
   migration `create_active_agent_recording_events`.
+- **Run a browser per checkout sandbox** (`actionagent`,
+  `@activeagents/browser-sidecar`). `POST <mount>/api/sandboxes/:id/browser`
+  (`mode: "headless"` or `"headed"`, optional `capabilities`) starts one,
+  `GET` shows it and `DELETE` stops it. While it runs, every agent run and
+  evaluation against the sandbox reaches it as the MCP server
+  `browser:<session_id>`, and the toolbox's own `browser_*` tools are left
+  out so no tool name is offered twice. A run whose browser stopped after it
+  was queued fails before generation. Each browser records into a session
+  recording of its own: rrweb with input values and `contenteditable` text
+  masked, console errors and markers, posted gzipped to the recording's
+  ingest, which now accepts `Content-Encoding: gzip`. Deleting a sandbox
+  stops its browser before expiring it, and a browser stops itself 30
+  seconds before its sandbox expires, so the recording keeps its last
+  events. Starting asks the quota checker about `:browser_minutes`; each
+  stop, including the sandbox's expiry and the reaper, reports the minutes
+  used, counted to when the browser stopped itself at the latest. In a
+  multi-tenant install both are asked about the sandbox's account. `:local`
+  runs the new `@activeagents/browser-sidecar` npm package (in
+  `browser-sidecar/`, outside the gem, at the engine's version): Chromium
+  with a fresh profile over a pipe, Playwright MCP behind a bearer token and
+  `Host`/`Origin` checks, every connection through a proxy in the sidecar
+  that refuses loopback, link-local and private addresses but the app's
+  (after redirects too), and top-level navigation pinned to the sandbox app,
+  with a tab that a redirect takes elsewhere closed. Install it with
+  `bin/rails action_agent:browser:install` and check the machine with
+  `bin/rails action_agent:browser:doctor`; `ActionAgent.browser_sidecar_path`
+  runs a checkout of it instead. The browser token is encrypted like the
+  runtime token, never serialized, and masked in recordings and MCP tool
+  output. The sidecar also builds as an OCI image. Adds migration
+  `add_browser_to_active_agent_sandbox_sessions`.
+- **Report quantities to the usage recorder** (`actionagent`).
+  `ActionAgent.record_usage(owner, kind, quantity)` passes the quantity to a
+  `usage_recorder` that takes a third argument; one that takes two is still
+  called as `(owner, kind)`.
 
 ### Changed
 
+- **Keep the shared Playwright MCP browser out of multi-tenant installs**
+  (`actionagent`). With `multi_tenant = true` the toolbox's `playwright_mcp`
+  tools are neither offered nor called, and `PlaywrightMCPClient.instance`
+  raises: a run gets a browser only from its sandbox.
 - **Record an agent's browser tool calls as recording events**
   (`actionagent`). `ActionAgent::MCPRecordingMiddleware#intercept` now stores
   each call to a tool in `MCPRecordingMiddleware::PLAYWRIGHT_TOOLS` as one
@@ -87,7 +126,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   recordings with no actions until the replay view moves to the timeline; read
   them from `GET .../timeline` or `GET .../events?kind=action`. The
   `record_navigate`, `record_click`, `record_type` and `capture_for_handoff`
-  helpers still write `RecordingAction`s.
+  helpers still write `RecordingAction`s. `PLAYWRIGHT_TOOLS` matches the tools
+  of `@playwright/mcp` 0.0.83, and `browser_press_sequentially`'s text is
+  masked like `browser_type`'s. `browser_scroll`, which Playwright MCP does
+  not have, is gone.
 - **Announce run and sandbox changes without their content** (`actionagent`).
   The Action Cable messages on `agent_run_<id>`, `agent_runs_<agent_id>` and
   `sandbox_<session_id>` are now `{ type, id, status }`; a subscriber reads

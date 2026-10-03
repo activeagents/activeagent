@@ -58,6 +58,22 @@ class BrowserActionRecordingTest < ActiveSupport::TestCase
     assert_equal %w[Email Password], fields.map { |field| field["name"] }
   end
 
+  test "the browser tools of the sidecar's Playwright MCP are recorded by their target, with typed text masked" do
+    with_tool_result({ text: "done" }) do
+      @service.execute_tool("browser_press_sequentially", text: "hunter2secret", submit: true)
+      @service.execute_tool("browser_check", element: "Remember me", target: "f2e7")
+      @service.execute_tool("browser_navigate_back")
+      @service.execute_tool("browser_console_messages", level: "error")
+    end
+
+    actions = recorded_actions
+    assert_equal %w[browser_press_sequentially browser_check browser_navigate_back], actions.map { |action| action["tool_name"] }
+    assert_equal %w[type click navigate], actions.map { |action| action["action_type"] }
+    assert_equal "[REDACTED]", actions.first.dig("parameters", "text")
+    assert_equal "f2e7", actions.second.dig("parameters", "target")
+    assert_not_includes ActionAgent::RecordingEvent.all.map { |row| row.events.to_json }.join, "hunter2secret"
+  end
+
   test "browser_handle_dialog is recorded with its prompt text masked" do
     with_tool_result({ text: "Dialog answered with s3cret-answer" }) do
       @service.execute_tool("browser_handle_dialog", accept: true, promptText: "s3cret-answer")

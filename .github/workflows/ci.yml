@@ -72,6 +72,50 @@ jobs:
             exit 1
           fi
 
+  # The browser sidecar is an npm package published beside the gems, at the
+  # dashboard's version: the engine refuses a sidecar of any other.
+  browser-sidecar:
+    name: Browser sidecar
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: browser-sidecar
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: browser-sidecar/package-lock.json
+
+      - name: Check the version matches the dashboard's
+        run: |
+          sidecar="$(node -p 'require("./package.json").version')"
+          engine="$(sed -nE 's/^ *VERSION = "([^"]+)".*/\1/p' ../actionagent/lib/action_agent/version.rb)"
+          if [ "$sidecar" != "$engine" ]; then
+            echo "::error::browser-sidecar/package.json is $sidecar and ActionAgent::VERSION is $engine; they must match."
+            exit 1
+          fi
+
+      - name: Install
+        run: npm ci
+
+      # The real-browser test is skipped without it.
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      # Ubuntu 24.04 runners forbid unprivileged user namespaces through
+      # AppArmor, and Chromium's sandbox needs them. The sidecar keeps the
+      # sandbox on, so the runner allows them instead.
+      - name: Allow Chromium's sandbox
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+
+      - name: Test
+        run: npm test
+
   test:
     runs-on: ubuntu-latest
     env:
