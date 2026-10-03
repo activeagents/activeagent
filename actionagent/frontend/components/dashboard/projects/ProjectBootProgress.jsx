@@ -1,15 +1,17 @@
 import React from 'react';
 import { Badge, MONO, Panel } from '../primitives';
 import { STEP_TONES, bootStepGroup, formatElapsed } from '../../../utils/projects.mjs';
+import { waitingLabel } from '../../../utils/projectSetup.mjs';
 
 // A project's boot, step by step (GET /api/projects/:id/boot): each step's
 // status, elapsed time and detail, then the scrubbed tail of the step that
 // failed or is running. `boot` is null when the backend reports no steps.
-export default function ProjectBootProgress({ boot, logTail, error, sandboxState }) {
+// `waiting` counts the requests for input the project's agents wait on.
+export default function ProjectBootProgress({ boot, logTail, error, sandboxState, waiting }) {
   const steps = boot?.steps || [];
 
   return (
-    <Panel title="Boot" meta={sandboxState || 'none'} testId="project-boot-progress">
+    <Panel title="Boot" meta={waitingLabel(waiting) || sandboxState || 'none'} testId="project-boot-progress">
       {steps.length === 0 && (
         <p style={{ margin: 0, padding: 12, fontSize: 13, color: 'var(--color-text-secondary)' }}>
           {sandboxState === 'booting' ? 'Waiting for the sandbox to report its steps…' : 'No boot to show yet.'}
