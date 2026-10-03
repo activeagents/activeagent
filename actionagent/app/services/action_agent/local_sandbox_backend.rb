@@ -697,7 +697,7 @@ module ActionAgent
       # A spec only for checkouts without the engine may not apply, which is
       # known once the checkout is there: until then, and when it does not,
       # the boot has the configured limit.
-      reset_boot(boot_spec && !boot_spec.without_engine_only? ? boot_spec.timeout : ActionAgent.local_sandbox_boot_timeout)
+      reset_boot(boot_spec && !boot_spec.without_engine_only? ? spec_boot_timeout(boot_spec) : ActionAgent.local_sandbox_boot_timeout)
       deadline = deadline_after(@boot_timeout)
       booted = false
       keep = false
@@ -710,8 +710,8 @@ module ActionAgent
 
       app = workspace.join("app")
       plan = plan_boot(workspace, app, checkout, boot_spec)
-      if plan.spec && plan.spec.timeout != @boot_timeout
-        @boot_timeout = plan.spec.timeout
+      if plan.spec && spec_boot_timeout(plan.spec) != @boot_timeout
+        @boot_timeout = spec_boot_timeout(plan.spec)
         deadline = started + @boot_timeout
       end
       databases = assign_databases(workspace, app, plan.env, checkout)
@@ -748,7 +748,7 @@ module ActionAgent
 
     # Runs a kept boot's +plan+ again from its entry +start_at+.
     def resume(workspace, plan, start_at, secrets)
-      reset_boot(plan.spec.timeout)
+      reset_boot(spec_boot_timeout(plan.spec))
       deadline = deadline_after(@boot_timeout)
       booted = false
       keep = plan.keep_on_failure
@@ -765,6 +765,13 @@ module ActionAgent
       raise Error, SecretScrubber.scrub("Sandbox boot failed: #{e.class.name}: #{e.message}", secrets)
     ensure
       finish_failed_boot(workspace, keep) unless booted
+    end
+
+    # The limit on a boot from +spec+. A bootstrap does more than the app's
+    # own boot from its sandbox.yml, so it never gets less time than
+    # `local_sandbox_boot_timeout` gives that boot.
+    def spec_boot_timeout(spec)
+      spec.kind == "bootstrap" ? [ spec.timeout, ActionAgent.local_sandbox_boot_timeout ].max : spec.timeout
     end
 
     # What a boot remembers while it runs, which a backend instance holds for

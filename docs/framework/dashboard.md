@@ -844,7 +844,7 @@ config.local_sandboxes_enabled = true
 | `sandbox_service` | `:mock` | The backend: `:mock` (in memory, runs nothing), `:local`, or one registered in `sandbox_backends`. `SANDBOX_BACKEND` overrides it |
 | `local_sandboxes_enabled` | unset: on in development and test, off elsewhere | Whether `:local` may run at all |
 | `local_sandbox_root` | `Rails.root.join("tmp/action_agent/sandboxes")` | Where each sandbox's workspace lives |
-| `local_sandbox_boot_timeout` | `600` (seconds) | The limit on checkout, setup, manifest and server start together, for a checkout booted by its `.activeagents/sandbox.yml`. A [boot spec](#boot-specs) sets its own limit |
+| `local_sandbox_boot_timeout` | `600` (seconds) | The limit on checkout, setup, manifest and server start together, for a checkout booted by its `.activeagents/sandbox.yml`. A [boot spec](#boot-specs) sets its own limit, and a bootstrap never gets less than this one |
 | `claude_code_command` | `"claude"` | The Claude Code executable |
 | `claude_code_permission_mode` | `"acceptEdits"` | `--permission-mode` for every session |
 | `claude_code_max_turns` | `nil` (Claude Code's own default) | `--max-turns` for every session |
@@ -1166,9 +1166,10 @@ its own:
 - With `--skip`, the generators keep every file that already exists. A
   checkout that already has `config/active_agent.yml` or
   `app/agents/application_agent.rb` keeps them byte for byte.
-- The whole boot, checkout included, has 1800 seconds. Each step's own
-  timeout bounds it within that, and a step that runs out names itself and
-  the limit.
+- The whole boot, checkout included, has 1800 seconds, or
+  `local_sandbox_boot_timeout` on `:local` when that is longer. Each step's
+  own timeout bounds it within that, and a step that runs out names itself
+  and the limit.
 - Once the MCP facade answers, `GET <start_url>` on the sandbox's own server
   must answer something other than a `5xx`. A redirect to sign in, or a
   `404`, passes. A `5xx` fails the `start` step with the status and the end

@@ -57,11 +57,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the same git revision or path), the generators with `--skip`, asset builds
   the app defines, `db:prepare`, then the manifest. `POST /api/sandboxes`
   takes `bootstrap` (`auto` by default, `always` or `never`), `start_url` and
-  `keep_on_failure`. A preflight refuses an app without a `Gemfile.lock` or a
-  root `config/application.rb`, or one locking Ruby older than 3.2 or
-  railties older than 7.2, before any of its commands runs. Each step has a
-  log and a timeout of its own (1800 seconds for the whole bootstrap), and
-  `GET /api/sandboxes/:id/boot` and `…/boot_log` read them back, scrubbed.
+  `keep_on_failure`. Before any of a bootstrapped checkout's commands runs, a
+  preflight refuses one without a root `config/application.rb`, or locking
+  Ruby older than 3.2 or railties older than 7.2. With `"auto"` a checkout
+  without a `Gemfile.lock` boots as before, and with `"always"` the preflight
+  refuses it. Each step has a log and a timeout of its own (1800 seconds for
+  the whole bootstrap, or `local_sandbox_boot_timeout` on `:local` when that
+  is longer), and `GET /api/sandboxes/:id/boot` and `…/boot_log` read them
+  back, scrubbed.
   With `keep_on_failure`, `POST /api/sandboxes/:id/resume_boot` continues a
   failed boot from the step that failed, on the same checkout and databases.
   Once the MCP facade answers, `start_url` must not answer `5xx`. The boot is

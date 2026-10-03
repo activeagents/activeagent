@@ -259,6 +259,29 @@ class LocalSandboxBootstrapTest < ActiveSupport::TestCase
     assert_match(/\ASandbox db_prepare failed: `bin\/rails db:prepare` did not finish within the boot timeout \(5s\)/, error.message)
   end
 
+  # Waiting out a bootstrap's limit takes half an hour, so these read the
+  # limit each boot ran under rather than run into it.
+  test "a bootstrap gets the longer of its own limit and the configured boot limit" do
+    with_fake_tools { @backend.create_sandbox(sandbox_double(rails_origin!), boot_config: Spec.bootstrap(engine: ENGINE).to_h) }
+    assert_equal 1800, @backend.instance_variable_get(:@boot_timeout), "the configured 20s is less than a bootstrap needs"
+
+    ActionAgent.local_sandbox_boot_timeout = 3600
+    without_engine = Spec.bootstrap(engine: ENGINE, apply: "without_engine").to_h
+    with_fake_tools { @backend.create_sandbox(sandbox_double(rails_origin!), boot_config: without_engine) }
+    assert_equal 3600, @backend.instance_variable_get(:@boot_timeout), "once a spec for checkouts without the engine applies"
+
+    control("fail" => [ "db:prepare" ])
+    kept = sandbox_double(rails_origin!)
+    assert_raises(Backend::Error) do
+      with_fake_tools { @backend.create_sandbox(kept, boot_config: Spec.bootstrap(engine: ENGINE, keep_on_failure: true).to_h) }
+    end
+    assert_equal 3600, @backend.instance_variable_get(:@boot_timeout)
+    control({})
+    resumer = Backend.new
+    with_fake_tools { resumer.resume_boot(kept, from: nil) }
+    assert_equal 3600, resumer.instance_variable_get(:@boot_timeout), "a resume"
+  end
+
   test "a kept boot resumes from the step that failed, without cloning or re-running what came before" do
     control("fail" => [ "db:prepare" ])
     sandbox = sandbox_double(rails_origin!)
