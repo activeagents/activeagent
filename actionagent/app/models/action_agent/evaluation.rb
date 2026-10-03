@@ -11,6 +11,10 @@ module ActionAgent
   # agent's traces (error rate, latency); the llm_judge type asks a judge
   # model to score each sample and requires a configured provider.
   class Evaluation < ApplicationRecord
+    # Raised by #merge_scenarios! for a merge that would leave the suite
+    # holding more scenarios than its limit.
+    class ScenarioLimitExceeded < StandardError; end
+
     belongs_to :agent
     has_many :evaluation_runs, dependent: :destroy
     has_many :scenarios, class_name: "EvaluationScenario", dependent: :destroy
@@ -191,11 +195,91 @@ module ActionAgent
       scenarios.reload
     end
 
+    # Adds the scenarios of +attributes+ (ActiveAgent::Evals::ScenarioParser
+    # output) whose keys the suite lacks, and updates the ones whose keys it
+    # holds. A scenario whose key +attributes+ do not name is never touched,
+    # unlike #replace_scenarios!, which treats its input as the whole suite.
+    #
+    #   - An existing key gets the given prompt, group, notes and
+    #     expectations, and a group, notes or expectations the attributes
+    #     leave out clears the stored one. It keeps its record, results,
+    #     position and enabled flag unless the attributes set "position" or
+    #     "enabled".
+    #   - A new key is appended after the suite's last position, in input
+    #     order, enabled unless the attributes say otherwise.
+    #
+    # ScenarioParser output carries each scenario's position within its own
+    # paste, which an existing key would take; remove "position" from parser
+    # output to keep the suite's order.
+    #
+    # Nothing is written when the merge raises.
+    #
+    # @param limit [Integer, nil] the most scenarios the suite may hold
+    #   afterwards
+    # @raise [ArgumentError] when a scenario has no key or two share one
+    # @raise [ScenarioLimitExceeded] when the suite would pass +limit+
+    # @return [Hash{Symbol => Array<String>}] the keys under :added, :updated
+    #   (an existing scenario that changed) and :unchanged
+    def merge_scenarios!(attributes, limit: nil)
+      keys = attributes.map { |attrs| attrs["key"].to_s }
+      raise ArgumentError, "every merged scenario needs a key" if keys.any?(&:blank?)
+
+      repeated = keys.tally.select { |_, count| count > 1 }.keys
+      raise ArgumentError, "scenario keys repeat: #{repeated.join(', ')}" if repeated.any?
+
+      merged = { added: [], updated: [], unchanged: [] }
+      # Locked, so two merges into one suite cannot both pass the limit or
+      # both add the same key.
+      with_lock do
+        existing = scenarios.where(key: keys).index_by(&:key)
+        added = keys.count { |key| !existing.key?(key) }
+        if limit && (held = scenarios.count) + added > limit
+          raise ScenarioLimitExceeded, "Scenario limit reached (#{limit} per evaluation): the evaluation holds #{held} " \
+                                       "and this merge adds #{added}"
+        end
+
+        next_position = (scenarios.maximum(:position) || -1) + 1
+        attributes.each do |attrs|
+          scenario = existing[attrs["key"].to_s]
+          if scenario.nil?
+            scenarios.create!(scenario_fields(attrs).merge(key: attrs["key"].to_s, position: next_position,
+                                                          enabled: attrs.fetch("enabled", true)))
+            next_position += 1
+            merged[:added] << attrs["key"].to_s
+            next
+          end
+
+          fields = scenario_fields(attrs)
+          # A row stored without expectations reads them as {}, and is not
+          # changed by being given {}.
+          fields.delete(:expectations) if scenario.expectations == fields[:expectations]
+          scenario.assign_attributes(fields)
+          scenario.position = attrs["position"] if attrs.key?("position")
+          scenario.enabled = attrs["enabled"] if attrs.key?("enabled")
+          if scenario.changed?
+            scenario.save!
+            merged[:updated] << scenario.key
+          else
+            merged[:unchanged] << scenario.key
+          end
+        end
+      end
+      merged
+    ensure
+      # create! adds each record to the association, and a rolled-back one
+      # stays there as a new record that the evaluation's next save writes.
+      scenarios.reset
+    end
+
     def llm_criteria
       criteria.select { |c| c["type"] == "llm_judge" }
     end
 
     private
+
+    def scenario_fields(attrs)
+      { prompt: attrs["prompt"], group: attrs["group"], notes: attrs["notes"], expectations: attrs["expectations"] || {} }
+    end
 
     def validate_criteria
       if criteria.blank?
