@@ -23,8 +23,6 @@ export const INPUT_REQUESTS_REFRESH_MS = 30000;
 // (InputRequestsController::LIST_LIMIT).
 export const LIST_LIMIT = 100;
 
-// The form field a `text` request's answer is read from.
-export const ANSWER_FIELD = 'answer';
 
 const KINDS = ['text', 'choice', 'confirm', 'secret'];
 
@@ -84,13 +82,21 @@ export function choiceOptions(request) {
     .filter((option) => option && option.value !== '');
 }
 
+// The form field a `text` request's answer is read from, named for the
+// request because Generative UI derives a field's DOM id from its name, and
+// two cards on one page must not share an id: `answerField({ id: 7 })` →
+// `'answer-7'`.
+export function answerField(request) {
+  return request?.id == null ? 'answer' : `answer-${request.id}`;
+}
+
 // The Generative UI blocks a request is answered through: one required field
 // for `text`, the option buttons for `choice`, none for the other kinds. A
 // secret is never asked through these blocks.
 export function answerBlocks(request) {
   switch (answerControl(request)) {
     case 'text':
-      return [{ type: 'form', submit: 'Answer', fields: [{ name: ANSWER_FIELD, label: 'Your answer', type: 'textarea', required: true }] }];
+      return [{ type: 'form', submit: 'Answer', fields: [{ name: answerField(request), label: 'Your answer', type: 'textarea', required: true }] }];
     case 'choice':
       return [{ type: 'choices', options: choiceOptions(request).map((option) => option.label) }];
     default:
@@ -103,7 +109,7 @@ export function answerBlocks(request) {
 // anything else.
 export function answerFromUiAction(request, action) {
   if (action?.kind === 'form') {
-    const value = action.values?.[ANSWER_FIELD];
+    const value = action.values?.[answerField(request)];
     return value == null ? undefined : String(value);
   }
   if (action?.kind === 'choice') return choiceOptions(request).find((option) => option.label === action.text)?.value;
