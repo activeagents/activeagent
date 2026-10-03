@@ -38,8 +38,8 @@ module ActionAgent
 
       # POST /api/input_requests/:id/answer
       #
-      # `answer` is the answer; a `confirm` request is approved whatever it
-      # says.
+      # `answer` is the answer. A `confirm` request is approved by `true` or
+      # by no answer, and declined by `false`.
       def answer
         settle { @input_request.answer!(params[:answer], user: current_user) }
       end

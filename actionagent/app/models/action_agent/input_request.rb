@@ -32,6 +32,10 @@ module ActionAgent
     class InvalidAnswer < StandardError; end
 
     KINDS = ActiveAgent::InputRequest::KINDS.map(&:to_s).freeze
+    # The answers that approve a `confirm` request, no answer among them, and
+    # the answers that decline it.
+    CONFIRM_APPROVALS = [ nil, true, "true" ].freeze
+    CONFIRM_DECLINES = [ false, "false" ].freeze
     # The only subjects a request is created for. Later subjects join this list.
     SUBJECT_TYPES = %w[ActionAgent::AgentRun].freeze
 
@@ -141,16 +145,20 @@ module ActionAgent
     end
 
     # Answers the request, and enqueues AgentResumeJob when it was the last
-    # of its pause to settle. An answer to a `confirm` request approves the
-    # call.
+    # of its pause to settle. A `confirm` request is approved by `true` or by
+    # no answer, and declined by `false` (see #decline!), the way
+    # ActiveAgent::InputRequest reads `false`.
     #
-    # @param value [String] the answer; ignored for a `confirm` request
+    # @param value [String, Boolean, nil] the answer
     # @param user [Object, nil] who answered
     # @raise [Conflict] when the request is no longer pending or has expired
-    # @raise [InvalidAnswer] when the answer is blank, not text, or not one of
-    #   a `choice` request's options
+    # @raise [InvalidAnswer] when the answer is blank, not text, not one of a
+    #   `choice` request's options, or neither `true` nor `false` for a
+    #   `confirm` request
     # @return [self]
     def answer!(value, user: nil)
+      return decline!(user: user) if kind == "confirm" && CONFIRM_DECLINES.include?(value)
+
       settle!(:answered, value: value, user: user)
     end
 
@@ -215,7 +223,10 @@ module ActionAgent
     end
 
     def answer_error(value)
-      return nil if kind == "confirm"
+      if kind == "confirm"
+        return CONFIRM_APPROVALS.include?(value) ? nil : "Answer a confirm request with true or false"
+      end
+
       return "Answer with text" unless value.is_a?(String) || value.is_a?(Numeric)
       return "An answer is required" if value.to_s.strip.empty?
       return nil unless kind == "choice"

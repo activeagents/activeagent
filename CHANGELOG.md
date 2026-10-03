@@ -77,7 +77,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   agents the engine defines. `GET /api/input_requests` lists requests without
   their answers. `POST /api/input_requests/:id/answer` and `/decline` check
   `:answer_input_request`, and return 409 for a settled or expired request and
-  422 for an invalid answer. Once a pause is settled, `AgentResumeJob` resumes
+  422 for an invalid answer. A `confirm` request is approved by `true` and
+  declined by `false`. Once a pause is settled, `AgentResumeJob` resumes
   the same run under its trace id. MCP `run_<slug>` returns a paused run's
   request ids, and `input_requests_list` and `input_requests_answer` (text and
   choice only) join the MCP facade. `config.input_request_ttl` (one day by
