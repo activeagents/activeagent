@@ -131,8 +131,9 @@ ActionAgent::Engine.routes.draw do
       end
     end
 
-    # The timeline of a conversation, a run or an evaluation scenario's
-    # replay, with or without a recording.
+    # The sessions a caller can replay, and the timeline of a conversation,
+    # a run or an evaluation scenario's replay, with or without a recording.
+    get "sessions", to: "sessions#index", as: :sessions
     get "sessions/:kind/:id/timeline", to: "sessions#timeline", as: :session_timeline,
       constraints: { kind: /context|run|scenario_result/ }
 
