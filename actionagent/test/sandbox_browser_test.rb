@@ -118,6 +118,15 @@ class SandboxBrowserTest < ActionDispatch::IntegrationTest
     assert_nil @sandbox.reload.browser_summary[:live_url]
   end
 
+  test "the sandbox listing says which modes a browser can start in" do
+    get "/activeagents/api/sandboxes", params: { sandbox_type: "app_runtime" }
+    assert_equal %w[headless headed], response.parsed_body["browser_modes"]
+
+    BrowserBackend.modes = [ :headless ]
+    get "/activeagents/api/sandboxes", params: { sandbox_type: "app_runtime" }
+    assert_equal %w[headless], response.parsed_body["browser_modes"]
+  end
+
   test "the browser token is encrypted at rest and never serialized or shown" do
     post browser_path, as: :json
     token = @sandbox.reload.browser_token
