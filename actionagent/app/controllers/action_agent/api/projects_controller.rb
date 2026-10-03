@@ -48,8 +48,9 @@ module ActionAgent
       # GET /api/projects/preflight?repository=owner/name&ref=
       # Whether the repository can become a project, read through GitHub's
       # contents API before any sandbox exists (see ProjectPreflight). A
-      # repository the connection's listing does not include is looked up by
-      # name, which also reaches repositories past the listing's cap.
+      # repository the connection has not selected is looked up by name,
+      # which also reaches repositories past the listing's cap, and needs
+      # :manage_github.
       def preflight
         connection = github_connection! or return
         repository = reachable_repository!(connection) or return
@@ -64,7 +65,8 @@ module ActionAgent
       # GET /api/projects/discover_secrets?repository=owner/name&ref=
       # The environment variables the repository expects (see
       # ProjectSecretDiscovery), each marked with whether the project named by
-      # `project_id`, if any, has it set.
+      # `project_id`, if any, has it set. A repository the connection has not
+      # selected needs :manage_github, as for preflight.
       def discover_secrets
         connection = github_connection! or return
         repository = reachable_repository!(connection) or return
@@ -109,8 +111,6 @@ module ActionAgent
         return unless authorize_secrets!(project, secrets)
 
         selecting = connection.repository(full_name).nil?
-        return if selecting && !authorize_action!(:manage_github, connection)
-
         Project.transaction do
           # The selection is what a project's sandbox is booted from.
           connection.update!(repositories: connection.repositories + [ repository ]) if selecting
@@ -284,17 +284,32 @@ module ActionAgent
         nil
       end
 
-      # The repository `repository` names, as the connection reaches it: from
-      # its selection, else asked of GitHub by name. Renders a 404 when GitHub
-      # finds none the connection can reach.
-      def reachable_repository!(connection)
-        name = params[:repository]
+      # The repository +name+ names, as the connection reaches it: from its
+      # selection, else asked of GitHub by name. Renders a 403 for a
+      # repository outside the selection when the caller may not manage the
+      # GitHub connection, and a 404 when GitHub finds none it can reach.
+      #
+      # The connection's token can be one member's, reaching that member's
+      # own repositories, so only the selection is shared with every member.
+      # The 403 is decided before GitHub is asked, so it says nothing about
+      # whether the repository exists.
+      def reachable_repository!(connection, name = params[:repository])
         unless name.is_a?(String) && Project::REPOSITORY.match?(name)
           render json: { error: "repository must be owner/name" }, status: :bad_request
           return nil
         end
 
-        repository = connection.repository(name) || connection.client.repository(name)
+        selected = connection.repository(name)
+        return selected if selected
+
+        unless ActionAgent.permitted?(current_user, :manage_github, connection)
+          render json: { error: "#{name} is not one of the repositories selected in Settings → Integrations, and only " \
+                                "someone who may manage the GitHub connection can pick another",
+                         code: "forbidden", permission: :manage_github }, status: :forbidden
+          return nil
+        end
+
+        repository = connection.client.repository(name)
         return repository if repository
 
         render json: { error: "GitHub found no repository #{name} that this connection can reach", code: "repository_not_found" },

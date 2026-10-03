@@ -91,7 +91,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   checked through GitHub's contents API (Ruby, railties, a root
   `config/application.rb`) and its environment variables are found in
   `.env.example`, `.env.sample`, a new `secrets:` key in
-  `.activeagents/sandbox.yml` and `ENV` call sites. Secrets are encrypted,
+  `.activeagents/sandbox.yml` and `ENV` call sites. Reading a repository the
+  GitHub connection has not selected needs `:manage_github`. Secrets are encrypted,
   never returned, refused for names the sandbox sets or that change how code
   loads, and need `:manage_project_secrets`. A provider key variable can use
   the organization's stored key, with consent and without copying it. Values

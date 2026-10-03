@@ -1481,14 +1481,18 @@ reads the repository through GitHub's contents API: `Gemfile.lock`,
 `supported` (the repository bundles the engine), `bootstrap` (the sandbox
 installs it) or `unsupported`, with the reason. Services a sandbox does not
 run (Redis, Sidekiq, Elasticsearch) and database adapters a local sandbox
-cannot provision are warnings. A repository the connection's listing does not
-include is looked up by name, which also reaches repositories past the
-listing's 500-repository cap.
+cannot provision are warnings. A repository the connection has not selected
+is looked up by name, which also reaches repositories past the listing's
+500-repository cap.
 
-Creating a project from a repository the connection has not selected selects
-it, and needs `:manage_github` (see [Permissions](#permissions)). Before a
-project is created, `ActionAgent.quota_checker` is asked about `:project`, and
-a denial answers `402`.
+Reading a repository the connection has not selected, whether to check it,
+to discover its secrets or to create a project from it, needs `:manage_github`
+(see [Permissions](#permissions)). The connection's token can be one
+member's, reaching that member's own repositories, so only the selection is
+open to every member. The `403` comes before GitHub is asked, so it does not
+tell whether the repository exists. Creating a project from such a repository
+selects it. Before a project is created, `ActionAgent.quota_checker` is asked
+about `:project`, and a denial answers `402`.
 
 ### Secrets
 
@@ -1649,7 +1653,7 @@ end
 | Action | Asked by |
 |---|---|
 | `:manage_credentials` | storing, testing and deleting a provider credential (`POST /api/provider_keys`, `POST /api/provider_keys/test`, `DELETE /api/provider_keys/:provider`) |
-| `:manage_github` | connecting GitHub, choosing its repositories, and disconnecting it (`GET /api/github_connection/connect` and `/callback`, `PATCH` and `DELETE /api/github_connection`), and creating a project from a repository the connection has not selected (`POST /api/projects`) |
+| `:manage_github` | connecting GitHub, choosing its repositories, and disconnecting it (`GET /api/github_connection/connect` and `/callback`, `PATCH` and `DELETE /api/github_connection`), and reading or creating a project from a repository the connection has not selected (`GET /api/projects/preflight`, `GET /api/projects/discover_secrets`, `POST /api/projects`) |
 | `:manage_api_keys` | creating and revoking dashboard API keys (`POST /api/api_keys`, `DELETE /api/api_keys/:id`) |
 | `:publish_pull_request` | reserved: opening a pull request from a sandbox |
 | `:answer_input_request` | reserved: answering a run's request for input |
