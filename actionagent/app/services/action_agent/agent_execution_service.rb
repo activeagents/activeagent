@@ -425,8 +425,15 @@ module ActionAgent
 
     private
 
-    # Routes one tool call to its implementation.
+    # Routes one tool call to its implementation. A run with an engine
+    # toolset reaches that toolset and request_secret, and nothing else.
     def dispatch_tool(name, kwargs, tool_call_id)
+      if engine_toolset
+        return request_secret(tool_call_id, kwargs) if name.to_s == "request_secret"
+
+        return engine_toolset.call(name.to_s, kwargs)
+      end
+
       case name.to_s
       when "ask_user" then ask_user(tool_call_id, kwargs)
       when "request_approval" then request_approval(tool_call_id, kwargs)
@@ -503,10 +510,25 @@ module ActionAgent
 
       name = kwargs[:name].to_s
       value = ActiveAgent::InputRequest.answer_for(tool_call_id)
-      return ActiveAgent::InputRequest.secret(kwargs[:prompt].presence || "Provide #{name}") if value.nil?
+      if value.nil?
+        refusal = SecretRequests.refusal(@agent_record, run: @run, name: name)
+        return { error: refusal } if refusal
 
-      handler.call(run: @run, name: name, value: value.to_s)
+        return ActiveAgent::InputRequest.secret(
+          SecretRequests.prompt(@agent_record, run: @run, name: name, prompt: kwargs[:prompt].presence || "Provide #{name}")
+        )
+      end
+
+      arguments = { run: @run, name: name, value: value.to_s }
+      arguments[:tool_call_id] = tool_call_id if takes_keyword?(handler, :tool_call_id)
+      handler.call(**arguments)
       { provided: true, name: name }
+    end
+
+    # Whether +callable+ (a block, or an object's #call) takes +keyword+.
+    def takes_keyword?(callable, keyword)
+      parameters = callable.is_a?(Proc) ? callable.parameters : callable.method(:call).parameters
+      parameters.any? { |type, name| type == :keyrest || (%i[key keyreq].include?(type) && name == keyword) }
     end
 
     # The names of the tools the run's earlier segments called, for a resumed
@@ -836,9 +858,20 @@ module ActionAgent
       @tool_schema_halves ||=
         if provider == :mock
           [ [], [] ]
+        elsif engine_toolset
+          [ [], engine_toolset.definitions ]
         else
           [ mcp_dispatcher.tool_definitions, AgentToolbox.definitions_for(@agent_record.tools) + secret_request_definitions ]
         end
+    end
+
+    # The tools of a run the engine started for an agent it defines (see
+    # ProjectSetup.toolset_for). They replace whatever tools and MCP servers
+    # the agent record names. Nil for any other run.
+    def engine_toolset
+      return @engine_toolset if defined?(@engine_toolset)
+
+      @engine_toolset = ProjectSetup.toolset_for(@agent_record, @run)
     end
 
     # request_secret, for an agent the engine registered a handler for.

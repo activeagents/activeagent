@@ -72,6 +72,15 @@ module ActionAgent
       app.config.filter_parameters += [ :credential, :api_key, :access_token, /\A(?:answer|value)\z/i ]
     end
 
+    # The project setup assistant's request_secret answers go to its
+    # handler. Registered on every reload, so the handler is always the
+    # current class's.
+    initializer "action_agent.secret_requests" do |app|
+      app.config.to_prepare do
+        ActionAgent::SecretRequests.register(ActionAgent::ProjectSetup::AGENT_CLASS_NAME, ActionAgent::ProjectSetup::SecretHandler.new)
+      end
+    end
+
     # This engine's constants are spelled the way Zeitwerk's own inflector
     # spells them — Api, ApiKey — but an engine's files are
     # autoloaded by the host's `rails.main` loader, under the *host's*

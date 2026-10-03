@@ -452,6 +452,16 @@ class LocalSandboxBootstrapTest < ActiveSupport::TestCase
     assert_not_includes setup_log, SECRET
   end
 
+  test "a checkout that bundles the engine also gets the spec's env, unmasked" do
+    control("echo" => "REDIS_URL")
+    sandbox = sandbox_double(rails_origin!(gems: [ "actionagent (1.8.1)", "activeagent (1.8.1)" ]))
+    spec = Spec.bootstrap(engine: ENGINE, apply: "without_engine", env: { "REDIS_URL" => "redis://127.0.0.1:6379/4" })
+
+    with_fake_tools { @backend.create_sandbox(sandbox, boot_config: spec.to_h) }
+
+    assert_includes workspace(sandbox).join("logs/setup.log").read, "fake rails: db:prepare sees redis://127.0.0.1:6379/4"
+  end
+
   test "boot logs are scrubbed of the secrets of the project the sandbox was booted for" do
     sandbox = sandbox_double(rails_origin!)
     with_fake_tools { @backend.create_sandbox(sandbox, boot_config: Spec.bootstrap(engine: ENGINE).to_h) }

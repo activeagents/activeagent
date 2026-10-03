@@ -420,12 +420,16 @@ module ActionAgent
     # run reaches as if the agent had it in mcp_servers, without saving it on
     # the agent. The caller checks the sandbox is theirs and live; the
     # dispatcher still resolves it among this agent's owner's sessions only.
+    #
+    # A block is given the run before its job is enqueued, so whatever it
+    # records about the run is there when the job starts.
     def execute(input_prompt, action: nil, attachments: [], actor: nil, runtime_sandbox: nil, **params)
       ensure_executable!
       run = create_run(
         input_prompt, action: action, attachments: attachments, params: params,
         actor: actor, runtime_sandbox: runtime_sandbox, status: :pending
       )
+      yield run if block_given?
 
       # Queue the execution job
       AgentExecutionJob.perform_later(run.id)

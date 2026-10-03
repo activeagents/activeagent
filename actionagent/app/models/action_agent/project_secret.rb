@@ -9,18 +9,22 @@ module ActionAgent
   # manifest and start, see Project#boot_spec), and every log, error and
   # code-session event of the project's sandboxes is scrubbed of it.
   #
-  # A secret has one of two sources:
+  # A secret has one of three sources:
   #
-  #   entered           a value someone typed into the project's secrets form
+  #   entered           a value someone typed in: into the project's secrets
+  #                     form, or as the answer to the setup assistant's
+  #                     request_secret
   #   organization_key  the owner's stored provider key for +provider+,
   #                     resolved at boot and never copied here. Taking it
   #                     needs the consent of whoever set the secret, because
   #                     the repository's code can read it.
+  #   setup_assistant   a value that is not secret, set by the setup
+  #                     assistant's set_env (see ProjectSetup)
   class ProjectSecret < ApplicationRecord
     include Ownable
     owned_by :account, :user
 
-    SOURCES = %w[entered organization_key].freeze
+    SOURCES = %w[entered organization_key setup_assistant].freeze
     # The variables "Use the organization's key" is offered for, with the
     # stored provider key each one reads.
     ORGANIZATION_KEY_PROVIDERS = {
@@ -78,6 +82,11 @@ module ActionAgent
 
     def organization_key?
       source == "organization_key"
+    end
+
+    # Whether the value is not secret: one the setup assistant set.
+    def plain?
+      source == "setup_assistant"
     end
 
     # The value a boot sets the variable to: the entered value, or the
