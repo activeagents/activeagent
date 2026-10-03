@@ -14,9 +14,13 @@ module ActionAgent
     #   organization  (default) the owner's shared keys. Writes and tests
     #                 ask permission_checker for :manage_credentials.
     #   personal      the signed-in user's own keys for the owner. Only
-    #                 that user's rows are read or changed, writes need no
-    #                 permission, and every write and test is refused with
-    #                 422 unless ProviderKey.personal_keys_enabled?.
+    #                 that user's rows are read or changed, and every write
+    #                 and test is refused with 422 unless
+    #                 ProviderKey.personal_keys_enabled?. Saving a key needs
+    #                 no permission. Saving or testing a host (Ollama) asks
+    #                 for :manage_credentials, with the personal key as the
+    #                 subject, because the host decides where the server
+    #                 sends requests. Removing one's own key never asks.
     class ProviderKeysController < BaseController
       SCOPES = %w[organization personal].freeze
 
@@ -39,7 +43,7 @@ module ActionAgent
         render json: {
           scope: requested_scope,
           personal_keys_enabled: ProviderKey.personal_keys_enabled?,
-          can_manage_organization_keys: ActionAgent.permitted?(current_user, :manage_credentials, owned(ProviderKey).new),
+          can_manage_organization_keys: can_manage_organization_keys?,
           provider_keys: ProviderKey::PROVIDERS.map do |provider|
             serialize(provider, configured[provider], setters)
           end
@@ -90,7 +94,7 @@ module ActionAgent
       # DELETE /api/provider_keys/:provider
       def destroy
         record = scoped_keys.find_by!(provider: params[:provider])
-        return unless authorize_write!(record)
+        return unless personal_scope? || authorize_write!(record)
 
         record.destroy!
         head :no_content
@@ -142,10 +146,31 @@ module ActionAgent
         current_user if user_class && current_user.is_a?(user_class)
       end
 
-      # Personal keys are the caller's own and need no permission; the
-      # organization's ask for :manage_credentials.
       def authorize_write!(record)
-        personal_scope? || authorize_action!(:manage_credentials, record)
+        return true unless needs_permission?(record)
+
+        authorize_action!(:manage_credentials, record)
+      end
+
+      # Whether saving or testing +record+ asks for :manage_credentials.
+      def needs_permission?(record)
+        !personal_scope? || record.host_based?
+      end
+
+      # Whether the caller may save and test +provider+'s credential in the
+      # requested scope.
+      def editable?(provider, record)
+        return can_manage_organization_keys? unless personal_scope?
+        return false if !personal_keys_writable? || ProviderKey::CONNECTION_PROVIDERS.include?(provider)
+
+        record ||= scoped_keys.new(provider: provider)
+        !needs_permission?(record) || ActionAgent.permitted?(current_user, :manage_credentials, record)
+      end
+
+      def can_manage_organization_keys?
+        return @can_manage_organization_keys if defined?(@can_manage_organization_keys)
+
+        @can_manage_organization_keys = ActionAgent.permitted?(current_user, :manage_credentials, owned(ProviderKey).new)
       end
 
       def probe_api_key(stored, host)
@@ -206,6 +231,7 @@ module ActionAgent
           # from an earlier version: never used, and the UI asks for an API
           # key in its place.
           needs_replacing: record.present? && record.needs_replacing?,
+          editable: editable?(provider, record),
           effective_source: effective_source(provider),
           set_by: setter && { id: setter.id, name: display_name(setter) },
           updated_at: record&.updated_at&.iso8601

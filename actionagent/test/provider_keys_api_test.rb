@@ -140,6 +140,62 @@ class ProviderKeysApiTest < ActionDispatch::IntegrationTest
     assert_requested typed
   end
 
+  test "a member's connection test sends their stored key only to their stored host" do
+    ActionAgent.provider_key_scope = :personal_override
+    key("ollama", "http://ollama.organization:11434", api_key: "sk-ollama-organization")
+    key("ollama", "http://ollama.ada:11434", api_key: "sk-ollama-ada", member: @ada)
+    key("ollama", "http://ollama.grace:11434", api_key: "sk-ollama-grace", member: @grace)
+    own = stub_request(:get, "http://ollama.ada:11434/v1/models")
+      .with(headers: { "Authorization" => "Bearer sk-ollama-ada" })
+      .to_return(status: 200, body: { data: [] }.to_json)
+    stub_request(:get, "http://ollama.organization:11434/v1/models").to_return(status: 200, body: { data: [] }.to_json)
+
+    post "/activeagents/api/provider_keys/test", params: { provider: "ollama", scope: "personal" }
+    assert_requested own
+
+    post "/activeagents/api/provider_keys/test",
+      params: { provider: "ollama", scope: "personal", credential: "http://ollama.organization:11434" }
+    assert_requested(:get, "http://ollama.organization:11434/v1/models") { |request| !request.headers.key?("Authorization") }
+  end
+
+  test "a personal Ollama host asks :manage_credentials, and removing one's own does not" do
+    ActionAgent.provider_key_scope = :personal_override
+    ActionAgent.permission_checker = ->(_user, action, _subject) { action != :manage_credentials }
+
+    post "/activeagents/api/provider_keys/test",
+      params: { provider: "ollama", scope: "personal", credential: "http://10.0.0.5:8080" }
+    assert_response :forbidden
+    assert_not_requested :get, "http://10.0.0.5:8080/v1/models"
+
+    post "/activeagents/api/provider_keys", params: { provider: "ollama", scope: "personal", credential: "http://10.0.0.5:8080" }
+    assert_response :forbidden
+    assert_empty ActionAgent::ProviderKey.personal_for(@account, @ada).where(provider: "ollama")
+
+    get "/activeagents/api/provider_keys", params: { scope: "personal" }
+    assert_equal [ true, false, false ], %w[openai ollama claude_code].map { |provider| provider_row(provider)["editable"] }
+
+    held = key("ollama", "http://ollama.ada:11434", member: @ada)
+    delete "/activeagents/api/provider_keys/ollama", params: { scope: "personal" }
+    assert_response :no_content
+    assert_not ActionAgent::ProviderKey.exists?(held.id)
+  end
+
+  test "the checker sees the personal key it is asked about" do
+    ActionAgent.provider_key_scope = :personal_override
+    asked = []
+    ActionAgent.permission_checker = lambda do |_user, action, subject|
+      asked << [ action, subject.scope_key ] if action == :manage_credentials
+      subject.personal?
+    end
+
+    post "/activeagents/api/provider_keys", params: { provider: "ollama", scope: "personal", credential: "http://ollama.ada:11434" }
+
+    assert_response :created
+    assert_includes asked, [ :manage_credentials, "user:#{@ada.id}" ]
+    get "/activeagents/api/provider_keys"
+    assert_equal [ false, false ], %w[openai ollama].map { |provider| provider_row(provider)["editable"] }
+  end
+
   test "the members list renders only id, name, email and role from the resolver" do
     ActionAgent.members_resolver = lambda do |owner|
       [ { id: 1, name: "Ada", email: "ada@example.com", role: "admin", token: "secret", owner_id: owner.id } ]

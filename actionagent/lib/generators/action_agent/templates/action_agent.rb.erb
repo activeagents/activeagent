@@ -130,6 +130,10 @@ ActionAgent.configure do |config|
   # A personal key sends the organization's agent traffic to that member's
   # own provider account, so it is off by default. It needs account_class;
   # the judge, sandboxes, Claude Code and Codex always use the account's keys.
+  # A personal Ollama host decides where the server sends requests, so
+  # saving or testing one asks the permission_checker above for
+  # :manage_credentials, with the personal key (subject.personal?) as the
+  # subject.
   #
   # config.provider_key_scope = :personal_override
   #
