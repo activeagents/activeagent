@@ -7,7 +7,7 @@ module ActionAgent
   #
   #   {
   #     "sent_at": 1767225600000,
-  #     "events": [
+  #     "recording_events": [
   #       { "kind": "rrweb", "timestamp": 1767225599500, "data": { "type": 3, "data": {} } },
   #       { "kind": "console", "timestamp": 1767225599800, "data": { "level": "error", "message": "boom" } }
   #     ]
@@ -30,6 +30,11 @@ module ActionAgent
     Result = Struct.new(:status, :body, keyword_init: true)
 
     PAYLOAD_TOO_LARGE = 413
+
+    # The key a batch carries its events under. The engine's filter_parameters
+    # initializer keeps it out of request logs, so it is a name no host
+    # parameter is likely to share.
+    BATCH_KEY = "recording_events"
 
     EVENT_WINDOW_BEFORE = 24.hours
     EVENT_WINDOW_AFTER = 1.minute
@@ -56,8 +61,8 @@ module ActionAgent
       batch = parse_body
       return invalid("The batch nests deeper than #{RecordingEvent::MAX_NESTING} levels") if batch == :too_deep
 
-      events = batch.is_a?(Hash) ? batch["events"] : nil
-      return invalid("The body must be a JSON object with a non-empty events array") unless events.is_a?(Array) && events.any?
+      events = batch.is_a?(Hash) ? batch[BATCH_KEY] : nil
+      return invalid("The body must be a JSON object with a non-empty #{BATCH_KEY} array") unless events.is_a?(Array) && events.any?
 
       limits = RecordingEvent.limits
       if events.size > limits[:batch_events] || @body.bytesize > limits[:batch_bytes]
