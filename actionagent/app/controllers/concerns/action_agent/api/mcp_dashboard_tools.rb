@@ -203,7 +203,10 @@ module ActionAgent
             properties: {
               project_id: { type: "integer", description: "The project whose app you explored" },
               evaluation_id: { type: "integer", description: "An evaluation to propose scenarios for, without a project" },
-              exploration_id: { type: "integer", description: "An exploration this key submitted, to add these candidates to" },
+              exploration_id: {
+                type: "integer",
+                description: "An exploration submitted from outside the dashboard for this key's owner, to add these candidates to"
+              },
               candidates: {
                 type: "array",
                 description: "At most #{Exploration::MAX_CANDIDATES} per exploration, and " \

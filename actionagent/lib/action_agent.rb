@@ -928,6 +928,7 @@ module ActionAgent
       @schema_tools_path = "app/agent_tools"
       @mcp_schema_tools = nil
       @mcp_dashboard_tools = nil
+      @exploration_preselect_limit = nil
     end
 
     # Host-declared schema tool classes, resolved from names and filtered to
