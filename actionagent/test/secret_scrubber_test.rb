@@ -30,6 +30,18 @@ class SecretScrubberTest < ActiveSupport::TestCase
     assert_equal({ "env" => { "GH_TOKEN" => "[REDACTED]" }, "lines" => [ "Authorization: token [REDACTED]" ] }, scrubbed)
   end
 
+  test "a token is masked whatever comes straight before it" do
+    token = TOKENS["installation"]
+    {
+      "url=https%3A%2F%2Fx-access-token%3A#{token}%40github.com" => "url=https%3A%2F%2Fx-access-token%3A[REDACTED]%40github.com",
+      "remote=https%3A%2F%2Fx%3D#{token}" => "remote=https%3A%2F%2Fx%3D[REDACTED]",
+      "GITHUB_TOKEN_#{token}" => "GITHUB_TOKEN_[REDACTED]",
+      "{\"u\":\"x-access-token\\u003a#{token}\"}" => "{\"u\":\"x-access-token\\u003a[REDACTED]\"}"
+    }.each do |text, expected|
+      assert_equal expected, ActionAgent::SecretScrubber.scrub(text, []), text
+    end
+  end
+
   test "words that only start like a token are left alone" do
     text = "use ghp_example in the docs, see the ghs_ prefix, and gh_pages"
 
