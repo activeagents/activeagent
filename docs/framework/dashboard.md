@@ -678,8 +678,10 @@ records no creator is refused without asking the checker. A refusal answers as
 a JSON-RPC error (`-32003`) and writes nothing.
 
 Each call is checked whole against the limits the report collector uses: 100
-evaluations per agent and 2,000 scenarios per evaluation. A call that would
-pass either is refused and writes nothing. An observed agent's suite is
+evaluations per agent, 2,000 scenarios per evaluation, and 200 characters for
+a scenario's key or group. A prompt or notes larger than 65,535 bytes is
+refused too. A call that would pass any of these is refused and writes
+nothing. An observed agent's suite is
 refused, as `evaluations_run` refuses it, unless a host adapter replays it. A
 duplicate name, unknown criteria, a scenario list that does not parse, or an
 agent or evaluation outside the key's reach comes back as a tool result with

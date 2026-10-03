@@ -226,6 +226,29 @@ class McpEvaluationAuthoringTest < ActionDispatch::IntegrationTest
     assert_equal 1, suite.scenarios.count
   end
 
+  test "a scenario whose key, group, prompt or notes is too long for its column is refused and nothing is written" do
+    suite = create_suite
+    oversized = {
+      key: { prompt: "One", key: "k" * 201 },
+      group: { prompt: "One", group: "g" * 201 },
+      prompt: { prompt: "p" * 65_536 },
+      notes: { prompt: "One", notes: "n" * 65_536 }
+    }
+
+    errors = oversized.transform_values do |scenario|
+      tool_error(call_tool("scenarios_merge", { evaluation_id: suite.id, scenarios: [ { prompt: "Fine" }, scenario ] }))
+    end
+    created = tool_error(call_tool("evaluations_create", { agent: "support", name: "Long", scenarios: [ oversized[:group] ] }))
+
+    assert_match(/key is longer than 200 characters/, errors[:key])
+    assert_match(/group is longer than 200 characters/, errors[:group])
+    assert_match(/prompt is larger than 65535 bytes/, errors[:prompt])
+    assert_match(/notes is larger than 65535 bytes/, errors[:notes])
+    assert_match(/group is longer than 200 characters/, created)
+    assert_equal [ "orders_1" ], suite.scenarios.pluck(:key)
+    assert_equal [ suite.id ], ActionAgent::Evaluation.pluck(:id)
+  end
+
   test "through scenarios_merge another owner's evaluation reads as a nonexistent one" do
     ActionAgent.user_class = "User"
     me = User.create!(email: "me-#{SecureRandom.hex(3)}@example.com", name: "Me", age: 30)
