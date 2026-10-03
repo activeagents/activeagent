@@ -631,7 +631,8 @@ while an observed agent, an unknown id or a sandbox the run cannot use comes
 back as a tool result with `isError`. Strings longer than 1,000 characters are
 cut and end in `…[truncated: N more characters]`, long lists end in
 `[truncated: N more items]`, and the owner's credentials (API key, provider
-keys, GitHub token, sandbox runtime tokens) are masked from every result.
+keys, GitHub token, sandbox runtime tokens, and project secrets with their
+URL-encoded and Base64 forms) are masked from every result.
 
 These names are a noun family followed by a verb. Schema tools are always
 `find_`, `count_` or `get_` plus a model name, and agent tools are
