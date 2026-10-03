@@ -77,6 +77,7 @@ jobs:
   browser-sidecar:
     name: Browser sidecar
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: browser-sidecar
@@ -105,6 +106,12 @@ jobs:
       # The real-browser test is skipped without it.
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
+
+      # Ubuntu 24.04 runners forbid unprivileged user namespaces through
+      # AppArmor, and Chromium's sandbox needs them. The sidecar keeps the
+      # sandbox on, so the runner allows them instead.
+      - name: Allow Chromium's sandbox
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
 
       - name: Test
         run: npm test
