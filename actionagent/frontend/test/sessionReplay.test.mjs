@@ -136,7 +136,7 @@ test('a failed later page keeps the actions gathered so far', async () => {
   assert.equal(result.complete, false);
 });
 
-test('a page whose cursor does not advance ends the walk', async () => {
+test('a page whose cursor does not advance ends the walk without repeating it', async () => {
   let calls = 0;
   const stuck = async () => {
     calls += 1;
@@ -147,6 +147,45 @@ test('a page whose cursor does not advance ends the walk', async () => {
 
   assert.equal(calls, 2);
   assert.equal(result.complete, false);
+  assert.deepEqual(result.actions.map((action) => action.sequence), [1]);
+});
+
+test('a server that ignores the cursor yields each action once', async () => {
+  const ignoresCursor = async () => json({
+    actions: [1, 2, 3].map((sequence) => ({ id: sequence, sequence, action_type: 'click' })),
+    has_more: true,
+  });
+
+  const result = await fetchAllActions(7, { fetchImpl: ignoresCursor, pageSize: 3 });
+
+  assert.deepEqual(result.actions.map((action) => action.sequence), [1, 2, 3]);
+  assert.equal(result.complete, false);
+});
+
+test('overlapping pages keep only the actions past the cursor', async () => {
+  const pages = [
+    { actions: [1, 2, 3], has_more: true },
+    { actions: [2, 3, 4, 5], has_more: true },
+    { actions: [5, 6], has_more: false },
+  ];
+  const calls = [];
+  const overlapping = async (path) => {
+    calls.push(path);
+    const page = pages[calls.length - 1];
+    return json({
+      actions: page.actions.map((sequence) => ({ id: sequence, sequence, action_type: 'click' })),
+      has_more: page.has_more,
+    });
+  };
+
+  const result = await fetchAllActions(7, { fetchImpl: overlapping, pageSize: 3 });
+
+  assert.deepEqual(result.actions.map((action) => action.sequence), [1, 2, 3, 4, 5, 6]);
+  assert.equal(result.complete, true);
+  assert.deepEqual(calls.slice(1), [
+    '/api/session_recordings/7/actions?limit=3&after_sequence=3',
+    '/api/session_recordings/7/actions?limit=3&after_sequence=5',
+  ]);
 });
 
 test('page entries keyed as type are normalized', async () => {

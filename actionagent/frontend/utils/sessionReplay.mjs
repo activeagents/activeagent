@@ -67,9 +67,11 @@ async function fetchPage(fetchImpl, path) {
 // server's `total_actions`, or null when it sent none.
 //
 // Returns null when the first page fails, so the caller can fall back to the
-// show response's timeline. A later page that fails, a page whose last
-// sequence does not move past the cursor, or reaching `maxPages` ends the walk
-// with `complete: false` and the actions gathered so far.
+// show response's timeline. After the first page, entries whose sequence is
+// not past the cursor are dropped, so a server that ignores `after_sequence`
+// or overlaps its pages cannot repeat an action. A later page that fails, a
+// page with nothing past the cursor, or reaching `maxPages` ends the walk with
+// `complete: false` and the actions gathered so far.
 export async function fetchAllActions(recordingId, {
   fetchImpl = (...args) => globalThis.fetch(...args),
   pageSize = ACTIONS_PAGE_SIZE,
@@ -84,14 +86,13 @@ export async function fetchAllActions(recordingId, {
     if (!data) return page === 0 ? null : { actions, total, complete: false };
 
     const batch = Array.isArray(data.actions) ? data.actions.map(normalizeAction) : [];
-    actions.push(...batch);
+    const fresh = afterSequence == null ? batch : batch.filter((action) => action?.sequence > afterSequence);
+    actions.push(...fresh);
     if (Number.isFinite(data.total_actions)) total = data.total_actions;
     if (!data.has_more || batch.length === 0) return { actions, total, complete: true };
 
-    const lastSequence = batch[batch.length - 1]?.sequence;
-    if (!Number.isFinite(lastSequence) || (afterSequence != null && lastSequence <= afterSequence)) {
-      return { actions, total, complete: false };
-    }
+    const lastSequence = fresh[fresh.length - 1]?.sequence;
+    if (!Number.isFinite(lastSequence)) return { actions, total, complete: false };
     afterSequence = lastSequence;
   }
 
