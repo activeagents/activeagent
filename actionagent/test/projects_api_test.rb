@@ -248,6 +248,42 @@ class ProjectsApiTest < ActionDispatch::IntegrationTest
     assert_response :bad_request
   end
 
+  test "reading a repository outside the selection needs :manage_github, and GitHub is not asked without it" do
+    stub_request(:get, "https://api.github.com/repos/someone/private-app")
+      .to_return(status: 200, body: { id: 7, full_name: "someone/private-app", private: true, default_branch: "main" }.to_json)
+    stub_contents("someone/private-app", "Gemfile.lock" => rails_lock, "config/application.rb" => "# app\n",
+      ".env.example" => "INTERNAL_PAYMENTS_TOKEN=\n")
+    stub_tree("someone/private-app", "main", [])
+    stub_supported_repository
+    stub_tree("acme/shop", "main", [])
+    asked = []
+    ActionAgent.permission_checker = lambda do |_user, action, subject|
+      asked << [ action, subject.class.name ]
+      false
+    end
+
+    %w[preflight discover_secrets].each do |endpoint|
+      get "#{BASE}/#{endpoint}", params: { repository: "someone/private-app" }
+
+      assert_response :forbidden, endpoint
+      body = JSON.parse(response.body)
+      assert_equal [ "forbidden", "manage_github" ], body.values_at("code", "permission")
+      assert_not_includes response.body, "INTERNAL_PAYMENTS_TOKEN"
+    end
+    assert_not_requested(:get, %r{\Ahttps://api\.github\.com/repos/someone/private-app})
+    assert_equal [ [ :manage_github, "ActionAgent::GithubConnection" ] ], asked.uniq
+
+    get "#{BASE}/preflight", params: { repository: "acme/shop" }
+    assert_response :success, "the selection is every member's to read"
+    get "#{BASE}/discover_secrets", params: { repository: "acme/shop" }
+    assert_response :success
+
+    ActionAgent.permission_checker = ->(_user, action, _subject) { action == :manage_github }
+    get "#{BASE}/discover_secrets", params: { repository: "someone/private-app" }
+    assert_response :success
+    assert_equal [ "INTERNAL_PAYMENTS_TOKEN" ], JSON.parse(response.body)["variables"].map { |variable| variable["name"] }
+  end
+
   test "a revoked GitHub token asks for GitHub to be reconnected" do
     stub_request(:get, %r{\Ahttps://api\.github\.com/repos/acme/shop/contents/}).to_return(status: 401, body: "{}")
 
@@ -317,6 +353,7 @@ class ProjectsApiTest < ActionDispatch::IntegrationTest
     assert_equal "manage_github", JSON.parse(response.body)["permission"]
     assert_equal 0, ActionAgent::Project.count
     assert_equal [ "acme/shop" ], @connection.reload.repository_names
+    assert_not_requested(:get, %r{\Ahttps://api\.github\.com/repos/acme/billing})
 
     ActionAgent.permission_checker = nil
     post BASE, params: { repository: "acme/billing" }, as: :json

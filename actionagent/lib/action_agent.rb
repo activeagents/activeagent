@@ -111,7 +111,8 @@ module ActionAgent
   #
   #   :manage_credentials     store, test or delete a provider credential
   #   :manage_github          connect, disconnect, or choose the repositories of
-  #                           the GitHub connection
+  #                           the GitHub connection, or read a repository it has
+  #                           not selected
   #   :manage_api_keys        create or revoke a dashboard API key
   #   :publish_pull_request   open a pull request from a sandbox's changes
   #   :answer_input_request   answer or decline a run's request for input
