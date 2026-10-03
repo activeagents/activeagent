@@ -71,6 +71,15 @@ ActionAgent::Engine.routes.draw do
       end
     end
 
+    # What paused runs are waiting on a person for, and the answers that
+    # resume them.
+    resources :input_requests, only: [ :index ] do
+      member do
+        post :answer
+        post :decline
+      end
+    end
+
     # Sandboxes. The engine ships the in-memory and local backends; an
     # operator registers the rest (see ActionAgent.sandbox_backends).
     resources :sandboxes, param: :id, only: [ :index, :create, :show, :destroy ] do

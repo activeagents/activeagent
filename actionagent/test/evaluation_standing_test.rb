@@ -53,6 +53,30 @@ class ActionAgentEvaluationStandingTest < ActiveSupport::TestCase
     assert_equal "current", ActionAgent::EvaluationStanding.new(evaluation.reload).standing
   end
 
+  test "a change to the tools that wait for approval makes an earlier run stale" do
+    evaluation = build
+    run = complete_run(evaluation)
+    agent = evaluation.agent
+
+    agent.update!(approval_required_tools: [ "calculate" ])
+
+    standing = ActionAgent::EvaluationStanding.new(evaluation.reload)
+    assert_equal "stale", standing.standing
+    assert_equal "earlier", standing.version_state(run.reload)
+  end
+
+  test "a version snapshotted before agents had an approval list matches one with an empty list" do
+    evaluation = build
+    run = complete_run(evaluation)
+    version = run.agent_version || evaluation.agent.latest_version
+    run.update!(agent_version: version)
+    version.update_columns(configuration_snapshot: version.configuration_snapshot.except("approval_required_tools"))
+
+    evaluation.agent.update!(appearance: { "color" => "red" })
+
+    assert_equal "current", ActionAgent::EvaluationStanding.new(evaluation.reload).version_state(run.reload)
+  end
+
   test "the headline run is the newest complete run; a newer pending or failed run shows beside it" do
     evaluation = build
     finished = complete_run(evaluation, created_at: 2.minutes.ago)

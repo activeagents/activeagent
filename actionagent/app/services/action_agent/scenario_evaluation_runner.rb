@@ -215,6 +215,9 @@ module ActionAgent
         actor: replay_actor,
         runtime_sandbox: sandbox_server_key
       )
+      # A replay has nobody to answer, so a paused run ends here as an error.
+      paused = agent_run.awaiting_input?
+      agent_run.cancel!("Paused for input during an evaluation replay") if paused
 
       Evals::Replay.new(
         answer: agent_run.output,
@@ -222,11 +225,17 @@ module ActionAgent
         duration_ms: agent_run.calculated_duration_ms,
         input_tokens: agent_run.input_tokens,
         output_tokens: agent_run.output_tokens,
-        error: agent_run.failed? ? agent_run.error_message.presence || "run failed" : nil,
+        error: replay_error(agent_run, paused),
         cost: ModelPricing.estimate(model: spec.model, provider: spec.provider, input_tokens: agent_run.input_tokens,
                                     output_tokens: agent_run.output_tokens),
         metadata: { "agent_run_id" => agent_run.id }
       )
+    end
+
+    def replay_error(agent_run, paused)
+      return "paused for input" if paused
+
+      agent_run.failed? ? agent_run.error_message.presence || "run failed" : nil
     end
 
     # The caller a replay runs on behalf of: the evaluation's owner, when the
