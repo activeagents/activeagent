@@ -18,7 +18,9 @@ module ActionAgent
   # (`sent_at` may also be ISO 8601). The batch's clock offset, receive time
   # minus `sent_at`, is added to every timestamp, so a batch from a client
   # whose clock is wrong is still stored in server time. An event without a
-  # timestamp is placed at `sent_at`.
+  # timestamp is placed at `sent_at`. A timestamp more than EVENT_WINDOW_BEFORE
+  # before `sent_at`, or more than EVENT_WINDOW_AFTER after it, refuses the
+  # batch.
   #
   # The batch is stored whole or not at all. RecordingEvent.limits caps it,
   # and caps the recording's totals. A refused batch over a cap is counted
@@ -28,6 +30,12 @@ module ActionAgent
     Result = Struct.new(:status, :body, keyword_init: true)
 
     PAYLOAD_TOO_LARGE = 413
+
+    EVENT_WINDOW_BEFORE = 24.hours
+    EVENT_WINDOW_AFTER = 1.minute
+    # 1970 through the end of 9999, in epoch milliseconds: what every
+    # supported database can store.
+    SENT_AT_RANGE = (0..253_402_300_799_999).freeze
 
     # @param recording [SessionRecording] the recording the batch was posted to
     # @param body [String] the request body
@@ -59,7 +67,7 @@ module ActionAgent
       sent_at = epoch_milliseconds(batch["sent_at"])
       return invalid("sent_at must be the client's send time, in epoch milliseconds or ISO 8601") unless sent_at
 
-      problem = event_problem(events)
+      problem = event_problem(events, sent_at)
       return invalid(problem) if problem
 
       offset = RecordingEvent.milliseconds(@received_at) - sent_at
@@ -79,13 +87,18 @@ module ActionAgent
     end
 
     # Why +events+ cannot be stored, or nil when they can.
-    def event_problem(events)
+    def event_problem(events, sent_at)
       return "Every event must be a JSON object" unless events.all?(Hash)
 
       refused = events.map { |event| event["kind"].to_s.presence || "(missing)" }.uniq - @kinds
       return "Event kinds not accepted here: #{refused.join(', ')}. Accepted: #{@kinds.join(', ')}" if refused.any?
 
       return "An event timestamp must be epoch milliseconds" unless events.all? { |event| event["timestamp"].nil? || event["timestamp"].is_a?(Numeric) }
+
+      window = (sent_at - EVENT_WINDOW_BEFORE.in_milliseconds)..(sent_at + EVENT_WINDOW_AFTER.in_milliseconds)
+      unless events.all? { |event| event["timestamp"].nil? || window.cover?(event["timestamp"]) }
+        return "An event timestamp must be within #{EVENT_WINDOW_BEFORE.inspect} before sent_at and #{EVENT_WINDOW_AFTER.inspect} after it"
+      end
 
       nil
     end
@@ -133,11 +146,15 @@ module ActionAgent
       end
     end
 
+    # +value+ in epoch milliseconds, or nil when it is not a time in
+    # SENT_AT_RANGE.
     def epoch_milliseconds(value)
-      case value
-      when Numeric then value.floor
-      when String then RecordingEvent.milliseconds(Time.iso8601(value))
-      end
+      milliseconds =
+        case value
+        when Numeric then value.floor if value.finite?
+        when String then RecordingEvent.milliseconds(Time.iso8601(value))
+        end
+      milliseconds if SENT_AT_RANGE.cover?(milliseconds)
     rescue ArgumentError
       nil
     end

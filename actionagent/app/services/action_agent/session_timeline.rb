@@ -141,13 +141,14 @@ module ActionAgent
       full = { message: message_lane, llm: llm_lane, tool: tool_lane, browser: browser_lane }
       lanes = full.transform_values { |entries| entries.first(LANE_LIMIT) }
       entries = lanes.values.flatten
-      ends = entries.map { |entry| Time.iso8601(entry[:start]) + (entry[:duration_ms].to_f / 1000) }
+      starts = entries.map { |entry| Time.iso8601(entry[:start]) }
+      ends = entries.zip(starts).map { |entry, start| start + (entry[:duration_ms].to_f / 1000) }
 
       without_sensitive_state(
         session: {
           kind: @kind,
           id: @id,
-          started_at: entries.map { |entry| entry[:start] }.min,
+          started_at: starts.min&.then { |start| timestamp(start) },
           ended_at: ends.max&.iso8601(3),
           trace_ids: @trace_ids,
           agent_run_ids: @runs.map(&:id),

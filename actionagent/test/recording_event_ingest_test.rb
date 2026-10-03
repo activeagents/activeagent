@@ -168,6 +168,38 @@ class RecordingEventIngestTest < ActionDispatch::IntegrationTest
     assert_match(/sent_at/, response.parsed_body["error"])
   end
 
+  test "a batch with an event far from its send time is refused whole" do
+    [ now_ms - 25.hours.in_milliseconds, now_ms + 2.minutes.in_milliseconds, 1e22 ].each do |timestamp|
+      post_with_token batch([ rrweb, rrweb(timestamp) ])
+
+      assert_response :unprocessable_entity, timestamp.to_s
+      assert_match(/within 24 hours before sent_at and 1 minute after it/, response.parsed_body["error"], timestamp.to_s)
+    end
+    post_with_token %({"sent_at": #{now_ms}, "events": [{"kind": "rrweb", "timestamp": 1e400, "data": {}}]})
+    assert_response :unprocessable_entity, "an infinite timestamp"
+
+    assert_equal 0, @recording.recording_events.count
+  end
+
+  test "a send time outside what a database can store is refused" do
+    [ 1e22, -1, "+10000-01-01T00:00:00Z" ].each do |sent_at|
+      post_with_token batch([ { kind: "marker", data: { label: "checkout" } } ], sent_at: sent_at)
+
+      assert_response :unprocessable_entity, sent_at.to_s
+      assert_match(/sent_at/, response.parsed_body["error"], sent_at.to_s)
+    end
+    post_with_token %({"sent_at": 1e400, "events": [{"kind": "marker", "data": {}}]})
+    assert_response :unprocessable_entity, "an infinite send time"
+  end
+
+  test "an event from up to a day before the send time is stored" do
+    post_with_token batch([ rrweb(now_ms - 23.hours.in_milliseconds), rrweb ])
+
+    assert_response :created
+    row = @recording.recording_events.sole
+    assert_in_delta 23.hours, row.occurred_to - row.occurred_from, 1.second
+  end
+
   test "a body that is not a batch is refused" do
     post_with_token "not json"
     assert_response :unprocessable_entity
