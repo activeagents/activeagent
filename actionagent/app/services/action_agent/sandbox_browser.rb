@@ -81,9 +81,10 @@ module ActionAgent
 
     # Marks +sandbox+'s browser stopped and clears its endpoint and token, so
     # no run reaches it any more, then records the minutes it ran
-    # (ActionAgent.record_usage with :browser_minutes) and completes the
-    # sandbox's live recordings. Asks nothing of the backend. Does nothing
-    # unless the browser was starting or running.
+    # (ActionAgent.record_usage with :browser_minutes, against
+    # SandboxSession#metering_owner) and completes the sandbox's live
+    # recordings. Asks nothing of the backend. Does nothing unless the
+    # browser was starting or running.
     #
     # @return [Integer, nil] the minutes recorded, nil when none were
     def self.finish!(sandbox)
@@ -98,7 +99,7 @@ module ActionAgent
       end
       return nil unless finished
 
-      ActionAgent.record_usage(sandbox.owner, :browser_minutes, minutes) if minutes
+      ActionAgent.record_usage(sandbox.metering_owner, :browser_minutes, minutes) if minutes
       SessionRecording.recording.where(sandbox_session_id: sandbox.id).find_each(&:complete!)
       minutes
     end

@@ -218,6 +218,17 @@ module ActionAgent
       [ ((stopped_at - browser_started_at) / 60.0).ceil, 1 ].max
     end
 
+    # Who this session's browser minutes are metered against: the tenant in a
+    # multi-tenant install, the owner ApplicationController#current_owner
+    # resolves and the quota checker is asked about, and the session's owner
+    # otherwise.
+    def metering_owner
+      return owner unless ActionAgent.multi_tenant?
+
+      account_class = ActionAgent.account_class.to_s.safe_constantize
+      account_class.find_by(id: account_id) if account_class && account_id
+    end
+
     # The browser for an API response: never its token or its MCP endpoint.
     #
     # @return [Hash]
