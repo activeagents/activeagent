@@ -23,6 +23,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   are native. Instructions are sent as `system` messages, and provider defaults
   such as thinking mode are left unchanged. Thinking is billed and disables
   sampling parameters; prompts can opt out with `thinking: { type: "disabled" }`.
+- **Pause a generation to ask the user, and resume it with the answer**
+  (`activeagent`). A tool returns an `ActiveAgent::InputRequest` (`:text`,
+  `:choice`, `:confirm` or `:secret`); the turn's other calls finish, nothing
+  is sent back to the model, and the response is `awaiting_input?` with
+  `input_requests` and a JSON-safe `checkpoint`. `Generation#resume_now(checkpoint:,
+  answers:)`, on the generation that paused or on one built the same way,
+  restores the conversation and dispatches each paused call again with its
+  answer readable through `input_answer` / `InputRequest.answer_for`; `false`
+  declines without running the tool. A `:secret` answer is scrubbed from tool
+  results, telemetry tool spans and tool errors. Pauses publish
+  `input_requested.active_agent` and run `on_input_request` callbacks; a
+  delegated agent that pauses returns `{ error: "input_required" }` to its
+  caller instead, without announcing the pause. Supported by the Anthropic and
+  OpenAI Chat Completions tool loops; under OpenAI Responses and RubyLLM a tool
+  that asks raises `InputRequest::UnsupportedProviderError`.
 
 ### Fixed
 
@@ -34,6 +49,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (`activeagent`). Keep only request-supported message fields.
 - **Name conflicting gems in provider load errors** (`activeagent`). Explain
   when another gem already defines `OpenAI` and show the Gemfile replacement.
+- **Fix a forced Anthropic `tool_choice` failing on a third turn**
+  (`activeagent`). Once the forced tool was used, the next turn cleared
+  `tool_choice`, and the turn after it raised `Anthropic::Errors::ConversionError`
+  reading the cleared value back.
 
 ## [1.8.1] - 2026-10-01
 

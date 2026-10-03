@@ -151,14 +151,15 @@ module ActiveAgent
         # Processes function/tool calls from the API response
         #
         # Executes each tool call and creates tool response messages
-        # for the next iteration of the conversation.
+        # for the next iteration of the conversation. Pushes nothing when a
+        # tool asked the user for input.
         #
         # @param api_function_calls [Array<Hash>] function calls with :type, :id, and :function keys
         # @return [void]
         # @see Base#process_function_calls
         def process_function_calls(api_function_calls)
-          api_function_calls.each do |api_function_call|
-            content = instrument("tool_call.active_agent", tool_name: api_function_call.dig(:function, :name)) do
+          results = dispatch_tool_calls(api_function_calls) do |api_function_call|
+            instrument("tool_call.active_agent", tool_name: api_function_call.dig(:function, :name)) do
               case api_function_call[:type].to_s
               when "function"
                 process_tool_call_function(api_function_call[:function])
@@ -166,7 +167,11 @@ module ActiveAgent
                 fail "Unexpected Tool Call Type: #{api_function_call[:type]}"
               end
             end
+          end
 
+          return unless results
+
+          api_function_calls.zip(results).each do |api_function_call, content|
             # Create tool message using gem's message param class
             message = ::OpenAI::Models::Chat::ChatCompletionToolMessageParam.new(
               role: "tool",
@@ -202,6 +207,13 @@ module ActiveAgent
           api_message = api_response[:choices][0][:message]
 
           [ api_message ]
+        end
+
+        # @see InputRequests#tool_call_reference
+        # @param api_function_call [Hash]
+        # @return [Array(String, String)]
+        def tool_call_reference(api_function_call)
+          [ api_function_call[:id].to_s, api_function_call.dig(:function, :name).to_s ]
         end
 
         # Extracts function calls from the last message in the stack.
