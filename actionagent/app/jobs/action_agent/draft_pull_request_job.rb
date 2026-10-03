@@ -3,7 +3,9 @@
 module ActionAgent
   # Runs one queued publish of a DraftPullRequest through
   # DraftPullRequestPublisher, after asking ActionAgent.permission_checker
-  # again whether the user who asked for it may publish pull requests.
+  # again whether the user who asked for it may publish pull requests. A
+  # project's install pull request is published with the files the project
+  # generates (ProjectInstallPullRequest).
   #
   # Takes the record's id and nothing else: the token is minted while the
   # job runs, and never passes through the queue. Not retried, since a
@@ -21,7 +23,7 @@ module ActionAgent
       record = DraftPullRequest.find(draft_pull_request_id)
       user = record.publisher
       if ActionAgent.permitted?(user, :publish_pull_request, record)
-        DraftPullRequestPublisher.new(record.sandbox_session, user: user).publish!(record)
+        ProjectInstallPullRequest.publisher_for(record, user: user).publish!(record)
       else
         record.update!(status: "failed", error_code: "forbidden", error_message: "You do not have permission to publish pull requests")
       end

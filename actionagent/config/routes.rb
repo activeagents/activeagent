@@ -133,6 +133,11 @@ ActionAgent::Engine.routes.draw do
       get :input_requests, to: "project_setup#input_requests"
       get :app_models, to: "project_setup#app_models"
       put :schema_tools, to: "project_setup#schema_tools"
+      # The pull request that installs the engine in the repository.
+      resource :install_pull_request, only: [ :show, :create ], controller: "project_install_pull_requests" do
+        post :preview
+        get :patch
+      end
     end
 
     # Tool inventory — auto-detected from the tool roster each generation
