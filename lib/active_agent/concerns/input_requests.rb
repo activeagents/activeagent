@@ -69,9 +69,9 @@ module ActiveAgent
     end
 
     # Continues a generation that paused for input. The action has already
-    # run again, so tools, instructions and options are current; the
-    # conversation is replaced with the checkpoint's, not merged with what the
-    # action added.
+    # run, so tools, instructions and options are current; the conversation
+    # is replaced with the checkpoint's, not merged with what the action
+    # added.
     #
     # Answers to `:secret` requests are scrubbed from every tool result and
     # tool error of this generation, so they reach neither the model nor
@@ -84,7 +84,7 @@ module ActiveAgent
     #   is sent, when the answers or the checkpoint do not fit
     def resume_prompt(checkpoint:, answers:)
       resume = InputRequest::Resume.new(checkpoint:, answers:)
-      resume.assert_action!(action_name)
+      resume.assert_action!(generation_action_name)
 
       input_request_secrets.concat(resume.secret_answers)
       prompt_options[:messages] = resume.messages
@@ -96,6 +96,18 @@ module ActiveAgent
     end
 
     private
+
+    # Records the action the generation runs. A tool call runs through
+    # `process` as well, and replaces `action_name` with the tool's name.
+    def process(method_name, ...)
+      @_generation_action_name = method_name.to_s unless tool_call?
+      super
+    end
+
+    # @return [String, nil] the action this agent's generation runs
+    def generation_action_name
+      @_generation_action_name
+    end
 
     # @return [Array<String>] the secret answers this generation has received
     def input_request_secrets
@@ -134,10 +146,17 @@ module ActiveAgent
     def run_input_request_callbacks(response)
       return unless response.respond_to?(:awaiting_input?) && response.awaiting_input?
 
+      # `only:` and `except:` compare against action_name, which the tool
+      # calls before the pause replaced with their own names.
+      tool_action_name, self.action_name = action_name, generation_action_name
       @_input_request_response = response
-      run_callbacks(:input_request)
-    ensure
-      @_input_request_response = nil
+
+      begin
+        run_callbacks(:input_request)
+      ensure
+        self.action_name = tool_action_name
+        @_input_request_response = nil
+      end
     end
   end
 end

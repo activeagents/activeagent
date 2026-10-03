@@ -336,7 +336,7 @@ module ActiveAgent
         exception_handler:,
         stream_broadcaster:,
         tools_function:,
-        action_name: action_name&.to_s,
+        action_name: generation_action_name,
         input_request_resume: @_input_request_resume
       )
 
