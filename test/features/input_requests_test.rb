@@ -236,6 +236,21 @@ class InputRequestsTest < ActiveSupport::TestCase
     assert_equal plain.release_digest, asking.release_digest
   end
 
+  test "on_input_request only: and except: name the generation's action, not the tool that paused it" do
+    seen = []
+    agent_class = Class.new(RefundAgent) do
+      def self.name = "ScopedCallbackRefundAgent"
+
+      on_input_request(only: :triage) { seen << [ :only, action_name ] }
+      on_input_request(except: :triage) { seen << :except }
+    end
+
+    ScriptedProvider.script([ self.class.tool_use("call_1", "issue_refund", order_id: 7, amount: 40) ])
+    agent_class.triage(order_id: 7).generate_now
+
+    assert_equal [ [ :only, "triage" ] ], seen
+  end
+
   test "on_input_request callbacks do not run for a generation that finishes" do
     seen = []
     agent_class = Class.new(RefundAgent) do
@@ -269,6 +284,20 @@ class InputRequestsTest < ActiveSupport::TestCase
     assert_equal %w[user assistant user], sent.map { _1[:role].to_s }
     assert_equal [ [ "call_1", { order_id: 7, total: 40 }.to_json ], [ "call_2", { refunded: 40 }.to_json ] ],
                  sent.last[:content].map { [ _1[:tool_use_id], _1[:content] ] }
+  end
+
+  test "the generation that paused can resume itself" do
+    ScriptedProvider.script([
+      self.class.tool_use("call_1", "lookup_order", order_id: 7),
+      self.class.tool_use("call_2", "issue_refund", order_id: 7, amount: 40)
+    ])
+    generation = RefundAgent.triage(order_id: 7)
+    paused     = generation.generate_now
+
+    response = generation.resume_now(checkpoint: paused.checkpoint, answers: { "call_2" => true })
+
+    assert_not response.awaiting_input?
+    assert_equal [ [ :lookup_order ], [ :issue_refund, true ] ], RefundAgent.calls
   end
 
   test "resuming replaces the conversation rather than adding the action's message to it" do

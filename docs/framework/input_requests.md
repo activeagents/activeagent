@@ -12,7 +12,7 @@ Some tools should not run on the model's word alone. A refund wants a person to 
 2. The provider runs the turn's other tool calls as usual, keeps their results, and ends the generation **paused**. Nothing is sent back to the model.
 3. The paused response carries the questions (`input_requests`) and a JSON-safe `checkpoint`.
 4. Your app shows the questions, collects answers, and calls `resume_now(checkpoint:, answers:)` on the same agent action.
-5. The action runs again to rebuild its tools and instructions, the conversation is restored from the checkpoint, and each paused tool call runs again — this time with its answer available. All of the turn's results go to the model together, in the order the model asked for them, and the tool loop carries on.
+5. A new generation runs the action again to rebuild its tools and instructions. The conversation is restored from the checkpoint, and each paused tool call runs again — this time with its answer available. All of the turn's results go to the model together, in the order the model asked for them, and the tool loop carries on.
 
 ## Asking from a tool
 
@@ -74,7 +74,7 @@ end
 
 ## Resuming
 
-Build the generation the same way as the paused one — same agent, action, arguments and params — and pass the checkpoint with one answer per paused tool call id:
+Call `resume_now` on the generation that paused, or, from another request or job, on one built the same way — same agent, action, arguments and params. Pass the checkpoint with one answer per paused tool call id:
 
 ```ruby
 question = PendingQuestion.find(params[:id])
@@ -154,7 +154,7 @@ class SupportAgent < ApplicationAgent
 end
 ```
 
-`resuming?` is true inside callbacks and tools while a paused generation continues.
+`only:` and `except:` name the generation's action, not the tool that paused it. `resuming?` is true inside callbacks and tools while a paused generation continues.
 
 Each pause also publishes `input_requested.active_agent`, with the requests in `payload[:input_requests]`, and telemetry marks the generation's root span with `agent.awaiting_input`.
 

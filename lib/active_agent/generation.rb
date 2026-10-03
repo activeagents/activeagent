@@ -105,11 +105,12 @@ module ActiveAgent
 
     # Continues a generation that paused for user input.
     #
-    # Call it on a generation built the same way as the paused one — same
-    # agent, action, arguments and params. The action runs again so tools,
-    # instructions and options are rebuilt; then the conversation is replaced
-    # with the checkpoint's, and each paused tool call is dispatched again
-    # with its answer readable through {InputRequest.answer_for}. Calls that
+    # Call it on the generation that paused, or on one built the same way —
+    # same agent, action, arguments and params — in another request or
+    # process. A new generation runs the action again, so tools, instructions
+    # and options are rebuilt. Either way the conversation is replaced with
+    # the checkpoint's, and each paused tool call is dispatched again with
+    # its answer readable through {InputRequest.answer_for}. Calls that
     # finished before the pause keep their results.
     #
     # @param checkpoint [Hash] the paused response's
