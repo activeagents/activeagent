@@ -8,6 +8,7 @@ import {
   formatElapsed,
   isRepositoryName,
   parseProjectPath,
+  projectNameAfterPick,
   projectPath,
   repoPickerState,
   secretNameProblem,
@@ -15,6 +16,7 @@ import {
   secretWarnings,
   secretsFormProblem,
   secretsPayload,
+  withSecretRow,
 } from '../utils/projects.mjs';
 
 // The Projects views' rules, which mirror ActionAgent::ProjectSecret and the
@@ -140,4 +142,21 @@ test('project paths round-trip', () => {
   assert.deepEqual(parseProjectPath('/projects/new'), { creating: true });
   assert.deepEqual(parseProjectPath('/projects'), {});
   assert.deepEqual(parseProjectPath('/projects/abc'), {});
+});
+
+test("a variable added by hand offers the organization's key when it names a provider key", () => {
+  const rows = withSecretRow(withSecretRow([], 'OPENAI_API_KEY'), 'MAILER_PASSWORD');
+
+  assert.deepEqual(rows.map((row) => [row.name, row.organizationKey, row.required, row.set, row.value]), [
+    ['OPENAI_API_KEY', 'openai', false, false, ''],
+    ['MAILER_PASSWORD', null, false, false, ''],
+  ]);
+});
+
+test("the project's name follows each picked repository until the user types one", () => {
+  let name = projectNameAfterPick({ name: '', edited: false, fullName: 'acme/a' });
+  assert.equal(name, 'acme/a');
+  name = projectNameAfterPick({ name, edited: false, fullName: 'acme/b' });
+  assert.equal(name, 'acme/b', 're-picking renames a project the user did not name');
+  assert.equal(projectNameAfterPick({ name: 'Storefront', edited: true, fullName: 'acme/c' }), 'Storefront');
 });

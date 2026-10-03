@@ -60,6 +60,18 @@ export function secretRows(variables = [], existing = []) {
   }));
 }
 
+// `rows` with a row for `name`, a variable typed into the form by hand. A
+// provider key's name offers the organization's key, as a discovered one does.
+export function withSecretRow(rows, name) {
+  return [...rows, ...secretRows([{ name }])];
+}
+
+// The New Project page's name once `fullName` is picked: the repository's
+// own name, unless the user typed one.
+export function projectNameAfterPick({ name, edited, fullName }) {
+  return edited ? name : fullName;
+}
+
 // The secrets a form submits: rows with a value, or using the organization's
 // key. Rows left empty are skipped.
 export function secretsPayload(rows) {

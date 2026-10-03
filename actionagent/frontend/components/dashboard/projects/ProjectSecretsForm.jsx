@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Badge, Button, MicroLabel, MONO } from '../primitives';
-import { secretNameProblem, secretWarnings } from '../../../utils/projects.mjs';
+import { secretNameProblem, secretWarnings, withSecretRow } from '../../../utils/projects.mjs';
 
 const inputStyle = {
   width: '100%', padding: '6px 10px', borderRadius: 6, fontSize: 13, fontFamily: MONO,
@@ -99,7 +99,7 @@ export default function ProjectSecretsForm({ rows, onChange, repository }) {
           style={{ marginTop: 20 }}
           disabled={!newName || Boolean(newNameProblem)}
           onClick={() => {
-            onChange([...rows, { name: newName, required: false, sources: [], description: null, organizationKey: null, set: false, value: '', useOrganizationKey: false, consent: false }]);
+            onChange(withSecretRow(rows, newName));
             setNewName('');
           }}
         >

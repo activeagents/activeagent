@@ -8,6 +8,7 @@ import { apiErrorMessage } from '../../../utils/codeSessions.mjs';
 import {
   PREFLIGHT_TONES,
   createProblem,
+  projectNameAfterPick,
   repoPickerState,
   secretRows,
   secretsFormProblem,
@@ -58,6 +59,7 @@ export default function NewProject({ onCreated, onCancel }) {
   const [checking, setChecking] = useState(false);
   const [rows, setRows] = useState([]);
   const [name, setName] = useState('');
+  const [nameEdited, setNameEdited] = useState(false);
   const [startUrl, setStartUrl] = useState('/');
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState(null);
@@ -109,7 +111,7 @@ export default function NewProject({ onCreated, onCancel }) {
       }
       setSelected(data.repository.full_name);
       setPreflight(data.preflight);
-      if (!name) setName(data.repository.full_name);
+      setName((current) => projectNameAfterPick({ name: current, edited: nameEdited, fullName: data.repository.full_name }));
       setRows([]);
       if (data.preflight.status === 'unsupported') return;
 
@@ -122,7 +124,7 @@ export default function NewProject({ onCreated, onCancel }) {
     } finally {
       setChecking(false);
     }
-  }, [name]);
+  }, [nameEdited]);
 
   const create = async () => {
     setCreating(true);
@@ -192,7 +194,15 @@ export default function NewProject({ onCreated, onCancel }) {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 8 }}>
             <label style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>
               Name
-              <input type="text" value={name} onChange={(event) => setName(event.target.value)} style={{ ...fieldStyle, marginTop: 4 }} />
+              <input
+                type="text"
+                value={name}
+                onChange={(event) => {
+                  setName(event.target.value);
+                  setNameEdited(event.target.value !== '');
+                }}
+                style={{ ...fieldStyle, marginTop: 4 }}
+              />
             </label>
             <label style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>
               Start URL (must not answer 5xx once booted)
