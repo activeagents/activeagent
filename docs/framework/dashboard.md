@@ -1378,7 +1378,8 @@ tries these sources in order:
 | Generation | Actor |
 |---|---|
 | Agent runs | the user who started the run; over MCP, the user who created the API key |
-| The evaluation form's provider list, the model pickers, the dashboard assistant | the signed-in user |
+| The agent builder's model pickers, the dashboard assistant | the signed-in user |
+| Scenario replays, and the evaluation form's provider list | the caller a replay runs as (`ScenarioEvaluationRunner.replay_actor_for`): none on a multi-tenant install, so the organization key |
 | The evaluation judge | none, so the organization key |
 | Sandbox environments, Claude Code and Codex status | none: personal keys never reach a sandbox, and Claude Code and Codex keys are organization keys only |
 

@@ -53,9 +53,12 @@ module ActionAgent
       #                            raised
       #   - judge_provider_error:  true when that lookup raised, as it does
       #                            when a stored key no longer decrypts
-      #   - model_providers:       the providers agent runs have credentials
-      #                            for, leaving out any whose credentials
-      #                            cannot be read
+      #   - model_providers:       the providers scenario replays have
+      #                            credentials for, leaving out any whose
+      #                            credentials cannot be read. Resolved for
+      #                            the caller replays run as, never the
+      #                            signed-in member, whose personal keys no
+      #                            replay uses.
       def index
         scope = evaluations_scope
         scope = scope.where(agent_id: params[:agent_id]) if params[:agent_id].present?
@@ -69,7 +72,9 @@ module ActionAgent
           evaluations: evaluations.map { |evaluation| serialize(evaluation) },
           archived_count: archived_count,
           **judge_provider_fields(owner),
-          model_providers: AgentExecutionService.available_providers(owner, actor: current_user)
+          model_providers: AgentExecutionService.available_providers(
+            owner, actor: ScenarioEvaluationRunner.replay_actor_for(owner)
+          )
         }
       end
 

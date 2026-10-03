@@ -41,6 +41,22 @@ module ActionAgent
       new(evaluation, selection: selection, run: run).call
     end
 
+    # The caller a replay of +owner+'s agent runs on behalf of, which is also
+    # who its provider credentials are resolved for: +owner+, when the
+    # install owns agents per user. A run with no caller reads, through any
+    # host scope, as "no access" — every tool answers empty and the suite
+    # grades an agent that never saw a row — so the person the evaluation
+    # belongs to is the right default, as the key's owner is over MCP. An
+    # account is who is billed, not who is allowed (see Api::BaseController
+    # #agent_actor), so a multi-tenant install replays unattributed unless a
+    # host adapter (ActionAgent.scenario_evaluation_adapter_resolver) runs
+    # the suite itself.
+    def self.replay_actor_for(owner)
+      return nil if ActionAgent.multi_tenant? || ActionAgent.user_class.blank?
+
+      owner
+    end
+
     def initialize(evaluation, selection: {}, run: nil)
       super(evaluation)
       @selection = (selection || {}).to_h.with_indifferent_access
@@ -229,19 +245,8 @@ module ActionAgent
       )
     end
 
-    # The caller a replay runs on behalf of: the evaluation's owner, when the
-    # install owns agents per user. A run with no caller reads, through any
-    # host scope, as "no access" — every tool answers empty and the suite
-    # grades an agent that never saw a row — so the person the evaluation
-    # belongs to is the right default, as the key's owner is over MCP. An
-    # account is who is billed, not who is allowed (see Api::BaseController
-    # #agent_actor), so a multi-tenant install replays unattributed unless a
-    # host adapter (ActionAgent.scenario_evaluation_adapter_resolver) runs
-    # the suite itself.
     def replay_actor
-      return nil if ActionAgent.multi_tenant? || ActionAgent.user_class.blank?
-
-      owner
+      self.class.replay_actor_for(owner)
     end
 
     # Each tool call the run made, rebuilt from the run's progress events
