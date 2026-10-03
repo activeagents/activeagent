@@ -22,6 +22,7 @@ class SessionIndexTest < ActionDispatch::IntegrationTest
   def teardown
     ActionAgent.user_class = nil
     ActionAgent.current_user_resolver = nil
+    ActionAgent.agent_actor_resolver = nil
   end
 
   # A conversation of +agent+ with one run that wrote a generation to it.
@@ -190,6 +191,21 @@ class SessionIndexTest < ActionDispatch::IntegrationTest
 
     assert_equal [ [ "recording", my_recording.id ], [ "context", mine.id ] ], listed(user: "me")
     assert_equal 4, sessions["total"]
+  end
+
+  test "user=me matches runs on the identity the host's agent actor resolver records, and recordings the user made" do
+    signed_in = User.create!(email: "signed-in-#{SecureRandom.hex(3)}@example.com", name: "Signed in", age: 30)
+    member = User.create!(email: "member-#{SecureRandom.hex(3)}@example.com", name: "Member", age: 30)
+    ActionAgent.user_class = "User"
+    @agent.update!(user_id: signed_in.id)
+    ActionAgent.current_user_resolver = ->(_controller) { signed_in }
+    ActionAgent.agent_actor_resolver = ->(_controller) { member }
+    as_member, = conversation(at: T0, input_params: ActionAgent::AgentRun.params_with_actor({}, member))
+    conversation(at: T0 + 1, input_params: ActionAgent::AgentRun.params_with_actor({}, signed_in))
+    made = ActionAgent::SessionRecording.start_user_session!(owner: signed_in)
+    made.update_columns(created_at: T0 + 2)
+
+    assert_equal [ [ "recording", made.id ], [ "context", as_member.id ] ], listed(user: "me")
   end
 
   test "user=me with nobody signed in matches nothing" do

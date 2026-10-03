@@ -16,7 +16,8 @@ module ActionAgent
       #
       # Parameters, each optional:
       #   agent_id  one of the caller's agents
-      #   user      "me": sessions whose runs ran on behalf of the signed-in user
+      #   user      "me": sessions whose runs ran on behalf of the caller
+      #             (#agent_actor), and the caller's own browser recordings
       #   source    dashboard, evaluation or agent
       #   outcome   failed or passed
       #   from, to  last activity in [from, to), ISO 8601 times or dates
@@ -48,10 +49,14 @@ module ActionAgent
 
       private
 
+      # "Mine" compares the identity runs record (#agent_actor), which a host
+      # may resolve to a record other than its signed-in user.
       def index_filters
+        mine = choice_param(:user, %w[me]).present?
         SessionIndex::Filters.new(
           agent_id: integer_param(:agent_id),
-          actor: choice_param(:user, %w[me]) ? current_user || SessionIndex::NO_ACTOR : nil,
+          actor: mine ? agent_actor || SessionIndex::NO_ACTOR : nil,
+          user: mine ? current_user : nil,
           source: choice_param(:source, SessionIndex::SOURCES),
           outcome: choice_param(:outcome, SessionIndex::OUTCOMES),
           from: time_param(:from),

@@ -1277,7 +1277,7 @@ also the parameters of `GET /api/sessions`:
 | Parameter | Lists |
 |---|---|
 | `agent_id` | one agent's sessions |
-| `user=me` | sessions whose runs ran on behalf of the signed-in user |
+| `user=me` | sessions whose runs ran on behalf of you, and browser recordings you made. "You" is who a run records it ran on behalf of: what `ActionAgent.agent_actor_resolver` returns when the host sets one, else the signed-in user. |
 | `source` | `dashboard`, `evaluation` or `agent` |
 | `outcome` | `failed`: a failed or errored replay, a conversation with a failed run, a failed recording; `passed`: a passed replay |
 | `from`, `to` | last activity in `[from, to)`, as ISO 8601 times or dates |

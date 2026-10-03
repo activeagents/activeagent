@@ -41,7 +41,11 @@ module ActionAgent
     # @!attribute agent_id
     #   @return [Integer] one of the caller's agents
     # @!attribute actor
-    #   @return [Object] the user the sessions' runs were executed on behalf of
+    #   @return [Object] who the sessions' runs were executed on behalf of
+    #     (AgentRun.on_behalf_of)
+    # @!attribute user
+    #   @return [Object] the signed-in user, whose own browser recordings
+    #     match along with the actor's runs. Read only with +actor+.
     # @!attribute source
     #   @return [String] one of SOURCES
     # @!attribute outcome
@@ -51,7 +55,7 @@ module ActionAgent
     #   @return [Time] the earliest last activity, inclusive
     # @!attribute to
     #   @return [Time] the latest last activity, exclusive
-    Filters = Struct.new(:agent_id, :actor, :source, :outcome, :from, :to, keyword_init: true)
+    Filters = Struct.new(:agent_id, :actor, :user, :source, :outcome, :from, :to, keyword_init: true)
 
     # One position in the index: sessions after it sort older.
     Cursor = Struct.new(:time, :kind, :id) do
@@ -249,18 +253,18 @@ module ActionAgent
       AgentRun.where(agent: @all_agents, trace_id: generations.select(:trace_id)).select(:id)
     end
 
-    # A recording's runs were executed on behalf of the actor, or it is the
-    # actor's own.
+    # A recording's runs were executed on behalf of the actor, or the user
+    # made it.
     def recordings_by_actor(scope)
       by_run = scope.where(agent_run_id: AgentRun.on_behalf_of(@filters.actor).select(:id))
       return by_run unless own_recording_column?
 
-      by_run.or(scope.where(user_id: @filters.actor.id))
+      by_run.or(scope.where(user_id: @filters.user.id))
     end
 
     def own_recording_column?
       user_class = ActionAgent.user_class.to_s
-      user_class.present? && @filters.actor.class.name == user_class && SessionRecording.column_names.include?("user_id")
+      user_class.present? && @filters.user.class.name == user_class && SessionRecording.column_names.include?("user_id")
     end
   end
 end
