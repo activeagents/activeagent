@@ -8,16 +8,17 @@ import ProviderKeysCard, { useProviderKeyEditor } from './ProviderKeysCard';
 const TAB_IDS = ['profile', 'api-keys', 'integrations', 'notifications', 'billing'];
 
 // ?tab=… opens a tab directly; the GitHub OAuth callback lands on
-// ?tab=integrations&github=<outcome>.
+// ?tab=integrations&github=<outcome>, and the GitHub App installation and
+// manifest callbacks on ?tab=integrations&github_app=<outcome>.
 function initialQuery() {
   const query = new URLSearchParams(window.location.search);
   const tab = query.get('tab');
-  return { tab: TAB_IDS.includes(tab) ? tab : 'profile', github: query.get('github') };
+  return { tab: TAB_IDS.includes(tab) ? tab : 'profile', github: query.get('github'), githubApp: query.get('github_app') };
 }
 
 export default function SettingsView({ user, account }) {
   const { darkMode, toggleDarkMode } = useTheme();
-  const [{ tab: firstTab, github: githubCallback }] = useState(initialQuery);
+  const [{ tab: firstTab, github: githubCallback, githubApp: githubAppCallback }] = useState(initialQuery);
   const [activeTab, setActiveTab] = useState(firstTab);
   // Bumped when the Claude Code card changes, so the GitHub card re-reads
   // whether sandboxes can run Claude Code sessions.
@@ -358,7 +359,7 @@ export default function SettingsView({ user, account }) {
               from one boots that app's own runtime, so agents and evaluations can run with its tools,
               and Claude Code or Codex can work on the checkout.
             </p>
-            <GithubIntegrationCard callbackStatus={githubCallback} refreshKey={integrationsVersion} />
+            <GithubIntegrationCard callbackStatus={githubCallback} appCallbackStatus={githubAppCallback} refreshKey={integrationsVersion} />
           </div>
           <div className="border rounded-lg p-6" style={cardStyle}>
             <ClaudeCodeIntegrationCard onChange={() => setIntegrationsVersion((v) => v + 1)} />
