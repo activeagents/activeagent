@@ -605,6 +605,57 @@ class DraftPullRequestsTest < ActionDispatch::IntegrationTest
     assert_equal "draft_refused", ActionAgent::DraftPullRequest.sole.status
   end
 
+  test "a second request for a record that is queued or publishing is refused, and enqueues nothing" do
+    sandbox = app_sandbox!
+    stage!(sandbox)
+    stub_github!
+    publish!(sandbox, preview_files: preview!(sandbox), paths: [ "README.md" ])
+    perform_enqueued_jobs
+    record = ActionAgent::DraftPullRequest.sole
+    stage!(sandbox, readme: "# Shop v3\n")
+    files = selection(preview!(sandbox), "README.md")
+
+    post "#{BASE_PATH}/#{sandbox.session_id}/pull_request", params: { update: true, files: files, message: "First" }, as: :json
+    assert_response :accepted
+    post "#{BASE_PATH}/#{sandbox.session_id}/pull_request", params: { update: true, files: files, message: "Second" }, as: :json
+    assert_response :conflict
+    assert_equal [ "queued", "First" ], [ record.reload.status, record.commit_message ]
+
+    record.update_columns(status: "publishing")
+    post "#{BASE_PATH}/#{sandbox.session_id}/pull_request", params: { update: true, files: files }, as: :json
+    assert_response :conflict
+    assert_equal "publishing", record.reload.status
+    assert_equal 1, enqueued_jobs.count { |job| job[:job] == ActionAgent::DraftPullRequestJob }
+  end
+
+  test "a publish that never finishes fails as stalled after STALL_AFTER, and the sandbox can publish again" do
+    sandbox = app_sandbox!
+    stage!(sandbox)
+    preview = preview!(sandbox)
+    publish!(sandbox, preview_files: preview, paths: [ "README.md" ])
+    assert_response :accepted
+    stalled = ActionAgent::DraftPullRequest.sole
+    stalled.update_columns(status: "publishing")
+
+    travel ActionAgent::DraftPullRequest::STALL_AFTER - 1.minute do
+      publish!(sandbox, preview_files: preview, paths: [ "README.md" ], branch: "activeagent/other")
+      assert_response :conflict
+    end
+
+    travel ActionAgent::DraftPullRequest::STALL_AFTER + 1.minute do
+      get "#{BASE_PATH}/#{sandbox.session_id}/pull_request"
+      pull_request = JSON.parse(response.body)["pull_request"]
+      assert_equal [ "failed", "stalled" ], pull_request.values_at("status", "error_code")
+
+      publish!(sandbox, preview_files: preview, paths: [ "README.md" ], branch: "activeagent/other")
+      assert_response :accepted
+    end
+
+    ActionAgent::DraftPullRequestJob.perform_now(stalled.id)
+    assert_equal [ "failed", "stalled" ], [ stalled.reload.status, stalled.error_code ], "the stalled publish's job no longer runs it"
+    assert_not_requested :post, mint_url
+  end
+
   test "the mock backend offers no publishing" do
     ActionAgent.sandbox_service = :mock
     sandbox = app_sandbox!

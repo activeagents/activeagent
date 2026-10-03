@@ -13,8 +13,10 @@ module ActionAgent
   #
   # +status+ is how the last one went: queued, publishing, published,
   # draft_refused (the branch was pushed, the draft was not opened) or
-  # failed. +state+ and +draft+ are what GitHub last reported about the pull
-  # request, read again at most once per STATUS_REFRESH_INTERVAL.
+  # failed. A publish still queued or publishing STALL_AFTER after its last
+  # write is failed as stalled by .fail_stalled!. +state+ and +draft+ are
+  # what GitHub last reported about the pull request, read again at most
+  # once per STATUS_REFRESH_INTERVAL.
   #
   # The +user_id+ is the user who published, also where the owner is the
   # account.
@@ -27,6 +29,7 @@ module ActionAgent
     CREDENTIAL_KINDS = %w[app oauth].freeze
     STATES = %w[open closed merged].freeze
     STATUS_REFRESH_INTERVAL = 1.minute
+    STALL_AFTER = 15.minutes
     DEFAULT_UPDATE_MESSAGE = "Update from the sandbox"
     MAX_TITLE_CHARACTERS = 256
     MAX_BODY_CHARACTERS = 20_000
@@ -42,6 +45,17 @@ module ActionAgent
     validates :state, inclusion: { in: STATES }, allow_nil: true
 
     scope :recent, -> { order(created_at: :desc, id: :desc) }
+
+    # Fails every publish of the relation that is still queued or publishing
+    # STALL_AFTER after it was last written: its job died, or never ran.
+    #
+    # @return [Integer] how many were failed
+    def self.fail_stalled!(now: Time.current)
+      where(status: %w[queued publishing]).where(updated_at: ...(now - STALL_AFTER)).update_all(
+        status: "failed", error_code: "stalled", updated_at: now,
+        error_message: "The publish did not finish within #{STALL_AFTER.inspect}. Check the branch on GitHub, then publish again"
+      )
+    end
 
     # JSON columns carry no default on MySQL or SQLite (see the migration).
     def files
