@@ -116,12 +116,18 @@ module ActionAgent
         @owner
       end
 
-      # The key's user when it records one. Otherwise the owner, unless the
+      # The key's creator when it records one. Otherwise the owner, unless the
       # owner is an account: a tenant is never a user.
       def current_user
-        return @api_key.user if @api_key.respond_to?(:user) && @api_key.user
+        return key_creator if key_creator
 
         ActionAgent.multi_tenant? ? nil : @owner
+      end
+
+      def key_creator
+        return @key_creator if defined?(@key_creator)
+
+        @key_creator = @api_key&.creator
       end
 
       # The agents this key can reach. A key belongs to whoever owns it, and
@@ -147,7 +153,7 @@ module ActionAgent
           if (resolver = ActionAgent.agent_actor_resolver)
             resolver.arity.zero? ? resolver.call : resolver.call(self)
           else
-            @api_key.respond_to?(:user) && @api_key.user ? @api_key.user : @owner
+            key_creator || @owner
           end
       end
 

@@ -15,8 +15,12 @@ module ActionAgent
       end
 
       # POST /api/api_keys
+      #
+      # The key records the user who created it, so a call made with an
+      # account's key acts as that user rather than as the whole account.
       def create
         api_key = owned(ApiKey).new(name: params.require(:name))
+        api_key.user_id = current_user.id if ActionAgent.user_class.present? && current_user.respond_to?(:id)
         return unless authorize_action!(:manage_api_keys, api_key)
 
         api_key.save!
