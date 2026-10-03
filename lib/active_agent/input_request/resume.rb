@@ -12,6 +12,8 @@ module ActiveAgent
     #   - `model`              the model of the paused request
     #   - `action_name`        the agent action the generation ran
     #   - `tool_turns`         tool round-trips used, counted against `max_tool_turns`
+    #   - `tool_choice_cleared` whether a forced `tool_choice` was already
+    #                          cleared because the model used the tool
     #   - `messages`           the provider-native conversation through the
     #                          assistant turn that made the tool calls, without
     #                          the messages the provider derives from instructions
@@ -57,6 +59,9 @@ module ActiveAgent
 
       # @return [Integer]
       def tool_turns = @checkpoint[:tool_turns].to_i
+
+      # @return [Boolean]
+      def tool_choice_cleared? = @checkpoint[:tool_choice_cleared] == true
 
       # Returns the conversation before the turn that made the tool calls.
       #
