@@ -212,6 +212,7 @@ module ActiveAgent
               if result.respond_to?(:finish_reason) && result.finish_reason.present?
                 llm_span.set_attribute("llm.finish_reason", result.finish_reason.to_s)
               end
+              span.set_attribute("agent.awaiting_input", true) if result.try(:awaiting_input?)
 
               llm_span.set_status(:ok)
               llm_span.finish
@@ -254,7 +255,10 @@ module ActiveAgent
             capture_bodies = agent.send(:telemetry_capture_bodies?)
             arguments = kwargs.presence || (args.length == 1 ? args.first : args.presence)
             if arguments.present? && capture_bodies
-              tool_span.set_attribute("tool.input.args", agent.send(:telemetry_truncate, JSON.generate(arguments)))
+              # The result and any error arrive from `base` with secret
+              # answers already scrubbed; the arguments have not been through it.
+              recorded = agent.send(:telemetry_scrub_secrets, JSON.generate(arguments))
+              tool_span.set_attribute("tool.input.args", agent.send(:telemetry_truncate, recorded))
             end
             begin
               result = base.call(tool_name, *args, **kwargs)
@@ -336,6 +340,11 @@ module ActiveAgent
         rescue StandardError => e
           logger&.debug { "[ActiveAgent::Telemetry] could not read rendered messages: #{e.class}: #{e.message}" }
           nil
+        end
+
+        # @return [String] `text` without the generation's secret answers
+        def telemetry_scrub_secrets(text)
+          respond_to?(:scrub_input_request_secrets, true) ? scrub_input_request_secrets(text) : text
         end
 
         def telemetry_truncate(value)

@@ -1,0 +1,532 @@
+# frozen_string_literal: true
+
+require "test_helper"
+require_relative "../../lib/active_agent/providers/mock_provider"
+
+# A tool returns an ActiveAgent::InputRequest to ask the user something; the
+# generation pauses with a checkpoint, and Generation#resume_now continues it
+# with the answers. These tests run the real provider tool loop against a
+# scripted model, so no request leaves the process.
+class InputRequestsTest < ActiveSupport::TestCase
+  # A fake model that answers with a scripted sequence of assistant turns,
+  # in the Anthropic content-block shape, and records every request.
+  class ScriptedProvider < ActiveAgent::Providers::MockProvider
+    # Type resolution derives from the class name; keep the Mock identity.
+    def self.name = "ActiveAgent::Providers::MockProvider"
+
+    class << self
+      attr_accessor :turns, :requests
+
+      def script(*turns)
+        self.turns    = turns
+        self.requests = []
+      end
+    end
+
+    def api_prompt_execute(parameters)
+      ScriptedProvider.requests << parameters[:messages].deep_dup
+
+      content = ScriptedProvider.turns.shift || [ { type: "text", text: "All done." } ]
+      { id: "msg_#{ScriptedProvider.requests.size}", type: "message", role: "assistant", content:, model: "mock-model", stop_reason: "end_turn" }
+    end
+
+    def process_prompt_finished_extract_function_calls
+      message_stack
+        .select { _1[:role].to_s == "assistant" }
+        .flat_map { Array(_1[:content]) }
+        .select { _1.is_a?(Hash) && _1[:type].to_s == "tool_use" }
+    end
+
+    def process_function_calls(calls)
+      results = dispatch_tool_calls(calls) { |call| call_tool_function(call[:name], **call[:input].to_h.symbolize_keys) }
+      return unless results
+
+      content = calls.zip(results).map { |call, result| { type: "tool_result", tool_use_id: call[:id], content: result.to_json } }
+      message_stack.push({ role: "user", content: })
+    end
+  end
+
+  # A provider whose tool loop never adopted dispatch_tool_calls.
+  class UnpausableProvider < ScriptedProvider
+    def process_function_calls(calls)
+      calls.each do |call|
+        result = call_tool_function(call[:name], **call[:input].to_h.symbolize_keys)
+        message_stack.push({ role: "user", content: [ { type: "tool_result", tool_use_id: call[:id], content: result.to_json } ] })
+      end
+    end
+  end
+
+  def self.tool_use(id, name, **input) = { type: "tool_use", id:, name:, input: }
+
+  class RefundAgent < ApplicationAgent
+    generate_with :mock, model: "mock-model"
+    self._prompt_provider_klass = ScriptedProvider
+
+    class_attribute :calls, default: []
+
+    def triage(order_id:)
+      prompt(message: "Handle order #{order_id}", instructions: "You handle refunds.")
+    end
+
+    def lookup_order(order_id:)
+      record(:lookup_order)
+      { order_id:, total: 40 }
+    end
+
+    def issue_refund(order_id:, amount:)
+      return ActiveAgent::InputRequest.confirm("Refund #{amount} on order #{order_id}?") unless input_answer
+
+      record(:issue_refund, input_answer)
+      { refunded: amount }
+    end
+
+    def close_ticket
+      record(:close_ticket)
+      nil
+    end
+
+    def ask_reason
+      reason = input_answer
+      return ActiveAgent::InputRequest.text("Why is the customer asking?") unless reason
+      return ActiveAgent::InputRequest.choice("Which team?", options: %w[billing shipping]) if reason == "escalate"
+
+      record(:ask_reason, reason)
+      { reason: }
+    end
+
+    def deploy(environment:)
+      token = input_answer
+      return ActiveAgent::InputRequest.secret("Paste a deploy token for #{environment}") unless token
+
+      record(:deploy)
+      raise ArgumentError, "token #{token} was rejected" if environment == "broken"
+
+      { deployed: environment, note: "used token #{token}" }
+    end
+
+    private
+
+    def record(*entry) = calls << entry
+  end
+
+  setup do
+    RefundAgent.calls = []
+  end
+
+  def paused_triage(*turns)
+    ScriptedProvider.script(*turns)
+    RefundAgent.triage(order_id: 7).generate_now
+  end
+
+  def resume(response, answers)
+    RefundAgent.triage(order_id: 7).resume_now(checkpoint: JSON.parse(response.checkpoint.to_json), answers:)
+  end
+
+  ##### Pausing #############################################################
+
+  test "a tool that returns an InputRequest pauses the generation" do
+    response = paused_triage([ self.class.tool_use("call_1", "issue_refund", order_id: 7, amount: 40) ])
+
+    assert response.awaiting_input?
+    request = response.input_requests.sole
+    assert_equal :confirm, request.kind
+    assert_equal "call_1", request.tool_call_id
+    assert_equal "issue_refund", request.tool_name
+    assert_equal "Refund 40 on order 7?", request.prompt
+    assert_equal 1, ScriptedProvider.requests.size, "a paused turn sends nothing back to the model"
+    assert_empty RefundAgent.calls
+  end
+
+  test "the other calls of the paused turn complete, and their results wait in the checkpoint" do
+    response = paused_triage([
+      self.class.tool_use("call_1", "lookup_order", order_id: 7),
+      self.class.tool_use("call_2", "issue_refund", order_id: 7, amount: 40)
+    ])
+
+    assert_equal [ [ :lookup_order ] ], RefundAgent.calls
+    assert_equal({ "call_1" => { "order_id" => 7, "total" => 40 } }, response.checkpoint["completed_results"])
+    assert_equal [ "call_2" ], response.input_requests.map(&:tool_call_id)
+  end
+
+  test "a completed call whose tool returned nil still counts as completed" do
+    paused = paused_triage([
+      self.class.tool_use("call_1", "close_ticket"),
+      self.class.tool_use("call_2", "issue_refund", order_id: 7, amount: 40)
+    ])
+
+    assert_equal({ "call_1" => nil }, paused.checkpoint["completed_results"])
+
+    resume(paused, "call_2" => true)
+
+    assert_equal [ [ :close_ticket ], [ :issue_refund, true ] ], RefundAgent.calls
+    assert_equal "null", ScriptedProvider.requests.last.last[:content].first[:content]
+  end
+
+  test "the paused conversation ends with the turn that made the tool calls" do
+    response = paused_triage([ self.class.tool_use("call_1", "issue_refund", order_id: 7, amount: 40) ])
+
+    messages = response.checkpoint["messages"]
+    assert_equal %w[user assistant], messages.map { _1["role"] }
+    assert_equal "call_1", messages.last["content"].sole["id"]
+    assert_equal "assistant", response.message.role.to_s, "no partial tool result follows the tool-call turn"
+  end
+
+  test "the checkpoint survives a JSON round trip unchanged" do
+    response = paused_triage([ self.class.tool_use("call_1", "issue_refund", order_id: 7, amount: 40) ])
+
+    checkpoint = response.checkpoint
+    assert_equal checkpoint, JSON.parse(checkpoint.to_json)
+    assert_equal({ "version" => 1, "service" => "Mock", "provider" => "Mock", "model" => "mock-model", "action_name" => "triage", "tool_turns" => 1 },
+                 checkpoint.slice("version", "service", "provider", "model", "action_name", "tool_turns"))
+  end
+
+  test "pausing announces input_requested.active_agent with the requests" do
+    events = []
+    subscription = ActiveSupport::Notifications.subscribe("input_requested.active_agent") { |*, payload| events << payload }
+
+    paused_triage([ self.class.tool_use("call_1", "issue_refund", order_id: 7, amount: 40) ])
+
+    assert_equal [ "call_1" ], events.sole[:input_requests].map(&:tool_call_id)
+  ensure
+    ActiveSupport::Notifications.unsubscribe(subscription)
+  end
+
+  test "on_input_request callbacks receive the paused response" do
+    seen = []
+    agent_class = Class.new(RefundAgent) do
+      def self.name = "CallbackRefundAgent"
+
+      on_input_request { |response| seen << [ :block, response.input_requests.map(&:tool_name) ] }
+      on_input_request :note_pause
+      on_input_request { seen << :no_argument }
+
+      define_method(:note_pause) { |response| seen << [ :method, response.awaiting_input? ] }
+    end
+
+    ScriptedProvider.script([ self.class.tool_use("call_1", "issue_refund", order_id: 7, amount: 40) ])
+    agent_class.triage(order_id: 7).generate_now
+
+    assert_equal [ [ :block, [ "issue_refund" ] ], [ :method, true ], :no_argument ], seen
+  end
+
+  test "on_input_request callbacks do not run for a generation that finishes" do
+    seen = []
+    agent_class = Class.new(RefundAgent) do
+      def self.name = "QuietRefundAgent"
+
+      on_input_request { seen << :paused }
+    end
+
+    ScriptedProvider.script([ { type: "text", text: "Nothing to do." } ])
+    response = agent_class.triage(order_id: 7).generate_now
+
+    assert_not response.awaiting_input?
+    assert_nil response.checkpoint
+    assert_empty seen
+  end
+
+  ##### Resuming ############################################################
+
+  test "an approved confirmation runs the tool, and every result goes back in call order" do
+    paused = paused_triage([
+      self.class.tool_use("call_1", "lookup_order", order_id: 7),
+      self.class.tool_use("call_2", "issue_refund", order_id: 7, amount: 40)
+    ])
+
+    response = resume(paused, "call_2" => true)
+
+    assert_not response.awaiting_input?
+    assert_equal [ [ :lookup_order ], [ :issue_refund, true ] ], RefundAgent.calls, "the completed call does not run again"
+
+    sent = ScriptedProvider.requests.last
+    assert_equal %w[user assistant user], sent.map { _1[:role].to_s }
+    assert_equal [ [ "call_1", { order_id: 7, total: 40 }.to_json ], [ "call_2", { refunded: 40 }.to_json ] ],
+                 sent.last[:content].map { [ _1[:tool_use_id], _1[:content] ] }
+  end
+
+  test "resuming replaces the conversation rather than adding the action's message to it" do
+    paused = paused_triage([ self.class.tool_use("call_1", "issue_refund", order_id: 7, amount: 40) ])
+
+    resume(paused, "call_1" => true)
+
+    first_turn = ScriptedProvider.requests.last.first
+    assert_equal "Handle order 7", first_turn[:content]
+    assert_equal 3, ScriptedProvider.requests.last.size
+  end
+
+  test "a declined request skips the tool and tells the model the user declined" do
+    paused = paused_triage([ self.class.tool_use("call_1", "issue_refund", order_id: 7, amount: 40) ])
+
+    resume(paused, "call_1" => false)
+
+    assert_empty RefundAgent.calls
+    assert_equal ActiveAgent::InputRequest::DECLINED_RESULT.to_json, ScriptedProvider.requests.last.last[:content].sole[:content]
+  end
+
+  test "a text answer reaches the tool, which may ask again and pause once more" do
+    paused = paused_triage([
+      self.class.tool_use("call_1", "lookup_order", order_id: 7),
+      self.class.tool_use("call_2", "ask_reason")
+    ])
+
+    again = resume(paused, "call_2" => "escalate")
+
+    assert again.awaiting_input?
+    assert_equal :choice, again.input_requests.sole.kind
+    assert_equal %w[billing shipping], again.input_requests.sole.options
+    assert_equal paused.checkpoint["completed_results"], again.checkpoint["completed_results"]
+    assert_equal 1, ScriptedProvider.requests.size, "pausing again sends nothing to the model"
+
+    finished = resume(again, "call_2" => "billing")
+
+    assert_not finished.awaiting_input?
+    assert_equal [ [ :lookup_order ], [ :ask_reason, "billing" ] ], RefundAgent.calls
+  end
+
+  test "a later turn can pause again, and its checkpoint holds the whole conversation" do
+    paused = paused_triage(
+      [ self.class.tool_use("call_1", "issue_refund", order_id: 7, amount: 40) ],
+      [ self.class.tool_use("call_2", "ask_reason") ]
+    )
+
+    again = resume(paused, "call_1" => true)
+
+    assert again.awaiting_input?
+    assert_equal [ "call_2" ], again.input_requests.map(&:tool_call_id)
+    assert_equal 2, again.checkpoint["tool_turns"]
+    assert_equal %w[user assistant user assistant], again.checkpoint["messages"].map { _1["role"] }
+    assert_empty again.checkpoint["completed_results"]
+
+    finished = resume(again, "call_2" => "damaged in transit")
+
+    assert_not finished.awaiting_input?
+    assert_equal [ [ :issue_refund, true ], [ :ask_reason, "damaged in transit" ] ], RefundAgent.calls
+    assert_equal %w[user assistant user assistant user], ScriptedProvider.requests.last.map { _1[:role].to_s }
+  end
+
+  test "the answer is readable only while its own call runs" do
+    paused = paused_triage([ self.class.tool_use("call_1", "issue_refund", order_id: 7, amount: 40) ])
+
+    resume(paused, "call_1" => true)
+
+    assert_nil ActiveAgent::InputRequest.current_tool_call_id
+    assert_nil ActiveAgent::InputRequest.answer_for("call_1")
+  end
+
+  test "resuming? is true while the paused generation continues" do
+    observed = []
+    agent_class = Class.new(RefundAgent) do
+      def self.name = "ObservedRefundAgent"
+
+      before_prompt { observed << resuming? }
+    end
+
+    ScriptedProvider.script([ self.class.tool_use("call_1", "issue_refund", order_id: 7, amount: 40) ])
+    paused = agent_class.triage(order_id: 7).generate_now
+    agent_class.triage(order_id: 7).resume_now(checkpoint: paused.checkpoint, answers: { "call_1" => true })
+
+    assert_equal [ false, true ], observed
+  end
+
+  test "the tool-turn count carries over the pause" do
+    agent_class = Class.new(RefundAgent) do
+      def self.name = "CappedRefundAgent"
+
+      def triage(order_id:)
+        prompt(message: "Handle order #{order_id}", max_tool_turns: 1)
+      end
+    end
+
+    ScriptedProvider.script(
+      [ self.class.tool_use("call_1", "issue_refund", order_id: 7, amount: 40) ],
+      [ self.class.tool_use("call_2", "lookup_order", order_id: 7) ]
+    )
+    paused = agent_class.triage(order_id: 7).generate_now
+    agent_class.triage(order_id: 7).resume_now(checkpoint: paused.checkpoint, answers: { "call_1" => true })
+
+    assert_equal [ [ :issue_refund, true ] ], RefundAgent.calls, "the second turn's call is over the cap"
+  end
+
+  ##### Secrets #############################################################
+
+  test "a secret answer reaches the tool but never the model" do
+    paused = paused_triage([ self.class.tool_use("call_1", "deploy", environment: "staging") ])
+
+    resume(paused, "call_1" => "tok-live-12345")
+
+    assert_equal [ [ :deploy ] ], RefundAgent.calls
+    sent = ScriptedProvider.requests.last.last[:content].sole[:content]
+    assert_includes sent, "used token #{ActiveAgent::InputRequest::FILTERED}"
+    assert_not_includes ScriptedProvider.requests.to_json, "tok-live-12345"
+  end
+
+  test "a secret answer is scrubbed from a tool's error" do
+    paused = paused_triage([ self.class.tool_use("call_1", "deploy", environment: "broken") ])
+
+    error = assert_raises(ArgumentError) { resume(paused, "call_1" => "tok-live-12345") }
+
+    assert_equal "token #{ActiveAgent::InputRequest::FILTERED} was rejected", error.message
+    assert_nil error.cause
+  end
+
+  # Records what the telemetry tool wrapper writes to a span.
+  class SpanDouble
+    attr_reader :attributes, :children, :errors
+
+    def initialize
+      @attributes = {}
+      @children   = []
+      @errors     = []
+    end
+
+    def add_span(_name, span_type: nil) = SpanDouble.new.tap { children << _1 }
+    def set_attribute(key, value) = attributes[key] = value
+    def set_status(*) = nil
+    def record_error(error) = errors << error.message
+    def finish = nil
+  end
+
+  test "a secret answer is scrubbed from the tool span's arguments, result and error" do
+    config = ActiveAgent::Telemetry.configuration
+    saved  = [ config.enabled, config.api_key, config.capture_bodies ]
+    config.enabled, config.api_key, config.capture_bodies = true, "test-key", true
+
+    agent_class = Class.new(RefundAgent) { def self.name = "TracedRefundAgent" }
+    agent_class.prepend(ActiveAgent::Telemetry::Instrumentation::GenerationInstrumentation)
+    agent = agent_class.new
+    agent.send(:input_request_secrets) << "tok-live-12345"
+    parent = SpanDouble.new
+    agent.instance_variable_set(:@_telemetry_llm_span, parent)
+
+    ActiveAgent::InputRequest.dispatching("call_1", answer: "tok-live-12345") do
+      agent.tools_function.call("deploy", environment: "tok-live-12345")
+      assert_raises(ArgumentError) { agent.tools_function.call("deploy", environment: "broken") }
+    end
+
+    recorded = parent.children.map { [ _1.attributes, _1.errors ] }
+    assert_equal({ environment: ActiveAgent::InputRequest::FILTERED }.to_json, recorded.first.first["tool.input.args"])
+    assert_includes recorded.first.first["tool.output.result"], "used token #{ActiveAgent::InputRequest::FILTERED}"
+    assert_equal [ "token #{ActiveAgent::InputRequest::FILTERED} was rejected" ], recorded.last.last
+    assert_not_includes recorded.to_s, "tok-live-12345"
+  ensure
+    config.enabled, config.api_key, config.capture_bodies = saved if saved
+  end
+
+  ##### Refusals ############################################################
+
+  test "a missing answer raises before any tool runs or any request is sent" do
+    paused = paused_triage([
+      self.class.tool_use("call_1", "issue_refund", order_id: 7, amount: 40),
+      self.class.tool_use("call_2", "ask_reason")
+    ])
+
+    error = assert_raises(ActiveAgent::InputRequest::ResumeError) { resume(paused, "call_1" => true) }
+
+    assert_match(/Missing answers for call_2/, error.message)
+    assert_empty RefundAgent.calls
+    assert_equal 1, ScriptedProvider.requests.size
+  end
+
+  test "an answer for a call that is not waiting is refused" do
+    paused = paused_triage([ self.class.tool_use("call_1", "issue_refund", order_id: 7, amount: 40) ])
+
+    assert_raises(ActiveAgent::InputRequest::ResumeError) { resume(paused, "call_1" => true, "call_9" => "x") }
+  end
+
+  test "a confirmation takes true or false, and a choice one of its options" do
+    confirm = paused_triage([ self.class.tool_use("call_1", "issue_refund", order_id: 7, amount: 40) ])
+    assert_raises(ActiveAgent::InputRequest::ResumeError) { resume(confirm, "call_1" => "yes") }
+
+    text   = paused_triage([ self.class.tool_use("call_1", "ask_reason") ])
+    choice = resume(text, "call_1" => "escalate")
+    assert_raises(ActiveAgent::InputRequest::ResumeError) { resume(choice, "call_1" => "legal") }
+  end
+
+  test "a checkpoint resumes only the action that paused" do
+    paused = paused_triage([ self.class.tool_use("call_1", "issue_refund", order_id: 7, amount: 40) ])
+
+    agent_class = Class.new(RefundAgent) do
+      def self.name = "OtherRefundAgent"
+
+      def review(order_id:) = prompt(message: "Review #{order_id}")
+    end
+
+    error = assert_raises(ActiveAgent::InputRequest::ResumeError) do
+      agent_class.review(order_id: 7).resume_now(checkpoint: paused.checkpoint, answers: { "call_1" => true })
+    end
+    assert_match(/triage/, error.message)
+  end
+
+  test "a checkpoint resumes only on the provider and model that paused" do
+    paused = paused_triage([ self.class.tool_use("call_1", "issue_refund", order_id: 7, amount: 40) ])
+
+    checkpoint = paused.checkpoint.merge("model" => "another-model")
+    error = assert_raises(ActiveAgent::InputRequest::ResumeError) do
+      RefundAgent.triage(order_id: 7).resume_now(checkpoint:, answers: { "call_1" => true })
+    end
+    assert_match(/another-model/, error.message)
+
+    checkpoint = paused.checkpoint.merge("provider" => "Anthropic", "service" => "Anthropic")
+    assert_raises(ActiveAgent::InputRequest::ResumeError) do
+      RefundAgent.triage(order_id: 7).resume_now(checkpoint:, answers: { "call_1" => true })
+    end
+    assert_empty RefundAgent.calls
+  end
+
+  test "a provider that cannot pause raises instead of sending the request to the model" do
+    agent_class = Class.new(RefundAgent) do
+      def self.name = "UnpausableRefundAgent"
+
+      self._prompt_provider_klass = UnpausableProvider
+    end
+
+    ScriptedProvider.script([ self.class.tool_use("call_1", "issue_refund", order_id: 7, amount: 40) ])
+
+    error = assert_raises(ActiveAgent::InputRequest::UnsupportedProviderError) { agent_class.triage(order_id: 7).generate_now }
+    assert_match(/cannot pause/, error.message)
+  end
+
+  ##### Delegation ##########################################################
+
+  class ApprovalAgent < ApplicationAgent
+    generate_with :mock, model: "mock-model"
+    self._prompt_provider_klass = ScriptedProvider
+
+    delegation :approve, description: "Get a refund approved" do
+      integer :amount, required: true
+    end
+
+    def approve(amount:)
+      prompt(message: "Approve #{amount}")
+    end
+
+    def issue_refund(amount:)
+      ActiveAgent::InputRequest.confirm("Refund #{amount}?")
+    end
+  end
+
+  class ManagerAgent < ApplicationAgent
+    generate_with :mock, model: "mock-model"
+    self._prompt_provider_klass = ScriptedProvider
+
+    delegate_to ApprovalAgent
+
+    def handle
+      prompt(message: "Handle the refund")
+    end
+  end
+
+  test "a delegated agent that pauses returns a structured error to its caller" do
+    ScriptedProvider.script(
+      [ self.class.tool_use("call_parent", "approve", amount: 40) ],
+      [ self.class.tool_use("call_child", "issue_refund", amount: 40) ]
+    )
+
+    response = ManagerAgent.handle.generate_now
+
+    assert_not response.awaiting_input?, "the parent carries on"
+    result = JSON.parse(ScriptedProvider.requests.last.last[:content].sole[:content])
+    assert_equal "input_required", result["error"]
+    assert_equal [ "Refund 40?" ], result["questions"]
+  end
+end

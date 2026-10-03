@@ -100,6 +100,8 @@ module ActiveAgent
   autoload :Streaming, "active_agent/concerns/streaming"
   autoload :InlinePreviewInterceptor
   autoload :Generation
+  autoload :InputRequest
+  autoload :InputRequests, "active_agent/concerns/input_requests"
   autoload :Queueing, "active_agent/concerns/queueing"
   autoload :Parameterized, "active_agent/concerns/parameterized"
   autoload :Preview, "active_agent/concerns/preview"

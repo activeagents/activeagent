@@ -103,6 +103,38 @@ module ActiveAgent
     end
     alias generate_later prompt_later
 
+    # Continues a generation that paused for user input.
+    #
+    # Call it on a generation built the same way as the paused one — same
+    # agent, action, arguments and params. The action runs again so tools,
+    # instructions and options are rebuilt; then the conversation is replaced
+    # with the checkpoint's, and each paused tool call is dispatched again
+    # with its answer readable through {InputRequest.answer_for}. Calls that
+    # finished before the pause keep their results.
+    #
+    # @param checkpoint [Hash] the paused response's
+    #   {Providers::Common::Responses::Prompt#checkpoint checkpoint}
+    # @param answers [Hash{String => Object}] an answer per paused tool call
+    #   id; `false` declines
+    # @return [ActiveAgent::Providers::Common::PromptResponse] which may itself
+    #   be awaiting input again
+    # @raise [InputRequest::ResumeError] before any tool runs or any request
+    #   is sent, when an answer is missing or does not fit its request, or the
+    #   checkpoint was taken by another action, provider or model
+    #
+    # @example
+    #   response = SupportAgent.with(ticket:).triage.generate_now
+    #   if response.awaiting_input?
+    #     request = response.input_requests.first
+    #     SupportAgent.with(ticket:).triage.resume_now(
+    #       checkpoint: response.checkpoint,
+    #       answers: { request.tool_call_id => true }
+    #     )
+    #   end
+    def resume_now(checkpoint:, answers:)
+      agent.resume_prompt(checkpoint:, answers:)
+    end
+
     # Generates a preview of the prompt without executing generation.
     #
     # Processes the agent action and renders the prompt configuration as
