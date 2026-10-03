@@ -414,7 +414,7 @@ module ActionAgent
       end
 
       def input_requests_list_tool
-        scope = owned(InputRequest).pending.includes(:subject).recent
+        scope = owner_input_requests.pending.includes(:subject).recent
         if (run_id = tool_argument(:run_id)).present?
           scope = scope.where(subject_type: AgentRun.polymorphic_name, subject_id: run_id.to_s)
         end
@@ -429,7 +429,7 @@ module ActionAgent
         id = tool_argument(:input_request_id)
         raise MCPController::McpError.new("Missing required argument: input_request_id", MCPController::JSONRPC_INVALID_PARAMS) if id.blank?
 
-        request = owned(InputRequest).find_by(id: id.to_s) or raise ToolError, "No input request #{id.to_s.truncate(32)} was found"
+        request = owner_input_requests.find_by(id: id.to_s) or raise ToolError, "No input request #{id.to_s.truncate(32)} was found"
         unless MCP_ANSWERABLE_KINDS.include?(request.kind)
           raise ToolError, "Input request #{request.id} is a #{request.kind} request, which is answered in the dashboard, " \
                            "not over MCP: open the run #{request.subject_id} there to answer it"

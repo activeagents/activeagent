@@ -267,7 +267,8 @@ Cancelling the run cancels its pending requests. `config.input_request_ttl`
 `GET /api/runs/:id` lists the run's pending requests in the same shape. An
 answer or a decline returns:
 
-- **404** for a request outside the caller's owner scope.
+- **404** for a request of a run the caller cannot see. A request is found
+  through its run, so the list and `GET /api/runs/:id` show the same requests.
 - **403** when `permission_checker` denies `:answer_input_request`, and in
   multi-tenant mode when no user is signed in. The checker receives the
   request; its `subject` is the run, and its `requested_by_id` is the run's
