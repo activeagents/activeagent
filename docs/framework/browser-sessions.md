@@ -128,10 +128,13 @@ keyboard until they press "Hand back".
   pickers and other browser interface do not show (see [What the recording
   cannot show](#what-the-recording-cannot-show)).
 - **One person drives.** While someone holds control, everyone else watching
-  sees who ("Held by Ada"). Their clicks, scrolling and keys reach the page
-  while the view has keyboard focus; clicking outside the view stops that,
-  and "Hand back" gives control back. If their tab closes or loses its
-  connection, control is released after 10 seconds.
+  sees who ("Held by Ada"). Their clicks and scrolling on the view reach the
+  page, and so do their keys while the view has keyboard focus. Pressing
+  Escape twice, or clicking outside the view, moves keyboard focus away but
+  keeps control: the agent goes on waiting until they press "Hand back" or
+  "Stop watching". If their tab closes or loses its connection, control is
+  released after 10 seconds. Until then the same person can pick it up from
+  another tab, or after a reload, with "Continue driving here".
 - **The agent waits.** While a person holds control, an agent's browser tool
   call that would change the page, such as `browser_click` or
   `browser_navigate`, waits for them to hand back, for up to 20 seconds. The
@@ -139,7 +142,8 @@ keyboard until they press "Hand back".
   then, the call returns an error naming them, and nothing is done; calls
   that only read the page, such as `browser_snapshot`, go ahead. The
   error's `_meta["activeagents/takeover"]` holds `{ held_by, since,
-  waited_ms }`.
+  waited_ms }`. A call still waiting when the browser stops returns an
+  error saying the browser is stopping.
 - **A window on this machine.** A `headed` browser on `:local` also has a
   real window. Clicking or typing in that window changes the page as well,
   but the agent does not wait for it: take over in the live view first.
@@ -158,19 +162,31 @@ ticket it asks the dashboard for:
   as the subject, and needs execution to be enabled. A denied control
   ticket answers 403.
 - A browser that is not running, or has no live view, answers 409.
-- A ticket lives 30 seconds and opens the live view once. It names the
-  sandbox, the user, their name (which other viewers see) and the mode, and
-  is signed with a key derived from the browser's token, so it opens no
-  other browser.
+- A ticket lives 30 seconds and is accepted once. It names the sandbox, the
+  user, their name (which other viewers see) and the mode, and is signed
+  with a key derived from the browser's token, so it opens no other
+  browser.
+- The page asks for a view ticket to start watching, and for a control
+  ticket each time the person presses "Take over". Withdrawing someone's
+  `:take_over_browser` therefore stops them taking control again, though it
+  does not take control from them while they hold it.
 - The page sends the ticket as the WebSocket's first message, never in its
   URL. The sidecar closes a connection whose first message is not a valid
   ticket before sending it anything.
 
 The WebSocket is opened from the dashboard's own page, so the sidecar
 accepts it only from the origin the browser was started from and from
-`ActionAgent.browser_live_origins`, and only through its own `Host`. On
-`:local` the live view is a `ws://127.0.0.1` address, which a dashboard
-served over HTTPS cannot open.
+`ActionAgent.browser_live_origins`, and only through its own `Host`.
+
+On `:local` the live view is a `ws://127.0.0.1:<port>` address, so only a
+browser on the machine that runs the dashboard can open it.
+
+- A host app whose Content Security Policy sets `connect-src` has to allow
+  that address, for example `ws://127.0.0.1:*`, or the page's connection is
+  blocked.
+- A dashboard reached through an address other than a loopback one may need
+  the browser's permission to connect to a loopback address. Chrome asks
+  for it as local network access.
 
 ## Recording
 
