@@ -1749,7 +1749,9 @@ it was not given:
   already holds, and a rejected candidate (reconsider it first). A refused
   accept answers `422` with `problems` by candidate id, and writes nothing.
 - It asks the [permission checker](#permissions) about `:replace_scenarios`,
-  with the evaluation as the subject.
+  with the evaluation the candidates merge into as the subject. When a
+  project has no evaluation on its target agent yet, the first accept creates
+  one, and the subject is the exploration.
 
 | Endpoint | What it does |
 |---|---|
@@ -1844,7 +1846,7 @@ end
 | `:manage_project_secrets` | setting, replacing and removing a project's secrets (`POST /api/projects` with `secrets`, `PUT /api/projects/:id/secrets`, `PUT` and `DELETE /api/projects/:id/secrets/:name`), changing the ref they are handed to (`PATCH /api/projects/:id` with `default_ref`) and deleting a project that has them (`DELETE /api/projects/:id`). Always asked about a `ProjectSecret` |
 | `:take_over_browser` | reserved: driving a run's browser by hand |
 | `:manage_recordings` | reserved: viewing and deleting session recordings |
-| `:replace_scenarios` | creating an evaluation or merging scenarios into one over the MCP facade (`evaluations_create`, `scenarios_merge`), asked as the API key's user, and accepting an exploration's candidates into an evaluation (`POST /api/explorations/:id/accept`), asked about that evaluation |
+| `:replace_scenarios` | creating an evaluation or merging scenarios into one over the MCP facade (`evaluations_create`, `scenarios_merge`), asked as the API key's user, and accepting an exploration's candidates into an evaluation (`POST /api/explorations/:id/accept`), asked about that evaluation, or about the exploration when a project's first accept will create it |
 
 The list is `ActionAgent::PERMISSION_ACTIONS`. `ActionAgent.permitted?(user,
 action, subject)` asks the checker the same way the endpoints do, and raises

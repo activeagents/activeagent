@@ -169,12 +169,16 @@ module ActionAgent
       project ? project.target_agent : evaluation&.agent
     end
 
-    # The evaluation accepted candidates merge into: the project's, or this
-    # exploration's when it has no project. A project has none while no
-    # target agent is chosen or after its evaluation was deleted, and its
-    # next accept creates one.
+    # The evaluation accepted candidates merge into: the project's
+    # evaluation on its target agent, or this exploration's when it has no
+    # project. Nil when a project has none, because no target agent is
+    # chosen, its evaluation was deleted or it is on another agent. The
+    # project's next accept then creates one.
     def target_evaluation
-      project ? project.evaluation : evaluation
+      return evaluation unless project
+
+      current = project.evaluation
+      current if current && current.agent_id == project.target_agent_id
     end
 
     # The project whose app the candidates come from: this exploration's,

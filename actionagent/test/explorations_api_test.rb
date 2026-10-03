@@ -147,6 +147,19 @@ class ExplorationsApiTest < ActionDispatch::IntegrationTest
     assert_equal "Gives the status and carrier.", @project.evaluation.scenarios.sole.notes
   end
 
+  test "a project's first accept asks about the exploration, since the evaluation does not exist yet" do
+    @project.evaluation.destroy!
+    id = submit([ candidate("Where is order A-17?") ]).dig("exploration", "id")
+    asked = []
+    ActionAgent.permission_checker = ->(_user, action, subject) { asked << [ action, subject.class.name ]; true }
+
+    post "#{BASE}/#{id}/accept", params: { candidate_ids: [ 1 ] }, as: :json
+
+    assert_response :success
+    assert_equal [ [ :replace_scenarios, "ActionAgent::Exploration" ] ], asked
+    assert_equal [ "x#{id}_1" ], @project.reload.evaluation.scenarios.pluck(:key)
+  end
+
   test "a refused accept answers with each candidate's problem" do
     id = submit([ candidate("Where is order A-17?", contains: [ "a; b" ]) ]).dig("exploration", "id")
 
