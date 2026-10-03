@@ -19,23 +19,31 @@ module ActionAgent
   # that sandbox on the agent. Such a key is treated as if the agent had it
   # enabled, and resolves exactly as a saved one does: through
   # SandboxSession.runtime_server_entry, among the agent's owner's sessions,
-  # and only while it is live. Only runtime keys are taken; a catalog server
-  # the agent does not enable stays out of reach.
+  # and only while it is live. The sandbox's browser, "browser:<session_id>",
+  # is reached the same way (SandboxSession.browser_server_entry), and only
+  # this way. Only those keys are taken; a catalog server the agent does not
+  # enable stays out of reach.
   class MCPToolDispatcher
     HTTP_TRANSPORTS = %w[http streamable_http sse].freeze
     class SandboxUnavailable < MCPClient::Error; end
 
     attr_reader :extra_server_keys
 
-    # A runtime explicitly selected for this run must not silently disappear
-    # between enqueue, discovery and a tool call.
+    # A runtime or browser explicitly selected for this run must not silently
+    # disappear between enqueue, discovery and a tool call.
     def ensure_extra_servers_live!
       extra_server_keys.each do |key|
-        sandbox = SandboxSession.for_owner(agent.try(:owner)).find_by(session_id: key.delete_prefix(SandboxSession::RUNTIME_SERVER_PREFIX))
+        if SandboxSession.browser_server_key?(key)
+          next if SandboxSession.browser_server_entry(key, owner: agent.try(:owner))
+
+          raise SandboxUnavailable, "The browser of sandbox #{session_id_of(key)} is no longer running; " \
+            "start it again, or run without it"
+        end
+
+        sandbox = SandboxSession.for_owner(agent.try(:owner)).find_by(session_id: session_id_of(key))
         next if sandbox && (sandbox.ready? || sandbox.running?) && sandbox.runtime_server_entry
 
-        raise SandboxUnavailable, "Sandbox #{key.delete_prefix(SandboxSession::RUNTIME_SERVER_PREFIX)} is no longer running; " \
-          "start it again, or run without it"
+        raise SandboxUnavailable, "Sandbox #{session_id_of(key)} is no longer running; start it again, or run without it"
       end
     end
 
@@ -43,9 +51,15 @@ module ActionAgent
       @agent = agent
       @resolver = EvaluationToolResolver.new(agent)
       @extra_server_keys = Array(extra_server_keys).map { |key| key.to_s.strip }
-        .select { |key| SandboxSession.runtime_server_key?(key) }.uniq
+        .select { |key| SandboxSession.runtime_server_key?(key) || SandboxSession.browser_server_key?(key) }.uniq
       @clients = {}
       @listed_by = {}
+    end
+
+    # Whether this run reaches a sandbox's browser, whose tools then replace
+    # AgentToolbox's own browser tools.
+    def browser_attached?
+      extra_server_keys.any? { |key| SandboxSession.browser_server_key?(key) }
     end
 
     # Whether this tool belongs to one of the agent's own reachable servers —
@@ -123,7 +137,8 @@ module ActionAgent
           end
         rescue MCPClient::Error => e
           if extra_server_keys.include?(key)
-            raise SandboxUnavailable, "Cannot load tools from selected sandbox #{key.delete_prefix(SandboxSession::RUNTIME_SERVER_PREFIX)}: #{e.message}"
+            target = SandboxSession.browser_server_key?(key) ? "the browser of sandbox" : "selected sandbox"
+            raise SandboxUnavailable, "Cannot load tools from #{target} #{session_id_of(key)}: #{e.message}"
           end
           Rails.logger.warn("[MCPToolDispatcher] #{key} tools/list failed: #{e.message}")
           @discovery_errors[key] =
@@ -174,6 +189,10 @@ module ActionAgent
 
     def normalize(key)
       key.to_s.strip.downcase
+    end
+
+    def session_id_of(key)
+      key.delete_prefix(SandboxSession::RUNTIME_SERVER_PREFIX).delete_prefix(SandboxSession::BROWSER_SERVER_PREFIX)
     end
 
     # The catalog entry for the server that serves this tool, but only when the
@@ -229,11 +248,15 @@ module ActionAgent
       entry
     end
 
-    # A catalog server, or the app runtime of a checkout sandbox the agent's
-    # owner started (keys "sandbox:<session_id>"). The sandbox lookup is scoped
-    # to the agent's owner, so naming another tenant's session resolves to
-    # nothing.
+    # A catalog server, the app runtime of a checkout sandbox the agent's
+    # owner started (keys "sandbox:<session_id>"), or, for a key this run was
+    # given, that sandbox's browser ("browser:<session_id>"). The sandbox
+    # lookups are scoped to the agent's owner, so naming another tenant's
+    # session resolves to nothing.
     def catalog_entry(key)
+      if SandboxSession.browser_server_key?(key)
+        return extra_server_keys.include?(key) ? SandboxSession.browser_server_entry(key, owner: agent.try(:owner)) : nil
+      end
       return MCPCatalog.find(key) unless SandboxSession.runtime_server_key?(key)
 
       SandboxSession.runtime_server_entry(key, owner: agent.try(:owner))
