@@ -477,10 +477,10 @@ module ActionAgent
     # set to false.
     #
     # While the workbench has a conversation open, the page is recorded with
-    # rrweb into one recording per person and conversation
-    # (`source: "dashboard"`), and nowhere else in the dashboard. Every input
-    # value is masked, and elements marked `data-aa-secret` (credential
-    # fields and displays) are recorded as blank boxes. Each batch is
+    # rrweb, each visit into a recording of its own (`source: "dashboard"`),
+    # and nowhere else in the dashboard. Field values are masked. Elements
+    # marked `data-aa-secret` (credential fields and displays), the CSRF
+    # token and hidden inputs are recorded as blank boxes. Each batch is
     # scrubbed of the owner's stored credentials before it is kept. What the
     # page shows otherwise, the conversation included, is recorded as shown.
     #
