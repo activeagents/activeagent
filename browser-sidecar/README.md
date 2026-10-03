@@ -54,6 +54,10 @@ other version.
   a token that can only write to that one recording. Console errors and
   warnings, and markers for pages opening, navigating and closing, go with
   them.
+- **Live view.** With `live` in its configuration, the sidecar streams the
+  page on screen to the dashboard over a WebSocket at `/live`, and relays the
+  input of the one person who has taken control (see [The live
+  view](#the-live-view)).
 
 ## The HTTP surface
 
@@ -62,8 +66,9 @@ other version.
 | `GET /health` | `{ "status": "ok", "version": "…" }` |
 | `POST /mcp` | one JSON-RPC message, answered as JSON |
 | `DELETE /mcp` | ends the session in `Mcp-Session-Id` |
+| `GET /live` | the live view's WebSocket, when `live` is configured |
 
-Every request, a WebSocket upgrade included, must:
+Every request, a WebSocket upgrade other than the live view's included, must:
 
 - carry `Authorization: Bearer <token>`;
 - name an accepted `Host`: the listening address and port, the loopback names
@@ -72,7 +77,60 @@ Every request, a WebSocket upgrade included, must:
   the browser visits cannot reach the sidecar, through a loopback request or
   DNS rebinding.
 
-There is no WebSocket endpoint, and no CORS header is ever sent.
+No CORS header is ever sent.
+
+## The live view
+
+The dashboard's page opens `ws://<host>:<port>/live` itself, so the upgrade
+carries the dashboard's `Origin` and no token. It is accepted only when it
+names an accepted `Host`, its `Origin` is one of `live.origins`, and its URL
+has no query. The first message must then be a ticket:
+
+```json
+{ "type": "auth", "ticket": "<payload>.<signature>" }
+```
+
+The dashboard issues a ticket per viewer (`POST
+/api/sandboxes/:id/browser/tickets`). Its payload is base64url JSON
+`{ v: 1, sid, sub, name, mode, iat, exp, jti }`, and its signature is the
+base64url HMAC-SHA256 of the payload under a key both sides derive from the
+browser token: HMAC-SHA256 of `activeagents/browser-live-ticket/v1` keyed
+with the token. The sidecar accepts a ticket once, for at most 60 seconds,
+for this sandbox (`sid` is `live.session_id`) and for `mode` `view` or
+`control`. A connection whose first message is anything else is closed
+(code 4401) before anything is sent to it, and one that sends nothing for 5
+seconds is closed with 4408.
+
+Once accepted, the viewer is sent `ready`, the last frame, and every frame
+after it: `{ type: "frame", data, width, height }`, a JPEG as base64 with the
+page's size in CSS pixels. The stream follows the page on screen: the newest
+tab, or the one the agent selected with `browser_tabs`. A still page sends no
+frames, so the last one is kept for whoever joins later. `control`, `agent`
+and `page` messages tell of who holds control, an agent call waiting for it,
+and the page on screen.
+
+A connection opened with a control ticket, or sent one in
+`{ type: "take_control", ticket }`, can take control with
+`{ type: "take_control" }` and give it back with `{ type: "hand_back" }`. One
+person holds control at a time; their other connections may move it between
+them. While they hold it:
+
+- their `mouse`, `wheel`, `key` and `text` messages reach the page through
+  `Input.dispatchMouseEvent`, `Input.dispatchKeyEvent` and `Input.insertText`.
+  Pointer positions are fractions of the frame, scaled to the page. Nobody
+  else's input is relayed;
+- an agent's tool call that would change the page waits for them to hand
+  back, up to `live.agent_wait_ms`. If they have not, it returns an error
+  naming them, with `_meta["activeagents/takeover"]`:
+  `{ held_by, since, waited_ms }`. Calls that only read the page, such as
+  `browser_snapshot`, go ahead;
+- if their connection drops, control is released after
+  `live.release_grace_ms`.
+
+Relayed input is never logged or recorded. Taking control and handing it
+back are recorded as `marker` events (`takeover_started`, `takeover_ended`,
+with `source: "human"` and who), and what the person changed shows in the
+masked rrweb stream.
 
 ## The command
 
@@ -112,6 +170,12 @@ browser, posts what it has recorded, and removes its directories.
     "token": "aarec_…",
     "batch_events": 1000,
     "batch_bytes": 1048576
+  },
+  "live": {
+    "session_id": "…",
+    "origins": ["http://localhost:3000"],
+    "agent_wait_ms": 20000,
+    "release_grace_ms": 10000
   }
 }
 ```
@@ -128,6 +192,7 @@ browser, posts what it has recorded, and removes its directories.
 | `stop_at` | when to stop on its own, as epoch milliseconds or ISO 8601 |
 | `chromium_sandbox` | `false` where Chromium's own sandbox cannot run, as in a container without the privileges it needs |
 | `recording` | where to post recorded events, and the batch limits the ingest enforces; nothing is recorded when unset |
+| `live` | the live view: the sandbox session tickets must name, the dashboard origins that may open it, how long an agent's call waits for control (at most 45000 ms) and how long control outlives a dropped connection; no live view when unset |
 
 ## The image
 

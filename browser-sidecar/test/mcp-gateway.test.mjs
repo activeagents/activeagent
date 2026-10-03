@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 
+import { ControlLock, TAKEOVER_META } from '../lib/control-lock.mjs';
 import { McpGateway } from '../lib/mcp-gateway.mjs';
 import { NetworkPolicy } from '../lib/network-policy.mjs';
 
@@ -191,4 +192,52 @@ test("a tool call during which a page escaped the app gets the guard's refusal i
   assert.equal(body.result.isError, true);
   assert.equal(body.result.content[0].text, '### Error\nA page was redirected outside the sandbox app');
   assert.equal((await call(instance, id, 'browser_snapshot', {})).body.result.content[0].text, 'FOREIGN PAGE');
+});
+
+test('while a person holds control, a call that changes the page waits for them to hand it back', async () => {
+  const lock = new ControlLock();
+  const { instance, log } = gateway({ gateway: { lock, agentWaitMs: 5000 } });
+  const id = await session(instance);
+  lock.acquire('viewer-1', { id: '1', name: 'Ada' });
+
+  const looked = await call(instance, id, 'browser_snapshot', {});
+  assert.equal(looked.body.result.isError, undefined, 'a call that only looks goes ahead');
+
+  const before = log.length;
+  const clicked = call(instance, id, 'browser_click', { target: 'e2' });
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  assert.equal(log.length, before, 'the call has not reached the browser');
+  lock.release('viewer-1');
+
+  assert.equal((await clicked).body.result.isError, undefined);
+  assert.equal(log.at(-1).params.name, 'browser_click');
+});
+
+test('a call that changes the page is refused, naming who drives, when control is not handed back in time', async () => {
+  const lock = new ControlLock();
+  const { instance, log } = gateway({ gateway: { lock, agentWaitMs: 30 } });
+  const id = await session(instance);
+  lock.acquire('viewer-1', { id: '1', name: 'Ada' });
+  const before = log.length;
+
+  const refused = await call(instance, id, 'browser_navigate', { url: '/orders' });
+
+  assert.equal(refused.body.result.isError, true);
+  assert.match(refused.body.result.content[0].text, /Ada is driving this browser by hand and did not hand it back within 0 seconds\. Nothing was done\./);
+  const meta = refused.body.result._meta[TAKEOVER_META];
+  assert.equal(meta.held_by, 'Ada');
+  assert.equal(meta.since, new Date(lock.holder.since).toISOString());
+  assert.ok(meta.waited_ms >= 30);
+  assert.equal(log.length, before, 'the browser never saw the call');
+});
+
+test('a successful call is reported once it is done', async () => {
+  const calls = [];
+  const { instance } = gateway({ gateway: { afterCall: (name, args) => calls.push([name, args]) } });
+  const id = await session(instance);
+
+  await call(instance, id, 'browser_tabs', { action: 'select', index: 1 });
+  await call(instance, id, 'browser_run_code_unsafe', { code: '1' });
+
+  assert.deepEqual(calls, [['browser_tabs', { action: 'select', index: 1 }]]);
 });

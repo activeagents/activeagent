@@ -42,11 +42,11 @@ function send(port, { method = 'GET', path = '/health', headers = {}, body } = {
 }
 
 // The status line a raw WebSocket upgrade request is answered with.
-function upgrade(port, headers) {
+function upgrade(port, headers, path = '/mcp') {
   return new Promise((resolve, reject) => {
     const socket = net.connect(port, '127.0.0.1', () => {
       const lines = [
-        'GET /mcp HTTP/1.1',
+        `GET ${path} HTTP/1.1`,
         'Connection: Upgrade',
         'Upgrade: websocket',
         'Sec-WebSocket-Version: 13',
@@ -135,4 +135,13 @@ test('a WebSocket upgrade is checked like any request, and there is nothing to u
     'HTTP/1.1 403 Forbidden',
   );
   assert.equal(await upgrade(port, { Host: `127.0.0.1:${port}`, Authorization: `Bearer ${TOKEN}` }), 'HTTP/1.1 404 Not Found');
+});
+
+test('without a live view, its path is no upgrade either', async (t) => {
+  const { server, port } = await start();
+  t.after(() => server.close());
+
+  const live = (headers) => upgrade(port, { Host: `127.0.0.1:${port}`, ...headers }, '/live');
+  assert.equal(await live({ Origin: 'http://localhost:3000' }), 'HTTP/1.1 403 Forbidden');
+  assert.equal(await live({ Authorization: `Bearer ${TOKEN}` }), 'HTTP/1.1 404 Not Found');
 });

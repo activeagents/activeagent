@@ -2,6 +2,8 @@ import { randomUUID } from 'node:crypto';
 import { readFile, realpath } from 'node:fs/promises';
 import { sep } from 'node:path';
 
+import { TAKEOVER_META } from './control-lock.mjs';
+
 // Never offered and never called: browser_run_code_unsafe runs JavaScript in
 // this process, where the tokens are.
 export const DENIED_TOOLS = new Set(['browser_run_code_unsafe']);
@@ -23,6 +25,18 @@ function rpcError(id, code, message) {
 
 function toolError(id, text) {
   return { jsonrpc: JSONRPC, id, result: { content: [{ type: 'text', text: `### Error\n${text}` }], isError: true } };
+}
+
+// The answer to an agent's call refused because a person held control for
+// all of `waitedMs`. Its _meta names who, for a client that pauses the run
+// until they hand back rather than reading the error.
+function takeoverError(id, holder, waitedMs) {
+  const who = holder.user.name ? `${holder.user.name} is` : 'A person is';
+  const text = `${who} driving this browser by hand and did not hand it back within ${Math.round(waitedMs / 1000)} seconds. ` +
+    'Nothing was done. Try again once they hand it back.';
+  const result = toolError(id, text);
+  result.result._meta = { [TAKEOVER_META]: { held_by: holder.user.name, since: new Date(holder.since).toISOString(), waited_ms: waitedMs } };
+  return result;
 }
 
 function isRequest(message) {
@@ -101,6 +115,11 @@ class MemoryTransport {
  *
  * With `guard` set, a tool call during which a page was redirected off the
  * app gets an error instead of its result, which could describe that page.
+ *
+ * With `lock` set, a tool call that would change the page waits while a
+ * person holds control (ControlLock#admit), for up to `agentWaitMs`, and is
+ * answered with an error naming them when they have not handed it back by
+ * then.
  */
 export class McpGateway {
   /**
@@ -114,14 +133,20 @@ export class McpGateway {
    * @param {number} [options.requestTimeoutMs] how long a request may take
    * @param {string} [options.snapshotDir] the real path of the directory snapshots are written to
    * @param {{ escapes: number, refusalSince(since: number): Promise<string | null> }} [options.guard] a NavigationGuard
+   * @param {import('./control-lock.mjs').ControlLock} [options.lock]
+   * @param {number} [options.agentWaitMs]
+   * @param {(name: string, args: object) => void} [options.afterCall] told of each tool call that succeeded
    */
   constructor({
     connect, policy, deniedTools = DENIED_TOOLS, maxSessions = 8, idleMs = 30 * 60_000, requestTimeoutMs = 120_000, snapshotDir = null,
-    guard = null,
+    guard = null, lock = null, agentWaitMs = 0, afterCall = () => {},
   }) {
     this.connect = connect;
     this.policy = policy;
     this.guard = guard;
+    this.lock = lock;
+    this.agentWaitMs = agentWaitMs;
+    this.afterCall = afterCall;
     this.snapshotDir = snapshotDir;
     this.deniedTools = deniedTools;
     this.maxSessions = maxSessions;
@@ -159,11 +184,19 @@ export class McpGateway {
 
     this.touch(session);
     session.busy += 1;
-    const escapes = this.guard?.escapes ?? 0;
     try {
+      const call = message.method === 'tools/call' ? inbound.message.params : null;
+      if (call && this.lock) {
+        const waitStarted = Date.now();
+        const holder = await this.lock.admit(call.name, call.arguments, this.agentWaitMs);
+        if (holder) return { status: 200, body: takeoverError(message.id, holder, Date.now() - waitStarted) };
+      }
+
+      const escapes = this.guard?.escapes ?? 0;
       const response = await session.transport.request(inbound.message);
-      const refusal = message.method === 'tools/call' ? await this.guard?.refusalSince(escapes) : null;
+      const refusal = call ? await this.guard?.refusalSince(escapes) : null;
       if (refusal) return { status: 200, body: toolError(message.id, refusal) };
+      if (call && response.result && !response.result.isError) this.afterCall(call.name, call.arguments);
 
       return { status: 200, body: await this.outbound(message, response) };
     } finally {
