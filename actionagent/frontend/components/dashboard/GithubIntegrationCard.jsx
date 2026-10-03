@@ -18,7 +18,12 @@ import {
   claudeCodeAuth,
 } from '../../utils/codeSessions.mjs';
 import { toggleRepository } from '../../utils/repositories.mjs';
-import { GITHUB_APP_CALLBACK_MESSAGES, checkoutRepositories, checkoutSourceLabel } from '../../utils/githubApp.mjs';
+import {
+  GITHUB_APP_CALLBACK_MESSAGES,
+  checkoutRepositories,
+  checkoutSourceLabel,
+  installationsSummary,
+} from '../../utils/githubApp.mjs';
 
 // What the OAuth callback reports back through ?github=… on its redirect.
 const CALLBACK_MESSAGES = {
@@ -275,6 +280,7 @@ export default function GithubIntegrationCard({ callbackStatus, appCallbackStatu
   const selected = checkoutRepositories(connection, installations);
   const { byRepository, others } = groupSandboxes(sandboxes, selected.map((r) => r.full_name));
   const linked = installations.length > 0;
+  const appSummary = installationsSummary(installations);
 
   const errorText = darkMode ? 'text-red-400' : 'text-red-600';
   // One sandbox: its status, what it failed with, how an agent uses it, and
@@ -355,10 +361,10 @@ export default function GithubIntegrationCard({ callbackStatus, appCallbackStatu
           <span className="text-xl">🐙</span>
           <div>
             <p className={`font-medium ${strong}`}>GitHub</p>
-            <p className={`text-sm ${status?.connected || linked ? (darkMode ? 'text-green-400' : 'text-green-600') : muted}`}>
+            <p className={`text-sm ${status?.connected || appSummary.active > 0 ? (darkMode ? 'text-green-400' : 'text-green-600') : muted}`}>
               {!status ? 'Loading…' : [
                 status.connected ? `Connected as @${connection.login}` : null,
-                linked ? `${installations.length} GitHub App installation${installations.length === 1 ? '' : 's'}` : null,
+                appSummary.text,
               ].filter(Boolean).join(' · ') || 'Not connected'}
             </p>
           </div>

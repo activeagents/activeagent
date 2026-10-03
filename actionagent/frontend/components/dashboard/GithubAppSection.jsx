@@ -20,6 +20,7 @@ export default function GithubAppSection({ app, onChanged, onError, onNotice }) 
   const [selection, setSelection] = useState(new Set());
   const [filter, setFilter] = useState('');
   const [saving, setSaving] = useState(false);
+  const [checking, setChecking] = useState(null); // installation id being checked again
   const [organization, setOrganization] = useState('');
   const [creating, setCreating] = useState(false);
 
@@ -50,6 +51,25 @@ export default function GithubAppSection({ app, onChanged, onError, onNotice }) 
       setEditing(installation.id);
     } catch (e) {
       onError(e.message);
+    }
+  };
+
+  // For an installation a mint found removed or suspended: listing its
+  // repositories asks GitHub for a token again, and the engine clears the
+  // mark when GitHub mints one.
+  const checkAgain = async (installation) => {
+    setChecking(installation.id);
+    onError(null);
+    try {
+      const res = await fetch(`/api/github_installations/${installation.id}/repositories`);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Could not check the installation on GitHub.');
+      onNotice({ tone: 'success', text: `The installation on @${installation.account_login} is active again.` });
+    } catch (e) {
+      onError(e.message);
+    } finally {
+      setChecking(null);
+      onChanged();
     }
   };
 
@@ -187,7 +207,11 @@ export default function GithubAppSection({ app, onChanged, onError, onNotice }) 
                   </>
                 ) : (
                   <>
-                    {!problem && (
+                    {problem ? (
+                      <button type="button" onClick={() => checkAgain(installation)} disabled={checking === installation.id} className={`${secondaryButton} disabled:opacity-50`}>
+                        {checking === installation.id ? 'Checking…' : 'Check again'}
+                      </button>
+                    ) : (
                       <button type="button" onClick={() => chooseRepositories(installation)} className={secondaryButton}>Choose repositories</button>
                     )}
                     {installation.settings_url && (

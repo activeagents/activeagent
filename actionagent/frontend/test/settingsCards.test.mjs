@@ -178,7 +178,7 @@ test('a configured App offers the install and lists each installation with its a
   assert.deepEqual(buttons(html), [
     'Install the GitHub App',
     'Choose repositories', 'Access on GitHub', 'Unlink',
-    'Access on GitHub', 'Unlink',
+    'Check again', 'Access on GitHub', 'Unlink',
   ]);
 });
 

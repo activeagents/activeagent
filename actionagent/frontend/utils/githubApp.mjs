@@ -4,7 +4,7 @@
 // ?github_app=… on their redirects.
 export const GITHUB_APP_CALLBACK_MESSAGES = {
   linked: { tone: 'success', text: 'GitHub App installation linked. Choose the repositories this workspace may use on it.' },
-  pending: { tone: 'success', text: 'Installation requested. Nothing is linked until an organization owner approves it on GitHub; then install again from here.' },
+  pending: { tone: 'success', text: 'Installation requested. Once an owner of the organization approves it on GitHub, that owner has to link it from this page.' },
   denied: { tone: 'error', text: 'GitHub authorization was cancelled.' },
   invalid_state: { tone: 'error', text: 'That GitHub App return expired or was not started here. Try again from this page.' },
   missing_code: { tone: 'error', text: 'GitHub did not return an authorization code. Try again.' },
@@ -31,6 +31,18 @@ export function installationProblem(installation) {
   if (installation.status === 'removed') return { label: 'Removed from GitHub: reinstall or unlink', tone: 'error' };
   if (installation.status === 'suspended') return { label: 'Suspended on GitHub', tone: 'warning' };
   return null;
+}
+
+// How the card header counts installations, and how many of them GitHub
+// still serves: { text: '2 GitHub App installations (1 needs attention)',
+// active: 1 }. text is null when nothing is linked.
+export function installationsSummary(installations) {
+  const list = installations || [];
+  if (list.length === 0) return { text: null, active: 0 };
+  const attention = list.filter((installation) => installationProblem(installation)).length;
+  const noun = list.length === 1 ? 'GitHub App installation' : 'GitHub App installations';
+  const suffix = attention > 0 ? ` (${attention} ${attention === 1 ? 'needs' : 'need'} attention)` : '';
+  return { text: `${list.length} ${noun}${suffix}`, active: list.length - attention };
 }
 
 // The repositories sandboxes can check out, each with how: { ...repository,
