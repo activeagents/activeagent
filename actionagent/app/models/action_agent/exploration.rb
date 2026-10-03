@@ -39,8 +39,8 @@ module ActionAgent
     include Ownable
     owned_by :account, :user
 
-    # Raised by #add_candidates! for a batch that would take the exploration
-    # past MAX_CANDIDATES.
+    # Raised for a batch over MAX_BYTES, and for a batch or an edit that
+    # would take the exploration past MAX_CANDIDATES or MAX_BYTES.
     class CandidateLimitExceeded < StandardError; end
 
     # Raised for a candidate that cannot be stored or changed as given.
@@ -64,12 +64,20 @@ module ActionAgent
     EXPECTATION_KEYS = %w[tools contains not_contains].freeze
     BUDGET_KEYS = %w[minutes steps cost].freeze
     MAX_CANDIDATES = 200
-    # Every string a candidate stores is cut to MAX_STRING characters, and
-    # every list to MAX_ITEMS entries, as PayloadBounds cuts them. A group
-    # and a tool name are labels, cut to MAX_LABEL.
+    # A candidate's prompt and rubric hold at most MAX_STRING characters,
+    # and each expectation list at most MAX_ITEMS entries of at most
+    # MAX_LABEL characters. A longer one is refused, because accepting the
+    # candidate writes them into a scenario as they are. The group is a
+    # label, cut to MAX_LABEL. Provenance is only shown to the reviewer, so
+    # PayloadBounds cuts its strings to MAX_PROVENANCE_STRING characters
+    # and its lists to MAX_ITEMS entries.
     MAX_STRING = 4_000
     MAX_ITEMS = 50
     MAX_LABEL = 200
+    MAX_PROVENANCE_STRING = 2_048
+    # The candidates one call submits, and all an exploration stores, are
+    # at most this much JSON.
+    MAX_BYTES = EvaluationReportImport::MAX_BYTES
     DEFAULT_GROUP = "Explored"
     # Credentials of each kind read for scrubbing.
     SECRET_LOOKUP_LIMIT = 100
@@ -217,12 +225,12 @@ module ActionAgent
     # Stores +list+ as proposed candidates and returns them as stored. Each
     # entry is a candidate's prompt, group, notes (or rubric), expectations
     # (or top-level tools, contains and not_contains) and provenance. Each
-    # is scrubbed of the values #scrub_secrets lists, cut to MAX_STRING
-    # characters and MAX_ITEMS entries per list, and given a verdict against
-    # +roster+.
+    # is scrubbed of the values #scrub_secrets lists, checked against the
+    # size limits (see MAX_STRING) and given a verdict against +roster+.
     #
-    # Nothing is stored when an entry is invalid or the exploration would
-    # hold more than MAX_CANDIDATES.
+    # Nothing is stored when an entry is invalid, +list+ is more than
+    # MAX_BYTES of JSON, or the exploration would hold more than
+    # MAX_CANDIDATES or MAX_BYTES.
     #
     # @param roster [Hash, nil, :read] see #tool_roster; :read reads it
     # @raise [InvalidCandidate]
@@ -232,6 +240,10 @@ module ActionAgent
       raise InvalidCandidate, "candidates must be a list of objects" unless list.is_a?(Array)
       raise InvalidCandidate, "give at least one candidate" if list.empty?
       raise CandidateLimitExceeded, "An exploration holds at most #{MAX_CANDIDATES} candidates" if list.size > MAX_CANDIDATES
+      if list.to_json.bytesize > MAX_BYTES
+        raise CandidateLimitExceeded, "The candidates in one call may total #{MAX_BYTES / 1.megabyte} MiB of JSON: " \
+                                      "give them over several calls"
+      end
 
       secrets = scrub_secrets
       prepared = list.each_with_index.map { |raw, index| prepare_candidate(raw, label: "Candidate #{index + 1}", secrets: secrets) }
@@ -249,6 +261,7 @@ module ActionAgent
           candidate.merge("id" => next_id + offset, "state" => "proposed", "scenario_key" => nil)
             .merge(self.class.verdict(candidate.dig("expectations", "tools"), roster))
         end
+        refuse_oversized_list!(current + rows, "submit these as a new exploration")
         self.candidates = current + rows
         self.status = "review" if status == "closed"
         save!
@@ -272,6 +285,7 @@ module ActionAgent
     #
     # @raise [ActiveRecord::RecordNotFound] when there is no candidate +id+
     # @raise [InvalidCandidate]
+    # @raise [CandidateLimitExceeded]
     # @return [Hash]
     def update_candidate!(id, attributes)
       attributes = plain_hash(attributes)
@@ -288,7 +302,10 @@ module ActionAgent
         rows = candidates.deep_dup
         candidate = rows.find { |row| row["id"] == id.to_i } or raise ActiveRecord::RecordNotFound, "No candidate #{id}"
 
-        apply_edit!(candidate, edits, roster: roster, secrets: secrets) if edits.any?
+        if edits.any?
+          apply_edit!(candidate, edits, roster: roster, secrets: secrets)
+          refuse_oversized_list!(rows, "shorten the edit")
+        end
         case state
         when "rejected"
           if candidate["scenario_key"].present?
@@ -325,6 +342,8 @@ module ActionAgent
     # this exploration already holds.
     #
     # @raise [AcceptRefused]
+    # @raise [InvalidCandidate] for an edit, as #update_candidate! raises it
+    # @raise [CandidateLimitExceeded]
     # @raise [Evaluation::ScenarioLimitExceeded]
     # @return [Hash]
     def accept!(ids, edits: {})
@@ -357,6 +376,8 @@ module ActionAgent
           entry
         end
         raise AcceptRefused.new("Some candidates cannot be accepted", problems) if problems.any?
+
+        refuse_oversized_list!(rows, "shorten the edits") if edits.any?
 
         evaluation = accept_evaluation!(agent)
         refuse_held_keys!(evaluation, entries, by_id)
@@ -478,15 +499,16 @@ module ActionAgent
       edit.key?("tools") || (edit["expectations"].is_a?(Hash) && edit["expectations"].stringify_keys.key?("tools"))
     end
 
-    # Applies +edit+ to +candidate+ in place, as a reviewer's edit.
+    # Applies +edit+ to +candidate+ in place, as a reviewer's edit. The
+    # provenance is not editable and is kept as stored.
     def apply_edit!(candidate, edit, roster:, secrets:)
       before = candidate.dig("expectations", "tools")
       edit = edit.merge("notes" => edit["rubric"]) if edit.key?("rubric") && !edit.key?("notes")
-      merged = candidate.slice("prompt", "group", "notes", "expectations", "provenance").merge(edit.except("expectations", "rubric"))
+      merged = candidate.slice("prompt", "group", "notes", "expectations").merge(edit.except("expectations", "rubric"))
       if edit["expectations"].is_a?(Hash)
         merged["expectations"] = candidate["expectations"].to_h.merge(edit["expectations"].stringify_keys)
       end
-      prepared = prepare_candidate(merged, label: "Candidate #{candidate['id']}", secrets: secrets)
+      prepared = prepare_candidate(merged, label: "Candidate #{candidate['id']}", secrets: secrets).except("provenance")
 
       candidate.merge!(prepared)
       candidate.merge!(self.class.verdict(prepared.dig("expectations", "tools"), roster)) if prepared.dig("expectations", "tools") != before
@@ -494,27 +516,52 @@ module ActionAgent
       candidate
     end
 
-    # A candidate from +raw+, scrubbed of +secrets+ and then cut to size.
-    # Scrubbing comes first, so a cut never leaves part of a secret behind.
+    # A candidate from +raw+, scrubbed of +secrets+ and checked against the
+    # size limits (see MAX_STRING). The group and provenance are cut after
+    # scrubbing, so a cut never leaves part of a secret behind.
     def prepare_candidate(raw, label:, secrets:)
       raw = plain_hash(raw) if raw.respond_to?(:to_unsafe_h) || raw.is_a?(Hash)
       raise InvalidCandidate, "#{label} must be an object" unless raw.is_a?(Hash)
 
-      prompt = text(raw["prompt"]).strip
-      raise InvalidCandidate, "#{label} has no prompt" if prompt.empty?
-
       expectations = raw["expectations"].is_a?(Hash) ? raw["expectations"].stringify_keys : {}
-      candidate = {
-        "prompt" => prompt,
-        "group" => text(raw["group"]).strip.first(MAX_LABEL).presence || DEFAULT_GROUP,
+      candidate = SecretScrubber.scrub({
+        "prompt" => text(raw["prompt"]).strip,
+        "group" => text(raw["group"]).strip,
         "notes" => text(raw.key?("notes") ? raw["notes"] : raw["rubric"]).strip.presence,
-        "expectations" => EXPECTATION_KEYS.to_h do |field|
-          values = string_list(raw.key?(field) ? raw[field] : expectations[field])
-          [ field, field == "tools" ? values.map { |name| name.first(MAX_LABEL) } : values ]
-        end,
+        "expectations" => EXPECTATION_KEYS.index_with { |field| string_list(raw.key?(field) ? raw[field] : expectations[field]) },
         "provenance" => provenance(raw["provenance"])
-      }
-      PayloadBounds.bound(SecretScrubber.scrub(candidate, secrets), max_string: MAX_STRING, max_items: MAX_ITEMS)
+      }, secrets)
+      raise InvalidCandidate, "#{label} has no prompt" if candidate["prompt"].empty?
+
+      refuse_oversized_fields!(candidate, label)
+      candidate.merge(
+        "group" => candidate["group"].first(MAX_LABEL).presence || DEFAULT_GROUP,
+        "provenance" => PayloadBounds.bound(candidate["provenance"], max_string: MAX_PROVENANCE_STRING, max_items: MAX_ITEMS)
+      )
+    end
+
+    def refuse_oversized_fields!(candidate, label)
+      { "prompt" => "prompt", "notes" => "rubric" }.each do |field, name|
+        next if candidate[field].to_s.length <= MAX_STRING
+
+        raise InvalidCandidate, "#{label}: the #{name} is longer than #{MAX_STRING} characters"
+      end
+      candidate["expectations"].each do |field, values|
+        name = field.tr("_", " ")
+        raise InvalidCandidate, "#{label} has more than #{MAX_ITEMS} #{name} entries" if values.size > MAX_ITEMS
+        if (long = values.find { |value| value.length > MAX_LABEL })
+          raise InvalidCandidate, "#{label}: #{name} “#{long.truncate(60)}” is longer than #{MAX_LABEL} characters"
+        end
+      end
+    end
+
+    # Raises when +rows+, all of an exploration's candidates, are more than
+    # MAX_BYTES of JSON. The message ends with +remedy+.
+    def refuse_oversized_list!(rows, remedy)
+      return if rows.to_json.bytesize <= MAX_BYTES
+
+      raise CandidateLimitExceeded, "An exploration's candidates may total #{MAX_BYTES / 1.megabyte} MiB of JSON, and " \
+                                    "this would take this one past it: #{remedy}"
     end
 
     # A submitter names a recording by id, so one that is not this

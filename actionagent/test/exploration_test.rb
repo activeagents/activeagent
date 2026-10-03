@@ -91,12 +91,64 @@ class ExplorationTest < ActiveSupport::TestCase
     assert_equal [ "Typed [REDACTED]" ], row.dig("provenance", "steps")
   end
 
-  test "strings and lists are bounded, and an exploration holds at most MAX_CANDIDATES" do
-    exploration = explore(candidate("x" * 5_000, contains: Array.new(60) { |index| "pattern #{index}" }))
-    row = exploration.candidates.sole
-    assert_match(/…\[truncated: 1000 more characters\]\z/, row["prompt"])
-    assert_equal 51, row.dig("expectations", "contains").size
+  test "a prompt, rubric or expectation over its limit is refused, and provenance is cut for display" do
+    exploration = explore(candidate("Where is order A-17?", provenance: {
+      "steps" => Array.new(55) { |index| "Step #{index}" }, "urls" => [ "/orders?q=#{'x' * 3_000}" ]
+    }))
+    provenance = exploration.candidates.sole["provenance"]
+    assert_equal "[truncated: 5 more items]", provenance["steps"].last
+    assert_match(/…\[truncated: \d+ more characters\]\z/, provenance["urls"].sole)
 
+    {
+      candidate("x" * 4_001) => /the prompt is longer than 4000 characters/,
+      candidate("Hello", rubric: "x" * 4_001) => /the rubric is longer than 4000 characters/,
+      candidate("Hello", contains: Array.new(51) { |index| "pattern #{index}" }) => /more than 50 contains entries/,
+      candidate("Hello", tools: [ "t" * 201 ]) => /tools “t+\.\.\.” is longer than 200 characters/,
+      candidate("Hello", not_contains: [ "p" * 201 ]) => /not contains “p+\.\.\.” is longer than 200 characters/
+    }.each do |oversized, message|
+      error = assert_raises(ActionAgent::Exploration::InvalidCandidate) { exploration.add_candidates!([ oversized ]) }
+      assert_match message, error.message
+    end
+    error = assert_raises(ActionAgent::Exploration::InvalidCandidate) do
+      exploration.update_candidate!(1, "contains" => Array.new(51) { |index| "pattern #{index}" })
+    end
+    assert_match(/more than 50 contains entries/, error.message)
+    assert_equal [ 1, "proposed" ], [ exploration.reload.candidates.size, exploration.candidates.sole["state"] ]
+  end
+
+  test "a group or tool name is scrubbed before it is cut, so no part of a secret survives the cut" do
+    exploration = explore(candidate("Where is order A-17?", group: "g" * 190 + SECRET, tools: [ "t" * 190 + SECRET ]))
+
+    row = exploration.candidates.sole
+    assert_equal "#{'g' * 190}[REDACTED]", row["group"]
+    assert_equal [ "#{'t' * 190}[REDACTED]" ], row.dig("expectations", "tools")
+    assert_not_includes exploration.read_attribute_before_type_cast(:candidates).to_s, SECRET.first(10)
+  end
+
+  test "a call, and an exploration's candidates, total at most MAX_BYTES of JSON" do
+    exploration = explore(candidate("Where is order A-17?"))
+    limit = ActionAgent::Exploration::MAX_BYTES
+    in_the_open = Array.new(limit / 4_000 + 1) { |index| "#{index} #{'s' * 4_000}" }
+
+    error = assert_raises(ActionAgent::Exploration::CandidateLimitExceeded) do
+      exploration.add_candidates!([ candidate("Hello", provenance: { "steps" => in_the_open }) ])
+    end
+    assert_match(/candidates in one call may total 2 MiB/, error.message)
+
+    # Provenance at its limits: each call is under MAX_BYTES, and the third
+    # takes the stored candidates past it.
+    walk = Array.new(ActionAgent::Exploration::MAX_ITEMS) { |index| "#{index} #{'s' * 2_040}" }
+    big = Array.new(3) { |index| candidate("Question #{index}", provenance: { "steps" => walk, "urls" => walk, "screenshots" => walk }) }
+    exploration.add_candidates!(big)
+    exploration.add_candidates!(big.first(2))
+    error = assert_raises(ActionAgent::Exploration::CandidateLimitExceeded) { exploration.add_candidates!(big.first(2)) }
+    assert_match(/candidates may total 2 MiB of JSON.*new exploration/, error.message)
+    assert_equal 6, exploration.reload.candidates.size
+    assert_operator exploration.candidates.to_json.bytesize, :<=, limit
+  end
+
+  test "an exploration holds at most MAX_CANDIDATES, and an invalid batch stores nothing" do
+    exploration = explore(candidate("Where is order A-17?"))
     too_many = Array.new(ActionAgent::Exploration::MAX_CANDIDATES) { |index| candidate("Question #{index}") }
     assert_raises(ActionAgent::Exploration::CandidateLimitExceeded) { exploration.add_candidates!(too_many) }
     assert_equal 1, exploration.reload.candidates.size

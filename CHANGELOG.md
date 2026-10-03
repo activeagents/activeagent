@@ -126,7 +126,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   expected tools are checked against the tools the project's agent can call
   (`answerable`, `needs_tool` with the missing tools, or `unverified` when the
   sandbox did not answer), and its text is scrubbed of the project's secrets
-  and the owner's credentials before it is stored. Accepting merges into the
+  and the owner's credentials before it is stored. A prompt or rubric over
+  4,000 characters, an expectation list over 50 entries, or a call or
+  exploration over 2 MiB of JSON is refused. Accepting merges into the
   project's evaluation under `x<exploration id>_<candidate id>` keys with the
   rubric as `notes`, never touches another scenario, asks the permission
   checker about `:replace_scenarios`, and writes each scenario so that a Save
