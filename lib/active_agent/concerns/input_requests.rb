@@ -42,26 +42,14 @@ module ActiveAgent
       # @param block [Proc] optional block to call
       # @return [void]
       def on_input_request(*names, &block)
-        _insert_callbacks(names, block) do |name, options|
-          set_callback(:input_request, :before, _input_request_callback(name), **options)
-        end
-      end
-
-      private
-
-      # @return [Symbol] a method that calls `callback` with or without the response
-      def _input_request_callback(callback)
-        wrapper = :"_input_request_#{callback.is_a?(Proc) ? callback.object_id : callback}"
-
-        define_method(wrapper) do
-          if callback.is_a?(Proc)
-            callback.arity.zero? ? instance_exec(&callback) : instance_exec(@_input_request_response, &callback)
-          else
-            method(callback).arity.zero? ? send(callback) : send(callback, @_input_request_response)
-          end
+        _insert_callbacks(names, block) do |callback, options|
+          set_callback(:input_request, :before, ->(agent) { agent.send(:run_input_request_callback, callback) }, **options)
         end
 
-        wrapper
+        # The first callback a class sets makes ActiveSupport alias the chain's
+        # runner into that class as a public method, which would list it among
+        # the agent's actions and in its release digest.
+        private :_run_input_request_callbacks if public_method_defined?(:_run_input_request_callbacks, false)
       end
     end
 
@@ -124,6 +112,19 @@ module ActiveAgent
     # @return [Exception] `error`, or a copy whose message holds no secret answer
     def scrub_input_request_secrets_error(error)
       InputRequest.scrub_error(error, input_request_secrets)
+    end
+
+    # Calls one on_input_request callback, with the paused response when it
+    # takes an argument.
+    #
+    # @param callback [Symbol, Proc]
+    # @return [void]
+    def run_input_request_callback(callback)
+      if callback.is_a?(Proc)
+        callback.arity.zero? ? instance_exec(&callback) : instance_exec(@_input_request_response, &callback)
+      else
+        method(callback).arity.zero? ? send(callback) : send(callback, @_input_request_response)
+      end
     end
 
     # Runs the on_input_request callbacks for a paused response.
