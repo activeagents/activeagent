@@ -47,34 +47,65 @@ test('a navigation stays on the app, and a path is resolved against it', () => {
   }
 });
 
-test('the app itself is always reachable', async () => {
+test('the app itself is always reachable', () => {
   const rules = policy();
-  assert.ok(await rules.allows('http://127.0.0.1:3000/assets/app.js'));
-  assert.ok(await rules.allows('http://127.0.0.1:3000/', { topLevelNavigation: true }));
-  assert.ok(await rules.allows('ws://127.0.0.1:3000/cable'));
+  assert.ok(rules.allows('http://127.0.0.1:3000/assets/app.js'));
+  assert.ok(rules.allows('http://127.0.0.1:3000/', { topLevelNavigation: true }));
+  assert.ok(rules.allows('ws://127.0.0.1:3000/cable'));
+  assert.ok(!rules.allows('https://127.0.0.1:3000/', { topLevelNavigation: true }), 'the origin includes the scheme');
 });
 
-test('a top-level navigation anywhere else is refused', async () => {
-  const rules = policy({ 'cdn.example.com': ['93.184.216.34'] });
-  assert.ok(!(await rules.allows('https://cdn.example.com/', { topLevelNavigation: true })));
-  assert.ok(!(await rules.allows('data:text/html,hi', { topLevelNavigation: true })));
-  assert.ok(await rules.allows('about:blank', { topLevelNavigation: true }));
+test('a top-level navigation anywhere else is refused', () => {
+  const rules = policy();
+  assert.ok(!rules.allows('https://cdn.example.com/', { topLevelNavigation: true }));
+  assert.ok(!rules.allows('data:text/html,hi', { topLevelNavigation: true }));
+  assert.ok(rules.allows('about:blank', { topLevelNavigation: true }));
 });
 
-test('a page may load public resources, but nothing on a private or local address', async () => {
+test('a request is refused by URL when it names a private address or a local name', () => {
+  const rules = policy();
+
+  assert.ok(rules.allows('https://cdn.example.com/lib.js'), 'names are left to the connection check');
+  assert.ok(rules.allows('data:image/png;base64,AAAA'));
+  for (const url of [
+    'http://127.0.0.1:5432/', 'http://localhost:3000/', 'http://[::1]:3000/', 'http://10.0.0.1/', 'http://169.254.169.254/',
+    'http://app.localhost/', 'ws://127.0.0.1:9222/devtools',
+  ]) {
+    assert.ok(!rules.allows(url), url);
+  }
+});
+
+test('a page is on the app when its origin is the app, or when it is not a web page', () => {
+  const rules = policy();
+  for (const url of ['http://127.0.0.1:3000/orders', 'about:blank', 'chrome-error://chromewebdata/']) assert.ok(rules.onApp(url), url);
+  for (const url of ['https://example.com/', 'http://127.0.0.1:3001/', 'http://localhost:3000/']) assert.ok(!rules.onApp(url), url);
+});
+
+test('a connection goes to the app, or to a public address checked here', async () => {
   const rules = policy({
     'cdn.example.com': ['93.184.216.34'],
     'rebound.example.com': ['93.184.216.34', '127.0.0.1'],
     'metadata.example.com': ['169.254.169.254'],
   });
 
-  assert.ok(await rules.allows('https://cdn.example.com/lib.js'));
-  assert.ok(await rules.allows('data:image/png;base64,AAAA'));
-  for (const url of [
-    'http://127.0.0.1:5432/', 'http://localhost:3000/', 'http://[::1]:3000/', 'http://10.0.0.1/', 'http://169.254.169.254/',
-    'https://rebound.example.com/', 'https://metadata.example.com/', 'http://app.localhost/', 'ws://127.0.0.1:9222/devtools',
-  ]) {
-    assert.ok(!(await rules.allows(url)), url);
+  assert.deepEqual(await rules.destination('127.0.0.1', 3000), { address: '127.0.0.1', refusal: null });
+  assert.deepEqual(await rules.destination('cdn.example.com', 443), { address: '93.184.216.34', refusal: null });
+  assert.deepEqual(await rules.destination('8.8.8.8', 53), { address: '8.8.8.8', refusal: null });
+
+  const refusals = {
+    '127.0.0.1:5432': 'is a loopback, link-local or private address',
+    '[::1]:3000': 'is a loopback, link-local or private address',
+    '169.254.169.254:80': 'is a loopback, link-local or private address',
+    'localhost:3000': 'is a local host name',
+    'rebound.example.com:443': 'resolves to a loopback, link-local or private address',
+    'metadata.example.com:80': 'resolves to a loopback, link-local or private address',
+    'nowhere.example.com:443': 'does not resolve',
+  };
+  for (const [target, reason] of Object.entries(refusals)) {
+    const [, hostname, port] = /^(.+):(\d+)$/.exec(target);
+    const { address, refusal } = await rules.destination(hostname, Number(port));
+    assert.equal(address, null, target);
+    assert.match(refusal, new RegExp(`${reason}$`), target);
   }
 });
 
@@ -88,7 +119,7 @@ test('a resolution is reused while it is fresh', async () => {
     },
   });
 
-  await rules.allows('https://cdn.example.com/a.js');
-  await rules.allows('https://cdn.example.com/b.js');
+  await rules.destination('cdn.example.com', 443);
+  await rules.destination('cdn.example.com', 443);
   assert.equal(lookups, 1);
 });

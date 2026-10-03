@@ -2,21 +2,28 @@ import { mkdtemp, realpath, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import { startEgressProxy } from './egress-proxy.mjs';
 import { acceptedHosts } from './guard.mjs';
 import { createHttpServer } from './http-server.mjs';
 import { McpGateway } from './mcp-gateway.mjs';
+import { NavigationGuard } from './navigation-guard.mjs';
 import { NetworkPolicy } from './network-policy.mjs';
 import { PAGE_FLUSH_MS, Recorder } from './recorder.mjs';
 import { VERSION } from './version.mjs';
 
 const VIEWPORT = { width: 1280, height: 800 };
+// WebRTC sends UDP around the proxy unless told otherwise. The headless
+// shell reads the first switch and headed Chromium the second.
+const WEBRTC_PROXIED_ONLY = ['--force-webrtc-ip-handling-policy=disable_non_proxied_udp', '--webrtc-ip-handling-policy=disable_non_proxied_udp'];
 // How long shutting down waits for the last recording batches to post.
 const RECORDING_DRAIN_MS = 5000;
 
 /**
- * Makes `policy` the rule for every request and WebSocket the context's pages
- * open. Registered once on the context, so it holds whichever MCP session
- * drives the browser.
+ * Checks every request and WebSocket the context's pages open against
+ * `policy.allows`, by URL, before it is sent. Registered once on the
+ * context, so it holds whichever MCP session drives the browser. Playwright
+ * calls a route only for the first URL of a redirect chain; the egress proxy
+ * and the NavigationGuard cover the hops after it.
  *
  * @param {import('playwright').BrowserContext} context
  * @param {NetworkPolicy} policy
@@ -32,7 +39,7 @@ export async function installNetworkPolicy(context, policy) {
     }
 
     try {
-      if (await policy.allows(request.url(), { topLevelNavigation })) await route.fallback();
+      if (policy.allows(request.url(), { topLevelNavigation })) await route.fallback();
       else await route.abort('blockedbyclient');
     } catch {
       // The page went away while the request was decided.
@@ -40,7 +47,7 @@ export async function installNetworkPolicy(context, policy) {
   });
 
   await context.routeWebSocket(/.*/, async (socket) => {
-    if (await policy.allows(socket.url())) socket.connectToServer();
+    if (policy.allows(socket.url())) socket.connectToServer();
     else await socket.close({ code: 1008, reason: 'Blocked by the sandbox browser' }).catch(() => {});
   });
 }
@@ -83,13 +90,15 @@ export function mcpConfig(config, outputDir) {
  * Starts the browser and its MCP endpoint, and returns once the endpoint
  * listens. Chromium gets a fresh profile directory and is driven over a pipe
  * (Playwright's --remote-debugging-pipe), so no debugging port is opened.
- * The process's working directory becomes an empty uploads directory, which
- * is where Playwright MCP reads files to upload from.
+ * Every connection it makes goes through the egress proxy, loopback and
+ * WebRTC included. The process's working directory becomes an empty uploads
+ * directory, which is where Playwright MCP reads files to upload from.
  *
  * @param {object} config a parsed configuration (see parseConfig)
  * @param {object} [dependencies]
  * @param {Function} [dependencies.launch] chromium.launchPersistentContext
  * @param {Function} [dependencies.createConnection] @playwright/mcp's createConnection
+ * @param {NetworkPolicy} [dependencies.policy] the rules for what the browser may load
  * @param {(message: string) => void} [dependencies.log]
  * @returns {Promise<{ port: number, close: (reason?: string, code?: number) => Promise<number>, done: Promise<number> }>}
  *   `close` stops everything and removes the directories; `done` settles with
@@ -113,30 +122,41 @@ export async function startSidecar(config, dependencies = {}) {
   };
   process.chdir(uploadsDir);
 
+  const policy = dependencies.policy ?? new NetworkPolicy({ appOrigin: config.appOrigin });
+  const proxy = await startEgressProxy({ policy, log });
   let context;
   try {
     context = await launch(profileDir, {
       headless: config.mode === 'headless',
       viewport: VIEWPORT,
       serviceWorkers: 'block',
+      // Chromium sends loopback requests around a proxy unless the bypass
+      // list names <-loopback>. Playwright adds it unless
+      // PLAYWRIGHT_DISABLE_FORCED_CHROMIUM_PROXIED_LOOPBACK is set; naming it
+      // here keeps it either way.
+      proxy: { server: proxy.url, bypass: '<-loopback>' },
+      args: WEBRTC_PROXIED_ONLY,
       chromiumSandbox: config.chromiumSandbox,
       handleSIGINT: false,
       handleSIGTERM: false,
       handleSIGHUP: false,
     });
   } catch (error) {
+    await proxy.close();
     await removeDirectories();
     throw error;
   }
 
-  const policy = new NetworkPolicy({ appOrigin: config.appOrigin });
   await installNetworkPolicy(context, policy);
+  const guard = new NavigationGuard({ policy, log });
+  guard.attach(context);
   const recorder = config.recording ? new Recorder({ recording: config.recording, log }) : null;
   await recorder?.attach(context);
 
   const gateway = new McpGateway({
     connect: () => connect(mcpConfig(config, outputDir), async () => context),
     policy,
+    guard,
     snapshotDir: await realpath(outputDir),
   });
   let hosts = new Set();
@@ -159,6 +179,7 @@ export async function startSidecar(config, dependencies = {}) {
       // closes before the recorder, so the recording gets the closing markers.
       if (recorder) await new Promise((resolve) => setTimeout(resolve, PAGE_FLUSH_MS * 2));
       await context.close().catch(() => {});
+      await proxy.close();
       await recorder?.close(RECORDING_DRAIN_MS);
       await removeDirectories();
       finished(exitCode);

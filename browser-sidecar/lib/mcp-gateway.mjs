@@ -98,6 +98,9 @@ class MemoryTransport {
  * answers with a link to it, which a client on another machine cannot open.
  * With `snapshotDir` set, a link to a file in that directory is replaced by
  * the snapshot itself.
+ *
+ * With `guard` set, a tool call during which a page was redirected off the
+ * app gets an error instead of its result, which could describe that page.
  */
 export class McpGateway {
   /**
@@ -110,12 +113,15 @@ export class McpGateway {
    * @param {number} [options.idleMs] how long an unused session is kept
    * @param {number} [options.requestTimeoutMs] how long a request may take
    * @param {string} [options.snapshotDir] the real path of the directory snapshots are written to
+   * @param {{ escapes: number, refusalSince(since: number): Promise<string | null> }} [options.guard] a NavigationGuard
    */
   constructor({
     connect, policy, deniedTools = DENIED_TOOLS, maxSessions = 8, idleMs = 30 * 60_000, requestTimeoutMs = 120_000, snapshotDir = null,
+    guard = null,
   }) {
     this.connect = connect;
     this.policy = policy;
+    this.guard = guard;
     this.snapshotDir = snapshotDir;
     this.deniedTools = deniedTools;
     this.maxSessions = maxSessions;
@@ -153,8 +159,12 @@ export class McpGateway {
 
     this.touch(session);
     session.busy += 1;
+    const escapes = this.guard?.escapes ?? 0;
     try {
       const response = await session.transport.request(inbound.message);
+      const refusal = message.method === 'tools/call' ? await this.guard?.refusalSince(escapes) : null;
+      if (refusal) return { status: 200, body: toolError(message.id, refusal) };
+
       return { status: 200, body: await this.outbound(message, response) };
     } finally {
       session.busy -= 1;
