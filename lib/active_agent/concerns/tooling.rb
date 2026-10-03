@@ -11,14 +11,19 @@ module ActiveAgent
     # Returns a proc that handles tool/function calls from providers.
     #
     # The proc routes tool calls to the appropriate action method using
-    # the {#process} method.
+    # the {#process} method. Secret answers the generation received (see
+    # InputRequests) are scrubbed from the result and from any error, before
+    # either reaches the provider or telemetry.
     #
     # @return [Proc] callback proc that accepts (action_name, *args, **kwargs)
     def tools_function
       proc do |action_name, *args, **kwargs|
         # Marked as a tool call so a refusal is reported to the model as a
         # result rather than raised through the run (see Authorization).
-        with_tool_call { process(action_name, *args, **kwargs) }
+        result = with_tool_call { process(action_name, *args, **kwargs) }
+        scrub_input_request_secrets(result)
+      rescue StandardError => error
+        raise_without_input_request_secrets(error)
       end
     end
   end

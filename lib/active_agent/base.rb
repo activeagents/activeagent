@@ -7,6 +7,7 @@ require "active_support/core_ext/string/inflections"
 require "active_agent/concerns/authorization"
 require "active_agent/concerns/callbacks"
 require "active_agent/concerns/delegation"
+require "active_agent/concerns/input_requests"
 require "active_agent/concerns/observers"
 require "active_agent/concerns/parameterized"
 require "active_agent/concerns/preview"
@@ -47,6 +48,7 @@ module ActiveAgent
     include Callbacks
     # After Rescue: the refusal handler is registered with rescue_from.
     include Delegation
+    include InputRequests
     include Parameterized
     include Provider
     include Queueing
@@ -261,7 +263,9 @@ module ActiveAgent
         run_callbacks(:prompting) do
           parameters = prepare_prompt_parameters
 
-          prompt_provider_klass.new(**parameters).prompt
+          prompt_provider_klass.new(**parameters).prompt.tap do |response|
+            run_input_request_callbacks(response)
+          end
         end
       end
     end
@@ -332,6 +336,9 @@ module ActiveAgent
         exception_handler:,
         stream_broadcaster:,
         tools_function:,
+        action_name: generation_action_name,
+        input_request_resume: @_input_request_resume,
+        announce_input_requests: !input_requests_silenced?
       )
 
       # Apply Templates
