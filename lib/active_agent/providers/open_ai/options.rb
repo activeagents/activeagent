@@ -64,7 +64,7 @@ module ActiveAgent
 
         def resolve_project_id(kwargs)
           kwargs[:project] ||
-            kwargs[:project_id]
+            kwargs[:project_id] ||
             ENV["OPENAI_PROJECT_ID"] ||
             ENV["OPEN_AI_PROJECT_ID"]
         end
