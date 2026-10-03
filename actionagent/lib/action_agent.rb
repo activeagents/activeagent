@@ -306,6 +306,8 @@ module ActionAgent
     #   :trace_ingest      — a POST to <mount>/api/traces; HTTP 429
     #   :evaluation_report — a report <mount>/api/evaluation_reports would
     #                        store (never an identical retry); HTTP 429
+    #   :project           — creating a project; HTTP 402, and usage is
+    #                        recorded under the same kind once it exists
     #
     # The owner of an ingest kind is the tenant the key resolved to, nil on a
     # single-tenant install.
