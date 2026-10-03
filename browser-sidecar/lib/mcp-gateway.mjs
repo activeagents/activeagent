@@ -188,8 +188,9 @@ export class McpGateway {
       const call = message.method === 'tools/call' ? inbound.message.params : null;
       if (call && this.lock) {
         const waitStarted = Date.now();
-        const holder = await this.lock.admit(call.name, call.arguments, this.agentWaitMs);
-        if (holder) return { status: 200, body: takeoverError(message.id, holder, Date.now() - waitStarted) };
+        const refusal = await this.lock.admit(call.name, call.arguments, this.agentWaitMs);
+        if (refusal?.stopping) return { status: 200, body: toolError(message.id, 'The browser is stopping. Nothing was done.') };
+        if (refusal) return { status: 200, body: takeoverError(message.id, refusal.holder, Date.now() - waitStarted) };
       }
 
       const escapes = this.guard?.escapes ?? 0;

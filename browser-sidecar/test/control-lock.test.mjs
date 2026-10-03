@@ -114,8 +114,8 @@ test('an agent call is refused, naming who drives, when control is not handed ba
   lock.acquire('a1', ada);
 
   const refused = await lock.admit('browser_navigate', { url: '/' }, 30);
-  assert.equal(refused.user.name, 'Ada');
-  assert.equal(await lock.admit('browser_navigate', { url: '/' }, 0), lock.holder, 'with no wait it is refused at once');
+  assert.equal(refused.holder.user.name, 'Ada');
+  assert.equal((await lock.admit('browser_navigate', { url: '/' }, 0)).holder, lock.holder, 'with no wait it is refused at once');
 });
 
 test('an agent call keeps waiting when control is taken again as it is handed back', async () => {
@@ -128,10 +128,10 @@ test('an agent call keeps waiting when control is taken again as it is handed ba
   });
   lock.release('a1');
 
-  assert.equal((await admitted)?.user.name, 'Grace');
+  assert.equal((await admitted)?.holder.user.name, 'Grace');
 });
 
-test('closing refuses the calls still waiting and releases control', async () => {
+test('closing refuses the calls still waiting, as the browser stopping, and releases control', async () => {
   const lock = new ControlLock();
   const changes = recorded(lock);
   lock.acquire('a1', ada);
@@ -140,7 +140,7 @@ test('closing refuses the calls still waiting and releases control', async () =>
 
   lock.close();
 
-  assert.equal((await waiting)?.user.name, 'Ada');
+  assert.deepEqual(await waiting, { stopping: true });
   assert.equal(lock.holder, null);
   assert.deepEqual(changes.at(-1), [null, 'Ada', 'closed']);
   assert.equal(lock.acquire('a1', ada).taken, false, 'nobody takes control of a closed browser');

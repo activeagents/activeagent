@@ -126,8 +126,9 @@ between them. While they hold it:
 - an agent's tool call that would change the page waits for them to hand
   back, up to `live.agent_wait_ms`. If they have not, it returns an error
   naming them, with `_meta["activeagents/takeover"]`:
-  `{ held_by, since, waited_ms }`. Calls that only read the page, such as
-  `browser_snapshot`, go ahead;
+  `{ held_by, since, waited_ms }`. A call still waiting when the browser
+  stops returns an error saying it is stopping. Calls that only read the
+  page, such as `browser_snapshot`, go ahead;
 - if their connection drops, control is released after
   `live.release_grace_ms`.
 
