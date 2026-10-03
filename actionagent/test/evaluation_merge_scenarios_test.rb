@@ -134,6 +134,17 @@ class EvaluationMergeScenariosTest < ActiveSupport::TestCase
     assert_equal "Where is order ABC-123?", @evaluation.scenarios.find_by!(key: "orders_1").prompt
   end
 
+  test "saving the evaluation after a refused merge does not write the refused scenarios" do
+    assert_raises(ActiveRecord::RecordInvalid) do
+      @evaluation.merge_scenarios!([ { "key" => "refunds_1", "prompt" => "Can I get a refund?" }, { "key" => "refunds_2", "prompt" => "" } ])
+    end
+
+    @evaluation.update!(name: "Renamed")
+
+    assert_equal %w[billing_1 orders_1 orders_2], @evaluation.scenarios.map(&:key).sort
+    assert_equal %w[billing_1 orders_1 orders_2], ActionAgent::EvaluationScenario.where(evaluation_id: @evaluation.id).pluck(:key).sort
+  end
+
   private
 
   def completed_run
