@@ -19,6 +19,37 @@ module ActionAgent
 
     source_root File.expand_path("templates", __dir__)
 
+    # A numbered migration template is templates/migrations/NNN_<name>.rb.erb,
+    # emitted as db/migrate/<timestamp>_<name>.rb: "015_add_widget_scope.rb.erb"
+    # becomes "<timestamp>_add_widget_scope.rb". A migration added to the
+    # engine ships this way, as one new file and no generator change. The
+    # templates are emitted after every other dashboard migration, in NNN
+    # order, so a later number may alter what an earlier one created. A
+    # template is skipped when db/migrate already holds a migration of its
+    # name. A traces-only install skips them all.
+    NUMBERED_MIGRATION = /\A\d{3}_(?<name>[a-z0-9_]+)\.rb\.erb\z/
+
+    class << self
+      # Where the numbered migration templates live.
+      attr_writer :numbered_migrations_path
+
+      def numbered_migrations_path
+        @numbered_migrations_path || File.expand_path("templates/migrations", __dir__)
+      end
+
+      # The numbered migration templates, in the order they are emitted, as
+      # [template path, migration name] pairs. Files whose names do not
+      # follow the convention are left out.
+      def numbered_migrations
+        Dir.children(numbered_migrations_path).sort.filter_map do |file|
+          match = NUMBERED_MIGRATION.match(file)
+          [ File.join(numbered_migrations_path, file), match[:name] ] if match
+        end
+      rescue Errno::ENOENT
+        []
+      end
+    end
+
     desc "Installs the ActiveAgent Dashboard with telemetry storage"
 
     class_option :multi_tenant, type: :boolean, default: false,
@@ -137,6 +168,12 @@ module ActionAgent
       end
       unless existing_migration?("add_code_session_runner")
         migration_template("add_code_session_runner.rb.erb", "db/migrate/add_code_session_runner.rb")
+      end
+
+      self.class.numbered_migrations.each do |template, name|
+        next if existing_migration?(name)
+
+        migration_template(template, "db/migrate/#{name}.rb")
       end
     end
 

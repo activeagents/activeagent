@@ -23,6 +23,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   are native. Instructions are sent as `system` messages, and provider defaults
   such as thinking mode are left unchanged. Thinking is billed and disables
   sampling parameters; prompts can opt out with `thinking: { type: "disabled" }`.
+- **Ship dashboard migrations as numbered templates** (`actionagent`).
+  `rails g action_agent:install` also emits every
+  `templates/migrations/NNN_<name>.rb.erb` in the generator, in number order and
+  after the other dashboard migrations, skipping any whose name `db/migrate`
+  already holds. A new engine migration is one new template file.
 
 ### Fixed
 
