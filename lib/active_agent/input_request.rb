@@ -96,16 +96,18 @@ module ActiveAgent
       end
 
       # Runs a tool call with its id, and its answer when there is one, in
-      # execution state. A nested generation inside the call sees its own
-      # calls; the outer call's state is restored when the block returns.
+      # execution state. A nil `tool_call_id` runs the block outside any tool
+      # call, so it reads no id and no answer. A nested generation inside the
+      # call sees its own calls; the outer call's state is restored when the
+      # block returns.
       #
-      # @param tool_call_id [String]
+      # @param tool_call_id [String, nil]
       # @param answer [Object, nil]
       # @return [Object] the block's result
       # @api private
       def dispatching(tool_call_id, answer: nil)
         previous = ActiveSupport::IsolatedExecutionState[EXECUTION_STATE_KEY]
-        ActiveSupport::IsolatedExecutionState[EXECUTION_STATE_KEY] = { id: tool_call_id.to_s, answer: }
+        ActiveSupport::IsolatedExecutionState[EXECUTION_STATE_KEY] = tool_call_id.nil? ? nil : { id: tool_call_id.to_s, answer: }
 
         yield
       ensure
