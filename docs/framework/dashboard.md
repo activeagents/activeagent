@@ -703,7 +703,8 @@ candidate's verdict against the agent the project evaluates, so the harness
 can revise a candidate that needs a tool the agent does not have, and the
 `review_url` to send the person to. Storing candidates needs only the key;
 accepting them asks `:replace_scenarios` on the dashboard. An exploration
-holds at most 200 candidates.
+holds at most 200 candidates. An `evaluation_id` that is a project's
+evaluation files the candidates under that project.
 
 ## GitHub connections and checkout sandboxes
 
@@ -1709,8 +1710,11 @@ A candidate looks like this:
   not running or did not answer, the verdict is `unverified`.
 - **Candidate text is scrubbed before it is stored** of the project's secrets
   (with their URL-encoded and Base64 forms), the owner's provider keys,
-  GitHub token and API keys, and the project's sandbox tokens. Strings are cut
-  to 4,000 characters and lists to 50 entries.
+  GitHub token and API keys, and the project's sandbox tokens. Candidates
+  submitted for an evaluation of the project's agent, by `evaluation_id`, are
+  scrubbed of that project's secrets too, and those for the project's own
+  evaluation are filed under the project. Strings are cut to 4,000
+  characters and lists to 50 entries.
 - **A recording** in `provenance` is kept only when it is the exploration's
   own, and the review links to that part of its replay. Without one there is
   no Replay link.
@@ -1744,7 +1748,7 @@ it was not given:
 |---|---|
 | `GET /api/explorations` | The owner's explorations, newest first; `project_id` or `evaluation_id` filters |
 | `GET /api/explorations/:id` | One exploration with its candidates, the evaluation they merge into, the pre-selection cap and `runs_remaining` |
-| `POST /api/explorations` | Stores `candidates` for a `project_id` or `evaluation_id` as a new exploration, ready for review |
+| `POST /api/explorations` | Stores `candidates` for a `project_id` or `evaluation_id` as a new exploration, ready for review. A project's evaluation files them under the project |
 | `PATCH /api/explorations/:id/candidates/:candidate_id` | Edits a candidate (`prompt`, `group`, `rubric`, `tools`, `contains`, `not_contains`), rejects it (`state: "rejected"`) or reconsiders a rejected one (`state: "proposed"`). An accepted candidate is not rejected here: disable its scenario in the evaluation |
 | `POST /api/explorations/:id/accept` | Accepts candidates, as above |
 | `POST /api/explorations/:id/stop` | Ends a running exploration and keeps what it found for review; `409` once it has stopped |

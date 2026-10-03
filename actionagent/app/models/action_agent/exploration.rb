@@ -91,10 +91,18 @@ module ActionAgent
     scope :recent, -> { order(created_at: :desc, id: :desc) }
 
     # An unsaved exploration of +project+, or of +evaluation+ when there is
-    # no project. A project's exploration carries the project's owner
-    # columns; an evaluation's carries +user+'s and +account+'s, the caller's.
+    # no project. An evaluation that is a project's own evaluation makes it
+    # that project's exploration. A project's exploration carries the
+    # project's owner columns, and an evaluation's carries +user+'s and
+    # +account+'s, the caller's.
     def self.build_for(project: nil, evaluation: nil, user: nil, account: nil, **attributes)
-      exploration = new(project: project, evaluation: project ? nil : evaluation, start_url: project&.start_url, **attributes)
+      if project.nil? && evaluation
+        owning = Project.for_evaluation(evaluation)
+        project = owning if owning && owning.evaluation_id == evaluation.id
+      end
+      evaluation = nil if project && evaluation&.id != project.evaluation_id
+
+      exploration = new(project: project, evaluation: evaluation, start_url: project&.start_url, **attributes)
       if project
         exploration.account_id = project.account_id
         exploration.user_id = project.user_id
@@ -161,10 +169,19 @@ module ActionAgent
       project ? project.evaluation : evaluation
     end
 
+    # The project whose app the candidates come from: this exploration's,
+    # or the project whose target agent its evaluation belongs to (see
+    # Project.for_evaluation). Nil for an evaluation of any other agent.
+    #
+    # @return [Project, nil]
+    def app_project
+      project || Project.for_evaluation(evaluation)
+    end
+
     # The target agent's tools as verdicts read them: { names:, complete: },
     # where complete is false when one of the agent's own servers failed
-    # discovery. A project's exploration reads its app's tools from the
-    # project's current sandbox.
+    # discovery. An exploration of a project's app (see #app_project) reads
+    # the app's tools from the project's current sandbox.
     #
     # Nil when the tools cannot be read: there is no target agent, the
     # project has no sandbox, or its sandbox is not live or did not answer.
@@ -173,8 +190,8 @@ module ActionAgent
     def tool_roster
       agent = target_agent or return nil
       extra = []
-      if project
-        sandbox = project.current_sandbox_session or return nil
+      if (source = app_project)
+        sandbox = source.current_sandbox_session or return nil
         extra << sandbox.runtime_server_key
       end
 
@@ -413,18 +430,20 @@ module ActionAgent
       }
     end
 
-    # The values candidate text is scrubbed of: the project's secrets with
-    # their encodings, the owner's provider keys, GitHub token and API keys,
-    # and the runtime tokens of the project's sandboxes.
+    # The values candidate text is scrubbed of: the secrets of the project
+    # whose app it comes from (see #app_project) with their encodings, the
+    # owner's provider keys, GitHub token and API keys, and the runtime
+    # tokens of that project's sandboxes.
     #
     # @return [Array<String>]
     def scrub_secrets
       owner_record = owner
-      sandbox_tokens = project ? SandboxSession.where(project_id: project.id).where.not(runtime_mcp_token: nil)
+      source = app_project
+      sandbox_tokens = source ? SandboxSession.where(project_id: source.id).where.not(runtime_mcp_token: nil)
         .order(id: :desc).limit(SECRET_LOOKUP_LIMIT).pluck(:runtime_mcp_token) : []
 
       [
-        *(project ? project.scrub_values : []),
+        *(source ? source.scrub_values : []),
         *ProviderKey.for_owner(owner_record).limit(SECRET_LOOKUP_LIMIT).pluck(:credential, :api_key).flatten,
         *GithubConnection.for_owner(owner_record).limit(SECRET_LOOKUP_LIMIT).pluck(:access_token),
         *ApiKey.for_owner(owner_record).limit(SECRET_LOOKUP_LIMIT).pluck(:token),

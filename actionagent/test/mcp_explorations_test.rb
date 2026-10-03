@@ -62,6 +62,17 @@ class McpExplorationsTest < ActionDispatch::IntegrationTest
     assert_equal [ "Opened Orders" ], exploration.candidates.second.dig("provenance", "steps")
   end
 
+  test "evaluation_id names the project's evaluation: the candidates are filed under the project and scrubbed" do
+    body = submit({ evaluation_id: @project.evaluation.id, candidates: [ candidate("Pay for A-17 with #{SECRET}", tools: [ "lookup_order" ]) ] })
+
+    result = body.dig("result", "structuredContent")
+    assert_nil body.dig("result", "isError"), body.inspect
+    assert_equal [ "Pay for A-17 with [REDACTED]", "answerable" ], result["candidates"].sole.values_at("prompt", "verdict")
+    exploration = ActionAgent::Exploration.find(result.dig("exploration", "id"))
+    assert_equal [ @project.id, @project.evaluation.id ], [ exploration.project_id, exploration.evaluation_id ]
+    assert_not_includes exploration.read_attribute_before_type_cast(:candidates).to_s, SECRET
+  end
+
   test "exploration_id adds to an earlier submission, numbering on from it" do
     first = submit({ project_id: @project.id, candidates: [ candidate("Where is order A-17?") ] }).dig("result", "structuredContent")
     id = first.dig("exploration", "id")
