@@ -582,7 +582,8 @@ as a Bearer token. Connect a client with:
 | `run_<slug>` (one per agent the key can reach) | Runs that agent with `{ message }` and returns its answer; a named action marked *expose as tool* is `run_<slug>__<action>` |
 | `find_<records>`, `count_<records>`, `get_<record>` (one set per discovered [schema tools](/actions/tools#bounded-reads-over-a-model-schema-tools) class) | Reads the host's records directly, with the tool's own parameter schema, so a client that only needs the rows does not have to ask an agent for them |
 
-Every call runs as **the key's caller** — the key's owner, or whatever
+Every call runs as **the key's caller** — the user who created the key in
+Settings, else the key's owner, or whatever
 `ActionAgent.agent_actor_resolver` returns for the request — so a schema
 tool's `scope` sees the same actor it would inside an agent run, and an
 agent's own authorization callbacks decide against the same person. A
@@ -677,6 +678,29 @@ sandbox as `runtime_server_key`. Add that key to an agent's MCP servers, and
 runs and evaluations of that agent call the checkout's own tools. The lookup
 is scoped to the agent's owner, so one tenant cannot name another tenant's
 sandbox.
+
+### What a sandbox backend implements
+
+A backend registered in `ActionAgent.sandbox_backends` is a plain class.
+`ActionAgent::SandboxOrchestrator` calls whichever of these public methods it
+defines, and `orchestrator.supports?(:verb)` answers whether it defines one:
+
+| Method | Required | Returns |
+|---|---|---|
+| `create_sandbox(session)` | yes | `{ container_name:, url:, mcp_url:, mcp_token: }` |
+| `status(handle)`, `terminate(handle)`, `list_sandboxes`, `cleanup_expired` | yes | a status hash, true, an array of status hashes, a count |
+| `run_code_session(session, code_session, &on_event)`, `cancel_code_session(session, code_session)` | no | `{ exit_status:, diff: }`, true |
+| `changed_files(session)` | no | `{ base_commit:, files: [{ path:, status:, mode: }] }`: what the checkout changed since it was cloned, read without running the checkout's git hooks, filters or configuration |
+| `read_file(session, path)` | no | the file's current bytes, or nil; a symlink reads as its target. `path` is always relative and inside the checkout |
+| `start_browser(session, mode:)` | no | `{ mcp_url:, mcp_token: }` for a browser of the sandbox's own; `mode` is `:headless` or `:headed` |
+| `stop_browser(session)` | no | true, also when none was running |
+| `resume_boot(session, from:)` | no | what `create_sandbox` returns, after re-running a failed boot from the step named `from` |
+
+`session` is the `ActionAgent::SandboxSession`, and `handle` is the
+`container_name` that `create_sandbox` returned. Calling a verb the backend
+does not define raises `SandboxOrchestrator::UnsupportedBackendError`. The
+engine's `:mock` and `:local` backends define none of the optional verbs from
+`changed_files` down.
 
 ### Running against a sandbox without editing the agent
 
@@ -1283,6 +1307,53 @@ require a Bearer token — see
 multi-tenant mode ingest always authenticates per-account keys (see
 below).
 
+### Permissions
+
+Authentication decides who reaches the dashboard. `config.permission_checker`
+decides which of them may perform its privileged actions. It is called with
+the signed-in user (the dashboard's `current_user`), the action, and the
+record the action applies to. For an action that creates a record, that is
+the unsaved record, with its owner columns already set. A truthy answer
+allows the action, and `false` denies it with HTTP 403:
+
+```ruby
+ActionAgent.configure do |config|
+  config.permission_checker = ->(user, action, subject) do
+    user.present? && user.admin?
+  end
+end
+```
+
+| Action | Asked by |
+|---|---|
+| `:manage_credentials` | storing, testing and deleting a provider credential (`POST /api/provider_keys`, `POST /api/provider_keys/test`, `DELETE /api/provider_keys/:provider`) |
+| `:manage_github` | connecting GitHub, choosing its repositories, and disconnecting it (`GET /api/github_connection/connect` and `/callback`, `PATCH` and `DELETE /api/github_connection`) |
+| `:manage_api_keys` | creating and revoking dashboard API keys (`POST /api/api_keys`, `DELETE /api/api_keys/:id`) |
+| `:publish_pull_request` | reserved: opening a pull request from a sandbox |
+| `:answer_input_request` | reserved: answering a run's request for input |
+| `:manage_project_secrets` | reserved: setting a project's secrets |
+| `:take_over_browser` | reserved: driving a run's browser by hand |
+| `:manage_recordings` | reserved: viewing and deleting session recordings |
+| `:replace_scenarios` | reserved: replacing an evaluation's scenarios |
+
+The list is `ActionAgent::PERMISSION_ACTIONS`. `ActionAgent.permitted?(user,
+action, subject)` asks the checker the same way the endpoints do, and raises
+`ArgumentError` for an action outside the list. Reading a setting is not a
+privileged action, so the `GET` endpoints that list keys or the connection
+are not checked. The connect and callback navigations return a refusal to
+Settings (`?github=forbidden`) rather than as JSON.
+
+Unset, anyone who passes authentication may perform every action, which
+suits a single-user install. In multi-tenant mode that is every member of
+every tenant, so the engine logs a warning at boot when `multi_tenant` is on
+and no checker is set. With a checker set:
+
+- An exception raised by the checker denies the action, and is logged.
+- In multi-tenant mode, a request with no signed-in user is denied without
+  asking the checker, and a `nil` answer denies.
+- In single-tenant mode, a `nil` answer allows, so a checker can leave the
+  actions it has no rule for alone.
+
 ## Sending traces to a remote endpoint instead
 
 Point telemetry at any compatible receiver — including the hosted
@@ -1321,6 +1392,23 @@ tracking or rate limiting; it is called once per authenticated trace ingest
 request. The evaluation report collector authenticates the same keys but does
 not call it: it asks `quota_checker` with `:evaluation_report` and tells
 `usage_recorder` of each stored report.
+
+### Live updates
+
+When the host has loaded Action Cable, the engine announces status changes
+on these streams:
+
+| Stream | `type` | `id` |
+|---|---|---|
+| `agent_run_<run id>`, `agent_runs_<agent id>` | `update` | the run's id |
+| `sandbox_<session id>` | `status_update` | the sandbox's session id |
+| `sandbox_<session id>` | `run_started`, `run_complete`, `run_error` | the `run_id` that `POST /api/sandboxes/:id/run` or `POST /api/sandboxes/compare` returned, which is not the `id` of the run stored on the sandbox |
+
+Each message is `{ type, id, status }` and nothing else: a client reads the
+record back over the dashboard's JSON API, which scopes it to the signed-in
+owner. The engine ships no channel classes; a host channel that streams these
+checks that the subscriber owns the record before it streams. Without Action
+Cable nothing is sent, and the dashboard polls.
 
 ## Relationship to the hosted platform
 

@@ -1,0 +1,6 @@
+# The dashboard bundle is built from actionagent/frontend and committed (CI
+# checks it matches its source), so diffs of it are noise. It never merges
+# line by line: two builds that changed different lines would combine into a
+# bundle neither source produces, so a merge or rebase stops on it and the
+# branch rebuilds it instead.
+actionagent/app/assets/builds/* -diff merge=binary linguist-generated=true
