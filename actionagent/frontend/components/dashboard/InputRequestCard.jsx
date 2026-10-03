@@ -19,8 +19,7 @@ import {
 } from '../../utils/inputRequests.mjs';
 
 // One request for input and the control that answers it. Every surface that
-// answers a request renders this card: the Needs input lane, the runner and
-// the Project page.
+// answers a request renders this card: the Needs input lane and the runner.
 //
 // It says who is asking (the agent, its run, the person the run acts for and
 // the tool) and when the request expires, then offers the control the kind

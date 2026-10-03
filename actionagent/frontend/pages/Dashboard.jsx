@@ -55,8 +55,8 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
   // Which MCP service the MCP view should open expanded — set when a tool
   // row links to the server that serves it, or from a /mcp/:server URL.
   const [focusServer, setFocusServer] = useState(null);
-  // The Interactions badge: refetched on every navigation as well as on the
-  // hook's own interval.
+  // The Interactions badge: refetched whenever the view changes as well as on
+  // the hook's own interval.
   const { requests: pendingInput } = useInputRequests({ refreshKey: currentView });
 
   // Parse the URL into a view. Runs on mount and on popstate, so browser
