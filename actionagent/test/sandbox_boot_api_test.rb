@@ -289,6 +289,20 @@ class SandboxBootApiTest < ActionDispatch::IntegrationTest
     assert_not SpecBackend.calls.any? { |call| call.first == :resume_boot }
   end
 
+  test "POST resume_boot refuses a step the boot cannot resume from, and keeps the failed boot's error" do
+    session_id = failed_checkout
+    SpecBackend.boot_state = { mode: "spec", kept: true, failed_step: "db_prepare", resumable_steps: %w[install_engine db_prepare], steps: [] }
+
+    post "/activeagents/api/sandboxes/#{session_id}/resume_boot", params: { from: "checkout" }, as: :json
+
+    assert_response :unprocessable_entity
+    assert_equal "\"checkout\" is not a step this boot can resume from (install_engine, db_prepare)", JSON.parse(response.body)["error"]
+    session = ActionAgent::SandboxSession.find_by!(session_id: session_id)
+    assert session.failed?
+    assert_match "Sandbox db_prepare failed", session.error_message
+    assert_no_enqueued_jobs(only: ActionAgent::SandboxProvisionJob)
+  end
+
   test "the execution switch refuses a run, a comparison and a resume alike" do
     ready = start_checkout
     failed = failed_checkout

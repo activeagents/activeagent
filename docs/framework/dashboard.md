@@ -697,7 +697,7 @@ defines, and `orchestrator.supports?(:verb)` answers whether it defines one:
 | `start_browser(session, mode:)` | no | `{ mcp_url:, mcp_token: }` for a browser of the sandbox's own; `mode` is `:headless` or `:headed` |
 | `stop_browser(session)` | no | true, also when none was running |
 | `resume_boot(session, from:)` | no | what `create_sandbox` returns, after re-running a failed boot it kept from the step named `from` (nil for the step that failed). A backend that also takes `boot_config:` is handed the spec to continue with |
-| `boot_status(session)` | no | `{ mode:, kind:, failed_step:, kept:, steps: [{ name:, status:, started_at:, finished_at:, duration_ms:, detail: }] }`, or nil when it holds nothing for the session |
+| `boot_status(session)` | no | `{ mode:, kind:, failed_step:, kept:, resumable_steps:, steps: [{ name:, status:, started_at:, finished_at:, duration_ms:, detail: }] }`, or nil when it holds nothing for the session. `resumable_steps`, the names `resume_boot` accepts as `from`, is optional |
 | `boot_log(session, step:, offset:, limit:, secrets:)` | no | `{ step:, offset:, next_offset:, size:, eof:, text: }`, one page of a step's log scrubbed of the session's secrets and of `secrets`, or nil when the step has no log |
 
 `session` is the `ActionAgent::SandboxSession`, and `handle` is the
@@ -1256,10 +1256,14 @@ cloned again, and no earlier step runs again. The sandbox is `provisioning`
 again and is polled as after a create, and a resume that fails is kept
 again. A resume is refused with `422` unless the sandbox is a failed checkout
 that has not expired, kept its boot, and has a backend that implements
-`resume_boot`. It needs execution to be enabled and answers to the execution
-quota, but is not counted as another execution. The backend keeps the spec
-without its secrets' values, so `SandboxOrchestrator#resume_boot` takes the
-spec again (`boot_config:`) for a boot that had secrets.
+`resume_boot`. A `from` that is not among the boot's `resumable_steps` is
+refused with `422` too, and the sandbox keeps the error its boot failed
+with. On `:local` those are the spec's steps, its manifest and its start.
+The checkout and the preflight never run again. A resume needs execution to
+be enabled and answers to the execution quota, but is not counted as another
+execution. The backend keeps the spec without its secrets' values, so
+`SandboxOrchestrator#resume_boot` takes the spec again (`boot_config:`) for a
+boot that had secrets.
 
 A stop (`DELETE`) removes a kept workspace like any other, and the reaper
 releases one once its sandbox has expired (see
