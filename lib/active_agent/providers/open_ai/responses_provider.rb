@@ -202,26 +202,60 @@ module ActiveAgent
           end
         end
 
-        # Executes function calls and creates output messages for conversation continuation
+        # Executes function calls and creates output messages for conversation
+        # continuation. Pushes nothing when a call paused for the user.
         #
         # @param api_function_calls [Array<Hash>] function calls with :call_id and :name keys
         # @return [void]
         # @see Base#process_function_calls
         def process_function_calls(api_function_calls)
-          api_function_calls.each do |api_function_call|
-            output = instrument("tool_call.active_agent", tool_name: api_function_call[:name]) do
-              process_tool_call_function(api_function_call).to_json
+          results = dispatch_tool_calls(api_function_calls) do |api_function_call|
+            instrument("tool_call.active_agent", tool_name: api_function_call[:name]) do
+              process_tool_call_function(api_function_call)
             end
+          end
+          return unless results
 
+          api_function_calls.zip(results).each do |api_function_call, result|
             # Create native gem input item for function call output
             message = ::OpenAI::Models::Responses::ResponseInputItem::FunctionCallOutput.new(
               call_id: api_function_call[:call_id],
-              output:
+              output:  result.to_json
             )
 
             # Convert to hash for message_stack
             message_stack.push(Responses::Transforms.gem_to_hash(message))
           end
+        end
+
+        # A function_call item's `id` names the item; `call_id` is what its
+        # function_call_output answers.
+        #
+        # @see InputRequests#tool_call_reference
+        # @param api_function_call [Hash]
+        # @return [Array(String, String)]
+        def tool_call_reference(api_function_call)
+          [ api_function_call[:call_id].to_s, api_function_call[:name].to_s ]
+        end
+
+        # @see InputRequests#tool_call_arguments
+        # @param api_function_call [Hash]
+        # @return [Hash, String, nil]
+        def tool_call_arguments(api_function_call)
+          parse_tool_call_arguments(api_function_call[:arguments])
+        end
+
+        # Returns `messages` as the request's `input` items. Serializing the
+        # whole request would shorten a lone user message to a bare string.
+        #
+        # @see InputRequests#serialized_messages
+        # @return [Array<Hash>]
+        def serialized_messages(messages, instructions: nil)
+          parameters = { messages:, instructions: }.compact
+          return [] if parameters.empty?
+
+          input = Responses::Transforms.gem_to_hash(prompt_request_type.cast(parameters).__getobj__)[:input]
+          input.is_a?(String) ? [ { role: "user", content: input } ] : Array(input)
         end
 
         # Converts OpenAI gem response object to hash for storage.

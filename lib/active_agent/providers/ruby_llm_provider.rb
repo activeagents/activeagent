@@ -241,16 +241,20 @@ module ActiveAgent
         end
       end
 
-      # Executes tool calls and pushes results to message_stack.
+      # Executes tool calls and pushes results to message_stack. Pushes
+      # nothing when a call paused for the user.
       #
       # @param tool_calls [Array<Hash>] with :id, :name, :input keys
       # @return [void]
       def process_function_calls(tool_calls)
-        tool_calls.each do |tool_call|
-          content = instrument("tool_call.active_agent", tool_name: tool_call[:name]) do
+        results = dispatch_tool_calls(tool_calls) do |tool_call|
+          instrument("tool_call.active_agent", tool_name: tool_call[:name]) do
             call_tool_function(tool_call[:name], **tool_call[:input])
           end
+        end
+        return unless results
 
+        tool_calls.zip(results).each do |tool_call, content|
           message_stack.push({
             role: "tool",
             tool_call_id: tool_call[:id],

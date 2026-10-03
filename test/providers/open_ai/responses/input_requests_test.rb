@@ -118,6 +118,149 @@ module Providers
 
         attr_reader :request_bodies
 
+        def resume(paused, answers, **options)
+          RefundAgent.triage(**options).resume_now(checkpoint: JSON.parse(paused.checkpoint.to_json), answers:)
+        end
+
+        # The resumed request carries the conversation once, each reasoning
+        # item before the function calls it led to, then one
+        # function_call_output per call, in call order.
+        def assert_resumed_wire_format(body, reasoning: false)
+          input = body["input"]
+          types = input.map { _1["type"] || _1["role"] }
+
+          expected = [ "user", *("reasoning" if reasoning), "function_call", "function_call", "function_call_output", "function_call_output" ]
+          assert_equal expected, types
+          assert_equal "You handle refunds.", body["instructions"]
+          assert_equal "rs_1", input[1]["id"] if reasoning
+          assert_equal [ [ "call_1", { order_id: 7, total: 40 }.to_json ], [ "call_2", { refunded: 40 }.to_json ] ],
+                       input.select { _1["type"] == "function_call_output" }.map { [ _1["call_id"], _1["output"] ] }
+        end
+
+        test "a paused turn sends nothing back, and its completed result waits in the checkpoint" do
+          stub_responses(response_body(LOOKUP, REFUND))
+
+          paused = RefundAgent.triage.generate_now
+
+          assert paused.awaiting_input?
+          request = paused.input_requests.sole
+          assert_equal [ "call_2", "issue_refund", { "order_id" => 7, "amount" => 40 } ], [ request.tool_call_id, request.tool_name, request.arguments ]
+          assert_equal({ "call_1" => { "order_id" => 7, "total" => 40 } }, paused.checkpoint["completed_results"])
+          assert_equal [ "user", "function_call", "function_call" ], paused.checkpoint["messages"].map { _1["type"] || _1["role"] }
+          assert_equal 2, paused.checkpoint["tool_call_turn_size"]
+          assert_equal [ :lookup_order ], RefundAgent.calls
+          assert_requested :post, ENDPOINT, times: 1
+        end
+
+        test "resuming sends every function_call_output in call order" do
+          stub_responses(response_body(LOOKUP, REFUND), response_body(ANSWER))
+          paused = RefundAgent.triage.generate_now
+
+          response = resume(paused, { "call_2" => true })
+
+          assert_not response.awaiting_input?
+          assert_equal "Refunded.", response.message.content
+          assert_equal [ :lookup_order, :issue_refund ], RefundAgent.calls
+          assert_resumed_wire_format(request_bodies.last)
+        end
+
+        test "a declined call tells the model the user declined, without running the tool" do
+          stub_responses(response_body(LOOKUP, REFUND), response_body(ANSWER))
+          paused = RefundAgent.triage.generate_now
+
+          resume(paused, { "call_2" => false })
+
+          assert_equal [ :lookup_order ], RefundAgent.calls
+          output = request_bodies.last["input"].find { _1["call_id"] == "call_2" && _1["type"] == "function_call_output" }
+          assert_equal ActiveAgent::InputRequest::DECLINED_RESULT.to_json, output["output"]
+        end
+
+        test "a generation that pauses again after a resume replays every earlier item once" do
+          second_refund = REFUND.merge(id: "fc_3", call_id: "call_3", arguments: { order_id: 8, amount: 15 }.to_json)
+          stub_responses(response_body(REASONING, LOOKUP, REFUND), response_body(REASONING.merge(id: "rs_2"), second_refund), response_body(ANSWER))
+          first = RefundAgent.triage.generate_now
+
+          second = resume(first, { "call_2" => true })
+
+          assert second.awaiting_input?
+          assert_equal [ "call_3" ], second.input_requests.map(&:tool_call_id)
+          assert_equal 2, second.checkpoint["tool_call_turn_size"]
+
+          resume(second, { "call_3" => true })
+
+          input = request_bodies.last["input"]
+          assert_equal %w[user reasoning function_call function_call function_call_output function_call_output reasoning function_call function_call_output],
+                       input.map { _1["type"] || _1["role"] }
+          assert_equal %w[rs_1 rs_2], input.select { _1["type"] == "reasoning" }.pluck("id")
+          assert_equal %w[call_1 call_2 call_3], input.select { _1["type"] == "function_call_output" }.pluck("call_id")
+          assert_equal [ :lookup_order, :issue_refund, :issue_refund ], RefundAgent.calls
+        end
+
+        test "a checkpoint from a reasoning model resumes with its reasoning item in place" do
+          stub_responses(response_body(REASONING, LOOKUP, REFUND), response_body(ANSWER))
+          paused = RefundAgent.triage.generate_now
+
+          assert_equal 3, paused.checkpoint["tool_call_turn_size"]
+
+          resume(paused, { "call_2" => true })
+
+          assert_resumed_wire_format(request_bodies.last, reasoning: true)
+        end
+
+        test "a streamed pause runs each tool once" do
+          stub_responses(response_body(LOOKUP, REFUND), response_body(ANSWER), stream: true)
+
+          paused = RefundAgent.triage(stream: true).generate_now
+
+          assert paused.awaiting_input?
+          assert_equal [ :lookup_order ], RefundAgent.calls
+          assert_requested :post, ENDPOINT, times: 1
+
+          response = resume(paused, { "call_2" => true }, stream: true)
+
+          assert_equal "Refunded.", response.message.content
+          assert_equal [ :lookup_order, :issue_refund ], RefundAgent.calls
+          assert_resumed_wire_format(request_bodies.last)
+        end
+
+        test "a streamed response with reasoning items pauses and resumes with them in place" do
+          stub_responses(response_body(REASONING, LOOKUP, REFUND), response_body(REASONING.merge(id: "rs_2"), ANSWER), stream: true)
+
+          paused = RefundAgent.triage(stream: true).generate_now
+
+          assert paused.awaiting_input?
+          assert_equal [ "user", "reasoning", "function_call", "function_call" ], paused.checkpoint["messages"].map { _1["type"] || _1["role"] }
+
+          response = resume(paused, { "call_2" => true }, stream: true)
+
+          assert_equal "Refunded.", response.message.content
+          assert_equal [ :lookup_order, :issue_refund ], RefundAgent.calls
+          assert_resumed_wire_format(request_bodies.last, reasoning: true)
+        end
+
+        # Records the stream and pause callbacks a generation runs.
+        class CallbackRefundAgent < RefundAgent
+          class_attribute :events, default: []
+
+          on_stream_close { events << :stream_close }
+          on_input_request { events << :input_request }
+        end
+
+        test "a streamed pause closes the stream once and announces the pause once" do
+          stub_responses(response_body(REASONING, LOOKUP, REFUND), stream: true)
+          CallbackRefundAgent.events = []
+          announced = []
+          subscriber = ActiveSupport::Notifications.subscribe("input_requested.active_agent") { announced << _1 }
+
+          paused = CallbackRefundAgent.triage(stream: true).generate_now
+
+          assert paused.awaiting_input?
+          assert_equal %i[stream_close input_request], CallbackRefundAgent.events
+          assert_equal 1, announced.size
+        ensure
+          ActiveSupport::Notifications.unsubscribe(subscriber)
+        end
+
         test "a streamed tool loop that does not pause runs each tool once" do
           stub_responses(response_body(REASONING, LOOKUP), response_body(ANSWER), stream: true)
 
@@ -127,6 +270,18 @@ module Providers
           assert_equal "Refunded.", response.message.content
           assert_equal [ :lookup_order ], RefundAgent.calls
           assert_requested :post, ENDPOINT, times: 2
+        end
+
+        test "a checkpoint from Responses does not resume on Chat Completions" do
+          stub_responses(response_body(LOOKUP, REFUND))
+          paused = RefundAgent.triage.generate_now
+
+          error = assert_raises(ActiveAgent::InputRequest::ResumeError) do
+            resume(paused, { "call_2" => true }, api_version: :chat)
+          end
+
+          assert_match "OpenAI::Responses", error.message
+          assert_requested :post, ENDPOINT, times: 1
         end
       end
     end
