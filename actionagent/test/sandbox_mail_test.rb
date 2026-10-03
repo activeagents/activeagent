@@ -68,6 +68,16 @@ class SandboxMailTest < ActiveSupport::TestCase
     assert_equal [ "/password/edit?token=s3cr3t-reset-token&x=1" ], message[:links].map { |link| link[:path] }.uniq
   end
 
+  test "messages that start with a Return-Path header are told apart" do
+    older = Mail.new(from: "shop@example.com", to: "dev@example.com", subject: "Welcome", body: "Hello.", return_path: "bounce@example.com")
+    newer = Mail.new(from: "shop@example.com", to: "dev@example.com", subject: "Confirm your account",
+      body: "Confirm: http://localhost:3000/confirm?t=2", return_path: "bounce@example.com")
+    assert newer.encoded.start_with?("Return-Path:"), newer.encoded.lines.first
+    FilesBackend::FILES["tmp/activeagents/mail/dev@example.com"] = "#{older.encoded}\r\n\r\n#{newer.encoded}\r\n\r\n"
+
+    assert_equal "Confirm your account", read("dev@example.com")[:subject]
+  end
+
   test "an HTML-only message is read as text" do
     html = Mail.new(from: "shop@example.com", to: "dev@example.com", subject: "Confirm",
       content_type: "text/html; charset=UTF-8", body: "<p>Confirm <a href='http://localhost:3000/confirm?t=1'>here</a></p>")
