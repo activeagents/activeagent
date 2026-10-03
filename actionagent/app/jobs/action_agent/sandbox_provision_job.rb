@@ -29,7 +29,10 @@ module ActionAgent
       # Hand off to whichever backend this install registered — the engine
       # ships the in-memory one and :local, so a real container/job comes
       # from the host app's backend (see ActionAgent.sandbox_backends).
-      ensure_checkout_available!(sandbox) if sandbox.app_runtime?
+      if sandbox.app_runtime?
+        ensure_checkout_available!(sandbox)
+        mint_checkout_token!(sandbox)
+      end
 
       orchestrator = SandboxOrchestrator.new
       result = orchestrator.create_sandbox(sandbox)
@@ -79,7 +82,12 @@ module ActionAgent
     # selection, between creating the session and this job running.
     # checkout_spec answers nil for the first and raises ArgumentError for
     # the second; both mean the same thing to the owner.
+    # A GitHub App installation can also have been unlinked, or found removed
+    # or suspended by an earlier mint.
     def ensure_checkout_available!(sandbox)
+      installation = sandbox.checkout_installation
+      raise reinstall_message(sandbox, installation.removed_at ? :removed : :suspended) if installation && !installation.usable?
+
       available = begin
         sandbox.checkout_spec.present?
       rescue ArgumentError
@@ -88,6 +96,26 @@ module ActionAgent
       return if available
 
       raise "#{sandbox.repository} is no longer available: reconnect GitHub or reselect it in Settings -> Integrations"
+    end
+
+    # The one mint of a provision (see SandboxSession#mint_checkout_spec!).
+    # The token stays on +sandbox+, the object the orchestrator hands the
+    # backend and #secrets_for reads, so the backend clones with exactly the
+    # value this job scrubs.
+    def mint_checkout_token!(sandbox)
+      sandbox.mint_checkout_spec!
+    rescue GithubClient::InstallationUnavailable => e
+      raise reinstall_message(sandbox, e.reason)
+    rescue GithubClient::Error => e
+      raise "Could not get a GitHub token to check out #{sandbox.repository}: #{e.message}"
+    end
+
+    def reinstall_message(sandbox, reason)
+      installation = sandbox.checkout_installation
+      on = installation ? " on #{installation.github_account_login}" : ""
+      state = reason == :suspended ? "is suspended" : "was removed"
+      "The GitHub App installation#{on} #{state}, so #{sandbox.repository} cannot be checked out. " \
+        "Reinstall the GitHub App in Settings -> Integrations and start the sandbox again."
     end
 
     # Marks the session ready with the backend's endpoint, under a row lock
@@ -140,7 +168,8 @@ module ActionAgent
     end
 
     # What must never reach error_message: the checkout token and the Claude
-    # Code credential this session boots with.
+    # Code credential this session boots with. Reads the checkout without
+    # minting, so a GitHub App checkout contributes the token this job minted.
     def secrets_for(sandbox)
       return [] if sandbox.nil?
 
