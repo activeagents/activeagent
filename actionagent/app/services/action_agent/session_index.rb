@@ -9,7 +9,8 @@ module ActionAgent
   #                                caller's agents
   #   scenario_result  evaluation  the run that replayed an evaluation scenario
   #   recording        agent       a browser recording linked to no
-  #                                conversation and to no evaluation replay
+  #                                conversation, made by no run that wrote to
+  #                                one, and made by no evaluation replay
   #
   # An evaluation replay writes to its agent's conversation as well, so a
   # conversation whose every generation came from evaluation replays is left
@@ -92,7 +93,7 @@ module ActionAgent
       more = rows.size > @per_page
 
       {
-        sessions: SessionSummarySerializer.new(page, recordings: @recordings,
+        sessions: SessionSummarySerializer.new(page, agents: @all_agents, recordings: @recordings,
           failed_context_ids: failed_context_ids(page)).as_json,
         has_more: more,
         next_before: more ? Cursor.new(page.last[:time], page.last[:kind], page.last[:record].id).to_s : nil,
@@ -228,7 +229,8 @@ module ActionAgent
 
     def recordings
       base = @recordings.where(agent_context_id: nil)
-      scope = base.where(agent_run_id: nil).or(base.where.not(agent_run_id: replay_run_ids))
+      scope = base.where(agent_run_id: nil)
+        .or(base.where.not(agent_run_id: replay_run_ids).where.not(agent_run_id: conversation_run_ids))
       scope = scope.where(agent_run_id: AgentRun.where(agent: @agents).select(:id)) if @filters.agent_id
       scope = recordings_by_actor(scope) if @filters.actor
 
@@ -237,6 +239,14 @@ module ActionAgent
       when "passed" then scope.none
       else scope
       end
+    end
+
+    # The runs that wrote a generation to one of the caller's conversations.
+    # SessionTimeline.for_context replays their recordings with the
+    # conversation.
+    def conversation_run_ids
+      generations = AgentGeneration.where(agent_context_id: AgentContext.for_agents(@all_agents).select(:id))
+      AgentRun.where(agent: @all_agents, trace_id: generations.select(:trace_id)).select(:id)
     end
 
     # A recording's runs were executed on behalf of the actor, or it is the

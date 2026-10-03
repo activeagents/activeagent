@@ -11,9 +11,11 @@ module ActionAgent
     OUTCOMES = { "passed" => "passed", "failed" => "failed", "errored" => "failed" }.freeze
 
     # +rows+ are `{ kind:, record:, time: }` hashes in display order.
+    # +agents+ and +recordings+ are what the caller may see.
     # +failed_context_ids+ are the conversations among them with a failed run.
-    def initialize(rows, recordings:, failed_context_ids: [])
+    def initialize(rows, agents:, recordings:, failed_context_ids: [])
       @rows = rows
+      @agents = agents
       @recordings = recordings
       @failed_context_ids = failed_context_ids.to_set
     end
@@ -44,12 +46,33 @@ module ActionAgent
 
       ids = contexts.map(&:id)
       @message_counts = ids.empty? ? {} : AgentMessage.where(agent_context_id: ids).group(:agent_context_id).count
-      @recording_counts = ids.empty? ? {} : @recordings.where(agent_context_id: ids).group(:agent_context_id).count
+      @recording_counts = recording_counts(ids)
       @first_inputs = first_user_messages(ids)
     end
 
     def preloader(records, associations)
       ActiveRecord::Associations::Preloader.new(records: records, associations: associations).call if records.any?
+    end
+
+    # How many recordings each conversation replays, found as
+    # SessionTimeline.for_context finds them: linked to the conversation, or
+    # made by a run that wrote a generation to it.
+    def recording_counts(ids)
+      return {} if ids.empty?
+
+      traces = AgentGeneration.where(agent_context_id: ids).where.not(trace_id: [ nil, "" ])
+        .distinct.pluck(:trace_id, :agent_context_id)
+      contexts_by_trace = traces.group_by(&:first).transform_values { |pairs| pairs.map(&:last) }
+      contexts_by_run = AgentRun.where(agent: @agents, trace_id: contexts_by_trace.keys).pluck(:id, :trace_id)
+        .to_h { |run_id, trace_id| [ run_id, contexts_by_trace.fetch(trace_id) ] }
+
+      found = @recordings.where(agent_context_id: ids).or(@recordings.where(agent_run_id: contexts_by_run.keys))
+        .pluck(:id, :agent_context_id, :agent_run_id)
+      recordings = Hash.new { |sets, context_id| sets[context_id] = Set.new }
+      found.each do |id, context_id, run_id|
+        ([ context_id, *contexts_by_run.fetch(run_id, []) ] & ids).each { |owner| recordings[owner] << id }
+      end
+      recordings.transform_values(&:size)
     end
 
     # What each conversation was first asked. Messages are only appended, so
