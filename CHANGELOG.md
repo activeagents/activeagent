@@ -69,7 +69,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (`activeagent`). On Anthropic and OpenAI Responses, a `url:` declaration whose
   `require_approval` is anything but `"never"` is served by ActiveAgent's MCP
   bridge rather than handed to the provider, so its calls can pause for
-  approval; `mcp_strategy: :server` with one raises `ArgumentError`.
+  approval; `mcp_strategy: :server` with one raises `ArgumentError`. Such
+  servers now connect from your app and need `gem "mcp"`; set
+  `require_approval: "never"` to keep one with the provider.
 
 ### Fixed
 
