@@ -1183,7 +1183,7 @@ module ActionAgent
         end
         plan = spec_plan(boot_spec, (facts&.dig("gems") || {}).keys.to_set)
       else
-        plan = config_plan(Config.load(app), secrets: boot_spec&.secrets || {})
+        plan = config_plan(Config.load(app), secrets: boot_spec&.step_environment || {})
       end
 
       update_state(workspace) do |state|
@@ -1252,8 +1252,9 @@ module ActionAgent
       boot_state["steps"].drop(offset).filter_map { |step| step["name"] if step.is_a?(Hash) }
     end
 
-    # +secrets+ are those of a boot spec that does not apply to the checkout:
-    # it boots as its sandbox.yml says, with them added to that file's env.
+    # +secrets+ are the env and secrets of a boot spec that does not apply to
+    # the checkout: it boots as its sandbox.yml says, with them added to that
+    # file's env.
     def config_plan(config, secrets: {})
       BootPlan.new(
         mode: "config", spec: nil,

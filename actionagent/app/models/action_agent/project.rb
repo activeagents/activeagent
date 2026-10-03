@@ -23,6 +23,8 @@ module ActionAgent
   # Either way the agent's mcp_servers name the current sandbox, in place of
   # any earlier sandbox, and keep the servers added in the agent editor.
   #
+  # A failed boot can start the project's setup assistant (ProjectSetup).
+  #
   # The sandbox, the agent and the evaluation carry the project's own owner
   # columns, whoever starts a boot, so the agent's runs always reach the
   # project's sandbox (SandboxSession.runtime_server_entry looks among the
@@ -75,11 +77,11 @@ module ActionAgent
       install_state == "installed"
     end
 
-    # How every boot of this project runs: a bootstrap for a checkout whose
-    # Gemfile.lock lacks the engine, and the checkout's own sandbox.yml boot
-    # otherwise (the spec applies "without_engine"). Either way the project's
-    # secrets reach the steps that run the repository's code, and a failed
-    # boot keeps its workspace for SandboxOrchestrator#resume_boot.
+    # How +sandbox+ boots: a bootstrap for a checkout whose Gemfile.lock
+    # lacks the engine, and the checkout's own sandbox.yml boot otherwise
+    # (the spec applies "without_engine"). Either way the project's secrets
+    # reach the steps that run the repository's code, and a failed boot
+    # keeps its workspace for SandboxOrchestrator#resume_boot.
     #
     # Built in memory each time: the secrets' values are read here, from the
     # encrypted column, and never stored with the boot.
@@ -87,15 +89,71 @@ module ActionAgent
     # @raise [SandboxBootSpec::Invalid]
     # @raise [ActiveRecord::RecordNotFound] when a secret uses an
     #   organization key that is no longer stored
-    def boot_spec
+    def boot_spec(_sandbox = current_sandbox_session)
       SandboxBootSpec.bootstrap(apply: "without_engine", start_url: start_url, keep_on_failure: true,
-        secrets: secret_environment)
+        env: plain_environment, secrets: secret_environment)
     end
 
-    # { name => value } for every secret, organization keys resolved.
-    def secret_environment
-      secrets.ordered.to_h { |secret| [ secret.name, secret.resolved_value.to_s ] }
+    # The ref a new sandbox checks out: default_ref, nil for the
+    # repository's default branch.
+    def checkout_ref
+      default_ref.presence
     end
+    # The setup assistant's state (see ProjectSetup):
+    #
+    #   agent_id         its dashboard Agent
+    #   run_ids          the setup runs it started, newest last
+    #   last_run_id      the latest of them
+    #   retried_run_ids  the runs that retried the boot
+    #   attempts         automatic runs since the last good boot
+    #   auto             false when a failed boot starts no run on its own
+    def setup_settings
+      settings["setup"].is_a?(Hash) ? settings["setup"] : {}
+    end
+
+    def update_setup_settings!(values)
+      update!(settings: settings.merge("setup" => setup_settings.merge(values.stringify_keys)))
+    end
+
+    # Whether a failed boot starts the setup assistant on its own.
+    def auto_setup?
+      setup_settings["auto"] != false
+    end
+
+    def setup_agent
+      id = setup_settings["agent_id"]
+      id && Agent.find_by(id: id)
+    end
+
+    # The requests for input of runs of the project's setup assistant and of
+    # the agent it evaluates.
+    #
+    # @return [ActiveRecord::Relation<InputRequest>]
+    def input_requests
+      agent_ids = [ setup_settings["agent_id"], target_agent_id ].compact
+      return InputRequest.none if agent_ids.empty?
+
+      InputRequest.where(subject_type: AgentRun.polymorphic_name, subject_id: AgentRun.where(agent_id: agent_ids).select(:id))
+    end
+
+    # #input_requests still waiting for a person and not past their expiry.
+    def pending_input_requests
+      expires_at = InputRequest.arel_table[:expires_at]
+      input_requests.pending.where(expires_at.eq(nil).or(expires_at.gt(Time.current)))
+    end
+
+    # { name => value } for every secret, organization keys resolved, but
+    # the values the setup assistant set, which are not secret.
+    def secret_environment
+      secrets.ordered.reject(&:plain?).to_h { |secret| [ secret.name, secret.resolved_value.to_s ] }
+    end
+
+    # { name => value } for the values the setup assistant set (see
+    # ProjectSecret), which are not secret, so a boot leaves them unmasked.
+    def plain_environment
+      secrets.ordered.select(&:plain?).to_h { |secret| [ secret.name, secret.value.to_s ] }
+    end
+
 
     # The project's secret +name+ set as asked, unsaved: a new secret, or the
     # existing one with its value or source replaced. +set_by+ is recorded
@@ -125,7 +183,7 @@ module ActionAgent
     #
     # @return [Array<String>]
     def scrub_values
-      values = secrets.filter_map do |secret|
+      values = secrets.reject(&:plain?).filter_map do |secret|
         secret.resolved_value
       rescue ActiveRecord::RecordNotFound
         nil
@@ -143,12 +201,14 @@ module ActionAgent
     #
     # @param confirm [Boolean] whether the caller confirmed a first :local boot
     # @param confirmed_by [Object, nil] the user who confirmed it
+    # @param resume_from [String, nil] the step a kept boot resumes from,
+    #   instead of the one that failed
     # @return [SandboxSession]
     # @raise [ConfirmationRequired]
     # @raise [BootRefused]
     # @raise [ActiveRecord::RecordInvalid] when the repository is no longer
     #   available to the owner's GitHub connection
-    def ensure_sandbox!(confirm: false, confirmed_by: nil, orchestrator: SandboxOrchestrator.new)
+    def ensure_sandbox!(confirm: false, confirmed_by: nil, orchestrator: SandboxOrchestrator.new, resume_from: nil)
       # Decided under the project's row lock, so two requests at once agree
       # on one sandbox. The boot is enqueued after the lock is released.
       sandbox, previous, action = with_lock do
@@ -170,7 +230,7 @@ module ActionAgent
       case action
       when :live then sandbox
       when :resume
-        return ensure_sandbox!(confirm: confirm, confirmed_by: confirmed_by, orchestrator: orchestrator) unless sandbox.resume_boot!
+        return ensure_sandbox!(confirm: confirm, confirmed_by: confirmed_by, orchestrator: orchestrator) unless sandbox.resume_boot!(from: resume_from)
 
         LiveUpdates.broadcast(stream_name, type: "project", id: id, status: status)
         sandbox
@@ -198,14 +258,14 @@ module ActionAgent
       ENV["USER"].presence || "the dashboard's user"
     end
 
-    # Deletes the project with its target agent (and so its evaluation), and
-    # stops its current sandbox.
+    # Deletes the project with its target agent (and so its evaluation) and
+    # its setup assistant, and stops its current sandbox.
     def discard!
       sandbox = current_sandbox_session
       transaction do
-        agent = target_agent
+        agents = [ target_agent, setup_agent ].compact
         update_columns(target_agent_id: nil, evaluation_id: nil)
-        agent&.destroy!
+        agents.each(&:destroy!)
         destroy!
       end
       sandbox.expire! if sandbox && !sandbox.expired?
@@ -233,13 +293,17 @@ module ActionAgent
       settle!(sandbox) do
         attributes = { status: "ready" }
         attributes[:install_state] = "bootstrapped" if install_state == "detected"
-        attributes
+        attributes.merge(settings: settings.merge("setup" => setup_settings.merge("attempts" => 0)))
       end
     end
 
-    # Called by SandboxProvisionJob when +sandbox+'s boot failed.
+    # Called by SandboxProvisionJob when +sandbox+'s boot failed. Starts the
+    # setup assistant on it in the background, unless that is switched off
+    # (see ProjectSetup.after_boot_failed).
     def sandbox_failed!(sandbox)
-      settle!(sandbox) { { status: "failed" } }
+      changed = settle!(sandbox) { { status: "failed" } }
+      ProjectSetupJob.perform_later(id, sandbox.id) if changed && auto_setup?
+      changed
     end
 
     # Whether the target agent is the App assistant, as opposed to a proxy
@@ -353,12 +417,28 @@ module ActionAgent
         preflight: settings["preflight"],
         local_boot_confirmed_at: settings["local_boot_confirmed_at"],
         secret_count: secrets.size,
+        checkout_ref: checkout_ref,
+        setup: setup_summary,
+        pending_input_requests: pending_input_requests.count,
         created_at: created_at&.iso8601,
         updated_at: updated_at&.iso8601
       }
     end
 
     private
+
+    def setup_summary
+      availability = ProjectSetup.availability(self)
+      last_run = setup_settings["last_run_id"] && AgentRun.find_by(id: setup_settings["last_run_id"])
+      {
+        available: availability[:available],
+        reason: availability[:reason],
+        auto: auto_setup?,
+        agent_id: setup_settings["agent_id"],
+        attempts: setup_settings["attempts"].to_i,
+        last_run: last_run && { id: last_run.id, status: last_run.status, created_at: last_run.created_at&.iso8601 }
+      }
+    end
 
     # The sandbox's summary. Its error was scrubbed when it was stored; it is
     # scrubbed again here, against the secrets as they are now.
@@ -389,7 +469,7 @@ module ActionAgent
     # A new sandbox for the project, made current and named in the target
     # agent's mcp_servers. Not booted yet: #ensure_sandbox! provisions it.
     def create_sandbox!
-      sandbox = SandboxSession.new(sandbox_type: "app_runtime", repository: repository, repository_ref: default_ref.presence)
+      sandbox = SandboxSession.new(sandbox_type: "app_runtime", repository: repository, repository_ref: checkout_ref)
       sandbox.project_id = id
       sandbox.user_id = user_id if sandbox.has_attribute?(:user_id)
       sandbox.account_id = account_id if sandbox.has_attribute?(:account_id)
