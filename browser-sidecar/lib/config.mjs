@@ -11,8 +11,11 @@
 //     "workdir": "/path",                   where the profile, uploads and output directories go
 //     "stop_at": 1767225600000,             when to shut down on its own (epoch ms or ISO 8601)
 //     "chromium_sandbox": true,             false where Chromium's own sandbox cannot run (some containers)
-//     "recording": { "url": "...", "token": "...", "batch_events": 1000, "batch_bytes": 1048576 }
+//     "recording": { "url": "...", "token": "...", "batch_events": 1000, "batch_bytes": 1048576 },
+//     "storage_state": { "cookies": [...], "origins": [...] }   a saved sign-in the browser starts with
 //   }
+
+import { appStorageState, StorageStateError } from './storage-state.mjs';
 
 export const MODES = ['headless', 'headed'];
 // Tool groups a browser may be started with. The others reach outside the
@@ -113,9 +116,20 @@ export function parseConfig(input) {
     fail('workdir must be a directory path');
   }
 
+  const appOrigin = httpUrl(raw.app_url, 'app_url').origin;
+  let storageState = null;
+  if (raw.storage_state !== undefined && raw.storage_state !== null) {
+    try {
+      storageState = appStorageState(raw.storage_state, appOrigin);
+    } catch (error) {
+      if (error instanceof StorageStateError) fail(error.message);
+      throw error;
+    }
+  }
+
   return {
     token: token(raw.token, 'token'),
-    appOrigin: httpUrl(raw.app_url, 'app_url').origin,
+    appOrigin,
     mode,
     capabilities: [...new Set(capabilities)],
     host: typeof raw.host === 'string' && raw.host !== '' ? raw.host : '127.0.0.1',
@@ -125,5 +139,6 @@ export function parseConfig(input) {
     chromiumSandbox: raw.chromium_sandbox !== false,
     stopAt: stopAt(raw.stop_at),
     recording: recording(raw.recording),
+    storageState,
   };
 }

@@ -19,6 +19,23 @@ test('reads a minimal configuration with its defaults', () => {
   assert.equal(config.stopAt, null);
   assert.equal(config.recording, null);
   assert.equal(config.chromiumSandbox, true);
+  assert.equal(config.storageState, null);
+});
+
+test('reads a storage state, keeping only what belongs to the app', () => {
+  const config = parseConfig({
+    ...base,
+    storage_state: {
+      cookies: [
+        { name: 'session', value: 'abc', domain: '127.0.0.1', path: '/' },
+        { name: 'other', value: 'x', domain: 'example.com', path: '/' },
+      ],
+      origins: [{ origin: 'http://127.0.0.1:3000', localStorage: [{ name: 'k', value: 'v' }] }],
+    },
+  });
+
+  assert.deepEqual(config.storageState.cookies.map((cookie) => cookie.name), ['session']);
+  assert.deepEqual(config.storageState.origins[0].localStorage, [{ name: 'k', value: 'v' }]);
 });
 
 test('reads the recording and the stop time', () => {
@@ -48,6 +65,8 @@ const invalid = {
   'a port out of range': { ...base, port: 70000 },
   'a recording without a token': { ...base, recording: { url: 'http://127.0.0.1:3000/events' } },
   'a non-boolean sandbox setting': { ...base, chromium_sandbox: 'no' },
+  'a storage state that is not an object': { ...base, storage_state: ['cookie'] },
+  'a storage state cookie without a value': { ...base, storage_state: { cookies: [{ name: 'a', domain: '127.0.0.1', path: '/' }] } },
 };
 
 for (const [name, input] of Object.entries(invalid)) {

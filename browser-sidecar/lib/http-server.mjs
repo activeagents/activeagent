@@ -37,9 +37,11 @@ function readBody(request) {
 /**
  * Creates the sidecar's HTTP server:
  *
- *   GET    /health  { status: "ok", version }
- *   POST   /mcp     one JSON-RPC message, answered as JSON (McpGateway)
- *   DELETE /mcp     ends the session named by Mcp-Session-Id
+ *   GET    /health         { status: "ok", version }
+ *   POST   /mcp            one JSON-RPC message, answered as JSON (McpGateway)
+ *   DELETE /mcp            ends the session named by Mcp-Session-Id
+ *   GET    /storage-state  the browser's cookies and localStorage for the
+ *                          app's origin, so a sign-in can be kept
  *
  * Every request, and every WebSocket upgrade, is checked by guard.refusal
  * before anything else happens. There is no WebSocket endpoint, so an
@@ -50,9 +52,10 @@ function readBody(request) {
  *   what refusal checks against, read per request since the port is known only once listening
  * @param {{ handle: Function, closeSession: Function }} options.gateway
  * @param {string} options.version
+ * @param {() => Promise<object>} [options.storageState] returns what GET /storage-state answers
  * @returns {import('node:http').Server}
  */
-export function createHttpServer({ rules, gateway, version }) {
+export function createHttpServer({ rules, gateway, version, storageState = null }) {
   const server = http.createServer(async (request, response) => {
     const denied = refusal(request, rules());
     if (denied) return respond(response, denied.status, { error: denied.message });
@@ -60,6 +63,9 @@ export function createHttpServer({ rules, gateway, version }) {
     const path = new URL(request.url, 'http://sidecar').pathname;
     try {
       if (path === '/health' && request.method === 'GET') return respond(response, 200, { status: 'ok', version });
+      if (path === '/storage-state' && request.method === 'GET' && storageState) {
+        return respond(response, 200, { storage_state: await storageState() });
+      }
       if (path !== '/mcp') return respond(response, 404, { error: 'Not found' });
 
       const sessionId = request.headers['mcp-session-id'];
