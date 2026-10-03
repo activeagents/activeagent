@@ -11,13 +11,9 @@ module ActionAgent
       # own visitors should do so against its own endpoint, not one the
       # engine exposes on every host that mounts it.
 
-      before_action :set_recording, only: [ :show, :actions, :snapshot, :export, :handoff, :events, :create_events ]
+      before_action :set_recording, only: [ :show, :actions, :snapshot, :export, :handoff, :timeline, :events, :create_events ]
 
-      # Browser state that must never leave the server in a read response:
-      # the handoff state a recording carries is a copy of the visitor's
-      # cookies and web storage. Only #handoff returns it, to the owner, when
-      # they continue the session.
-      SENSITIVE_STATE_KEYS = %w[cookies session_storage local_storage].freeze
+      SENSITIVE_STATE_KEYS = SessionRecording::SENSITIVE_STATE_KEYS
 
       # Recording event rows one page of #events returns at most, and the
       # event bytes after which a page ends early.
@@ -101,6 +97,13 @@ module ActionAgent
           has_more: actions.count == limit,
           total_actions: @recording.action_count
         }
+      end
+
+      # GET /api/session_recordings/:id/timeline
+      # The recording's browser lane with the message, llm and tool lanes of
+      # its conversation or run (SessionTimeline).
+      def timeline
+        render json: { timeline: SessionTimeline.for_recording(@recording, timeline_scope).as_json }
       end
 
       # GET /api/session_recordings/:id/events
@@ -324,19 +327,6 @@ module ActionAgent
         return if can_manage_recording?(@recording)
 
         not_found
-      end
-
-      # What the list shows: recordings the caller owns, plus recordings made
-      # inside a sandbox the caller owns — the same reachability
-      # can_manage_recording? grants to a direct read, so a recording never
-      # opens by id while missing from the list. The second clause is what
-      # keeps recordings created before the owner column was written
-      # reachable.
-      def reachable_recordings
-        scope = owned(SessionRecording)
-        return scope if SessionRecording.owner_association.nil?
-
-        scope.or(SessionRecording.where(sandbox_session_id: owned(SandboxSession).select(:id)))
       end
 
       def can_manage_recording?(recording)

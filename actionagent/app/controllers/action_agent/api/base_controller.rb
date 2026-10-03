@@ -85,6 +85,22 @@ module ActionAgent
         ActionAgent.trace_model.for_account(current_account)
       end
 
+      # The recordings the caller may open: those the caller owns, plus those
+      # made inside a sandbox the caller owns. The second clause is what
+      # keeps recordings created before the owner column was written
+      # reachable.
+      def reachable_recordings
+        scope = owned(SessionRecording)
+        return scope if SessionRecording.owner_association.nil?
+
+        scope.or(SessionRecording.where(sandbox_session_id: owned(SandboxSession).select(:id)))
+      end
+
+      # What a session timeline may reach on the caller's behalf.
+      def timeline_scope
+        SessionTimeline::Scope.new(agents: owner_agents, traces: owned_traces, recordings: reachable_recordings)
+      end
+
       # The caller an agent run executes on behalf of.
       #
       # The host's seam first (ActionAgent.agent_actor_resolver), then the
