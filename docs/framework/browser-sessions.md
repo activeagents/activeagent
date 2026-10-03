@@ -5,7 +5,8 @@ sandboxes](./dashboard#github-connections-and-checkout-sandboxes)) can run a
 browser of its own, pointed at the app the sandbox booted. Every agent run and
 evaluation against that sandbox can drive it through Playwright MCP's tools,
 and everything it shows is recorded into a session recording, so the session
-can be replayed afterwards.
+can be replayed afterwards. A person can watch it live from the dashboard, and
+take it over when the agent gets stuck.
 
 One sandbox runs at most one browser. It belongs to that sandbox alone: it
 opens only the sandbox's app, it starts with an empty profile, and it stops
@@ -44,6 +45,7 @@ version than the engine is refused too.
 | `ActionAgent.npm_command` | `"npm"` | the npm `install` uses |
 | `ActionAgent.browser_start_timeout` | `60` | seconds to wait for a browser to start |
 | `ActionAgent.browser_sidecar_path` | unset | a checkout of `browser-sidecar/` to run instead of the installed package; its version is not checked. For working on the sidecar |
+| `ActionAgent.browser_live_origins` | `[]` | origins whose dashboard pages may open a browser's live view, besides the one it was started from (see [Watching live and taking over](#watching-live-and-taking-over)) |
 
 ## Starting and stopping a browser
 
@@ -55,8 +57,14 @@ version than the engine is refused too.
 
 Each answers `{ browser: { mode, status, started_at, server_key, live_url } }`.
 The status is `starting`, `running`, `stopped` or `failed`. `server_key` is
-`browser:<session_id>` while the browser runs. A response never carries the
-browser's MCP endpoint or its token.
+`browser:<session_id>` while the browser runs, and `live_url` is its live
+view's WebSocket while it runs and has one. A response never carries the
+browser's MCP endpoint or its token. `GET /api/sandboxes` lists the modes a
+browser can start in on the configured backend as `browser_modes`.
+
+In the dashboard, a ready checkout sandbox under Settings → Integrations has
+a Browser panel that starts and stops it, with "Open a window on this
+machine" for `headed` where the backend can show one.
 
 A browser starts only for a checkout sandbox that is ready. A start is
 refused with 422 while another browser of the same sandbox is starting or
@@ -106,6 +114,64 @@ In a multi-tenant install (`ActionAgent.multi_tenant = true`), the
 process, is neither offered nor called: a run gets a browser only from its
 sandbox.
 
+## Watching live and taking over
+
+A browser started from the dashboard has a live view. Its Browser panel
+offers "Watch live", which shows the page on screen as it changes, and
+"Take over", which lets one person drive it with their own mouse and
+keyboard until they press "Hand back".
+
+- **What is shown.** The sidecar streams the page on screen with the Chrome
+  DevTools Protocol's screencast, as JPEG frames. The view follows the tab
+  the agent opened last or selected. A page that does not change sends no
+  frames, so a viewer who joins sees the last one. Native dialogs, file
+  pickers and other browser interface do not show (see [What the recording
+  cannot show](#what-the-recording-cannot-show)).
+- **One person drives.** While someone holds control, everyone else watching
+  sees who ("Held by Ada"). Their clicks, scrolling and keys reach the page
+  while the view has keyboard focus; clicking outside the view stops that,
+  and "Hand back" gives control back. If their tab closes or loses its
+  connection, control is released after 10 seconds.
+- **The agent waits.** While a person holds control, an agent's browser tool
+  call that would change the page, such as `browser_click` or
+  `browser_navigate`, waits for them to hand back, for up to 20 seconds. The
+  live view shows a banner while it waits. If they have not handed back by
+  then, the call returns an error naming them, and nothing is done; calls
+  that only read the page, such as `browser_snapshot`, go ahead. The
+  error's `_meta["activeagents/takeover"]` holds `{ held_by, since,
+  waited_ms }`.
+- **A window on this machine.** A `headed` browser on `:local` also has a
+  real window. Clicking or typing in that window changes the page as well,
+  but the agent does not wait for it: take over in the live view first.
+
+### Tickets
+
+The dashboard's page connects to the live view's WebSocket itself, with a
+ticket it asks the dashboard for:
+
+| Request | Does |
+|---|---|
+| `POST /api/sandboxes/:id/browser/tickets` | `mode: "view"` (the default) or `"control"`; answers `{ ticket, mode, expires_at, url }` |
+
+- A view ticket needs only access to the sandbox. A control ticket also
+  asks the permission checker about `:take_over_browser`, with the sandbox
+  as the subject, and needs execution to be enabled. A denied control
+  ticket answers 403.
+- A browser that is not running, or has no live view, answers 409.
+- A ticket lives 30 seconds and opens the live view once. It names the
+  sandbox, the user, their name (which other viewers see) and the mode, and
+  is signed with a key derived from the browser's token, so it opens no
+  other browser.
+- The page sends the ticket as the WebSocket's first message, never in its
+  URL. The sidecar closes a connection whose first message is not a valid
+  ticket before sending it anything.
+
+The WebSocket is opened from the dashboard's own page, so the sidecar
+accepts it only from the origin the browser was started from and from
+`ActionAgent.browser_live_origins`, and only through its own `Host`. On
+`:local` the live view is a `ws://127.0.0.1` address, which a dashboard
+served over HTTPS cannot open.
+
 ## Recording
 
 Each browser opens a `SessionRecording` of its own for the sandbox
@@ -118,7 +184,11 @@ posts to it, through the recording's ingest token:
   and passwords are stored as `*`.
 - `console` events for errors and warnings.
 - `marker` events for each page opening, navigating and closing, with its
-  URL less the query and fragment.
+  URL less the query and fragment, and for each takeover starting and ending
+  (`takeover_started`, `takeover_ended`, with `source: "human"`, who, and
+  why it ended). What a person types while driving is never recorded or
+  logged as such: their changes show in the masked rrweb events like the
+  agent's.
 
 The events reach the sidecar through a Playwright binding rather than a
 request from the page, so the app's Content Security Policy and CORS rules do
@@ -202,6 +272,13 @@ A browser is not started for a sandbox that expires within those 30 seconds.
 - **No code in the sidecar.** Playwright MCP's `browser_run_code_unsafe`,
   which runs code in the sidecar's own process, is never offered or called,
   and pages cannot add tools of their own.
+- **A live view behind tickets.** The live view's WebSocket takes no token
+  in its URL; a viewer proves who they are with a ticket in its first
+  message (see [Tickets](#tickets)). It refuses an upgrade from any origin
+  other than the dashboard's, through any `Host` but the sidecar's own, or
+  with a query string. Only the person holding control has input relayed,
+  and a viewer may send only pointer, wheel, key and text input, never a
+  script or a DevTools command of its own.
 - **Uploads from the sidecar's own directories.** File uploads read only
   from a directory made empty for the session, and from the sidecar's output
   directory, which holds the snapshots, screenshots and console logs the
@@ -222,9 +299,11 @@ columns, for that call only:
 | `capabilities` | the optional tool groups to enable |
 | `stop_at` | when the browser is to stop on its own (`SandboxSession#browser_stops_at`, 30 seconds before the sandbox expires) |
 | `recording` | `{ url:, token:, batch_events:, batch_bytes: }`: where to post recorded events, or nil |
+| `live` | `{ session_id:, origins: }`: the live view's ticket subject and the dashboard origins that may open it, or nil for no live view |
 
-`start_browser` returns `{ mcp_url:, mcp_token: }`, and optionally a
-`live_url:`. A backend that runs browsers as containers can run the sidecar's
+`start_browser` returns `{ mcp_url:, mcp_token: }`, and a `live_url:`, the
+WebSocket a viewer's page connects to, when `live` was given and the backend
+can route a viewer to it. A backend that runs browsers as containers can run the sidecar's
 OCI image, built from `browser-sidecar/Dockerfile` at the engine's version; it
 reads the same settings as JSON on stdin or from a file (see the package's
 README).

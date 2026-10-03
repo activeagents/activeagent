@@ -1458,7 +1458,7 @@ end
 | `:publish_pull_request` | reserved: opening a pull request from a sandbox |
 | `:answer_input_request` | reserved: answering a run's request for input |
 | `:manage_project_secrets` | reserved: setting a project's secrets |
-| `:take_over_browser` | reserved: driving a run's browser by hand |
+| `:take_over_browser` | issuing a ticket to take over a sandbox's browser (`POST /api/sandboxes/:id/browser/tickets` with `mode: "control"`) |
 | `:manage_recordings` | deleting a session recording (`DELETE /api/session_recordings/:id`) |
 | `:replace_scenarios` | reserved: replacing an evaluation's scenarios |
 
