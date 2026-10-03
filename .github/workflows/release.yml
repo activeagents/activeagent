@@ -148,25 +148,32 @@ jobs:
       packages: write
     steps:
       - uses: actions/checkout@v4
+      # Before the check below: a package is private when first pushed, and
+      # an anonymous look at a private one fails as if nothing were there.
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
       - name: Read the version, and whether its image is published
         id: version
         run: |
           version="$(node -p 'require("./browser-sidecar/package.json").version')"
+          image="ghcr.io/activeagents/browser-sidecar:${version}"
           echo "version=${version}" >> "$GITHUB_OUTPUT"
-          if docker manifest inspect "ghcr.io/activeagents/browser-sidecar:${version}" > /dev/null 2>&1; then
-            echo "ghcr.io/activeagents/browser-sidecar:${version} is already published; skipping."
+          if output="$(docker manifest inspect "$image" 2>&1)"; then
+            echo "${image} is already published; skipping."
             echo "published=true" >> "$GITHUB_OUTPUT"
+          elif echo "$output" | grep -qiE 'manifest unknown|name unknown|not found'; then
+            echo "${image} is not published yet."
+          else
+            echo "::error::Could not tell whether ${image} is published: ${output}"
+            exit 1
           fi
       - uses: docker/setup-qemu-action@v3
         if: steps.version.outputs.published != 'true'
       - uses: docker/setup-buildx-action@v3
         if: steps.version.outputs.published != 'true'
-      - uses: docker/login-action@v3
-        if: steps.version.outputs.published != 'true'
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
       - uses: docker/build-push-action@v6
         if: steps.version.outputs.published != 'true'
         with:
