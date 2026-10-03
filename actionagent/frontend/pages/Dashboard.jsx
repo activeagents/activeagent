@@ -21,6 +21,8 @@ import SettingsView from '../components/dashboard/SettingsView';
 import DashboardAssistant from '../components/dashboard/DashboardAssistant';
 import { ThemeProvider, useTheme } from '../contexts/ThemeContext';
 import { TimeWindowProvider } from '../contexts/TimeWindowContext';
+import { useInputRequests } from '../hooks/useInputRequests';
+import { pendingBadge } from '../utils/inputRequests.mjs';
 import { dashboardPath, dashboardRelativePath } from '../utils/dashboardPath';
 import {
   dashboardFeatures,
@@ -53,6 +55,9 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
   // Which MCP service the MCP view should open expanded — set when a tool
   // row links to the server that serves it, or from a /mcp/:server URL.
   const [focusServer, setFocusServer] = useState(null);
+  // The Interactions badge: refetched on every navigation as well as on the
+  // hook's own interval.
+  const { requests: pendingInput } = useInputRequests({ refreshKey: currentView });
 
   // Parse the URL into a view. Runs on mount and on popstate, so browser
   // back/forward and in-app pushState navigation (e.g. a Traces agent card
@@ -412,6 +417,7 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
         currentView={currentView}
         onNavigate={navigateTo}
         agentCount={agents.length}
+        pendingInputCount={pendingBadge(pendingInput)}
         account={account}
         user={user}
         gemVersion={meta.activeagentVersion}

@@ -5,8 +5,8 @@ import test, { after, before } from 'node:test';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { build } from 'esbuild';
 
-// The input request card, bundled with esbuild and rendered to static
-// markup. Effects do not run in a server
+// The input request card, the Needs input lane and the sidebar badge, bundled
+// with esbuild and rendered to static markup. Effects do not run in a server
 // render, so each renders from its props alone and fetches nothing.
 
 const root = fileURLToPath(new URL('..', import.meta.url));
@@ -28,9 +28,11 @@ before(async () => {
         import { renderToStaticMarkup } from 'react-dom/server';
         import { ThemeProvider } from './contexts/ThemeContext.jsx';
         import InputRequestCard from './components/dashboard/InputRequestCard.jsx';
+        import { NeedsInputList } from './components/dashboard/NeedsInputLane.jsx';
+        import Sidebar from './components/dashboard/Sidebar.jsx';
         import GenerativeUI from './components/dashboard/GenerativeUI.jsx';
 
-        const views = { InputRequestCard, GenerativeUI };
+        const views = { InputRequestCard, NeedsInputList, Sidebar, GenerativeUI };
         export const render = (name, props) =>
           renderToStaticMarkup(React.createElement(ThemeProvider, null, React.createElement(views[name], props)));
       `,
@@ -151,6 +153,31 @@ test('a refused answer keeps the control and shows why', () => {
   assert.match(html, /data-testid="input-request-error"/);
   assert.match(html, /&quot;b&quot; is not one of the options/);
   assert.match(html, /data-testid="genui-choice"/);
+});
+
+test('the Needs input lane lists each pending request, then the ones answered here', () => {
+  assert.equal(render('NeedsInputList', { pending: [] }), '');
+
+  const html = render('NeedsInputList', {
+    pending: [request(), request({ id: 8, kind: 'confirm', prompt: 'Allow fetch_url to run?' })],
+    settled: [{ request: request({ id: 9, prompt: 'Earlier question' }), outcome: { state: 'answered' } }],
+  });
+
+  assert.match(html, /data-testid="needs-input-lane"/);
+  assert.match(html, /data-testid="needs-input-count"[^>]*>2 waiting</);
+  assert.equal(count(html, 'data-testid="input-request-card"'), 3);
+  assert.ok(html.indexOf('Allow fetch_url to run?') < html.indexOf('Earlier question'), 'pending requests come first');
+  assert.match(html, /Answered: the run continues/);
+});
+
+test('the Interactions nav item carries the pending count, and none when nothing waits', () => {
+  const props = { currentView: 'list', onNavigate() {}, agentCount: 4, features: {} };
+
+  const waiting = render('Sidebar', { ...props, pendingInputCount: 3 });
+  assert.match(waiting, /data-testid="nav-badge-interactions"[^>]*aria-label="3 requests waiting for an answer"[^>]*>3</);
+
+  assert.doesNotMatch(render('Sidebar', { ...props, pendingInputCount: undefined }), /nav-badge-interactions/);
+  assert.doesNotMatch(render('Sidebar', { ...props, pendingInputCount: 0 }), /nav-badge-interactions/);
 });
 
 test('a render_ui form still renders a password field as plain text', () => {
