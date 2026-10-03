@@ -3,6 +3,11 @@ import { Badge, Button, MONO, Panel } from '../primitives';
 import { secretWarnings } from '../../../utils/projects.mjs';
 
 const formatWhen = (iso) => (iso ? new Date(iso).toLocaleString() : '—');
+const SOURCE_LABELS = {
+  entered: () => 'entered',
+  organization_key: (secret) => `organization's ${secret.provider} key`,
+  setup_assistant: () => 'set by the setup assistant, not secret',
+};
 
 // A project's Environment tab: each secret's name, source, who set it and
 // when, from GET /api/projects/:id/secrets. Values are never shown; Replace
@@ -42,7 +47,7 @@ export default function ProjectEnvironment({ secrets, onReplace, onDelete, error
             <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
               <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 600, color: 'var(--color-text-primary)' }}>{secret.name}</span>
               <Badge tone={secret.source === 'organization_key' ? 'info' : 'muted'}>
-                {secret.source === 'organization_key' ? `organization's ${secret.provider} key` : 'entered'}
+                {SOURCE_LABELS[secret.source]?.(secret) || 'entered'}
               </Badge>
               <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>
                 {secret.set_by?.name ? `set by ${secret.set_by.name}` : 'set'} · {formatWhen(secret.updated_at)}
