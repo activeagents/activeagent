@@ -138,11 +138,12 @@ module ActionAgent
     end
 
     # @param exploration [Exploration] a project's explorer exploration,
-    #   with its run and sandbox set
+    #   with its sandbox set
+    # @param run [AgentRun] its run, of the project's explorer agent
     # @param provider_class [Class, nil] a provider class to generate with
     #   in place of the agent's own
     def initialize(exploration, run, provider_class: nil)
-      super(exploration.project.explorer_agent!, run)
+      super(run.agent, run)
       @exploration = exploration
       @project = exploration.project
       @sandbox = exploration.sandbox_session
@@ -277,9 +278,18 @@ module ActionAgent
 
         @steps += 1
         note_step(name, kwargs)
-        result = super(name, kwargs.except(*FILE_ARGUMENTS.map(&:to_sym)))
+        result = browser_call(name, kwargs.except(*FILE_ARGUMENTS.map(&:to_sym)))
         note_page(result)
         result
+      end
+    end
+
+    # Calls browser tool +name+ on the sandbox's browser, recorded on the
+    # recording. A tool the browser does not serve is an error: the
+    # explorer never falls back to the toolbox's browser.
+    def browser_call(name, kwargs)
+      browser_recorder.intercept(tool_name: name, parameters: kwargs) do
+        mcp_dispatcher.call(name, kwargs) || { error: "#{name} is not one of the sandbox browser's tools" }
       end
     end
 

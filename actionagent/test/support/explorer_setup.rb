@@ -25,6 +25,9 @@ module ExplorerSetup
 
     attr_reader :calls
     attr_accessor :path, :login_has_password, :signs_in, :on_call
+    attr_writer :tools
+
+    def tools = @tools || TOOLS
 
     def initialize
       @calls = []
@@ -46,7 +49,7 @@ module ExplorerSetup
           case payload["method"]
           when "initialize" then { protocolVersion: "2025-03-26", capabilities: { tools: {} } }
           when "tools/list"
-            { tools: TOOLS.map { |name| { name: name, description: "#{name} in the browser", inputSchema: schema(name) } } }
+            { tools: browser.tools.map { |name| { name: name, description: "#{name} in the browser", inputSchema: schema(name) } } }
           when "tools/call"
             browser.calls << payload["params"]
             browser.on_call&.call(payload["params"])
