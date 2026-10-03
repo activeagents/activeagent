@@ -152,14 +152,11 @@ module ActionAgent
     # @param exploration [Exploration] a project's explorer exploration,
     #   with its sandbox set
     # @param run [AgentRun] its run, of the project's explorer agent
-    # @param provider_class [Class, nil] a provider class to generate with
-    #   in place of the agent's own
-    def initialize(exploration, run, provider_class: nil)
+    def initialize(exploration, run)
       super(run.agent, run)
       @exploration = exploration
       @project = exploration.project
       @sandbox = exploration.sandbox_session
-      @provider_class = provider_class
       @steps = 0
       @cost = 0.0
       @answered = 0
@@ -231,10 +228,6 @@ module ActionAgent
     end
 
     private
-
-    def prompt_provider_class
-      @provider_class
-    end
 
     def generation_options
       { max_tool_turns: budget["steps"].to_i + TOOL_TURN_MARGIN }

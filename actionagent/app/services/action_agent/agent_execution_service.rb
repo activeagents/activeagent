@@ -421,12 +421,6 @@ module ActionAgent
       {}
     end
 
-    # A provider class this run generates with in place of the one its
-    # provider name resolves to, or nil.
-    def prompt_provider_class
-      nil
-    end
-
     # Maximum agent-to-agent delegation depth for the call_agent tool. A
     # thread-local counter guards it because the sub-agent runs synchronously
     # on the same thread via Agent#test_execute.
@@ -562,7 +556,6 @@ module ActionAgent
       run_trace_id = trace_id
       tool_definitions = tool_schemas
       extra_options = generation_options
-      provider_class = prompt_provider_class
       service = self
 
       # A dashboard-authored agent has no Ruby class — it is rows: a tool
@@ -614,7 +607,6 @@ module ActionAgent
         else
           generate_with effective_provider, model: provider_model, **model_options, **extra_options
         end
-        self._prompt_provider_klass = provider_class if provider_class
 
         # Expose the agent's server-executable tools as public methods so the
         # gem's tools_function can route provider tool calls to them. The
