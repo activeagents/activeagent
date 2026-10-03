@@ -32,7 +32,7 @@ class RecordingEventIngestTest < ActionDispatch::IntegrationTest
   end
 
   def batch(events, sent_at: now_ms)
-    { sent_at: sent_at, events: events }.to_json
+    { sent_at: sent_at, recording_events: events }.to_json
   end
 
   def rrweb(timestamp = now_ms, data = { "type" => 3, "data" => { "source" => 1 } })
@@ -52,7 +52,7 @@ class RecordingEventIngestTest < ActionDispatch::IntegrationTest
 
   # A batch generated as a browser would, at any depth.
   def deep_batch(events)
-    JSON.generate({ "sent_at" => now_ms, "events" => events }, max_nesting: false)
+    JSON.generate({ "sent_at" => now_ms, "recording_events" => events }, max_nesting: false)
   end
 
   def post_with_token(body, token: @token, recording: @recording)
@@ -162,7 +162,7 @@ class RecordingEventIngestTest < ActionDispatch::IntegrationTest
   end
 
   test "a batch without a send time is refused" do
-    post_with_token({ events: [ rrweb ] }.to_json)
+    post_with_token({ recording_events: [ rrweb ] }.to_json)
 
     assert_response :unprocessable_entity
     assert_match(/sent_at/, response.parsed_body["error"])
@@ -175,7 +175,7 @@ class RecordingEventIngestTest < ActionDispatch::IntegrationTest
       assert_response :unprocessable_entity, timestamp.to_s
       assert_match(/within 24 hours before sent_at and 1 minute after it/, response.parsed_body["error"], timestamp.to_s)
     end
-    post_with_token %({"sent_at": #{now_ms}, "events": [{"kind": "rrweb", "timestamp": 1e400, "data": {}}]})
+    post_with_token %({"sent_at": #{now_ms}, "recording_events": [{"kind": "rrweb", "timestamp": 1e400, "data": {}}]})
     assert_response :unprocessable_entity, "an infinite timestamp"
 
     assert_equal 0, @recording.recording_events.count
@@ -188,7 +188,7 @@ class RecordingEventIngestTest < ActionDispatch::IntegrationTest
       assert_response :unprocessable_entity, sent_at.to_s
       assert_match(/sent_at/, response.parsed_body["error"], sent_at.to_s)
     end
-    post_with_token %({"sent_at": 1e400, "events": [{"kind": "marker", "data": {}}]})
+    post_with_token %({"sent_at": 1e400, "recording_events": [{"kind": "marker", "data": {}}]})
     assert_response :unprocessable_entity, "an infinite send time"
   end
 
@@ -204,7 +204,7 @@ class RecordingEventIngestTest < ActionDispatch::IntegrationTest
     post_with_token "not json"
     assert_response :unprocessable_entity
 
-    post_with_token({ sent_at: now_ms, events: [] }.to_json)
+    post_with_token({ sent_at: now_ms, recording_events: [] }.to_json)
     assert_response :unprocessable_entity
   end
 
@@ -323,6 +323,23 @@ class RecordingEventIngestTest < ActionDispatch::IntegrationTest
     post_from_session batch([ rrweb ])
 
     assert_response :unprocessable_entity
+  end
+
+  test "a batch's events stay out of the request log on both paths" do
+    console = { kind: "console", timestamp: now_ms, data: { level: "info", message: "logged-line-marker" } }
+    log = StringIO.new
+    original = ActionController::Base.logger
+    ActionController::Base.logger = ActiveSupport::Logger.new(log)
+
+    post_with_token batch([ console ])
+    assert_response :created
+    post_from_session batch([ console ])
+    assert_response :created
+
+    assert_includes log.string, "Parameters:"
+    assert_not_includes log.string, "logged-line-marker"
+  ensure
+    ActionController::Base.logger = original
   end
 
   # --- storage and reading back -------------------------------------------

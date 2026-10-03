@@ -1301,7 +1301,7 @@ A browser posts a batch to `POST /api/session_recordings/:id/events`:
 ```json
 {
   "sent_at": 1767225600000,
-  "events": [
+  "recording_events": [
     { "kind": "rrweb", "timestamp": 1767225599500, "data": { "type": 3, "data": {} } },
     { "kind": "console", "timestamp": 1767225599800, "data": { "level": "error", "message": "boom" } }
   ]
@@ -1310,7 +1310,9 @@ A browser posts a batch to `POST /api/session_recordings/:id/events`:
 
 `sent_at` is the client's clock when it sent the batch. The server adds
 receive time minus `sent_at` to every timestamp, so a client with a wrong
-clock is still stored in server time. A batch authenticates with either:
+clock is still stored in server time. The engine adds `recording_events` to
+the app's `filter_parameters`, so a batch's content never reaches the request
+log. A batch authenticates with either:
 
 - the recording's ingest token, as `Authorization: Bearer <token>`.
   `SessionRecording#issue_ingest_token!` returns it and stores only its
