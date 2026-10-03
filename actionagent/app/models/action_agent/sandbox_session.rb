@@ -225,8 +225,8 @@ module ActionAgent
 
     # The values this session's sandbox holds that must never leave it: the
     # checkout token where one is stored, the Claude Code and Codex
-    # credentials it hands its checkout, and its runtime's MCP token. Reads
-    # without minting.
+    # credentials it hands its checkout, its runtime's MCP token, and the
+    # secrets of the project it was booted for. Reads without minting.
     #
     # @return [Array<String>]
     def secret_values
@@ -239,7 +239,8 @@ module ActionAgent
         spec&.dig(:token),
         *runtime_environment.values,
         *runtime_environment(runner: "codex").values,
-        runtime_mcp_token
+        runtime_mcp_token,
+        *project_scrub_values
       ].compact.map(&:to_s).uniq
     end
 
