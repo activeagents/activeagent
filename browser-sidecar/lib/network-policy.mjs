@@ -100,22 +100,45 @@ async function resolveAll(hostname) {
   return records.map((record) => record.address);
 }
 
+function bare(hostname) {
+  return hostname.toLowerCase().replace(/^\[|\]$/g, '');
+}
+
+function defaultPort(protocol) {
+  return protocol === 'https:' || protocol === 'wss:' ? 443 : 80;
+}
+
 /**
- * Used to decide what the browser may load. The sandbox app's own origin is
- * always allowed. A top-level navigation anywhere else is refused, and so is
- * any request to a loopback, link-local or private address, whether the URL
- * names the address or a host name that resolves to one.
+ * Used to decide what the browser may load, at two levels.
+ *
+ * `allows` judges a request by its URL, before it is sent: a top-level
+ * navigation may only open the sandbox app's origin, and no URL may name a
+ * loopback, link-local or private address, or a local host name, other than
+ * the app's. Chromium follows an HTTP redirect without asking again, so this
+ * only sees the first URL of a redirect chain.
+ *
+ * `destination` judges each connection the browser opens, through the
+ * sidecar's egress proxy, whatever URL or redirect led to it. The app's own
+ * host and port are always reachable. Anything else must resolve only to
+ * public addresses, and the proxy connects to the address checked here, so a
+ * name whose answer changes between two lookups cannot move the connection
+ * onto a private address.
  */
 export class NetworkPolicy {
   /**
    * @param {object} options
    * @param {string} options.appOrigin the sandbox app's origin
    * @param {(hostname: string) => Promise<string[]>} [options.resolve] how host names are resolved
+   * @param {(address: string) => boolean} [options.isPrivate] which IP addresses are refused
    * @param {number} [options.cacheMs] how long a resolution is reused
    */
-  constructor({ appOrigin, resolve = resolveAll, cacheMs = 60_000 }) {
+  constructor({ appOrigin, resolve = resolveAll, isPrivate = isPrivateAddress, cacheMs = 60_000 }) {
     this.appOrigin = appOrigin;
+    const app = new URL(appOrigin);
+    this.appHost = bare(app.hostname);
+    this.appPort = Number(app.port || defaultPort(app.protocol));
     this.resolve = resolve;
+    this.isPrivate = isPrivate;
     this.cacheMs = cacheMs;
     this.resolved = new Map();
   }
@@ -147,13 +170,31 @@ export class NetworkPolicy {
   }
 
   /**
-   * Whether the browser may make a request to `url`.
+   * Whether a page on `url` is one of the sandbox app's. A page that is not
+   * on the web (about:blank, an error page) is not elsewhere either.
+   *
+   * @param {string} url
+   * @returns {boolean}
+   */
+  onApp(url) {
+    let target;
+    try {
+      target = new URL(url);
+    } catch {
+      return true;
+    }
+    if (target.protocol !== 'http:' && target.protocol !== 'https:') return true;
+    return target.origin === this.appOrigin;
+  }
+
+  /**
+   * Whether the browser may send a request to `url`, judged by the URL alone.
    *
    * @param {string} url
    * @param {{ topLevelNavigation?: boolean }} [options]
-   * @returns {Promise<boolean>}
+   * @returns {boolean}
    */
-  async allows(url, { topLevelNavigation = false } = {}) {
+  allows(url, { topLevelNavigation = false } = {}) {
     let target;
     try {
       target = new URL(url);
@@ -167,11 +208,8 @@ export class NetworkPolicy {
     if (this.sameOriginAsApp(target)) return true;
     if (topLevelNavigation) return false;
 
-    const hostname = target.hostname.replace(/^\[|\]$/g, '');
-    if (isPrivateAddress(hostname) || isLocalName(hostname)) return false;
-    if (isIP(hostname)) return true;
-
-    return !(await this.resolvesPrivately(hostname));
+    const hostname = bare(target.hostname);
+    return !this.isPrivate(hostname) && !isLocalName(hostname);
   }
 
   // A WebSocket URL is the app's when it names the app's host and port.
@@ -184,18 +222,43 @@ export class NetworkPolicy {
     return http.origin === this.appOrigin;
   }
 
-  async resolvesPrivately(hostname) {
+  /**
+   * Returns the address a browser connection to `hostname`:`port` is to be
+   * made to, or why it may not be made.
+   *
+   * @param {string} hostname a host name or IP address, IPv6 with or without brackets
+   * @param {number} port
+   * @returns {Promise<{ address: string, refusal: null } | { address: null, refusal: string }>}
+   */
+  async destination(hostname, port) {
+    const host = bare(hostname);
+    if (this.isApp(host, port)) return { address: host, refusal: null };
+
+    const refused = (reason) => ({ address: null, refusal: `${host}:${port} ${reason}` });
+    if (isLocalName(host)) return refused('is a local host name');
+    if (isIP(host)) return this.isPrivate(host) ? refused('is a loopback, link-local or private address') : { address: host, refusal: null };
+
+    const addresses = await this.lookup(host);
+    if (addresses.length === 0) return refused('does not resolve');
+    if (addresses.some((address) => this.isPrivate(address))) return refused('resolves to a loopback, link-local or private address');
+    return { address: addresses[0], refusal: null };
+  }
+
+  isApp(hostname, port) {
+    return bare(hostname) === this.appHost && port === this.appPort;
+  }
+
+  async lookup(hostname) {
     const cached = this.resolved.get(hostname);
-    if (cached && cached.until > Date.now()) return cached.private;
+    if (cached && cached.until > Date.now()) return cached.addresses;
 
     let addresses = [];
     try {
       addresses = await this.resolve(hostname);
     } catch {
-      // A name that does not resolve cannot be loaded either.
+      // A name that does not resolve is refused.
     }
-    const verdict = addresses.some((address) => isPrivateAddress(address));
-    this.resolved.set(hostname, { private: verdict, until: Date.now() + this.cacheMs });
-    return verdict;
+    this.resolved.set(hostname, { addresses, until: Date.now() + this.cacheMs });
+    return addresses;
   }
 }

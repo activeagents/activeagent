@@ -171,3 +171,24 @@ test('closing a session closes its server', async () => {
   assert.equal(servers[0].closed, true);
   assert.equal(await instance.closeSession(id), false);
 });
+
+test("a tool call during which a page escaped the app gets the guard's refusal instead of its result", async () => {
+  const guard = {
+    escapes: 0,
+    async refusalSince(since) {
+      return this.escapes > since ? 'A page was redirected outside the sandbox app' : null;
+    },
+  };
+  const { instance } = gateway({ callText: 'FOREIGN PAGE', gateway: { guard } });
+  const id = await session(instance);
+
+  assert.equal((await call(instance, id, 'browser_snapshot', {})).body.result.content[0].text, 'FOREIGN PAGE');
+
+  const escaping = call(instance, id, 'browser_click', { target: 'e1' });
+  guard.escapes += 1;
+  const { body } = await escaping;
+
+  assert.equal(body.result.isError, true);
+  assert.equal(body.result.content[0].text, '### Error\nA page was redirected outside the sandbox app');
+  assert.equal((await call(instance, id, 'browser_snapshot', {})).body.result.content[0].text, 'FOREIGN PAGE');
+});
