@@ -12,6 +12,10 @@ module ActionAgent
   # markup reads them, a session recorder included. A view that shows a key
   # fetches it from its own endpoint (Api::TelemetryKeysController).
   class DashboardController < ApplicationController
+    # The session recorder's bundle, imported by the dashboard while the Run
+    # Agent workbench is open.
+    RECORDER_BUNDLE = "action_agent_recorder.js"
+
     # The React dashboard brings its own chrome, so it does not use the
     # server-rendered layout the traces views share.
     layout -> { ActionAgent.layout || "action_agent/react" }
@@ -50,7 +54,11 @@ module ActionAgent
         assistantEnabled: ActionAgent.assistant_enabled?,
         multiTenant: ActionAgent.multi_tenant?,
         upgradeUrl: ActionAgent.upgrade_url,
-        signOutPath: ActionAgent.sign_out_path
+        signOutPath: ActionAgent.sign_out_path,
+        # Named here rather than by the layout, so a host layout
+        # (ActionAgent.layout) does not have to know about it. Nil when the
+        # host turned capture off, and the dashboard then loads no recorder.
+        recorderUrl: (helpers.asset_path(RECORDER_BUNDLE) if ActionAgent.capture_dashboard_sessions?)
       }
     end
 
