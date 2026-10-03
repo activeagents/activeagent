@@ -471,6 +471,7 @@ module ActionAgent
         kind: boot_state["kind"],
         failed_step: boot_state["failed_step"],
         kept: boot_state["kept"] == true,
+        resumable_steps: resumable_step_names(boot_state),
         steps: boot_state["steps"].filter_map do |step|
           next unless step.is_a?(Hash)
 
@@ -960,6 +961,16 @@ module ActionAgent
       return index if index
 
       raise Error, "#{name.inspect} is not a step this boot can resume from (#{plan.entries.map(&:name).join(", ")})"
+    end
+
+    # The steps #resume_position accepts: a spec boot's own, which follow
+    # the checkout and preflight steps. None for a boot from the checkout's
+    # sandbox.yml, which cannot be resumed.
+    def resumable_step_names(boot_state)
+      offset = Integer(boot_state["plan_offset"], exception: false)
+      return [] unless boot_state["mode"] == "spec" && offset
+
+      boot_state["steps"].drop(offset).filter_map { |step| step["name"] if step.is_a?(Hash) }
     end
 
     def config_plan(config)

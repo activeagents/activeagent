@@ -255,8 +255,17 @@ module ActionAgent
           return render json: { error: "from must be a step name" }, status: :bad_request
         end
 
-        if orchestrator.supports?(:boot_status) && !orchestrator.boot_status(@sandbox)&.dig(:kept)
+        status = orchestrator.boot_status(@sandbox) if orchestrator.supports?(:boot_status)
+        if orchestrator.supports?(:boot_status) && !status&.dig(:kept)
           return render json: { error: "This sandbox kept no failed boot to resume: start it again", sandbox: @sandbox.summary },
+            status: :unprocessable_entity
+        end
+
+        # Refused here rather than by the backend, whose refusal would fail
+        # the sandbox again and replace the error the failed boot left.
+        steps = status&.dig(:resumable_steps)
+        if from.present? && steps.is_a?(Array) && !steps.include?(from)
+          return render json: { error: "#{from.inspect} is not a step this boot can resume from (#{steps.join(", ")})" },
             status: :unprocessable_entity
         end
 

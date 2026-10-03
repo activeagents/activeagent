@@ -318,6 +318,8 @@ module ActionAgent
     #     failed_step: the name of the step that failed, or nil
     #     kept:        whether a failed boot's workspace was kept for
     #                  #resume_boot
+    #     resumable_steps: optional, the step names #resume_boot accepts as
+    #                  `from`
     #     steps:       [{ name:, status:, started_at:, finished_at:,
     #                  duration_ms:, detail: }], status one of "pending",
     #                  "running", "succeeded", "failed" or "skipped"

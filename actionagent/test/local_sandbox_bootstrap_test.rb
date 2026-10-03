@@ -298,6 +298,10 @@ class LocalSandboxBootstrapTest < ActiveSupport::TestCase
     spec = Spec.bootstrap(engine: ENGINE, keep_on_failure: true)
     assert_raises(Backend::Error) { with_fake_tools { @backend.create_sandbox(sandbox, boot_config: spec.to_h) } }
 
+    assert_equal %w[
+      bundle_config bundle_install add_engine install_framework install_engine javascript_build css_build tailwindcss_build
+      db_prepare manifest start
+    ], @backend.boot_status(sandbox)[:resumable_steps], "the checkout and preflight are not the plan's to re-run"
     error = assert_raises(Backend::Error) { with_fake_tools { Backend.new.resume_boot(sandbox, from: "checkout") } }
     assert_match(/"checkout" is not a step this boot can resume from \(bundle_config, bundle_install, add_engine/, error.message)
     assert JSON.parse(workspace(sandbox).join("state.json").read).dig("boot", "kept"), "a refused resume keeps the boot"
@@ -408,7 +412,7 @@ class LocalSandboxBootstrapTest < ActiveSupport::TestCase
 
     with_fake_tools { @backend.create_sandbox(sandbox, boot_config: spec.to_h) }
 
-    assert_equal "config", @backend.boot_status(sandbox)[:mode]
+    assert_equal [ "config", [] ], @backend.boot_status(sandbox).values_at(:mode, :resumable_steps)
     assert_equal [ "bundle install", "rails db:prepare", "rails action_agent:sandbox:manifest" ], tool_calls.first(3)
   end
 
