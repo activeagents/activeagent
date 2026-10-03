@@ -2,12 +2,13 @@
 
 require "test_helper"
 require_relative "support/github_app"
+require_relative "support/staged_checkout_backend"
 
 # Opening a draft pull request from a checkout sandbox: the preview of what
 # would be published, the publish through GitHub's Git Data API under a
 # token minted for the one repository, the refusals around it, the patch to
 # download instead, and the pull request's status afterwards. GitHub is
-# stubbed; the sandbox's files come from the mock backend's staged checkout.
+# stubbed; the sandbox's files come from StagedCheckoutBackend.
 class DraftPullRequestsTest < ActionDispatch::IntegrationTest
   include GithubAppTestHelper
   include ActiveJob::TestHelper
@@ -28,17 +29,18 @@ class DraftPullRequestsTest < ActionDispatch::IntegrationTest
     ActionAgent::GithubInstallation.delete_all
     ActionAgent::GithubConnection.delete_all
     ActionAgent::ProviderKey.delete_all
-    ActionAgent::MockSandboxBackend.reset_checkouts!
+    StagedCheckoutBackend.reset_checkouts!
     configure_github_app!
     @original_backends = ActionAgent.sandbox_backends
     @original_service = ActionAgent.sandbox_service
-    ActionAgent.sandbox_service = :mock
+    ActionAgent.sandbox_backends = { "staged" => StagedCheckoutBackend.name }
+    ActionAgent.sandbox_service = :staged
     @calls = []
   end
 
   def teardown
     reset_github_app!
-    ActionAgent::MockSandboxBackend.reset_checkouts!
+    StagedCheckoutBackend.reset_checkouts!
     ActionAgent.sandbox_backends = @original_backends
     ActionAgent.sandbox_service = @original_service
     ActionAgent.permission_checker = nil
@@ -457,13 +459,17 @@ class DraftPullRequestsTest < ActionDispatch::IntegrationTest
     assert_match(/expired/, JSON.parse(response.body)["error"])
 
     sandbox.update_columns(expires_at: 1.hour.from_now)
-    ActionAgent.sandbox_backends = { "bare" => BareBackend.name }
-    ActionAgent.sandbox_service = :bare
-    post "#{BASE_PATH}/#{sandbox.session_id}/pull_request/preview", as: :json
-    assert_response :unprocessable_entity
-    assert_equal "unsupported", JSON.parse(response.body)["code"]
-    get "#{BASE_PATH}?sandbox_type=app_runtime"
-    assert_equal false, JSON.parse(response.body)["pull_requests_supported"]
+    ActionAgent.sandbox_backends = { "bare" => BareBackend.name, "no_base" => NoBaseBackend.name }
+    { bare: /cannot read a sandbox's files/, no_base: /cannot read the commit a checkout was cloned at/ }.each do |backend, message|
+      ActionAgent.sandbox_service = backend
+      post "#{BASE_PATH}/#{sandbox.session_id}/pull_request/preview", as: :json
+      assert_response :unprocessable_entity
+      body = JSON.parse(response.body)
+      assert_equal "unsupported", body["code"], backend
+      assert_match message, body["error"]
+      get "#{BASE_PATH}?sandbox_type=app_runtime"
+      assert_equal false, JSON.parse(response.body)["pull_requests_supported"], backend
+    end
     assert_equal 0, ActionAgent::DraftPullRequest.count
   end
 
@@ -494,7 +500,7 @@ class DraftPullRequestsTest < ActionDispatch::IntegrationTest
     sandbox = app_sandbox!
     limit = ActionAgent::DraftPullRequestPublisher::MAX_FILE_BYTES - 1
     files = (1..22).to_h { |n| [ format("data/%02d.txt", n), "x" * limit ] }
-    ActionAgent::MockSandboxBackend.stage_checkout(sandbox.session_id, base_commit: BASE, base: {}, working: files)
+    StagedCheckoutBackend.stage_checkout(sandbox.session_id, base_commit: BASE, base: {}, working: files)
     publisher = ActionAgent::DraftPullRequestPublisher.new(sandbox)
 
     changes = publisher.changes
@@ -568,6 +574,16 @@ class DraftPullRequestsTest < ActionDispatch::IntegrationTest
     assert_response :not_found
   end
 
+  test "the mock backend offers no publishing" do
+    ActionAgent.sandbox_service = :mock
+    sandbox = app_sandbox!
+
+    get "#{BASE_PATH}/#{sandbox.session_id}/pull_request"
+    assert_equal [ false, false ], JSON.parse(response.body)["publishing"].values_at("supported", "available")
+    get "#{BASE_PATH}?sandbox_type=app_runtime"
+    assert_equal false, JSON.parse(response.body)["pull_requests_supported"]
+  end
+
   # Implements only the required verbs.
   class BareBackend
     def create_sandbox(_session) = { container_name: "bare" }
@@ -575,6 +591,13 @@ class DraftPullRequestsTest < ActionDispatch::IntegrationTest
     def terminate(_handle) = true
     def list_sandboxes = []
     def cleanup_expired = 0
+  end
+
+  # Lists changes, and reads files the way a backend written before read_file
+  # took base: does.
+  class NoBaseBackend < BareBackend
+    def changed_files(_session) = { base_commit: BASE, files: [] }
+    def read_file(_session, _path) = "".b
   end
 
   private
@@ -610,7 +633,7 @@ class DraftPullRequestsTest < ActionDispatch::IntegrationTest
   end
 
   def stage!(sandbox, readme: "# Shop v2\n", working: {})
-    ActionAgent::MockSandboxBackend.stage_checkout(
+    StagedCheckoutBackend.stage_checkout(
       sandbox.session_id,
       base_commit: BASE,
       base: { "README.md" => "# Shop\n", "lib/old.rb" => "OLD = 1\n", ".github/workflows/ci.yml" => "on: [push]\n" },

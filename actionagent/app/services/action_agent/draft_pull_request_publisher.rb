@@ -178,6 +178,10 @@ module ActionAgent
       unless @orchestrator.supports?(:changed_files) && @orchestrator.supports?(:read_file)
         return Refused.new("The #{@orchestrator.backend_name} sandbox backend cannot read a sandbox's files", code: "unsupported")
       end
+      unless @orchestrator.reads_checkouts?
+        return Refused.new("The #{@orchestrator.backend_name} sandbox backend cannot read the commit a checkout was cloned at",
+          code: "unsupported")
+      end
       return nil if (sandbox.ready? || sandbox.running?) && sandbox.active?
 
       state = sandbox.ready? || sandbox.running? ? "expired" : sandbox.status
