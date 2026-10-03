@@ -253,6 +253,37 @@ class ExplorationTest < ActiveSupport::TestCase
     assert_not exploration.stop!
   end
 
+  test "candidates for the project's own evaluation are filed under the project and scrubbed of its secrets" do
+    exploration = ActionAgent::Exploration.build_for(evaluation: @project.evaluation, source: "external", status: "review")
+    exploration.save_with_candidates!([ candidate("Pay with #{SECRET}", tools: [ "lookup_order", "refund_order" ]) ])
+
+    assert_equal [ @project.id, @project.evaluation.id, "/" ], [ exploration.project_id, exploration.evaluation_id, exploration.start_url ]
+    row = exploration.reload.candidates.sole
+    assert_equal [ "Pay with [REDACTED]", "needs_tool", [ "refund_order" ] ], row.values_at("prompt", "verdict", "missing_tools")
+  end
+
+  test "candidates for another evaluation of the project's agent stay on it, scrubbed of the project's secrets" do
+    second = @project.target_agent.evaluations.create!(name: "Second suite", judge_kind: "rules",
+      criteria: [ { "key" => "answered", "type" => "response_present", "config" => {} } ])
+    exploration = ActionAgent::Exploration.build_for(evaluation: second, source: "external", status: "review")
+    exploration.save_with_candidates!([ candidate("Pay with #{SECRET} and #{RUNTIME_TOKEN}", tools: [ "find_orders" ]) ])
+
+    assert_equal [ nil, second.id, @project ], [ exploration.project_id, exploration.evaluation_id, exploration.app_project ]
+    row = exploration.reload.candidates.sole
+    assert_equal [ "Pay with [REDACTED] and [REDACTED]", "answerable" ], row.values_at("prompt", "verdict")
+    assert_equal second, exploration.target_evaluation
+
+    @project.current_sandbox_session.update!(status: :expired)
+    assert_nil exploration.tool_roster, "the project's stopped sandbox leaves the app's tools unread"
+  end
+
+  test "an evaluation of another owner's agent is never matched to a project" do
+    ActionAgent::Project.where(id: @project.id).update_all(account_id: 99)
+
+    assert_nil ActionAgent::Project.for_evaluation(@project.evaluation)
+    assert_nil ActionAgent::Project.for_evaluation(nil)
+  end
+
   test "a JSON column left unset reads as empty" do
     exploration = ActionAgent::Exploration.build_for(project: @project, source: "external")
     exploration.save!

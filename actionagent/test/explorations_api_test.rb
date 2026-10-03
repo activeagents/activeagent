@@ -53,9 +53,10 @@ class ExplorationsApiTest < ActionDispatch::IntegrationTest
 
   test "submitting for an evaluation, and a submission naming neither or an invalid candidate" do
     evaluation = @project.evaluation
-    body = submit([ candidate("Where is order A-17?") ], { evaluation_id: evaluation.id })
+    body = submit([ candidate("Pay for A-17 with #{SECRET}") ], { evaluation_id: evaluation.id })
     assert_response :created
-    assert_equal [ nil, evaluation.id ], body["exploration"].values_at("project_id", "evaluation_id")
+    assert_equal [ @project.id, evaluation.id ], body["exploration"].values_at("project_id", "evaluation_id")
+    assert_equal "Pay for A-17 with [REDACTED]", body["candidates"].sole["prompt"]
 
     submit([ candidate("Hello") ], {})
     assert_response :bad_request

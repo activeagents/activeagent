@@ -252,6 +252,17 @@ module ActionAgent
       ensure_evaluation!(agent)
     end
 
+    # The project whose target agent +evaluation+ belongs to, or nil. The
+    # agent carries the project's owner columns, so they must match too, and
+    # another owner's project is never returned.
+    #
+    # @return [Project, nil]
+    def self.for_evaluation(evaluation)
+      agent = evaluation&.agent or return nil
+
+      find_by(target_agent_id: agent.id, account_id: agent.account_id, user_id: agent.user_id)
+    end
+
     # Whether the target agent is the App assistant, as opposed to a proxy
     # for a synced agent.
     def app_assistant?
