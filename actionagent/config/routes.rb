@@ -185,6 +185,10 @@ ActionAgent::Engine.routes.draw do
       end
     end
 
+    # Creating the GitHub App from a manifest on a self-hosted dashboard.
+    resource :github_app_manifest, only: [ :create ] do
+      get :callback
+    end
 
     # Model catalogs for the agent builder (Ollama queried live from the
     # configured host; hosted providers curated).
