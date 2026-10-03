@@ -39,6 +39,8 @@ const routes = {
 let window;
 let dashboard;
 let requests = [];
+// The status the dashboard API answers each batch with.
+let batchStatus = 201;
 
 function batches() {
   return requests.filter((request) => request.key === 'POST /api/session_recordings/41/events').map((request) => request.body);
@@ -73,7 +75,7 @@ before(async () => {
   globalThis.fetch = async (url, init = {}) => {
     const key = `${init.method || 'GET'} ${url}`;
     requests.push({ key, body: init.body });
-    if (key.endsWith('/events')) return { ok: true, status: 201, json: async () => ({}) };
+    if (key.endsWith('/events')) return { ok: batchStatus < 300, status: batchStatus, json: async () => ({}) };
     const route = routes[key];
     return { ok: Boolean(route), status: route ? 200 : 404, json: async () => (route ? route() : {}) };
   };
@@ -179,6 +181,28 @@ test('the workbench is recorded while it is open, and the view navigated to is n
     assert.ok(!recorded.includes(API_TOKEN));
     assert.ok(!recorded.includes(CSRF_TOKEN));
   } finally {
+    await dashboard.act(async () => view.unmount());
+    container.remove();
+  }
+});
+
+test('the workbench says so when a visit is over the recording\'s caps', async () => {
+  requests = [];
+  batchStatus = 413;
+  const container = document.body.appendChild(document.createElement('div'));
+  const view = dashboard.mount(container);
+
+  try {
+    await dashboard.act(async () => view.show(['runner'], { agent, recorderUrl, user: { name: 'Ada' } }));
+    await waitFor(() => container.querySelector('[data-testid="runner-recording-notice"]'), 'the recording notice');
+
+    await dashboard.act(async () => { window.dispatchEvent(new window.Event('pagehide')); });
+    await waitFor(() => container.querySelector('[data-testid="runner-recording-stopped"]'), 'the stopped notice');
+
+    assert.equal(container.querySelector('[data-testid="runner-recording-notice"]'), null);
+    assert.equal(batches().length, 1);
+  } finally {
+    batchStatus = 201;
     await dashboard.act(async () => view.unmount());
     container.remove();
   }

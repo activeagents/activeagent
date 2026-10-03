@@ -840,6 +840,16 @@ export default function AgentRunner({ agent, onBack, recorderUrl = null }) {
                   Recording
                 </span>
               )}
+              {captureState === 'limit' && (
+                <span
+                  data-testid="runner-recording-stopped"
+                  className="text-xs"
+                  style={{ color: colors.textMuted }}
+                  title="This visit reached the size limit for a recording, so the rest of it is not recorded. Open the conversation again to start a new recording."
+                >
+                  Recording stopped
+                </span>
+              )}
             </div>
             <div className="flex items-center gap-3 flex-wrap">
               <RunVitals run={currentRun} darkMode={darkMode} colors={colors} />
