@@ -256,7 +256,18 @@ is on. Once every request of the pause is answered or declined,
 The job's only argument is a request id. It reads and decrypts the answers
 itself, and clears a secret answer once the resume has run.
 Cancelling the run cancels its pending requests. `config.input_request_ttl`
-(one day by default, `nil` for no limit) sets how long a request waits.
+(one day by default, `nil` for no limit) sets how long a request waits. Past
+it, the request expires, the rest of its pause is cancelled, and the run
+fails. That happens when an answer arrives, when the request list or the
+run's page is read, or when `ActionAgent::InputRequestExpiryJob` runs. The job
+is not scheduled by default:
+
+```yaml
+# config/recurring.yml
+input_request_expiry:
+  class: ActionAgent::InputRequestExpiryJob
+  schedule: every 15 minutes
+```
 
 | Endpoint | What it does |
 |---|---|

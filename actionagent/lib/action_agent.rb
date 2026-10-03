@@ -539,9 +539,10 @@ module ActionAgent
     # @return [ActiveSupport::Duration, Proc, nil]
     attr_accessor :trace_retention
 
-    # How long a run's request for input waits for an answer. An answer
-    # arriving later is refused, and the run fails. One day by default; nil
-    # lets a request wait until it is answered or its run is cancelled.
+    # How long a run's request for input waits for an answer. Past it, the
+    # request expires and its run fails, once an answer, the request list,
+    # the run's page or InputRequestExpiryJob reaches it. One day by default;
+    # nil lets a request wait until it is answered or its run is cancelled.
     # @return [ActiveSupport::Duration, nil]
     attr_accessor :input_request_ttl
 

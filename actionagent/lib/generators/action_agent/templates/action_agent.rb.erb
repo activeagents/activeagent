@@ -107,7 +107,9 @@ ActionAgent.configure do |config|
   # ==========================================================================
   #
   # How long a paused run's request for input waits for an answer. A later
-  # answer is refused with a 409, and the run fails.
+  # answer is refused with a 409, and the run fails. Schedule
+  # ActionAgent::InputRequestExpiryJob to fail the runs whose requests
+  # nobody answers or looks at.
   #
   # config.input_request_ttl = 1.day
 

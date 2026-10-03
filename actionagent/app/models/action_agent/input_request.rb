@@ -55,6 +55,8 @@ module ActionAgent
     before_validation :copy_owner_from_subject, on: :create
 
     scope :recent, -> { order(created_at: :desc, id: :desc) }
+    # Pending requests past their `expires_at`.
+    scope :overdue, -> { pending.where(expires_at: ..Time.current) }
 
     # Stores the requests of one pause, sharing a pause key and the checkpoint
     # the run resumes from.
@@ -85,6 +87,14 @@ module ActionAgent
           requested_by_id: requested_by_id
         )
       end
+    end
+
+    # Expires every overdue request in +relation+ (see #expire!).
+    #
+    # @param relation [ActiveRecord::Relation] the requests to look through
+    # @return [Integer] how many requests it expired
+    def self.expire_overdue!(relation = all)
+      relation.overdue.find_each.count(&:expire!)
     end
 
     # The id of +user+ when it is a record of the configured user class, so
@@ -167,6 +177,22 @@ module ActionAgent
       return decline!(user: user) if kind == "confirm" && CONFIRM_DECLINES.include?(value)
 
       settle!(:answered, value: value, user: user)
+    end
+
+    # Expires the request when it is still pending past `expires_at`. The
+    # rest of its pause is cancelled, and its run fails, because it can no
+    # longer resume. Returns whether it expired the request.
+    def expire!
+      expired = false
+      subject.with_lock do
+        reload
+        next unless pending? && expires_at&.past?
+
+        expire_pause!
+        expired = true
+      end
+      subject.try(:broadcast_update) if expired
+      expired
     end
 
     # Declines the request: its tool does not run, and the model reads an
