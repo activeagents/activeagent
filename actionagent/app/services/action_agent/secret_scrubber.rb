@@ -16,8 +16,10 @@ module ActionAgent
     MIN_SECRET_LENGTH = 8
     # GitHub's token formats: personal (ghp_), OAuth (gho_), App user (ghu_),
     # installation (ghs_) and refresh (ghr_) tokens, and fine-grained
-    # personal tokens (github_pat_).
-    GITHUB_TOKEN = /(?<![A-Za-z0-9_])(?:gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{30,})/
+    # personal tokens (github_pat_). Matched wherever they start, so a token
+    # straight after a percent-escape (`%3Aghs_…` in an encoded URL) or a
+    # name (`GITHUB_TOKEN_ghs_…`) is masked too.
+    GITHUB_TOKEN = /gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{30,}/
 
     module_function
 
