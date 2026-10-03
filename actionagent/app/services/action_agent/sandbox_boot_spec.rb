@@ -72,6 +72,9 @@ module ActionAgent
     # .request_options): bootstrap one whose Gemfile.lock lacks the engine,
     # bootstrap it whatever its lock says, or boot it as its sandbox.yml says.
     BOOTSTRAP_MODES = %w[auto always never].freeze
+    # The steps that install the engine, which a checkout that bundles it
+    # already (a project's install pull request branch) does not run.
+    INSTALL_STEPS = %w[bundle_config add_framework add_engine install_framework install_engine].freeze
     # A schema tools choice (see .schema_tools_step).
     MODEL_NAME = /\A[A-Z][A-Za-z0-9]{0,99}(?:::[A-Z][A-Za-z0-9]{0,99}){0,4}\z/
     COLUMN_NAME = /\A[a-z_][a-z0-9_]{0,62}\z/
@@ -120,6 +123,28 @@ module ActionAgent
           "keep_on_failure" => keep_on_failure,
           "timeout" => timeout,
           "engine" => engine
+        )
+      end
+
+      # The spec for a checkout that bundles the engine already because a
+      # bootstrap's changes were published to its branch: the bootstrap's
+      # steps without the INSTALL_STEPS, whatever the checkout's
+      # sandbox.yml says.
+      #
+      # @param steps [Array<Hash>] more steps, run after db_prepare
+      def installed(start_url: "/", keep_on_failure: false, env: {}, secrets: {}, steps: [])
+        new(
+          "kind" => "custom",
+          "apply" => "always",
+          "steps" => [ step("bundle_install", "bundle install", 900), *asset_steps, step("db_prepare", "bin/rails db:prepare", 900),
+                       *steps ],
+          "env" => env,
+          "secrets" => secrets,
+          "manifest" => { "command" => "bin/rails action_agent:sandbox:manifest", "timeout" => 300 },
+          "start" => { "command" => "bin/rails server -b 127.0.0.1 -p $PORT", "timeout" => 300 },
+          "start_url" => start_url,
+          "keep_on_failure" => keep_on_failure,
+          "timeout" => BOOTSTRAP_TIMEOUT
         )
       end
 

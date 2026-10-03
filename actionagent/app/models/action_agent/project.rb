@@ -25,7 +25,10 @@ module ActionAgent
   #
   # A failed boot can start the project's setup assistant (ProjectSetup),
   # and the App assistant can be given schema tools over the models a boot
-  # lists (#choose_schema_tools!).
+  # lists (#choose_schema_tools!). The install pull request (see
+  # ProjectInstallPullRequest) publishes what the bootstrap wrote; while it
+  # is open every boot checks out its branch, and once it merges the
+  # repository counts as installed.
   #
   # The sandbox, the agent and the evaluation carry the project's own owner
   # columns, whoever starts a boot, so the agent's runs always reach the
@@ -79,9 +82,14 @@ module ActionAgent
       install_state == "installed"
     end
 
-    # How +sandbox+ boots: a bootstrap for a checkout whose Gemfile.lock
-    # lacks the engine, and the checkout's own sandbox.yml boot otherwise
-    # (the spec applies "without_engine").
+    # How +sandbox+ boots:
+    #
+    #   install branch  a checkout of the open install pull request's branch
+    #                   runs the bootstrap's steps without installing the
+    #                   engine again (SandboxBootSpec.installed)
+    #   otherwise       a bootstrap for a checkout whose Gemfile.lock lacks
+    #                   the engine, and the checkout's own sandbox.yml boot
+    #                   otherwise (the spec applies "without_engine")
     #
     # A spec boot also writes the schema tools chosen for the App assistant
     # (#schema_tools). Either way the project's secrets reach the steps that
@@ -94,16 +102,47 @@ module ActionAgent
     # @raise [SandboxBootSpec::Invalid]
     # @raise [ActiveRecord::RecordNotFound] when a secret uses an
     #   organization key that is no longer stored
-    def boot_spec(_sandbox = current_sandbox_session)
+    def boot_spec(sandbox = current_sandbox_session)
       steps = [ SandboxBootSpec.schema_tools_step(schema_tools) ].compact
-      SandboxBootSpec.bootstrap(apply: "without_engine", start_url: start_url, keep_on_failure: true, env: plain_environment,
-        secrets: secret_environment, steps: steps)
+      options = { start_url: start_url, keep_on_failure: true, env: plain_environment, secrets: secret_environment, steps: steps }
+      return SandboxBootSpec.installed(**options) if sandbox&.repository_ref.present? && sandbox.repository_ref == install_branch
+
+      SandboxBootSpec.bootstrap(apply: "without_engine", **options)
     end
 
-    # The ref a new sandbox checks out: default_ref, nil for the
-    # repository's default branch.
+    # The ref a new sandbox checks out: the branch of the open install pull
+    # request, else default_ref (nil for the repository's default branch).
     def checkout_ref
-      default_ref.presence
+      install_branch || default_ref.presence
+    end
+
+    # The branch of the install pull request while it is open, or nil.
+    def install_branch
+      record = install_pull_request
+      return nil unless record&.head_commit.present? && record.state.in?([ nil, "open" ])
+
+      record.branch
+    end
+
+    # The DraftPullRequest that installs the engine in the repository, once
+    # one was published.
+    def install_pull_request
+      id = settings["install_pull_request_id"]
+      id && DraftPullRequest.find_by(id: id)
+    end
+
+    # Called once the install pull request is merged: the branch it merged
+    # into bundles the engine now, so later boots check that out and install
+    # nothing.
+    def install_merged!
+      changed = with_lock do
+        next false if engine_installed?
+
+        update!(install_state: "installed", settings: settings.merge("install_merged_at" => Time.current.iso8601))
+        true
+      end
+      LiveUpdates.broadcast(stream_name, type: "project", id: id, status: status) if changed
+      changed
     end
 
     # The models and columns the App assistant may read, as chosen with
@@ -477,6 +516,8 @@ module ActionAgent
         pending_input_requests: pending_input_requests.count,
         schema_tools: schema_tools,
         app_models_listed: !app_models.nil?,
+        install_pull_request: install_pull_request&.summary&.slice(:id, :branch, :base_branch, :number, :url, :state, :draft, :status,
+          :error_code, :error_message, :compare_url, :updated_at),
         created_at: created_at&.iso8601,
         updated_at: updated_at&.iso8601
       }
