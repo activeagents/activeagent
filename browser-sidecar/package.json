@@ -24,7 +24,7 @@
     "node": ">=20"
   },
   "scripts": {
-    "test": "node --test --test-timeout=120000 --test-force-exit test/*.test.mjs"
+    "test": "node --test --test-timeout=120000 test/*.test.mjs"
   },
   "dependencies": {
     "@playwright/mcp": "0.0.83",
