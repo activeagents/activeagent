@@ -249,6 +249,18 @@ class ExplorationTest < ActiveSupport::TestCase
     assert_equal %w[proposed proposed], exploration.reload.candidates.map { |row| row["state"] }
   end
 
+  test "accept refuses a rejected candidate until it is reconsidered" do
+    exploration = explore(candidate("Where is order A-17?"))
+    exploration.update_candidate!(1, "state" => "rejected")
+
+    error = assert_raises(ActionAgent::Exploration::AcceptRefused) { exploration.accept!([ 1 ]) }
+    assert_equal({ 1 => "it was rejected: reconsider it first" }, error.problems)
+    assert_equal 0, @project.evaluation.scenarios.count
+
+    exploration.update_candidate!(1, "state" => "proposed")
+    assert_equal [ "x#{exploration.id}_1" ], exploration.accept!([ 1 ])[:added]
+  end
+
   test "accept refuses a pattern the suite editor would split, and an unknown or missing id" do
     exploration = explore(candidate("Where is order A-17?", contains: [ "shipped, on time" ]), candidate("Hello"))
 

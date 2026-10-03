@@ -1746,8 +1746,8 @@ it was not given:
   Markdown. A later Save in the suite editor leaves it unchanged. A pattern
   containing `,`, `;` or ` | `, which the editor would split, is refused with
   the reason, and so is a key a scenario from outside the exploration
-  already holds. A refused accept answers `422` with `problems` by candidate
-  id, and writes nothing.
+  already holds, and a rejected candidate (reconsider it first). A refused
+  accept answers `422` with `problems` by candidate id, and writes nothing.
 - It asks the [permission checker](#permissions) about `:replace_scenarios`,
   with the evaluation as the subject.
 
