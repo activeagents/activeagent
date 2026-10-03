@@ -31,10 +31,31 @@ module ActionAgent
     # @param recording_url [#call, nil] given the browser's new
     #   SessionRecording, returns the absolute URL its events are posted to
     #   (the recording's events endpoint); nil records nothing
+    # @param live_origins [Array<String>] the dashboard origins whose pages
+    #   may open the browser's live view; none gives it no live view.
+    #   Anything that is not an http(s) origin is left out.
     # @raise [Error] when the sandbox cannot run a browser now, a browser
     #   already runs, or the backend failed to start one
-    def self.start(sandbox, mode:, capabilities: [], recording_url: nil)
-      new(sandbox).start(mode.to_s, Array(capabilities).map(&:to_s).uniq, recording_url)
+    def self.start(sandbox, mode:, capabilities: [], recording_url: nil, live_origins: [])
+      new(sandbox).start(mode.to_s, Array(capabilities).map(&:to_s).uniq, recording_url, origins(live_origins))
+    end
+
+    # +values+ as the origins a browser compares an Origin header with:
+    # "scheme://host" with the port unless it is the scheme's default.
+    #
+    # @example
+    #   origins(["http://LOCALHOST:3000/activeagents", "https://dash.example:443", "file:///etc"])
+    #   # => ["http://localhost:3000", "https://dash.example"]
+    def self.origins(values)
+      Array(values).filter_map do |value|
+        uri = URI.parse(value.to_s)
+        next unless %w[http https].include?(uri.scheme) && uri.host.present?
+
+        port = uri.port == uri.default_port ? "" : ":#{uri.port}"
+        "#{uri.scheme}://#{uri.host.downcase}#{port}"
+      rescue URI::InvalidURIError
+        nil
+      end.uniq
     end
 
     # Stops +sandbox+'s browser through its backend, then finishes it
@@ -108,7 +129,7 @@ module ActionAgent
       @sandbox = sandbox
     end
 
-    def start(mode, capabilities, recording_url)
+    def start(mode, capabilities, recording_url, live_origins)
       validate!(mode, capabilities)
       orchestrator = self.class.orchestrator!
       unless orchestrator.supports?(:start_browser)
@@ -125,7 +146,7 @@ module ActionAgent
       begin
         recording, launch_recording = start_recording(recording_url)
         launch = { token: token, app_url: @sandbox.cloud_run_url, capabilities: capabilities, stop_at: @sandbox.browser_stops_at,
-                   recording: launch_recording }
+                   recording: launch_recording, live: live_origins.any? ? { session_id: @sandbox.session_id, origins: live_origins } : nil }
         @sandbox.browser_launch = launch
         result = orchestrator.start_browser(@sandbox, mode: mode.to_sym)
         unless mark_running!(result, token)

@@ -1,6 +1,7 @@
 import http from 'node:http';
 
-import { refusal } from './guard.mjs';
+import { liveRefusal, refusal } from './guard.mjs';
+import { LIVE_PATH } from './live-server.mjs';
 
 // Larger than any tool call the engine sends.
 export const MAX_BODY_BYTES = 4 * 1024 * 1024;
@@ -34,25 +35,40 @@ function readBody(request) {
   });
 }
 
+function pathOf(request) {
+  try {
+    return new URL(request.url, 'http://sidecar').pathname;
+  } catch {
+    return null;
+  }
+}
+
+function rejectUpgrade(socket, status) {
+  socket.end(`HTTP/1.1 ${status} ${http.STATUS_CODES[status]}\r\nConnection: close\r\nContent-Length: 0\r\n\r\n`);
+}
+
 /**
  * Creates the sidecar's HTTP server:
  *
  *   GET    /health  { status: "ok", version }
  *   POST   /mcp     one JSON-RPC message, answered as JSON (McpGateway)
  *   DELETE /mcp     ends the session named by Mcp-Session-Id
+ *   GET    /live    the live view's WebSocket (LiveServer), when `live` is given
  *
- * Every request, and every WebSocket upgrade, is checked by guard.refusal
- * before anything else happens. There is no WebSocket endpoint, so an
- * upgrade that passes is refused too.
+ * Every request, and every WebSocket upgrade other than the live view's, is
+ * checked by guard.refusal before anything else happens. The live view's
+ * upgrade is checked by guard.liveRefusal instead, and any other upgrade is
+ * refused.
  *
  * @param {object} options
- * @param {() => { token: string, hosts: Set<string>, origins?: Set<string> }} options.rules
- *   what refusal checks against, read per request since the port is known only once listening
+ * @param {() => { token: string, hosts: Set<string>, origins?: Set<string>, liveOrigins?: Set<string> }} options.rules
+ *   what the guards check against, read per request since the port is known only once listening
  * @param {{ handle: Function, closeSession: Function }} options.gateway
  * @param {string} options.version
+ * @param {{ handleUpgrade: Function } | null} [options.live] a LiveServer
  * @returns {import('node:http').Server}
  */
-export function createHttpServer({ rules, gateway, version }) {
+export function createHttpServer({ rules, gateway, version, live = null }) {
   const server = http.createServer(async (request, response) => {
     const denied = refusal(request, rules());
     if (denied) return respond(response, denied.status, { error: denied.message });
@@ -85,9 +101,16 @@ export function createHttpServer({ rules, gateway, version }) {
     }
   });
 
-  server.on('upgrade', (request, socket) => {
-    const denied = refusal(request, rules()) ?? { status: 404, message: 'Not found' };
-    socket.end(`HTTP/1.1 ${denied.status} ${http.STATUS_CODES[denied.status]}\r\nConnection: close\r\nContent-Length: 0\r\n\r\n`);
+  server.on('upgrade', (request, socket, head) => {
+    const current = rules();
+    if (live && pathOf(request) === LIVE_PATH) {
+      const denied = liveRefusal(request, { hosts: current.hosts, origins: current.liveOrigins ?? new Set() });
+      if (denied) rejectUpgrade(socket, denied.status);
+      else live.handleUpgrade(request, socket, head);
+      return;
+    }
+
+    rejectUpgrade(socket, (refusal(request, current) ?? { status: 404 }).status);
   });
   server.on('clientError', (_error, socket) => socket.destroy());
 
