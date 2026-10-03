@@ -144,7 +144,7 @@ module Providers
         assert_equal %w[toolu_1 toolu_2], request_bodies.last["messages"][2]["content"].map { _1["tool_use_id"] }
       end
 
-      test "a streamed tool loop that does not pause runs each tool once" do
+      test "a streamed tool loop that does not pause finishes after its tool turn" do
         stub_messages(assistant_message(LOOKUP), assistant_message(ANSWER), stream: true)
 
         response = RefundAgent.triage(stream: true).generate_now

@@ -113,6 +113,20 @@ class LogSubscriberTest < ActiveSupport::TestCase
     assert_match(/\d+\.\d+ms/, @log_output.string)
   end
 
+  test "input_requested event is logged with the tools awaiting input" do
+    requests = [
+      ActiveAgent::InputRequest.confirm("Refund 40?").for_tool_call(id: "toolu_1", name: "issue_refund"),
+      ActiveAgent::InputRequest.text("Why?").for_tool_call(id: "toolu_2", name: "ask_reason")
+    ]
+
+    ActiveSupport::Notifications.instrument("input_requested.active_agent",
+                                           trace_id: "test-pause",
+                                           provider_module: "Anthropic",
+                                           input_requests: requests)
+
+    assert_match(/\[test-pause\] \[ActiveAgent\] \[Anthropic\] Awaiting input for: issue_refund, ask_reason/, @log_output.string)
+  end
+
   test "stream_chunk event is logged" do
     ActiveSupport::Notifications.instrument("stream_chunk.active_agent",
                                            trace_id: "test-chunk",
