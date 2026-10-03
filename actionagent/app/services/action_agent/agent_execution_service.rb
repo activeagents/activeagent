@@ -365,10 +365,13 @@ module ActionAgent
           call_agent(slug: kwargs[:slug], message: kwargs[:message])
         else
           # A tool one of the agent's own MCP servers serves is called there;
-          # AgentToolbox answers the rest.
+          # AgentToolbox answers the rest. A browser tool call is recorded on
+          # the run's session recording either way.
           # `actor:` comes from the run, never from kwargs (see
           # ACTOR_KEYWORDS): it is who the run is for, not what it is about.
-          mcp_dispatcher.call(name, kwargs) || AgentToolbox.call(name, actor: actor, **kwargs)
+          browser_recorder.intercept(tool_name: name.to_s, parameters: kwargs) do
+            mcp_dispatcher.call(name, kwargs) || AgentToolbox.call(name, actor: actor, **kwargs)
+          end
         end
       rescue StandardError => e
         Rails.logger.warn("[AgentExecutionService] Tool #{name} failed: #{e.class} - #{e.message}")
@@ -420,6 +423,27 @@ module ActionAgent
     # runner run against it) reaches that runtime too.
     def mcp_dispatcher
       @mcp_dispatcher ||= MCPToolDispatcher.new(@agent_record, extra_server_keys: [ @run.try(:sandbox_server_key) ].compact)
+    end
+
+    # How many rows of each credential the recording secrets are read from.
+    RECORDING_SECRET_LOOKUP_LIMIT = 50
+
+    def browser_recorder
+      @browser_recorder ||= MCPRecordingMiddleware.new(agent_run: @run, secrets: -> { recording_secrets })
+    end
+
+    # The credentials the run's owner holds, scrubbed from the browser
+    # actions the run records: provider keys, the GitHub token, and the
+    # runtime token of the sandbox the run reaches.
+    def recording_secrets
+      sandbox_id = @run.try(:sandbox_id)
+      sandbox = sandbox_id && SandboxSession.for_owner(owner).find_by(session_id: sandbox_id)
+      [
+        *ProviderKey.for_owner(owner).limit(RECORDING_SECRET_LOOKUP_LIMIT).pluck(:credential, :api_key).flatten,
+        *GithubConnection.for_owner(owner).limit(RECORDING_SECRET_LOOKUP_LIMIT).pluck(:access_token),
+        sandbox&.runtime_mcp_token,
+        *owner_provider_options(requested_provider).values_at(:access_token, :api_key)
+      ].compact
     end
 
     # Splits the offered schemas the way `tool_schemas` assembles them, so the
