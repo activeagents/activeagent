@@ -76,6 +76,14 @@ function localDay(value, days = 0) {
   return new Date(Number(year), Number(month) - 1, Number(day) + days).toISOString();
 }
 
+// The history state of a replay opened from the Sessions list. Going back
+// from that replay returns to the list's entry, filters and all.
+export const OPENED_FROM_SESSIONS = Object.freeze({ openedFromSessions: true });
+
+export function openedFromSessions(state) {
+  return state?.openedFromSessions === true;
+}
+
 // The URL of a page of GET /api/sessions. Dates are the browser's local
 // days, so `to` asks for everything before the next day began. `before` is
 // the previous page's next_before.

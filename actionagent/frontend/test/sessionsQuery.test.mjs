@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { EMPTY_FILTERS, cleanFilters, filtersFromSearch, filtersSearch, hasFilters, sessionsPath } from '../utils/sessionsQuery.mjs';
+import {
+  EMPTY_FILTERS, OPENED_FROM_SESSIONS, cleanFilters, filtersFromSearch, filtersSearch, hasFilters, openedFromSessions, sessionsPath,
+} from '../utils/sessionsQuery.mjs';
 
 const localDay = (year, month, day) => new Date(year, month - 1, day).toISOString();
 
@@ -50,4 +52,11 @@ test('knows whether any filter is set', () => {
   assert.equal(hasFilters(EMPTY_FILTERS), false);
   assert.equal(hasFilters({ outcome: 'failed' }), true);
   assert.equal(hasFilters({ outcome: 'bogus' }), false);
+});
+
+test('a replay opened from the list knows to go back to it', () => {
+  assert.equal(openedFromSessions(structuredClone(OPENED_FROM_SESSIONS)), true, 'history state is stored as a clone');
+  assert.equal(openedFromSessions({}), false);
+  assert.equal(openedFromSessions(null), false);
+  assert.equal(openedFromSessions({ openedFromSessions: 'yes' }), false);
 });
