@@ -82,7 +82,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the same run under its trace id. MCP `run_<slug>` returns a paused run's
   request ids, and `input_requests_list` and `input_requests_answer` (text and
   choice only) join the MCP facade. `config.input_request_ttl` (one day by
-  default) bounds how long a request waits.
+  default) bounds how long a request waits, and `InputRequestExpiryJob`,
+  which a host schedules, fails the runs whose requests expired unread.
 
 ### Changed
 

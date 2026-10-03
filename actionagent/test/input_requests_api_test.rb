@@ -170,6 +170,43 @@ class InputRequestsApiTest < ActionDispatch::IntegrationTest
     assert_nil expiring.answer
   end
 
+  test "an overdue request is expired, and its run failed, when its run or the list is read" do
+    shown = paused_run
+    shown.input_requests.sole.update_columns(expires_at: 1.minute.ago)
+
+    get "/activeagents/api/runs/#{shown.id}"
+
+    assert_equal "failed", json.dig("run", "status")
+    assert_empty json.dig("run", "input_requests")
+    assert shown.input_requests.sole.expired?
+
+    listed = paused_run(ActiveAgent::InputRequest.text("Where to?"), ActiveAgent::InputRequest.text("When?"))
+    listed.input_requests.order(:id).first.update_columns(expires_at: 1.minute.ago)
+    waiting = paused_run
+
+    get "/activeagents/api/input_requests"
+
+    assert_equal [ waiting.input_requests.sole.id ], json["input_requests"].map { |entry| entry["id"] }
+    assert_equal %w[expired cancelled], listed.input_requests.order(:id).map(&:status)
+    assert listed.reload.failed?
+    assert_equal "An input request expired before it was answered", listed.error_message
+    assert waiting.reload.awaiting_input?
+  end
+
+  test "the expiry job expires the overdue requests nobody read" do
+    overdue = paused_run
+    overdue.input_requests.sole.update_columns(expires_at: 1.minute.ago)
+    waiting = paused_run
+    unlimited = paused_run
+    unlimited.input_requests.sole.update_columns(expires_at: nil)
+
+    ActionAgent::InputRequestExpiryJob.perform_now
+
+    assert overdue.input_requests.sole.expired?
+    assert overdue.reload.failed?
+    assert [ waiting, unlimited ].all? { |run| run.reload.awaiting_input? && run.input_requests.sole.pending? }
+  end
+
   test "a choice outside the options, or a blank answer, is unprocessable" do
     choice = paused_run(ActiveAgent::InputRequest.choice("Class?", options: [ "economy", { "value" => "business", "label" => "Business" } ])).input_requests.sole
     text = paused_run.input_requests.sole

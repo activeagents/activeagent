@@ -294,6 +294,15 @@ module ActionAgent
       broadcast_update
     end
 
+    # Expires the run's overdue requests for input, which fails the run (see
+    # InputRequest#expire!). Returns the run, reloaded when a request
+    # expired.
+    def expire_overdue_input_requests!
+      return self unless awaiting_input?
+
+      InputRequest.expire_overdue!(input_requests).positive? ? reload : self
+    end
+
     # Writes one execution segment's result: `complete` with its output, or,
     # for a generation that paused, `awaiting_input` with one InputRequest
     # per paused tool call, stored in the same transaction so an answer can

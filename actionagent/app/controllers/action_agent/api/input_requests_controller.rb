@@ -19,8 +19,10 @@ module ActionAgent
       # GET /api/input_requests
       #
       # Pending requests unless `status` names another (or `all`), filtered by
-      # `agent_id` and `run_id`, newest first.
+      # `agent_id` and `run_id`, newest first. Overdue requests are expired
+      # first, so none is listed as pending.
       def index
+        InputRequest.expire_overdue!(owner_input_requests)
         scope = owner_input_requests.includes(:subject).recent
         status = params[:status].presence || "pending"
         unless status == "all"

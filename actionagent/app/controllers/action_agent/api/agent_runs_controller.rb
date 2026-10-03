@@ -7,6 +7,7 @@ module ActionAgent
 
       # GET /api/runs/:id
       def show
+        @run.expire_overdue_input_requests!
         render json: {
           run: run_json(@run),
           messages: interaction_messages(@run),

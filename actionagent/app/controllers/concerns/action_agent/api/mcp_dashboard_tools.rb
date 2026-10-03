@@ -414,6 +414,7 @@ module ActionAgent
       end
 
       def input_requests_list_tool
+        InputRequest.expire_overdue!(owner_input_requests)
         scope = owner_input_requests.pending.includes(:subject).recent
         if (run_id = tool_argument(:run_id)).present?
           scope = scope.where(subject_type: AgentRun.polymorphic_name, subject_id: run_id.to_s)
