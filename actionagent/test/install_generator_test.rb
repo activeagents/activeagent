@@ -236,6 +236,32 @@ class ActionAgentInstallGeneratorTest < Rails::Generators::TestCase
     assert_no_migration "db/migrate/create_widgets.rb"
   end
 
+  # Run under a probe prefix beside a bare agents table, so the dummy's own
+  # tables are left alone and the result can be compared with them.
+  test "the input requests migration builds the table and the agent column the dummy schema has" do
+    run_generator [ "--skip-routes" ]
+    assert_migration "db/migrate/create_active_agent_input_requests.rb"
+    connection = ActiveRecord::Base.connection
+    prefix = "input_requests_probe_"
+    connection.create_table("#{prefix}agents", force: true) { |t| t.string :name }
+    ActionAgent.table_name_prefix = prefix
+
+    run_migration("create_active_agent_input_requests", :CreateActiveAgentInputRequests)
+
+    shape = ->(table) { connection.columns(table).to_h { |column| [ column.name, [ column.sql_type, column.null, column.default ] ] } }
+    assert_equal shape.call("active_agent_input_requests"), shape.call("#{prefix}input_requests")
+    indexes = ->(table) { connection.indexes(table).map(&:columns).sort }
+    assert_equal indexes.call("active_agent_input_requests"), indexes.call("#{prefix}input_requests")
+    assert_equal shape.call("active_agent_agents")["approval_required_tools"], shape.call("#{prefix}agents")["approval_required_tools"]
+
+    run_migration("create_active_agent_input_requests", :CreateActiveAgentInputRequests, :down)
+    assert_not connection.table_exists?("#{prefix}input_requests")
+    assert_not connection.column_exists?("#{prefix}agents", :approval_required_tools), "rolling back removes the agent column"
+  ensure
+    ActionAgent.table_name_prefix = "active_agent_"
+    %w[input_requests agents].each { |name| connection&.drop_table("#{prefix}#{name}", if_exists: true) }
+  end
+
   test "a missing numbered template directory emits nothing" do
     ActionAgent::InstallGenerator.numbered_migrations_path = File.join(destination_root, "no-such-directory")
 
@@ -271,10 +297,10 @@ class ActionAgentInstallGeneratorTest < Rails::Generators::TestCase
     File.basename(migration_file_name("db/migrate/#{name}.rb")).to_i
   end
 
-  def run_migration(name, class_name)
+  def run_migration(name, class_name, direction = :up)
     namespace = Module.new
     namespace.module_eval(File.read(migration_file_name("db/migrate/#{name}.rb")))
-    ActiveRecord::Migration.suppress_messages { namespace.const_get(class_name).new.migrate(:up) }
+    ActiveRecord::Migration.suppress_messages { namespace.const_get(class_name).new.migrate(direction) }
   end
 
   BARE_TABLES = %w[agents agent_versions agent_runs evaluation_runs].freeze

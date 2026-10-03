@@ -1,0 +1,85 @@
+# frozen_string_literal: true
+
+# Input requests: a question a paused run puts to a person, its answer, and
+# the checkpoint the run resumes from. Also adds the list of tools an agent
+# runs only after a person approves the call.
+#
+# Table names follow ActionAgent.table_name_prefix, and JSON columns are
+# jsonb on PostgreSQL and json elsewhere, the same way as
+# create_active_agent_dashboard_tables.
+class CreateActiveAgentInputRequests < ActiveRecord::Migration[7.2]
+  def change
+    prefix = ActionAgent.table_name_prefix
+
+    create_table "#{prefix}input_requests" do |t|
+      t.string :subject_type, null: false
+      t.bigint :subject_id, null: false
+      # Shared by the requests one pause raised.
+      t.string :pause_key, null: false
+      t.string :kind, null: false
+      t.text :prompt, null: false
+      t.column :options, json_type
+      t.column :answer_schema, json_type
+      t.string :tool_call_id
+      t.string :tool_name
+      # The paused call's arguments, kept for a confirm request only.
+      t.column :arguments, json_type
+      t.integer :status, default: 0, null: false
+      # Encrypted at rest (text: ciphertext is longer than the value).
+      t.text :answer, **long_text
+      t.text :checkpoint, **long_text
+      t.bigint :requested_by_id
+      t.bigint :answered_by_id
+      t.datetime :answered_at
+      t.datetime :expires_at
+      t.bigint :user_id
+      t.bigint :account_id
+      t.timestamps
+      t.index [ :subject_type, :subject_id ]
+      t.index :pause_key
+      t.index [ :status, :expires_at ]
+      t.index :user_id
+      t.index :account_id
+    end
+
+    agents = "#{prefix}agents"
+    reversible do |direction|
+      direction.up do
+        unless column_exists?(agents, :approval_required_tools)
+          add_column agents, :approval_required_tools, json_type, **json_default([])
+        end
+      end
+      direction.down do
+        remove_column agents, :approval_required_tools if column_exists?(agents, :approval_required_tools)
+      end
+    end
+  end
+
+  private
+
+  def json_type
+    @json_type ||= postgres? ? :jsonb : :json
+  end
+
+  # MySQL rejects a default on a JSON column outright, so the column is
+  # created without one there.
+  def json_default(value, null: nil)
+    return {} unless postgres?
+
+    null.nil? ? { default: value } : { default: value, null: null }
+  end
+
+  # MySQL's TEXT holds 64 KB, less than the encrypted checkpoint of a long
+  # conversation. Other adapters reject the option.
+  def long_text
+    mysql? ? { size: :long } : {}
+  end
+
+  def postgres?
+    connection.adapter_name.to_s.downcase.include?("postgres")
+  end
+
+  def mysql?
+    connection.adapter_name.to_s.downcase.match?(/mysql|trilogy/)
+  end
+end
