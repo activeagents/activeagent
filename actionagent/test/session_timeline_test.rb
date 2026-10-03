@@ -195,7 +195,10 @@ class SessionTimelineTest < ActionDispatch::IntegrationTest
     assert_equal [ "trace-traced" ], session.dig("session", "trace_ids")
     assert_equal [ "action" ], session.dig("lanes", "browser").map { |entry| entry["kind"] }, "rrweb is read from the events endpoint"
     assert_not session.dig("lanes", "llm").any? { |entry| entry["trace_id"] == other_run.trace_id }
-    assert_equal 1, session["recordings"].sole.dig("rrweb", "event_count")
+    rrweb_summary = session["recordings"].sole["rrweb"]
+    assert_equal 1, rrweb_summary["event_count"]
+    assert_equal (T0 + 0.5).iso8601(3), rrweb_summary["first_at"]
+    assert_equal (T0 + 0.5).iso8601(3), rrweb_summary["last_at"]
   end
 
   test "a conversation's timeline adds the browser lane of the recordings linked to it" do

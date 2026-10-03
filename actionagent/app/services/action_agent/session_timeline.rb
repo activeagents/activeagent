@@ -370,8 +370,9 @@ module ActionAgent
         rows = RecordingEvent.where(id: slice.map(&:first)).index_by(&:id)
         slice.each do |id, occurred_from|
           return kept if kept.size == wanted && timestamp(occurred_from) >= kept.last[:start]
+          next unless rows[id]
 
-          recording_event_entries(rows.fetch(id)).each { |entry| keep_earliest(kept, entry, wanted) }
+          recording_event_entries(rows[id]).each { |entry| keep_earliest(kept, entry, wanted) }
         end
       end
       kept
