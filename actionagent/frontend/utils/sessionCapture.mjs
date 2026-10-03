@@ -1,10 +1,10 @@
 /**
- * Records the Run Agent workbench into its conversation's dashboard
- * recording, which replays as the conversation's browser lane.
+ * Records one visit to a conversation in the Run Agent workbench into a
+ * dashboard recording, which replays in the conversation's browser lane.
  *
- * A capture belongs to one conversation. `start()` asks the server for the
- * caller's recording of it (POST /api/session_recordings), loads rrweb's
- * recorder from its own bundle and records the page. Events are posted to
+ * A capture belongs to one conversation. `start()` starts a recording of it
+ * (POST /api/session_recordings), loads rrweb's recorder from its own bundle
+ * and records the page. Events are posted to
  * the recording in batches (POST /api/session_recordings/:id/events), one
  * request at a time. `stop()` stops the recorder at once and then posts what
  * it still holds.

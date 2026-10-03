@@ -1,8 +1,8 @@
 import { useLayoutEffect, useState } from 'react';
 import { createSessionCapture } from '../utils/sessionCapture.mjs';
 
-// Records the calling view into conversation `contextId`'s dashboard
-// recording for as long as the view is mounted and the conversation stays
+// Records the calling view into a dashboard recording of conversation
+// `contextId` for as long as the view is mounted and the conversation stays
 // the same (utils/sessionCapture.mjs). Records nothing without a
 // conversation, or without `recorderUrl`, which the dashboard page leaves
 // out when the host turned capture off.
