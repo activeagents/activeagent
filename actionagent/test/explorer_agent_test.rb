@@ -63,6 +63,21 @@ class ExplorerAgentTest < ActiveSupport::TestCase
     assert_equal [ "/", "#{APP_URL}/orders" ], @browser.tool_calls("browser_navigate").map { |call| call.dig("arguments", "url") }
   end
 
+  test "a browser tool the sandbox's browser does not serve is an error, never the toolbox's browser" do
+    @browser.tools = FakeBrowser::TOOLS - [ "browser_click" ]
+    exploration = pending_exploration!
+    service = ActionAgent::ExplorerExecutionService.new(exploration, exploration.agent_run)
+
+    unserved, evaluate = ActionAgent::PlaywrightMCPClient.stub(:instance, -> { flunk "the shared browser was used" }) do
+      [ service.send(:dispatch_tool, "browser_click", { element: "Orders", target: "e2" }),
+        service.send(:dispatch_tool, "browser_evaluate", { function: "() => 1" }) ]
+    end
+
+    assert_match(/not one of the sandbox browser's tools/, unserved[:error])
+    assert_match(/not one of the explorer's tools/, evaluate[:error])
+    assert_empty @browser.tool_calls("browser_evaluate")
+  end
+
   test "a proposed candidate gets a verdict against the target agent's tools and provenance from the walk" do
     ScriptedExplorer.script(
       [ [ :browser_navigate, { url: "/orders" } ] ],
