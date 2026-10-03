@@ -49,6 +49,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `:local` backends implement none of them. `read_file` refuses a path outside
   the checkout before the backend sees it.
 
+### Changed
+
+- **Announce run and sandbox changes without their content** (`actionagent`).
+  The Action Cable messages on `agent_run_<id>`, `agent_runs_<agent_id>` and
+  `sandbox_<session_id>` are now `{ type, id, status }`; a subscriber reads
+  the run or sandbox back over the JSON API. Nothing is broadcast when the host
+  has not loaded Action Cable. A host channel or client that read `run`,
+  `sandbox`, `task`, `error` or `provider` from these messages must refetch.
+
 ### Fixed
 
 - **Fix Anthropic structured output mapping** (`activeagent`). Preserve caller
