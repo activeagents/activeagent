@@ -375,7 +375,7 @@ module ActionAgent
         self.repository_ref = repository_ref.presence || repo["default_branch"]
       elsif installations.any? { |candidate| candidate.repository(repository) }
         errors.add(:repository, "is selected on a GitHub App installation that was removed or suspended: " \
-          "reinstall the GitHub App in Settings -> Integrations")
+          "reinstall the GitHub App, or Check again once it is unsuspended, in Settings -> Integrations")
       elsif connection.nil? && installations.empty?
         errors.add(:repository, "needs a GitHub connection (Settings -> Integrations)")
       else

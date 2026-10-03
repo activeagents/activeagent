@@ -113,9 +113,13 @@ module ActionAgent
     def reinstall_message(sandbox, reason)
       installation = sandbox.checkout_installation
       on = installation ? " on #{installation.github_account_login}" : ""
-      state = reason == :suspended ? "is suspended" : "was removed"
-      "The GitHub App installation#{on} #{state}, so #{sandbox.repository} cannot be checked out. " \
-        "Reinstall the GitHub App in Settings -> Integrations and start the sandbox again."
+      if reason == :suspended
+        "The GitHub App installation#{on} is suspended, so #{sandbox.repository} cannot be checked out. " \
+          "Once it is unsuspended on GitHub, use Check again in Settings -> Integrations and start the sandbox again."
+      else
+        "The GitHub App installation#{on} was removed, so #{sandbox.repository} cannot be checked out. " \
+          "Reinstall the GitHub App in Settings -> Integrations and start the sandbox again."
+      end
     end
 
     # Marks the session ready with the backend's endpoint, under a row lock

@@ -320,6 +320,20 @@ class GithubInstallationsTest < ActionDispatch::IntegrationTest
     assert installation.reload.removed_at
   end
 
+  test "listing a marked installation that GitHub serves again clears the mark" do
+    installation = link_installation!(repositories: [ repo_row(5, "acme/shop") ], suspended_at: 1.day.ago)
+    stub_mint(token: "ghs_listing")
+    stub_installation_repositories([ repo_payload(5, "acme/shop") ], token: "ghs_listing")
+
+    get "/activeagents/api/github_installations/#{installation.id}/repositories"
+
+    assert_response :success
+    installation.reload
+    assert installation.usable?
+    assert_equal "active", installation.status
+    assert_equal [ "acme/shop" ], installation.repository_names
+  end
+
   test "unlinking removes the row and only the row" do
     installation = link_installation!
 

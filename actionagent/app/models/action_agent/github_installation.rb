@@ -49,19 +49,22 @@ module ActionAgent
 
     # Whether GitHub will still mint tokens for this installation, as far as
     # the dashboard last heard: false once a mint found it removed or
-    # suspended, until it is linked again.
+    # suspended, until a later mint succeeds or it is linked again.
     def usable?
       removed_at.nil? && suspended_at.nil?
     end
 
     # Mints an installation token limited to +permissions+ and, when given,
     # +repository_ids+. A refusal because the installation was removed or
-    # suspended is recorded on the row before it is raised again.
+    # suspended is recorded on the row before it is raised again, and a
+    # successful mint clears that record, since GitHub mints for neither.
     #
     # @raise [GithubClient::InstallationUnavailable]
     # @return [String] the token, which the caller must not store
     def mint_token!(permissions:, repository_ids: nil)
-      GithubClient.mint_installation_token(installation_id, permissions: permissions, repository_ids: repository_ids)
+      token = GithubClient.mint_installation_token(installation_id, permissions: permissions, repository_ids: repository_ids)
+      update_columns(removed_at: nil, suspended_at: nil) if persisted? && !usable?
+      token
     rescue GithubClient::InstallationUnavailable => e
       mark_unavailable!(e.reason)
       raise
