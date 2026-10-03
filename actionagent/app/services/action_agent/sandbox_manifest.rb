@@ -28,6 +28,16 @@ module ActionAgent
     FRAMEWORK_NAMESPACES = %w[ActionAgent:: SolidAgent:: ActiveAgent:: ActiveStorage:: ActionText:: ActionMailbox:: ActiveRecord::].freeze
     # The dashboard API key the manifest hands out, created once per checkout.
     KEY_NAME = "Checkout sandbox runtime"
+    # Column names that look like they hold a credential:
+    # ActiveAgent::SchemaTools::SECRET_COLUMNS, or the same pattern under a
+    # framework release that predates the constant, which an app can bundle
+    # beside this engine.
+    SECRET_COLUMNS =
+      if defined?(ActiveAgent::SchemaTools) && ActiveAgent::SchemaTools.const_defined?(:SECRET_COLUMNS, false)
+        ActiveAgent::SchemaTools::SECRET_COLUMNS
+      else
+        /password|digest|token|secret|api_key|otp|encrypted|ssn/i
+      end
 
     class Error < StandardError; end
 
@@ -56,10 +66,9 @@ module ActionAgent
     end
 
     # The app's own models under app/models that have a table, each with its
-    # columns but +id+ and those that look like secrets
-    # (ActiveAgent::SchemaTools::SECRET_COLUMNS), at most MAX_MODELS models
-    # of MAX_COLUMNS columns. Empty when they cannot be loaded, which is
-    # reported on stderr.
+    # columns but +id+ and those that look like secrets (SECRET_COLUMNS), at
+    # most MAX_MODELS models of MAX_COLUMNS columns. Empty when they cannot
+    # be loaded, which is reported on stderr.
     #
     # @return [Array<Hash>] [{ "name" =>, "table" =>, "columns" => [{ "name" =>, "type" => }] }]
     def app_models(root = Rails.root.join("app", "models"))
@@ -74,7 +83,7 @@ module ActionAgent
       roots = [ root.to_s, File.realpath(root) ].uniq.map { |dir| "#{dir.chomp("/")}/" }
       models = ActiveRecord::Base.descendants.select { |klass| app_model?(klass, roots) }.sort_by(&:name).first(MAX_MODELS)
       models.filter_map do |klass|
-        columns = klass.columns.reject { |column| column.name == "id" || ActiveAgent::SchemaTools::SECRET_COLUMNS.match?(column.name) }
+        columns = klass.columns.reject { |column| column.name == "id" || SECRET_COLUMNS.match?(column.name) }
         { "name" => klass.name, "table" => klass.table_name,
           "columns" => columns.first(MAX_COLUMNS).map { |column| { "name" => column.name, "type" => column.type.to_s } } }
       rescue StandardError => e
@@ -200,7 +209,7 @@ module ActionAgent
 
         columns = Array(entry["columns"]).first(MAX_COLUMNS).filter_map do |column|
           next unless column.is_a?(Hash) && SandboxBootSpec::COLUMN_NAME.match?(column["name"].to_s)
-          next if ActiveAgent::SchemaTools::SECRET_COLUMNS.match?(column["name"])
+          next if SECRET_COLUMNS.match?(column["name"])
 
           { "name" => column["name"], "type" => column["type"].to_s.truncate(32) }
         end

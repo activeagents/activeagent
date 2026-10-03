@@ -291,7 +291,7 @@ module ActionAgent
 
         columns.each do |column|
           raise Invalid, "#{column.truncate(60).inspect} is not a column name" unless COLUMN_NAME.match?(column)
-          if ActiveAgent::SchemaTools::SECRET_COLUMNS.match?(column)
+          if SandboxManifest::SECRET_COLUMNS.match?(column)
             raise Invalid, "#{model}.#{column} looks like it holds a secret, so no tool may read it"
           end
         end
