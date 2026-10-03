@@ -30,6 +30,7 @@ import {
   matchDashboardRoute,
   navView,
 } from '../utils/dashboardRoutes.mjs';
+import { openedFromSessions } from '../utils/sessionsQuery.mjs';
 
 /**
  * Dashboard - Main dashboard application
@@ -369,7 +370,7 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
           showNotification('Taking over session...', 'info');
           navigateTo('sandbox');
         }}
-        onBack={() => navigateTo('sessions')}
+        onBack={() => (openedFromSessions(window.history.state) ? window.history.back() : navigateTo('sessions'))}
       />
     ) : null),
     sandbox: () => (

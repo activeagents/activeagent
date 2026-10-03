@@ -10,9 +10,10 @@ export function dashboardPath(path = '') {
   return mountedPath(window.ACTIVE_AGENT_DASHBOARD?.mountPath, path);
 }
 
-// Pushes a client-side route under the mount.
-export function pushDashboardPath(path = '') {
-  window.history.pushState({}, '', dashboardPath(path));
+// Pushes a client-side route under the mount, with `state` as its history
+// entry's state.
+export function pushDashboardPath(path = '', state = {}) {
+  window.history.pushState(state, '', dashboardPath(path));
 }
 
 // The inverse of dashboardPath: the current location with the mount
@@ -25,10 +26,11 @@ export function dashboardRelativePath(pathname = window.location.pathname) {
 }
 
 // In-app navigation to a dashboard route. Accepts a mount-relative path
-// ("/tools") or one that already carries the mount.
-export function navigateTo(path) {
+// ("/tools") or one that already carries the mount. `state` becomes the new
+// history entry's state.
+export function navigateTo(path, state = {}) {
   if (!path) return;
   const relative = dashboardRelativePath(path);
-  pushDashboardPath(relative);
+  pushDashboardPath(relative, state);
   window.dispatchEvent(new CustomEvent('dashboard:navigate', { detail: { path: dashboardPath(relative) } }));
 }
