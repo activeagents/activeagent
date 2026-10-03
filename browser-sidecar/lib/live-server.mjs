@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 
 import { WebSocket, WebSocketServer } from 'ws';
 
+import { sameUser } from './control-lock.mjs';
 import { inputCommand } from './input.mjs';
 
 export const LIVE_PATH = '/live';
@@ -55,7 +56,8 @@ function parse(data, isBinary) {
  * Sidecar to viewer:
  *   { type: "ready", control, agent, page }                 once the ticket is accepted
  *   { type: "frame", data, width, height }                  a JPEG as base64, and the page's size in CSS pixels
- *   { type: "control", held, mine, by, since }              who holds control, by name
+ *   { type: "control", held, mine, yours, by, since }       who holds control, by name; mine when this
+ *                                                           connection does, yours when its user does on any
  *   { type: "agent", waiting, tool, since }                 an agent's call is waiting for control to be handed back
  *   { type: "page", page: { url, tab, tabs } }              the page on screen changed
  *   { type: "error", code, message }                        a request this connection may not make
@@ -188,8 +190,10 @@ export class LiveServer {
 
   controlState(viewer) {
     const holder = this.lock.holder;
-    if (!holder) return { held: false, mine: false, by: null, since: null };
-    return { held: true, mine: holder.key === viewer.id, by: holder.user.name, since: holder.since };
+    if (!holder) return { held: false, mine: false, yours: false, by: null, since: null };
+
+    const mine = holder.key === viewer.id;
+    return { held: true, mine, yours: mine || sameUser(holder.user, viewer.user), by: holder.user.name, since: holder.since };
   }
 
   agentState() {

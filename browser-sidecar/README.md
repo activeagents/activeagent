@@ -107,7 +107,9 @@ page's size in CSS pixels. The stream follows the page on screen: the newest
 tab, or the one the agent selected with `browser_tabs`. A still page sends no
 frames, so the last one is kept for whoever joins later. `control`, `agent`
 and `page` messages tell of who holds control, an agent call waiting for it,
-and the page on screen.
+and the page on screen. A `control` message's `mine` says whether this
+connection holds control, and `yours` whether its user does on any
+connection, as after a reload while control waits out the grace period.
 
 Either mode of ticket lets a connection watch. To take control it sends
 `{ type: "take_control", ticket }` with a control ticket of its own, issued

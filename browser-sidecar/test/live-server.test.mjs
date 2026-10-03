@@ -172,7 +172,7 @@ test('a viewer is told the state and sent the last frame, then every frame, whil
 
   assert.deepEqual(client.messages[0], {
     type: 'ready',
-    control: { held: false, mine: false, by: null, since: null },
+    control: { held: false, mine: false, yours: false, by: null, since: null },
     agent: { waiting: false, tool: null, since: null },
     page: { url: 'http://127.0.0.1:4100/orders', tab: 1, tabs: 1 },
   });
@@ -248,6 +248,7 @@ test('the person who takes control drives the browser, and everyone else sees wh
   assert.equal(seen.held, true);
   assert.equal(seen.by, 'Ada');
   assert.equal(seen.mine, false);
+  assert.equal(seen.yours, false);
 
   takeControl(grace, { sub: '2', name: 'Grace' });
   assert.match((await message(grace, 'error')).message, /Ada is driving the browser/);
@@ -269,6 +270,25 @@ test('the person who takes control drives the browser, and everyone else sees wh
     { label: 'takeover_ended', source: 'human', user: { id: '1', name: 'Ada' }, reason: 'handed_back' },
   ]);
   assert.ok(!JSON.stringify([markers, logs]).includes(TYPED), 'relayed input is neither recorded nor logged');
+});
+
+test("a holder's other connection is told control is theirs, and may move it to itself", async (t) => {
+  const { port, live, lock, markers } = await start(t, { graceMs: 5000 });
+  const first = await viewer(port);
+  takeControl(first);
+  await message(first, 'control', (state) => state.mine);
+  first.ws.close();
+  await until(() => live.viewers.size === 0, 'the first connection to close');
+
+  const again = await viewer(port);
+  assert.deepEqual(again.messages[0].control, { held: true, mine: false, yours: true, by: 'Ada', since: lock.holder.since });
+  const grace = await viewer(port, { sub: '2', name: 'Grace' });
+  assert.equal(grace.messages[0].control.yours, false);
+
+  takeControl(again);
+  const moved = await message(again, 'control', (state) => state.mine);
+  assert.equal(moved.yours, true);
+  assert.deepEqual(markers.map(({ label }) => label), ['takeover_started'], 'moving control between connections is no new takeover');
 });
 
 test('control is released after the grace period when its holder disconnects', async (t) => {
