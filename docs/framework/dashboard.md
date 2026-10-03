@@ -1758,7 +1758,7 @@ it was not given:
 | `POST /api/explorations` | Stores `candidates` for a `project_id` or `evaluation_id` as a new exploration, ready for review. A project's evaluation files them under the project, and an observed agent's evaluation answers `422` unless a host adapter replays it |
 | `PATCH /api/explorations/:id/candidates/:candidate_id` | Edits a candidate (`prompt`, `group`, `rubric`, `tools`, `contains`, `not_contains`), rejects it (`state: "rejected"`) or reconsiders a rejected one (`state: "proposed"`). An accepted candidate is not rejected here: disable its scenario in the evaluation |
 | `POST /api/explorations/:id/accept` | Accepts candidates, as above |
-| `POST /api/explorations/:id/stop` | Ends a running exploration and keeps what it found for review; `409` once it has stopped |
+| `POST /api/explorations/:id/stop` | Ends a running exploration and keeps what it found for review (`closed` when nothing awaits a decision); `409` once it has stopped |
 
 An exploration's `status` is `pending`, `running`, `review` (candidates await
 a decision), `closed` (none does) or `failed`. Its `budget` and `usage` hold

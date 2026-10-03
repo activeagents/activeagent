@@ -404,14 +404,16 @@ module ActionAgent
     end
 
     # Ends a pending or running exploration, keeping the candidates found so
-    # far for review.
+    # far for review. It is closed when none awaits a decision.
     #
     # @return [Boolean] whether it was pending or running
     def stop!(reason: "stopped")
       stopped = with_lock do
         next false unless %w[pending running].include?(status)
 
-        update!(status: "review", stop_reason: reason, finished_at: Time.current)
+        assign_attributes(status: "review", stop_reason: reason, finished_at: Time.current)
+        settle_status
+        save!
         true
       end
       broadcast_change if stopped
