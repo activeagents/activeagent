@@ -840,6 +840,92 @@ class ProjectsApiTest < ActionDispatch::IntegrationTest
     assert sandbox.reload.expired?
   end
 
+  test "deleting a project that has secrets needs :manage_project_secrets" do
+    project = create_project!(secrets: { "STRIPE_SECRET_KEY" => SECRET })
+    no_secrets = create_project!(name: "Second")
+    asked = []
+    ActionAgent.permission_checker = lambda do |_user, action, subject|
+      asked << [ action, subject.class.name ]
+      false
+    end
+
+    delete "#{BASE}/#{project.id}"
+
+    assert_response :forbidden
+    assert_equal "manage_project_secrets", JSON.parse(response.body)["permission"]
+    assert_equal SECRET, project.secrets.sole.value
+    assert_equal [ [ :manage_project_secrets, "ActionAgent::ProjectSecret" ] ], asked.uniq
+
+    delete "#{BASE}/#{no_secrets.id}"
+    assert_response :no_content
+    assert_equal [ project ], ActionAgent::Project.all.to_a
+  end
+
+  test "a new ref needs what setting the secrets needs, is preflighted, and replaces the old ref's sandbox" do
+    ActionAgent::ProviderKey.create!(provider: "openai", credential: "sk-org-openai-0123456789")
+    project = create_project!(secrets: { "STRIPE_SECRET_KEY" => SECRET })
+    perform_enqueued_jobs { post "#{BASE}/#{project.id}/boot", as: :json }
+    old = project.reload.current_sandbox_session
+    stub_contents("acme/shop", ref: "their-branch", "Gemfile.lock" => rails_lock, "config/application.rb" => "# app\n")
+    ActionAgent.permission_checker = ->(_user, action, _subject) { action != :manage_project_secrets }
+
+    patch "#{BASE}/#{project.id}", params: { default_ref: "their-branch" }, as: :json
+
+    assert_response :forbidden
+    assert_equal "manage_project_secrets", JSON.parse(response.body)["permission"]
+    assert_nil project.reload.default_ref
+    assert old.reload.ready?
+    assert_not_requested(:get, %r{/contents/.*\?ref=their-branch})
+
+    patch "#{BASE}/#{project.id}", params: { name: "Renamed" }, as: :json
+    assert_response :success, "the name and start URL hand nothing over"
+    assert_equal "Renamed", project.reload.name
+
+    project.assign_secret(name: "OPENAI_API_KEY", source: "organization_key", consent: true).save!
+    ActionAgent.permission_checker = ->(_user, action, _subject) { action != :manage_credentials }
+    patch "#{BASE}/#{project.id}", params: { default_ref: "their-branch" }, as: :json
+    assert_response :forbidden
+    assert_equal "manage_credentials", JSON.parse(response.body)["permission"]
+
+    ActionAgent.permission_checker = nil
+    stub_contents("acme/shop", ref: "old-rails", "Gemfile.lock" => rails_lock(railties: "7.1.3"), "config/application.rb" => "# app\n")
+    patch "#{BASE}/#{project.id}", params: { default_ref: "old-rails" }, as: :json
+    assert_response :unprocessable_entity
+    assert_equal "unsupported_repository", JSON.parse(response.body)["code"]
+    assert_nil project.reload.default_ref
+
+    stub_contents("acme/shop", ref: "their-branch", "config/application.rb" => "# app\n",
+      "Gemfile.lock" => rails_lock(gems: [ "actionagent (1.9.0)", "activeagent (1.9.0)" ]))
+    patch "#{BASE}/#{project.id}", params: { default_ref: "their-branch" }, as: :json
+
+    assert_response :success, response.body
+    project.reload
+    assert_equal [ "their-branch", "installed", "draft", "their-branch" ],
+      [ project.default_ref, project.install_state, project.status, project.settings.dig("preflight", "ref") ]
+    assert old.reload.expired?, "the old ref's sandbox is stopped"
+    assert_equal "expired", project.sandbox_state
+
+    perform_enqueued_jobs { post "#{BASE}/#{project.id}/boot", as: :json }
+    assert_response :accepted
+    assert_equal "their-branch", project.reload.current_sandbox_session.repository_ref
+  end
+
+  test "moving an installed project to a ref without the engine gives it the App assistant" do
+    project = create_project!(engine: true)
+    assert_nil project.target_agent
+    stub_contents("acme/shop", ref: "plain", "Gemfile.lock" => rails_lock, "config/application.rb" => "# app\n")
+
+    patch "#{BASE}/#{project.id}", params: { default_ref: "plain" }, as: :json
+
+    assert_response :success, response.body
+    body = JSON.parse(response.body)["project"]
+    assert_equal [ "plain", "detected", "app_assistant" ], [ body["default_ref"], body["install_state"], body.dig("target_agent", "kind") ]
+
+    patch "#{BASE}/#{project.id}", params: { default_ref: "plain" }, as: :json
+    assert_response :success
+    assert_requested(:get, %r{/contents/Gemfile\.lock\?ref=plain}, times: 1)
+  end
+
   test "broadcasts name the project and its status, never a secret" do
     sent = []
     project = create_project!(secrets: { "STRIPE_SECRET_KEY" => SECRET })

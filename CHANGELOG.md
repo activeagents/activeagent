@@ -94,7 +94,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `.activeagents/sandbox.yml` and `ENV` call sites. Reading a repository the
   GitHub connection has not selected needs `:manage_github`. Secrets are encrypted,
   never returned, refused for names the sandbox sets or that change how code
-  loads, and need `:manage_project_secrets`. A provider key variable can use
+  loads, and need `:manage_project_secrets`, as do changing the ref they are
+  handed to (preflighted again, and stopping the old ref's sandbox) and
+  deleting a project that has them. A provider key variable can use
   the organization's stored key, with consent and `:manage_credentials`, and
   without copying it. Values
   reach only the steps that run the repository's code and are scrubbed, with

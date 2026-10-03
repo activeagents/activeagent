@@ -21,6 +21,18 @@ module ActionAgent
         key = secret.organization_key? ? secret.organization_provider_key : nil
         key.nil? || authorize_action!(:manage_credentials, key)
       end
+
+      # Handing +project+'s secrets to other code, such as the code at a new
+      # ref, needs what setting each of them needs.
+      def authorize_secret_handover!(project)
+        project.secrets.to_a.all? { |secret| authorize_secret!(secret) }
+      end
+
+      # Deleting +project+ deletes its secrets, which needs
+      # :manage_project_secrets for each.
+      def authorize_secrets_removal!(project)
+        project.secrets.to_a.all? { |secret| authorize_action!(:manage_project_secrets, secret) }
+      end
     end
   end
 end

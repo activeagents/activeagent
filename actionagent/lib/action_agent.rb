@@ -117,7 +117,9 @@ module ActionAgent
   #   :manage_api_keys        create or revoke a dashboard API key
   #   :publish_pull_request   open a pull request from a sandbox's changes
   #   :answer_input_request   answer or decline a run's request for input
-  #   :manage_project_secrets set or remove a project's secrets
+  #   :manage_project_secrets set or remove a project's secrets, change the ref
+  #                           they are handed to, or delete a project that has
+  #                           them
   #   :take_over_browser      drive a run's browser by hand
   #   :manage_recordings      view or delete a session recording
   #   :replace_scenarios      replace or merge an evaluation's scenarios
