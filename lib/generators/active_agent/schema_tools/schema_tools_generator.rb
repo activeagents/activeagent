@@ -13,7 +13,9 @@ module ActiveAgent
     # like secrets, so the allowlist is a review step rather than a blank page.
     #
     # --filterable and --returns write that review's outcome instead: the
-    # columns named are declared, and only those.
+    # columns named are declared, and only those. --managed heads the file
+    # with ActiveAgent::SchemaTools::MANAGED_MARKER, which a dashboard
+    # project's boots look for before they rewrite or remove it.
     class SchemaToolsGenerator < ::Rails::Generators::NamedBase
       source_root File.expand_path("templates", __dir__)
 
@@ -26,6 +28,8 @@ module ActiveAgent
         desc: "Columns an agent may filter on, declared rather than suggested"
       class_option :returns, type: :array, default: nil,
         desc: "Columns an agent may read back, declared rather than suggested"
+      class_option :managed, type: :boolean, default: false,
+        desc: "Head the file with ActiveAgent::SchemaTools::MANAGED_MARKER, for a dashboard project that rewrites it"
 
       check_class_collision suffix: "Tools"
 

@@ -1,4 +1,9 @@
 <% module_namespacing do -%>
+<% if options[:managed] -%>
+# <%= ActiveAgent::SchemaTools::MANAGED_MARKER %>: a project's choice of what its
+# App assistant may read rewrites or removes this file on every boot. Delete
+# these three lines to keep your own edits.
+<% end -%>
 # Bounded, read-only agent tools over <%= class_name %>:
 # find_<%= collection_name %>, count_<%= collection_name %>, get_<%= resource_name %>.
 #
