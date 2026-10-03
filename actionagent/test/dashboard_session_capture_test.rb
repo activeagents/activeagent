@@ -138,6 +138,23 @@ class DashboardSessionCaptureTest < ActionDispatch::IntegrationTest
     assert_response :created
   end
 
+  test "a conversation id that is not one id is refused or not found, never an error" do
+    sign_in
+
+    post "/activeagents/api/session_recordings", params: { agent_context_id: [ @context.id, @context.id ] }.to_json,
+      headers: { "Content-Type" => "application/json" }
+    assert_response :created
+    assert_equal @context.id, ActionAgent::SessionRecording.find(response.parsed_body.dig("recording", "id")).agent_context_id
+
+    post "/activeagents/api/session_recordings", params: { agent_context_id: { id: @context.id } }.to_json,
+      headers: { "Content-Type" => "application/json" }
+    assert_response :bad_request
+
+    post "/activeagents/api/session_recordings", params: { agent_context_id: "not-an-id" }.to_json,
+      headers: { "Content-Type" => "application/json" }
+    assert_response :not_found
+  end
+
   test "a conversation of an agent the caller cannot reach gets no recording" do
     sign_in
     stranger = create_user("stranger")

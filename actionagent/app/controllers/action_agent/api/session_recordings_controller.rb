@@ -136,11 +136,15 @@ module ActionAgent
       # The caller's recording of conversation +agent_context_id+ in the Run
       # Agent workbench (`source: "dashboard"`), which the dashboard posts its
       # rrweb batches to. Returns the one still recording, or starts one (201).
-      # 404 for a conversation of an agent the caller cannot reach. 401 when
-      # recordings have owners and the caller resolves to none, since the
-      # caller could not reach the recording afterwards.
+      # 400 without a conversation id, 404 for a conversation of an agent the
+      # caller cannot reach. 401 when recordings have owners and the caller
+      # resolves to none, since the caller could not reach the recording
+      # afterwards.
       def create
-        context = AgentContext.for_agents(owner_agents).find(params.require(:agent_context_id))
+        context_id = integer_param(:agent_context_id)
+        return render(json: { error: "agent_context_id is required" }, status: :bad_request) if context_id.nil?
+
+        context = AgentContext.for_agents(owner_agents).find(context_id)
         owner = recording_owner
         if owner.nil? && SessionRecording.owner_association
           return render(json: { error: "Sign in to record this conversation" }, status: :unauthorized)
