@@ -62,7 +62,8 @@ export default function ProjectSignIn({ projectId, sandboxId, sandboxReady }) {
     }
   };
 
-  const { error: formError, payload } = signInPayload(form);
+  const credentials = signIn?.credentials;
+  const { error: formError, payload } = signInPayload(form, { passwordSaved: Boolean(credentials?.password_set) });
   const checked = signInResult(result);
 
   const saveCredentials = () => act(async () => {
@@ -112,7 +113,6 @@ export default function ProjectSignIn({ projectId, sandboxId, sandboxReady }) {
     </label>
   );
 
-  const credentials = signIn?.credentials;
   return (
     <Panel title="Sign-in" testId="project-sign-in" bodyStyle={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
       <p style={{ margin: 0, fontSize: 13, color: 'var(--color-text-secondary)' }}>
@@ -131,7 +131,7 @@ export default function ProjectSignIn({ projectId, sandboxId, sandboxReady }) {
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             {field('login_url', 'Login URL', 'text', '/users/sign_in')}
             {field('login', 'Login', 'text', 'dev@example.com')}
-            {field('password', 'Password', 'password', credentials?.password_set ? 'Saved; enter it again to change it' : '')}
+            {field('password', 'Password', 'password', credentials?.password_set ? 'Saved; leave empty to keep it' : '')}
           </div>
           <details>
             <summary style={{ fontSize: 12, color: 'var(--color-text-secondary)', cursor: 'pointer' }}>Field selectors, when the form's fields are not found</summary>
@@ -144,7 +144,7 @@ export default function ProjectSignIn({ projectId, sandboxId, sandboxReady }) {
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
             <Button variant="primary" size="sm" onClick={saveCredentials} disabled={busy || Boolean(formError)}>Save credentials</Button>
             <Button size="sm" onClick={check} disabled={busy || !credentials || !sandboxReady} testId="sign-in-check">Check sign-in</Button>
-            {formError && form.password === '' && !credentials && <span style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>{formError}</span>}
+            {formError && <span style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>{formError}</span>}
           </div>
         </div>
       )}

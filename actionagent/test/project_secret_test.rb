@@ -98,6 +98,19 @@ class ProjectSecretTest < ActiveSupport::TestCase
     assert_equal "cookie-value-456", @project.saved_storage_state.dig("cookies", 0, "value")
   end
 
+  test "a sign-in keeps its password as typed, and a blank one keeps the saved password" do
+    @project.assign_sign_in({ login_url: " /users/sign_in ", login: " dev@example.com ", password: " pa ss word " }).save!
+    saved = @project.secrets.sign_in.sole.sign_in_credentials
+    assert_equal [ "/users/sign_in", "dev@example.com", " pa ss word " ], saved.values_at("login_url", "login", "password")
+
+    @project.assign_sign_in({ login_url: "/login", login: "qa@example.com", password: "" }).save!
+    saved = @project.secrets.sign_in.sole.sign_in_credentials
+    assert_equal [ "/login", "qa@example.com", " pa ss word " ], saved.values_at("login_url", "login", "password")
+
+    @project.secrets.destroy_all
+    assert_not @project.assign_sign_in({ login: "qa@example.com", password: "" }).valid?, "a first sign-in needs a password"
+  end
+
   test "a secret's kind is fixed, and each kind's value is checked" do
     env = @project.assign_secret(name: "STRIPE_SECRET_KEY", value: SECRET)
     env.save!

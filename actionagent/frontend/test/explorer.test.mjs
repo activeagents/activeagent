@@ -48,6 +48,8 @@ test('the credentials form sends its filled fields, keeping the password as type
   assert.deepEqual(signInPayload({ login_url: ' /users/sign_in ', login: 'dev@example.com', password: ' pa ss ', submit_field: '' }),
     { payload: { login_url: '/users/sign_in', login: 'dev@example.com', password: ' pa ss ' } });
   assert.match(signInPayload({ login: 'dev@example.com' }).error, /password/);
+  assert.deepEqual(signInPayload({ login: 'qa@example.com', password: '' }, { passwordSaved: true }),
+    { payload: { login: 'qa@example.com' } });
   assert.match(signInPayload({ login_url: 'https://elsewhere.example', password: 'x' }).error, /path on the app/);
   assert.match(signInPayload({ login_url: '//elsewhere.example', password: 'x' }).error, /path on the app/);
 });

@@ -128,12 +128,16 @@ module ActionAgent
     end
 
     # The project's SIGN_IN_SECRET set to +credentials+ (see
-    # ProjectSecret#sign_in_credentials), unsaved. Blank fields are left out.
+    # ProjectSecret#sign_in_credentials), unsaved. Blank fields are left
+    # out, and every field but the password is stripped. A blank password
+    # keeps the one already saved.
     #
     # @return [ProjectSecret]
     def assign_sign_in(credentials, set_by: nil)
       fields = credentials.to_h.stringify_keys.slice(*ProjectSecret::SIGN_IN_FIELDS)
-        .transform_values { |field| field.is_a?(String) ? field.strip : field }.compact_blank
+        .to_h { |name, field| [ name, field.is_a?(String) && name != "password" ? field.strip : field ] }.compact_blank
+      saved = secrets.sign_in.find_by(name: SIGN_IN_SECRET)&.sign_in_credentials&.dig("password")
+      fields["password"] = saved if fields["password"].blank? && saved.present?
       assign_engine_secret(SIGN_IN_SECRET, "sign_in", fields.to_json, set_by)
     end
 
