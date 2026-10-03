@@ -664,7 +664,9 @@ account, or under an organization you name), and GitHub returns to the
 dashboard, which shows the new App's id, slug, client id, client secret and
 private key once, with the lines to add to your configuration. The dashboard
 stores none of them. A multi-tenant platform registers its App per
-environment instead, and the button is not offered.
+environment instead, and the button is not offered. The manifest goes to
+GitHub as a form post from the browser, so a host app whose content security
+policy sets `form-action` must allow `https://github.com`.
 
 To register it by hand, create a [GitHub App](https://github.com/settings/apps/new)
 with:
