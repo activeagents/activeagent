@@ -296,6 +296,21 @@ export function withApproval(approvalList = [], names = [], on = true) {
   return list.filter((name) => !names.includes(name));
 }
 
+// The approval list after a row's switch is clicked. A row that is on, or
+// partly on, comes off the list, and one that is off goes on with every
+// name. A result naming exactly what `savedList` names is `savedList` in its
+// saved order, so switching a row back leaves nothing to save.
+export function toggledApproval(approvalList = [], row, savedList = []) {
+  const list = (approvalList || []).map(String);
+  const state = approvalState(row, list);
+  if (!state) return list;
+  const next = new Set(withApproval(list, approvalNames(row), state === 'off'));
+  const saved = (savedList || []).map(String);
+  const savedNames = new Set(saved);
+  const unchanged = next.size === savedNames.size && [...next].every((name) => savedNames.has(name));
+  return unchanged ? saved : [...next];
+}
+
 // How many toggles differ from the saved roster — what the sticky bar counts
 // and what drives the header's "unsaved" badge. An approval change counts
 // once per row, however many names the row stands for.
