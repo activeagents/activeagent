@@ -48,7 +48,7 @@ module ActiveAgent
         resume.assert_provider!(service: service_name, provider: tag_name, model: request.model)
 
         clear_tool_choice if resume.tool_choice_cleared?
-        message_stack.push(resume.tool_call_turn)
+        message_stack.push(*resume.tool_call_turn)
         tool_calls = Array(process_prompt_finished_extract_function_calls)
         resume.assert_tool_calls!(tool_calls.map { tool_call_reference(_1).first })
 
@@ -89,7 +89,7 @@ module ActiveAgent
             ActiveAgent::InputRequest::DECLINED_RESULT
           else
             result = dispatching_tool_call(id, answer: resume&.answer(id)) { yield call }
-            requests << result.for_tool_call(id:, name:) if result.is_a?(ActiveAgent::InputRequest)
+            requests << result.for_tool_call(id:, name:, arguments: tool_call_arguments(call)) if result.is_a?(ActiveAgent::InputRequest)
             result
           end
         end
@@ -108,6 +108,27 @@ module ActiveAgent
       # @return [Array(String, String)]
       def tool_call_reference(call)
         [ call[:id].to_s, call[:name].to_s ]
+      end
+
+      # Returns the arguments of a provider-native tool call, as the model
+      # sent them. Providers whose calls carry them elsewhere override this.
+      #
+      # @param call [Hash]
+      # @return [Hash, nil]
+      def tool_call_arguments(call)
+        call[:input]
+      end
+
+      # @param json [String, nil] arguments a model sent as a JSON string
+      # @return [Hash, String, nil] the parsed arguments, or `json` itself
+      #   when it is not valid JSON
+      def parse_tool_call_arguments(json)
+        return json unless json.is_a?(String)
+        return {} if json.blank?
+
+        JSON.parse(json)
+      rescue JSON::ParserError
+        json
       end
 
       # Runs a tool call made outside {#dispatch_tool_calls} with no tool call
@@ -130,8 +151,8 @@ module ActiveAgent
         return unless result.is_a?(ActiveAgent::InputRequest) && !@_dispatching_tool_call
 
         raise ActiveAgent::InputRequest::UnsupportedProviderError,
-              "#{tag_name} cannot pause a generation for user input yet, and a tool returned an " \
-              "ActiveAgent::InputRequest. Use the Anthropic or OpenAI Chat Completions provider for tools that ask the user."
+              "#{tag_name} cannot pause a generation for user input: its tool loop does not run calls through " \
+              "dispatch_tool_calls, and a tool returned an ActiveAgent::InputRequest."
       end
 
       # Builds the response for a generation that is waiting on the user, and
@@ -163,9 +184,22 @@ module ActiveAgent
           tool_turns:,
           tool_choice_cleared: tool_choice_cleared == true,
           messages:            checkpoint_messages,
+          tool_call_turn_size: serialized_messages(message_stack).size,
           completed_results:   paused_tool_turn[:results],
           input_requests:      paused_tool_turn[:input_requests].map(&:to_h)
         }.as_json
+      end
+
+      # Returns `messages` in the provider's serialized form.
+      #
+      # @param messages [Array, nil]
+      # @param instructions [String, Array, nil]
+      # @return [Array<Hash>]
+      def serialized_messages(messages, instructions: nil)
+        parameters = { messages:, instructions: }.compact
+        return [] if parameters.empty?
+
+        prompt_request_type.serialize(prompt_request_type.cast(parameters))[:messages] || []
       end
 
       private
@@ -197,14 +231,6 @@ module ActiveAgent
 
         paused = requests.map(&:tool_call_id)
         ids.zip(results).reject { |id, _| paused.include?(id) }.to_h { |id, result| [ id, result.as_json ] }
-      end
-
-      # @return [Array<Hash>]
-      def serialized_messages(messages, instructions: nil)
-        parameters = { messages:, instructions: }.compact
-        return [] if parameters.empty?
-
-        prompt_request_type.serialize(prompt_request_type.cast(parameters))[:messages] || []
       end
 
       # @return [Object] the block's result

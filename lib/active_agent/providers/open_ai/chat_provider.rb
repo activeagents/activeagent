@@ -216,6 +216,13 @@ module ActiveAgent
           [ api_function_call[:id].to_s, api_function_call.dig(:function, :name).to_s ]
         end
 
+        # @see InputRequests#tool_call_arguments
+        # @param api_function_call [Hash]
+        # @return [Hash, String, nil]
+        def tool_call_arguments(api_function_call)
+          parse_tool_call_arguments(api_function_call.dig(:function, :arguments))
+        end
+
         # Extracts function calls from the last message in the stack.
         #
         # @return [Array<Hash>, nil] tool call objects or nil if no tool calls
