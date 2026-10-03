@@ -1,7 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { MicroLabel, MONO } from '../primitives';
 import { dashboardPath } from '../../../utils/dashboardPath';
-import { PLAYER_FRAME_PATH, PLAYER_FRAME_SANDBOX, isPlayerMessage, playerMessage } from '../../../utils/replayFrame.mjs';
+import {
+  PLAYER_FRAME_PATH, PLAYER_FRAME_SANDBOX, PLAYER_START_TIMEOUT_MS, isPlayerMessage, playerMessage,
+} from '../../../utils/replayFrame.mjs';
 import { browserPosition, formatClock, recordingAt } from '../../../utils/replayTimeline.mjs';
 import { loadRrwebEvents } from '../../../utils/replayEntries.mjs';
 
@@ -16,6 +18,8 @@ async function fetchJson(path) {
   return response.json();
 }
 
+const PLAYER_DID_NOT_START = 'the session player did not start';
+
 const STATUS_TEXT = {
   loading: 'loading the browser recording…',
   empty: 'this recording has too few browser events to replay',
@@ -25,6 +29,7 @@ const STATUS_TEXT = {
 export default function ReplayBrowserPane({ recordings, time, sessionStartMs, playing, speed, seekVersion }) {
   const frame = useRef(null);
   const loadToken = useRef(null);
+  const [frameLoaded, setFrameLoaded] = useState(false);
   const [ready, setReady] = useState(false);
   const [loadedToken, setLoadedToken] = useState(null);
   const [status, setStatus] = useState({ state: 'loading' });
@@ -50,6 +55,15 @@ export default function ReplayBrowserPane({ recordings, time, sessionStartMs, pl
     window.addEventListener('message', onMessage);
     return () => window.removeEventListener('message', onMessage);
   }, []);
+
+  // The frame's load event fires whatever the frame loaded, so only the
+  // player's own ready message marks it started.
+  useEffect(() => {
+    if (!frameLoaded || ready) return undefined;
+
+    const timer = setTimeout(() => setStatus({ state: 'error', message: PLAYER_DID_NOT_START }), PLAYER_START_TIMEOUT_MS);
+    return () => clearTimeout(timer);
+  }, [frameLoaded, ready]);
 
   // rrweb needs at least two events to build a replayer, so the first
   // pages are held until they add up to two.
@@ -127,7 +141,7 @@ export default function ReplayBrowserPane({ recordings, time, sessionStartMs, pl
         src={dashboardPath(PLAYER_FRAME_PATH)}
         sandbox={PLAYER_FRAME_SANDBOX}
         referrerPolicy="no-referrer"
-        onLoad={() => setReady(true)}
+        onLoad={() => setFrameLoaded(true)}
         style={{
           width: '100%', height: 480, border: '1px solid var(--color-border-light)', borderRadius: 10,
           background: 'var(--color-background)', opacity: phase === 'before' ? 0.4 : 1,

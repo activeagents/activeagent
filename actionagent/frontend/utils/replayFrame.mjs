@@ -27,6 +27,12 @@ export const PLAYER_FRAME_PATH = '/session_player';
 // and that frame is unreachable from an opaque-origin parent.
 export const PLAYER_FRAME_SANDBOX = 'allow-scripts allow-same-origin';
 
+// How long after the frame loads the dashboard waits for its ready message.
+// The bundle runs before the frame's load event, so the message is already
+// on its way; a frame that loaded an error page, a sign-in page or no
+// bundle never sends it.
+export const PLAYER_START_TIMEOUT_MS = 5000;
+
 export function playerMessage(type, payload = {}) {
   return { ...payload, channel: PLAYER_CHANNEL, type };
 }
