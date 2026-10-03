@@ -1274,22 +1274,39 @@ no recording to have one.
 The response carries `session` (its runs, conversations and trace ids),
 `lanes` (`message`, `llm`, `tool`, `browser`, each in time order) and
 `recordings`. Every entry has an `id`, a `start` (ISO 8601 with
-milliseconds), a `duration_ms` and a `trace_id`, null when unknown. rrweb
-events are not in the timeline. Read them from
-`GET /api/session_recordings/:id/events?after=<id>`, which returns the
-recording's rows in time order, a page at a time.
+milliseconds), a `duration_ms` and a `trace_id`, null when unknown. Each lane
+holds its earliest 2,000 entries, and `session.truncated` is true when any
+lane had more.
+
+A conversation's timeline adds the recordings linked to the conversation or
+to one of its runs. A run's timeline, and a scenario result's, adds only the
+recordings linked to that run, so a recording made for a whole conversation
+appears in the conversation's timeline and not in its runs'.
+
+rrweb events are not in the timeline. Read them from
+`GET /api/session_recordings/:id/events`, which returns the recording's event
+rows in time order, a page at a time:
+
+| Parameter | Meaning |
+|---|---|
+| `kind` | the kinds to return, comma separated (`kind=console,marker`); `rrweb` when absent |
+| `limit` | rows per page, 20 by default and at most 100; a page also ends after about 4 MB of events |
+| `after` | the `next_after` of the previous page |
+
+The response carries `events` (the rows, each with its `events`), `has_more`
+and `next_after`.
 
 A timeline reaches runs, conversations and traces only through ids the server
 set: a recording's run and conversation, and a run's trace id. Each is looked
 up among what the caller owns, and a session the caller does not own answers
-404. Ids inside recorded events are shown, never followed. What a browser
-tool call typed (`browser_type` text, `browser_fill_form` values and
-`browser_handle_dialog` prompt text) is masked in that call's arguments and
-result. A later call whose result shows the value, such as a snapshot of the
-filled field, is not masked.
-Timelines, and events other than rrweb, never carry a `cookies`,
-`local_storage` or `session_storage` key. rrweb events are returned as the
-browser recorded them, so that they replay.
+404. Ids inside recorded events are shown, never followed.
+
+What a browser tool call typed (`browser_type` text, `browser_fill_form`
+values and `browser_handle_dialog` prompt text) is masked in that call's
+arguments and result. A later call whose result shows the value, such as a
+snapshot of the filled field, is not masked. Timelines, and events other than
+rrweb, never carry a `cookies`, `local_storage` or `session_storage` key.
+rrweb events are returned as the browser recorded them, so that they replay.
 
 ### Recording events
 
@@ -1327,7 +1344,9 @@ log. A batch authenticates with either:
 - a dashboard session with its CSRF token, for a recording the user owns.
 
 A batch is stored whole or not at all. It answers 422 when it holds a kind a
-browser may not write, and 413 (`code: "recording_limit"`) when it is over a
+browser may not write, when an event's `timestamp` is more than 24 hours
+before `sent_at` or more than a minute after it, or when it nests more than
+512 levels deep. It answers 413 (`code: "recording_limit"`) when it is over a
 cap, counting its events in the recording's `dropped_event_count`. The caps
 default to:
 
@@ -1342,11 +1361,19 @@ ActionAgent.configure do |config|
 end
 ```
 
-When an agent calls a Playwright MCP browser tool (`browser_*`), the call is
-stored as an `action` event on its run's recording, which the first call
-starts with `source: "agent"`. Typed values are masked and the owner's
-credentials are scrubbed before anything is stored. A failure to record is
-logged and leaves the tool's result unchanged.
+A dashboard session's batch is also parsed by Rails as request parameters,
+which refuses JSON nested more than 100 levels deep: an rrweb snapshot of a
+page whose elements nest about 47 deep. A recorder of arbitrary pages should
+post with an ingest token.
+
+When an agent calls one of the Playwright browser tools in
+`ActionAgent::MCPRecordingMiddleware::PLAYWRIGHT_TOOLS` (navigating, clicking,
+typing, filling forms, taking snapshots and the like), the call is stored as
+an `action` event on its run's recording, which the first call starts with
+`source: "agent"`. Other browser tools, such as `browser_tabs` and
+`browser_console_messages`, are not recorded. Typed values are masked and the
+owner's credentials are scrubbed before anything is stored. A failure to
+record is logged and leaves the tool's result unchanged.
 
 Each row's payload is gzip JSON, kept in the row up to 64 KB compressed and
 attached through Active Storage above that when the app has it.

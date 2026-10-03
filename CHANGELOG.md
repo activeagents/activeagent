@@ -53,13 +53,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the checkout before the backend sees it.
 - **Store browser events on session recordings, and read any session as a
   timeline** (`actionagent`). `POST <mount>/api/session_recordings/:id/events`
-  takes a batch of `rrweb`, `console` and `marker` events, authenticated by
-  the recording's ingest token (`SessionRecording#issue_ingest_token!`, stored
-  as a digest, expiring with the recording or its sandbox) or by a dashboard
-  session that owns the recording. Each batch's clock offset is applied, so
-  events are stored in server time. Batches over
-  `ActionAgent.recording_limits` answer 413 and are counted as dropped.
-  `GET .../events?after=` reads them back in time order.
+  takes a batch of `rrweb`, `console` and `marker` events under the
+  `recording_events` key, authenticated by the recording's ingest token
+  (`SessionRecording#issue_ingest_token!`, stored as a digest, expiring with
+  the recording or its sandbox) or by a dashboard session that owns the
+  recording. Each batch's clock offset is applied, so events are stored in
+  server time, and an event more than a day before the batch's `sent_at` is
+  refused. Batches over `ActionAgent.recording_limits` answer 413 and are
+  counted as dropped. The engine adds `recording_events` to the app's
+  `filter_parameters`. `GET .../events?after=` reads them back in time order.
   `GET <mount>/api/session_recordings/:id/timeline` and
   `GET <mount>/api/sessions/{context,run,scenario_result}/:id/timeline` return
   message, LLM, tool and browser lanes, derived when read from runs, messages,
@@ -71,6 +73,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Record an agent's browser tool calls as recording events**
+  (`actionagent`). `ActionAgent::MCPRecordingMiddleware#intercept` now stores
+  each call to a tool in `MCPRecordingMiddleware::PLAYWRIGHT_TOOLS` as one
+  `action` event, with typed values masked and the owner's credentials
+  scrubbed, instead of writing `RecordingAction`s through
+  `SessionRecordingService`. It no longer extracts screenshots from tool
+  results. `AgentExecutionService` wraps every tool call with it, so a run's
+  first browser call starts the run's recording (`source: "agent"`). The
+  constructor no longer starts a recording: `#recording` and
+  `#recording_service` find or start one on first use, and are `nil` when none
+  can be started. The Session Replay page reads `/actions`, so it lists these
+  recordings with no actions until the replay view moves to the timeline; read
+  them from `GET .../timeline` or `GET .../events?kind=action`. The
+  `record_navigate`, `record_click`, `record_type` and `capture_for_handoff`
+  helpers still write `RecordingAction`s.
 - **Announce run and sandbox changes without their content** (`actionagent`).
   The Action Cable messages on `agent_run_<id>`, `agent_runs_<agent_id>` and
   `sandbox_<session_id>` are now `{ type, id, status }`; a subscriber reads
