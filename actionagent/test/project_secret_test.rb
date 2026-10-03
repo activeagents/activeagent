@@ -90,6 +90,18 @@ class ProjectSecretTest < ActiveSupport::TestCase
     assert_equal "found [REDACTED] in .env", session.reload.events.last["text"]
   end
 
+  test "a sandbox on an install without the projects migration has nothing of a project's to scrub" do
+    sandbox = checkout_sandbox
+    sandbox.define_singleton_method(:has_attribute?) { |name| name.to_s != "project_id" && super(name) }
+    sandbox.define_singleton_method(:project_id) { raise NoMethodError, "undefined method 'project_id'" }
+    warned = []
+
+    Rails.logger.stub(:warn, ->(message) { warned << message }) do
+      assert_equal [], sandbox.project_scrub_values
+    end
+    assert_empty warned
+  end
+
   test "an organization key is read when booting, and drops out of the scrub list once removed" do
     key = ActionAgent::ProviderKey.create!(provider: "anthropic", credential: "sk-ant-api03-organizationKey0123")
     secret = @project.assign_secret(name: "ANTHROPIC_API_KEY", source: "organization_key", consent: true)
