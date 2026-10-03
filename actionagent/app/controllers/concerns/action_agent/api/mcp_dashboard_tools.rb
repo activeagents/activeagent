@@ -53,6 +53,9 @@ module ActionAgent
       MAX_STRING = 1_000
       # Owned credentials read for scrubbing, per kind.
       SECRET_LOOKUP_LIMIT = 100
+      # The longest scenario key or group a write tool accepts, as the report
+      # collector does. Both are string columns, VARCHAR(255) on MySQL.
+      MAX_SCENARIO_LABEL = 200
 
       SELECTION_PROPERTIES = {
         scenario_ids: { type: "array", items: { type: "integer" }, description: "Replay only these scenarios, by id" },
@@ -441,9 +444,27 @@ module ActionAgent
         )
         raise ToolError, "No scenarios matched the import. Check the text or the include_production_only selection." if parsed.empty?
 
+        parsed.each { |attrs| refuse_oversized_scenario!(attrs) }
         parsed
       rescue ActiveAgent::Evals::ScenarioParser::ParseError => e
         raise ToolError, e.message
+      end
+
+      # Raises for a scenario whose key or group is longer than
+      # MAX_SCENARIO_LABEL characters, or whose prompt or notes are larger
+      # than a MySQL TEXT column holds.
+      def refuse_oversized_scenario!(attrs)
+        label = attrs["key"].to_s.truncate(64)
+        %w[key group].each do |field|
+          next if attrs[field].to_s.length <= MAX_SCENARIO_LABEL
+
+          raise ToolError, "Scenario #{label}: #{field} is longer than #{MAX_SCENARIO_LABEL} characters"
+        end
+        %w[prompt notes].each do |field|
+          next if attrs[field].to_s.bytesize <= EvaluationReportImport::TEXT_BYTES
+
+          raise ToolError, "Scenario #{label}: #{field} is larger than #{EvaluationReportImport::TEXT_BYTES} bytes"
+        end
       end
 
       def tool_criteria
