@@ -148,6 +148,26 @@ class EvalsScenarioParserTest < ActiveSupport::TestCase
     assert_equal "scenario_1", ActiveAgent::Evals::ScenarioParser.parse("Anything?", key_prefix: "  ").first["key"]
   end
 
+  def test_reserved_keys_are_compared_ignoring_case
+    scenarios = ActiveAgent::Evals::ScenarioParser.parse("# Orders\nWhere is my order?", reserved_keys: %w[Orders_1 ORDERS_2])
+
+    assert_equal [ "orders_3" ], scenarios.map { |s| s["key"] }
+  end
+
+  def test_a_key_prefix_cut_to_its_limit_leaves_no_trailing_underscore
+    scenarios = ActiveAgent::Evals::ScenarioParser.parse("# Orders\nWhere is my order?", key_prefix: ("a" * 39) + " b")
+
+    assert_equal [ "#{'a' * 39}_orders_1" ], scenarios.map { |s| s["key"] }
+  end
+
+  def test_a_key_prefix_with_nothing_a_key_can_use_raises
+    error = assert_raises(ActiveAgent::Evals::ScenarioParser::ParseError) do
+      ActiveAgent::Evals::ScenarioParser.parse("Anything?", key_prefix: "日本")
+    end
+
+    assert_match(/key_prefix "日本"/, error.message)
+  end
+
   def test_scenarios_passes_the_key_options_through
     scenarios = ActiveAgent::Evals::ScenarioParser.scenarios("Anything?", reserved_keys: [ "x_scenario_1" ], key_prefix: "x")
 
