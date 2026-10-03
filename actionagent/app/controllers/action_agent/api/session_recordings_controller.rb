@@ -11,6 +11,8 @@ module ActionAgent
       # own visitors should do so against its own endpoint, not one the
       # engine exposes on every host that mounts it.
 
+      before_action :require_dashboard_capture!, only: [ :create, :create_events ]
+      before_action :require_owner!, only: :create
       before_action :set_recording, only: [ :show, :actions, :snapshot, :export, :handoff, :timeline, :events, :create_events ]
 
       SENSITIVE_STATE_KEYS = SessionRecording::SENSITIVE_STATE_KEYS
@@ -130,12 +132,50 @@ module ActionAgent
         )
       end
 
+      # POST /api/session_recordings
+      # The caller's recording of conversation +agent_context_id+ in the Run
+      # Agent workbench (`source: "dashboard"`), which the dashboard posts its
+      # rrweb batches to. Returns the one still recording, or starts one (201).
+      # 404 for a conversation of an agent the caller cannot reach. 401 when
+      # recordings have owners and the caller resolves to none, since the
+      # caller could not reach the recording afterwards.
+      def create
+        context = AgentContext.for_agents(owner_agents).find(params.require(:agent_context_id))
+        owner = recording_owner
+        if owner.nil? && SessionRecording.owner_association
+          return render(json: { error: "Sign in to record this conversation" }, status: :unauthorized)
+        end
+
+        created = false
+        recording = context.with_lock do
+          dashboard_recording_of(context) || begin
+            created = true
+            SessionRecording.start!(agent_context: context, source: "dashboard", owner: owner)
+          end
+        end
+
+        render json: { recording: dashboard_recording_json(recording) }, status: created ? :created : :ok
+      end
+
       # POST /api/session_recordings/:id/events
       # A batch of browser events (RecordingEventIngest) from a dashboard
-      # session. A recorder holding the recording's ingest token posts to the
-      # same path, and is answered by RecordingEventIngestController.
+      # session, with the owner's credentials masked in it. A recorder holding
+      # the recording's ingest token posts to the same path, and is answered
+      # by RecordingEventIngestController.
+      #
+      # 503 when the credentials cannot be read: the batch is not stored
+      # without them masked.
       def create_events
-        result = RecordingEventIngest.call(@recording, request.raw_post)
+        secrets =
+          begin
+            owner_credentials
+          rescue StandardError => e
+            Rails.logger.warn("[ActionAgent] credential lookup for a recording batch failed: #{e.class}: #{e.message}")
+            return render(json: { error: "The batch could not be checked for credentials", code: "credential_check_failed" },
+              status: :service_unavailable)
+          end
+
+        result = RecordingEventIngest.call(@recording, request.raw_post, secrets: secrets)
         render json: result.body, status: result.status
       end
 
@@ -328,6 +368,37 @@ module ActionAgent
         return if can_manage_recording?(@recording)
 
         not_found
+      end
+
+      # Refuses the workbench's recordings and every batch a dashboard session
+      # posts when the host turned capture off.
+      def require_dashboard_capture!
+        return if ActionAgent.capture_dashboard_sessions?
+
+        render json: { error: "Session capture is turned off on this dashboard", code: "capture_disabled" }, status: :forbidden
+      end
+
+      # The caller's dashboard recording of +context+ that is still recording.
+      def dashboard_recording_of(context)
+        owned(SessionRecording).recording.where(source: "dashboard", agent_context_id: context.id).order(:id).last
+      end
+
+      # Whom a recording the caller starts belongs to: the record #owned
+      # scopes SessionRecording by, so the caller finds it again.
+      def recording_owner
+        case SessionRecording.owner_association
+        when :user then current_user
+        when :account then current_account
+        end
+      end
+
+      def dashboard_recording_json(recording)
+        {
+          id: recording.id,
+          agent_context_id: recording.agent_context_id,
+          source: recording.source,
+          status: recording.status
+        }
       end
 
       def can_manage_recording?(recording)
