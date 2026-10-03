@@ -68,7 +68,16 @@ class OwnableTest < ActiveSupport::TestCase
     assert_empty ActionAgent::Agent.for_owner(@other)
   end
 
-  test "an agent run falls back to no stored key when its owner is not an account" do
+  test "a multi-tenant agent run whose owner is not an account fails rather than reading a stored key" do
+    agent = ActionAgent::Agent.create!(name: "Mine", provider: "openai", model: "gpt-4o-mini", user_id: @user.id)
+
+    assert_raises(ActionAgent::ProviderCredentials::Unresolved, "the account sharing the user's id must not supply the key") do
+      ActionAgent::AgentExecutionService.new(agent, nil).send(:owner_provider_options, "openai")
+    end
+  end
+
+  test "a single-tenant agent run whose owner is not an account reads no stored key" do
+    ActionAgent.multi_tenant = false
     agent = ActionAgent::Agent.create!(name: "Mine", provider: "openai", model: "gpt-4o-mini", user_id: @user.id)
 
     options = ActionAgent::AgentExecutionService.new(agent, nil).send(:owner_provider_options, "openai")

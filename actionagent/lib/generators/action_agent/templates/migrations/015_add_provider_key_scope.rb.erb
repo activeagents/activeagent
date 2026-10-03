@@ -1,0 +1,72 @@
+# frozen_string_literal: true
+
+# Gives provider keys a scope: "organization" for the key an account shares,
+# "user:<id>" for one member's own key. The unique index on
+# (account_id, scope_key, provider) keeps one organization key per provider
+# and one personal key per member and provider. set_by_id names the user who
+# last saved a key from the dashboard.
+#
+# Existing rows become organization rows. An install whose rows break the
+# new index (two keys for one account and provider) stops here and lists
+# them, because only one of each pair can stay and this migration does not
+# choose. Guarded, so it is safe to re-run once they are resolved.
+class AddProviderKeyScope < ActiveRecord::Migration<%= migration_version %>
+  ORGANIZATION = "organization"
+
+  def up
+    return unless table_exists?(table)
+
+    refuse_duplicates!
+    add_column table, :scope_key, :string, null: false, default: ORGANIZATION unless column_exists?(table, :scope_key)
+    add_column table, :set_by_id, :bigint unless column_exists?(table, :set_by_id)
+    add_index table, %i[account_id scope_key provider], unique: true, name: index_name unless index_name_exists?(table, index_name)
+  end
+
+  # Refused while personal keys exist: without scope_key they would read as
+  # the organization's keys.
+  def down
+    return unless table_exists?(table)
+
+    if column_exists?(table, :scope_key)
+      personal = select_values("SELECT id FROM #{quoted_table} WHERE scope_key <> #{connection.quote(ORGANIZATION)} ORDER BY id")
+      if personal.any?
+        raise ActiveRecord::IrreversibleMigration,
+              "#{table} holds personal keys (ids #{personal.join(', ')}). Delete them before rolling back."
+      end
+    end
+
+    remove_index table, name: index_name if index_name_exists?(table, index_name)
+    remove_column table, :set_by_id if column_exists?(table, :set_by_id)
+    remove_column table, :scope_key if column_exists?(table, :scope_key)
+  end
+
+  private
+
+  def refuse_duplicates!
+    scoped = column_exists?(table, :scope_key)
+    columns = scoped ? "id, account_id, provider, scope_key" : "id, account_id, provider"
+    rows = select_rows("SELECT #{columns} FROM #{quoted_table} WHERE account_id IS NOT NULL ORDER BY id")
+    groups = rows.group_by { |(_id, account_id, provider, scope_key)| [ account_id, provider, scope_key || ORGANIZATION ] }
+    duplicates = groups.select { |_key, members| members.size > 1 }
+    return if duplicates.empty?
+
+    listed = duplicates.map do |(account_id, provider, scope_key), members|
+      "account_id #{account_id}, provider #{provider}, scope #{scope_key}: ids #{members.map(&:first).join(', ')}"
+    end
+    raise ActiveRecord::MigrationError,
+          "#{table} holds more than one key for the same account, provider and scope. Keep one of each and " \
+          "delete the rest, then run the migration again:\n  #{listed.join("\n  ")}"
+  end
+
+  def table
+    "#{ActionAgent.table_name_prefix}provider_keys"
+  end
+
+  def quoted_table
+    connection.quote_table_name(table)
+  end
+
+  def index_name
+    "index_#{table}_on_scope"
+  end
+end
