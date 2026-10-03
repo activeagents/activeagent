@@ -44,11 +44,13 @@ module ActionAgent
       end
     end
 
+    # The network tools are left out: a page's request list keeps the
+    # sign-in form's POST body, password included, until the next
+    # navigation.
     BROWSER_TOOLS = %w[
       browser_navigate browser_navigate_back browser_snapshot browser_find browser_click browser_type browser_fill_form
       browser_select_option browser_press_key browser_hover browser_wait_for browser_tabs browser_handle_dialog
-      browser_take_screenshot browser_console_messages browser_network_requests browser_network_request
-      browser_generate_locator
+      browser_take_screenshot browser_console_messages browser_generate_locator
     ].freeze
     BROWSER_TOOL_PREFIX = "browser_verify_"
     # Arguments that make a browser tool write its output to a file in the

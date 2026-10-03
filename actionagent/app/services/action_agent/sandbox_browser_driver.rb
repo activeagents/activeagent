@@ -22,12 +22,13 @@ module ActionAgent
       @client = MCPClient.new(url: entry[:url], label: entry[:name], headers: entry[:headers] || {})
     end
 
-    # Calls +tool+ and returns its text.
+    # Calls +tool+ and returns its text. With +log_arguments+ false the
+    # arguments' values are left out of the log.
     #
     # @raise [Error] when the tool fails or the browser does not answer
     # @return [String]
-    def call(tool, arguments = {})
-      result = @client.call_tool(tool.to_s, arguments)
+    def call(tool, arguments = {}, log_arguments: true)
+      result = @client.call_tool(tool.to_s, arguments, log_arguments: log_arguments)
       raise Error, "#{tool} failed in the sandbox's browser" if result[:is_error]
 
       result[:text].to_s
@@ -38,28 +39,29 @@ module ActionAgent
     # Opens +path+ (a path on the sandbox's app) and returns the page URL
     # the browser reports, or nil.
     def open(path)
-      page_url(call("browser_navigate", url: path.to_s.presence || "/"))
+      page_url(call("browser_navigate", { url: path.to_s.presence || "/" }))
     end
 
     # Runs +function+, the source of a JavaScript function taking no
     # arguments, in the page and returns what it returned, parsed from JSON
     # (nil when it returned nothing readable).
     def evaluate(function)
-      text = call("browser_evaluate", function: function)
+      text = call("browser_evaluate", { function: function })
       json = text[/^### Result\n(.*?)(?=\n### |\z)/m, 1]
       json && JSON.parse(json.strip)
     rescue JSON::ParserError
       nil
     end
 
-    # Types +text+ into the element +selector+ names, a CSS selector.
+    # Types +text+ into the element +selector+ names, a CSS selector. The
+    # text is a credential, so it is never logged.
     def type(selector, text, submit: false)
-      call("browser_type", target: selector, text: text, submit: submit)
+      call("browser_type", { target: selector, text: text, submit: submit }, log_arguments: false)
       nil
     end
 
     def click(selector)
-      call("browser_click", target: selector)
+      call("browser_click", { target: selector })
       nil
     end
 
@@ -70,7 +72,7 @@ module ActionAgent
     end
 
     def wait(seconds)
-      call("browser_wait_for", time: seconds)
+      call("browser_wait_for", { time: seconds })
       nil
     end
 
