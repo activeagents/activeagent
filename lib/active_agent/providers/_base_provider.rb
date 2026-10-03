@@ -172,7 +172,7 @@ module ActiveAgent
         self.tool_turns         = 0
         self.instrumentation_enabled = kwargs.delete(:instrumentation) != false
         self.generation_action_name  = kwargs.delete(:action_name)
-        self.tool_approvals          = Array(kwargs.delete(:requires_approval)).map(&:to_s)
+        self.tool_approvals          = normalize_tool_approvals(kwargs.delete(:requires_approval))
         self.input_request_resume    = kwargs.delete(:input_request_resume)
         self.announce_input_requests = kwargs.delete(:announce_input_requests) != false
         self.options            = options_klass.new(kwargs.extract!(*options_klass.keys))

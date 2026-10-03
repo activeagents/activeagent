@@ -155,6 +155,19 @@ module ActiveAgent
         json
       end
 
+      # Returns the `requires_approval:` prompt option as tool names.
+      #
+      # @param value [String, Symbol, Array<String, Symbol>, nil]
+      # @return [Array<String>]
+      # @raise [ArgumentError] for anything else, such as `true`, which names
+      #   no tool and would gate nothing
+      def normalize_tool_approvals(value)
+        names = Array(value)
+        return names.map(&:to_s) if names.all? { _1.is_a?(String) || _1.is_a?(Symbol) }
+
+        raise ArgumentError, "requires_approval: takes a tool name or an array of tool names, not #{value.inspect}"
+      end
+
       # Whether a call to the tool must be approved before the tool runs.
       #
       # @param name [String, Symbol]

@@ -435,6 +435,30 @@ class InputRequestsTest < ActiveSupport::TestCase
     assert_empty RefundAgent.calls
   end
 
+  # Takes its approval list from params, so a test can pass any value.
+  class ParamGatedRefundAgent < RefundAgent
+    def self.name = "ParamGatedRefundAgent"
+
+    def triage(order_id:)
+      super
+      prompt(requires_approval: params[:requires_approval])
+    end
+  end
+
+  test "requires_approval: takes a single tool name, and refuses a value that is not tool names" do
+    ScriptedProvider.script([ self.class.tool_use("call_1", "lookup_order", order_id: 7) ])
+    paused = ParamGatedRefundAgent.with(requires_approval: :lookup_order).triage(order_id: 7).generate_now
+    assert_equal "lookup_order", paused.input_requests.sole.tool_name
+
+    [ true, { lookup_order: true }, [ "lookup_order", true ] ].each do |value|
+      ScriptedProvider.script
+      error = assert_raises(ArgumentError) { ParamGatedRefundAgent.with(requires_approval: value).triage(order_id: 7).generate_now }
+
+      assert_match "requires_approval: takes a tool name or an array of tool names", error.message
+      assert_empty ScriptedProvider.requests, "#{value.inspect} is refused before any request"
+    end
+  end
+
   test "an approved call runs once, and a declined one never runs" do
     paused = gated_triage([ self.class.tool_use("call_1", "lookup_order", order_id: 7), self.class.tool_use("call_2", "close_ticket") ])
     assert_equal [ [ :close_ticket ] ], RefundAgent.calls, "a tool that is not listed runs as usual"

@@ -118,7 +118,7 @@ The call pauses with a `:confirm` request whose `prompt` is `"Allow issue_refund
 - `true` runs the tool once, with no answer in `input_answer`. The approval answers the gate, not the tool, so a tool that asks its own question still asks it, and is not asked to be approved again. The checkpoint records which calls wait for approval, so an answer is read as an approval even when the resumed action lists different tools.
 - `false` declines: the tool never runs, and the model reads `{"error":"declined by user"}`.
 
-`requires_approval:` is read by ActiveAgent and never sent to the provider. It names tools of any kind: agent methods, [delegations](/actions/delegation), and tools served by [MCP servers](/actions/mcps#approving-tool-calls). An MCP declaration can also ask for approval itself with `require_approval:`.
+`requires_approval:` is read by ActiveAgent and never sent to the provider. It takes a tool name or an array of them, and raises `ArgumentError` for anything else, such as `true`. It names tools of any kind: agent methods, [delegations](/actions/delegation), and tools served by [MCP servers](/actions/mcps#approving-tool-calls). An MCP declaration can also ask for approval itself with `require_approval:`.
 
 ## Secrets
 
