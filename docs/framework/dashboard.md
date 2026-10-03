@@ -1579,7 +1579,9 @@ boots. A project's own changes are announced on `project_<id>`.
 
 A project owns one dashboard agent, and its evaluation belongs to that agent.
 The agent's `mcp_servers` name the project's current sandbox, and follow it to
-each new one.
+each new one. Servers added in the agent editor are kept, and choosing the
+target the agent already has keeps its edited name, description and
+instructions.
 
 - A repository without the engine gets the **App assistant**, whose tools are
   everything the sandbox's MCP facade serves.
