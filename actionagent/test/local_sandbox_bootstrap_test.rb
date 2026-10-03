@@ -110,6 +110,24 @@ class LocalSandboxBootstrapTest < ActiveSupport::TestCase
     assert_includes workspace(sandbox).join("logs/add_engine.log").read, "fake bundle: added actionagent"
   end
 
+  test "chosen schema tools are written after db_prepare, and the manifest's models reach the result" do
+    sandbox = sandbox_double(rails_origin!)
+    models = [ { "name" => "Reservation", "table" => "reservations", "columns" => [ { "name" => "status", "type" => "string" } ] } ]
+    control("models" => models)
+    step = Spec.schema_tools_step([ { "model" => "Reservation", "filterable" => [ "status" ], "returns" => %w[status starts_at] } ])
+
+    result = with_fake_tools { @backend.create_sandbox(sandbox, boot_config: Spec.bootstrap(engine: ENGINE, steps: [ step ]).to_h) }
+
+    calls = tool_calls
+    assert_operator calls.index("rails db:prepare"),
+      :<, calls.index("rails generate active_agent:schema_tools Reservation --force --filterable status --returns status starts_at")
+    tools = workspace(sandbox).join("app/app/agent_tools/reservation_tools.rb").read
+    assert_includes tools, "filterable :id, :status\n"
+    assert_includes tools, "returns :id, :status, :starts_at\n"
+    assert_equal models, result[:app_models]
+    assert_equal "succeeded", @backend.boot_status(sandbox)[:steps].find { |entry| entry[:name] == "schema_tools" }[:status]
+  end
+
   test "the checkout holds only what the generators, bundle add and db:prepare wrote" do
     sandbox = sandbox_double(rails_origin!)
 

@@ -30,7 +30,7 @@ class SandboxManifestTest < ActionDispatch::IntegrationTest
   test "generate names the engine's MCP path under the app's mount and a key for it" do
     manifest = ActionAgent::SandboxManifest.generate
 
-    assert_equal %w[mcp_path mcp_token], manifest.keys.sort
+    assert_equal %w[mcp_path mcp_token models], manifest.keys.sort
     assert_equal "/activeagents/mcp", manifest["mcp_path"]
     assert_equal ActionAgent::ApiKey.find_by!(name: KEY_NAME).token, manifest["mcp_token"]
   end
@@ -53,7 +53,43 @@ class SandboxManifestTest < ActionDispatch::IntegrationTest
   test "parse accepts a manifest without a token and ignores unknown keys" do
     parsed = ActionAgent::SandboxManifest.parse({ mcp_path: "/tools/mcp", mcp_token: nil, extra: 1 }.to_json)
 
-    assert_equal({ "mcp_path" => "/tools/mcp", "mcp_token" => nil }, parsed)
+    assert_equal({ "mcp_path" => "/tools/mcp", "mcp_token" => nil, "models" => [] }, parsed)
+  end
+
+  test "generate lists the app's own models with their columns, but id and the ones that look like secrets" do
+    column = Struct.new(:name, :type)
+    models = Post.stub(:columns, Post.columns + [ column.new("api_token", :string), column.new("password_digest", :string) ]) do
+      ActionAgent::SandboxManifest.generate["models"]
+    end
+
+    names = models.map { |model| model["name"] }
+    assert_includes names, "Post"
+    assert_includes names, "User"
+    assert names.none? { |name| name.start_with?("ActionAgent::") }, "the engine's own models are not the app's"
+    assert_not_includes names, "ApplicationRecord"
+    post = models.find { |model| model["name"] == "Post" }
+    assert_equal "posts", post["table"]
+    columns = post["columns"].map { |entry| entry["name"] }
+    assert_includes columns, "title"
+    assert_equal "string", post["columns"].find { |entry| entry["name"] == "title" }["type"]
+    assert_empty columns & %w[id api_token password_digest]
+  end
+
+  test "parse keeps the models a manifest lists in that shape, and drops what is not" do
+    json = {
+      mcp_path: "/activeagents/mcp",
+      models: [
+        { name: "Reservation", table: "reservations", columns: [ { name: "status", type: "string" }, { name: "api_token", type: "string" },
+                                                                 { name: "Bad Name", type: "string" } ] },
+        { name: "not a model; rm -rf /", columns: [] },
+        "Post"
+      ]
+    }.to_json
+
+    models = ActionAgent::SandboxManifest.parse(json)["models"]
+
+    assert_equal [ { "name" => "Reservation", "table" => "reservations", "columns" => [ { "name" => "status", "type" => "string" } ] } ],
+      models
   end
 
   test "parse refuses what a backend could not dial" do

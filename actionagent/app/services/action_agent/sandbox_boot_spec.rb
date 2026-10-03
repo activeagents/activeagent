@@ -72,6 +72,11 @@ module ActionAgent
     # .request_options): bootstrap one whose Gemfile.lock lacks the engine,
     # bootstrap it whatever its lock says, or boot it as its sandbox.yml says.
     BOOTSTRAP_MODES = %w[auto always never].freeze
+    # A schema tools choice (see .schema_tools_step).
+    MODEL_NAME = /\A[A-Z][A-Za-z0-9]{0,99}(?:::[A-Z][A-Za-z0-9]{0,99}){0,4}\z/
+    COLUMN_NAME = /\A[a-z_][a-z0-9_]{0,62}\z/
+    MAX_SCHEMA_TOOL_MODELS = 50
+    MAX_SCHEMA_TOOL_COLUMNS = 100
 
     attr_reader :kind, :apply, :steps, :env, :secrets, :manifest, :start, :start_url, :timeout, :engine,
       :secret_names
@@ -98,13 +103,15 @@ module ActionAgent
       #   checkout without the engine
       # @raise [Invalid] for options no spec can hold, and when the engine's
       #   gems come from a git URL that carries credentials
+      #
+      # @param steps [Array<Hash>] more steps, run after db_prepare
       def bootstrap(apply: "always", start_url: "/", keep_on_failure: false, env: {}, secrets: {}, timeout: BOOTSTRAP_TIMEOUT,
-        engine: engine_gems)
+        engine: engine_gems, steps: [])
         new(
           "kind" => "bootstrap",
           "apply" => apply,
           "preflight" => true,
-          "steps" => bootstrap_steps(engine),
+          "steps" => bootstrap_steps(engine) + steps,
           "env" => env,
           "secrets" => secrets,
           "manifest" => { "command" => "bin/rails action_agent:sandbox:manifest", "timeout" => 300 },
@@ -114,6 +121,34 @@ module ActionAgent
           "timeout" => timeout,
           "engine" => engine
         )
+      end
+
+      # The step that writes app/agent_tools/<model>_tools.rb for each model
+      # in +choices+ with `active_agent:schema_tools`, exposing only the
+      # columns chosen, or nil when nothing is chosen.
+      #
+      #   [{ "model" => "Reservation", "filterable" => ["status"], "returns" => ["status", "starts_at"] }]
+      #
+      # @raise [Invalid] for a model or column name that is not one, or more
+      #   than MAX_SCHEMA_TOOL_MODELS models
+      def schema_tools_step(choices)
+        choices = Array(choices)
+        return nil if choices.empty?
+        raise Invalid, "at most #{MAX_SCHEMA_TOOL_MODELS} models can have schema tools" if choices.size > MAX_SCHEMA_TOOL_MODELS
+
+        commands = choices.map do |choice|
+          choice = choice.to_h.stringify_keys
+          model = choice["model"].to_s
+          raise Invalid, "#{model.truncate(60).inspect} is not a model name" unless MODEL_NAME.match?(model)
+
+          words = [ "bin/rails", "generate", "active_agent:schema_tools", model, "--force" ]
+          %w[filterable returns].each do |option|
+            columns = schema_tool_columns(choice[option], model, option)
+            words.push("--#{option}", *columns) if columns.any?
+          end
+          words.shelljoin
+        end
+        step("schema_tools", commands.join(" && "), 900)
       end
 
       # A sandbox request's boot options, checked and in the shape a job
@@ -217,8 +252,25 @@ module ActionAgent
         # "overwrite" for every file that already exists.
         steps << step("install_framework", "bin/rails generate active_agent:install --skip", 300, unless_locked: "activeagent")
         steps << step("install_engine", "bin/rails generate action_agent:install --skip", 300, unless_locked: "actionagent")
-        ASSET_TASKS.each { |task| steps << step(task.tr(":", "_"), "bin/rails #{task}", 600, if_task: task) }
+        steps.concat(asset_steps)
         steps << step("db_prepare", "bin/rails db:prepare", 900)
+      end
+
+      def asset_steps
+        ASSET_TASKS.map { |task| step(task.tr(":", "_"), "bin/rails #{task}", 600, if_task: task) }
+      end
+
+      def schema_tool_columns(value, model, option)
+        columns = Array(value).map(&:to_s).uniq
+        raise Invalid, "#{model} has more than #{MAX_SCHEMA_TOOL_COLUMNS} #{option} columns" if columns.size > MAX_SCHEMA_TOOL_COLUMNS
+
+        columns.each do |column|
+          raise Invalid, "#{column.truncate(60).inspect} is not a column name" unless COLUMN_NAME.match?(column)
+          if ActiveAgent::SchemaTools::SECRET_COLUMNS.match?(column)
+            raise Invalid, "#{model}.#{column} looks like it holds a secret, so no tool may read it"
+          end
+        end
+        columns
       end
 
       def step(name, command, timeout, **conditions)

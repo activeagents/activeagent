@@ -126,11 +126,13 @@ ActionAgent::Engine.routes.draw do
       end
       put :secrets, to: "project_secrets#upsert"
       resources :secrets, controller: "project_secrets", only: [ :index, :update, :destroy ], param: :name
-      # The setup assistant, and the requests for input waiting on the
-      # project's agents.
+      # The setup assistant, the requests for input waiting on the project's
+      # agents, and the models the App assistant may read.
       post :setup, to: "project_setup#start"
       patch :setup, to: "project_setup#update"
       get :input_requests, to: "project_setup#input_requests"
+      get :app_models, to: "project_setup#app_models"
+      put :schema_tools, to: "project_setup#schema_tools"
     end
 
     # Tool inventory — auto-detected from the tool roster each generation
