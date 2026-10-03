@@ -59,8 +59,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the generation with `ProviderCredentials::Unresolved` instead of using the
   platform's credentials. The provider keys API takes `scope=organization` or
   `scope=personal` and returns `scope`, `effective_source`, `set_by` and
-  `updated_at`; `POST /api/provider_keys/test` no longer sends a stored key
-  to any host but the stored one. The Organization page manages the
+  `updated_at`, and `POST /api/provider_keys/test` sends a stored key only to
+  the stored host. The Organization page manages the
   organization's keys and lists the members `ActionAgent.members_resolver`
   returns, with "+ Invite Member" linking to `ActionAgent.member_invite_url`
   (`GET /api/members`). **Upgrading:** run the new `add_provider_key_scope`
