@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useTheme } from '../../contexts/ThemeContext';
 import { dashboardPath } from '../../utils/dashboardPath';
 import CodeSessionPanel, { StatusBadge } from './CodeSessionPanel';
+import RepoPicker from './RepoPicker';
 import {
   SANDBOX_POLL_INTERVAL_MS,
   apiErrorMessage,
@@ -15,6 +16,7 @@ import {
   upsertBy,
   claudeCodeAuth,
 } from '../../utils/codeSessions.mjs';
+import { toggleRepository } from '../../utils/repositories.mjs';
 
 // What the OAuth callback reports back through ?github=… on its redirect.
 const CALLBACK_MESSAGES = {
@@ -168,11 +170,7 @@ export default function GithubIntegrationCard({ callbackStatus, refreshKey }) {
   };
 
   const toggle = (fullName) => {
-    setSelection((current) => {
-      const next = new Set(current);
-      if (next.has(fullName)) next.delete(fullName); else next.add(fullName);
-      return next;
-    });
+    setSelection((current) => toggleRepository(current, fullName));
   };
 
   const saveSelection = async () => {
@@ -263,7 +261,6 @@ export default function GithubIntegrationCard({ callbackStatus, refreshKey }) {
   const secondaryButton = `px-3 py-1 text-sm rounded ${darkMode ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`;
   const connection = status?.connection;
   const selected = connection?.repositories || [];
-  const visible = (available || []).filter((r) => r.full_name.toLowerCase().includes(filter.toLowerCase()));
   const { byRepository, others } = groupSandboxes(sandboxes, selected.map((r) => r.full_name));
 
   const errorText = darkMode ? 'text-red-400' : 'text-red-600';
@@ -399,25 +396,13 @@ export default function GithubIntegrationCard({ callbackStatus, refreshKey }) {
           </div>
 
           {available ? (
-            <div className="space-y-2">
-              <input
-                type="text"
-                value={filter}
-                onChange={(e) => setFilter(e.target.value)}
-                placeholder="Filter repositories"
-                className={`w-full px-3 py-2 border rounded-lg text-sm ${darkMode ? 'bg-gray-800 border-gray-700 text-white placeholder-gray-500' : 'bg-white border-gray-300 text-gray-900'}`}
-              />
-              <div className="max-h-80 overflow-y-auto space-y-1">
-                {visible.map((repo) => (
-                  <label key={repo.id} className="flex items-center space-x-3 p-2 rounded cursor-pointer" style={rowStyle}>
-                    <input type="checkbox" checked={selection.has(repo.full_name)} onChange={() => toggle(repo.full_name)} />
-                    <span className={`text-sm font-mono ${strong}`}>{repo.full_name}</span>
-                    {repo.private && <span className={`text-xs ${muted}`}>private</span>}
-                  </label>
-                ))}
-                {visible.length === 0 && <p className={`text-sm ${muted}`}>No repositories match.</p>}
-              </div>
-            </div>
+            <RepoPicker
+              repositories={available}
+              selection={selection}
+              onToggle={toggle}
+              filter={filter}
+              onFilterChange={setFilter}
+            />
           ) : selected.length === 0 ? (
             <p className={`text-sm ${muted}`}>No repositories selected yet. Selected repositories can be checked out into sandboxes.</p>
           ) : (
