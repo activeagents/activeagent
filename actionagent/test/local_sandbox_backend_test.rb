@@ -180,6 +180,7 @@ class LocalSandboxBackendTest < ActiveSupport::TestCase
       assert_equal "local", env["FIXTURE_FLAVOR"], "sandbox.yml's env reaches #{step}"
       assert_equal workspace.basename.to_s, env["ACTION_AGENT_SANDBOX_SESSION_ID"]
       assert_equal workspace.join("runtime.json").to_s, env["ACTION_AGENT_SANDBOX_MANIFEST"]
+      assert_equal ActionAgent::SandboxMail::DIRECTORY, env[ActionAgent::SandboxMail::DIRECTORY_ENV], "#{step} writes mail to files"
     end
 
     assert_equal URI(result[:mcp_url]).port.to_s, server_env["PORT"], "the sandbox's own port, not the dashboard's"

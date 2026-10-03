@@ -41,6 +41,11 @@ module ActionAgent
     INSTALL_STATES = %w[detected bootstrapped installed].freeze
     REPOSITORY = %r{\A[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+\z}
     APP_ASSISTANT_NAME = "App assistant"
+    # The secrets the test account step keeps: the credentials the
+    # explorer's sign_in tool fills the login form with, and a browser's
+    # saved sign-in, which every browser of the project starts with.
+    SIGN_IN_SECRET = "APP_SIGN_IN"
+    STORAGE_STATE_SECRET = "APP_STORAGE_STATE"
     # The provider the App assistant runs on, first configured wins.
     ASSISTANT_PROVIDER_ORDER = %w[anthropic openai openrouter ollama].freeze
     # A run_<slug> tool on a checkout's MCP facade: one synced agent. Its
@@ -92,9 +97,10 @@ module ActionAgent
         secrets: secret_environment)
     end
 
-    # { name => value } for every secret, organization keys resolved.
+    # { name => value } for every env secret, organization keys resolved.
+    # Sign-in secrets never reach the sandbox's environment.
     def secret_environment
-      secrets.ordered.to_h { |secret| [ secret.name, secret.resolved_value.to_s ] }
+      secrets.env.ordered.to_h { |secret| [ secret.name, secret.resolved_value.to_s ] }
     end
 
     # The project's secret +name+ set as asked, unsaved: a new secret, or the
@@ -106,6 +112,7 @@ module ActionAgent
     # @return [ProjectSecret]
     def assign_secret(name:, value: nil, source: nil, consent: false, set_by: nil)
       secret = secrets.find_or_initialize_by(name: name.to_s)
+      secret.kind = "env"
       secret.account_id = account_id
       secret.user_id = user_id
       secret.set_by_id = set_by.try(:id)
@@ -119,18 +126,45 @@ module ActionAgent
       secret
     end
 
+    # The project's SIGN_IN_SECRET set to +credentials+ (see
+    # ProjectSecret#sign_in_credentials), unsaved. Blank fields are left out.
+    #
+    # @return [ProjectSecret]
+    def assign_sign_in(credentials, set_by: nil)
+      fields = credentials.to_h.stringify_keys.slice(*ProjectSecret::SIGN_IN_FIELDS)
+        .transform_values { |field| field.is_a?(String) ? field.strip : field }.compact_blank
+      assign_engine_secret(SIGN_IN_SECRET, "sign_in", fields.to_json, set_by)
+    end
+
+    # The project's STORAGE_STATE_SECRET set to +state+, a Playwright storage
+    # state, unsaved.
+    #
+    # @return [ProjectSecret]
+    def assign_storage_state(state, set_by: nil)
+      assign_engine_secret(STORAGE_STATE_SECRET, "storage_state", state.to_json, set_by)
+    end
+
+    # The names of the project's sign_in secrets, which the explorer's
+    # sign_in tool takes as its secret_ref.
+    def sign_in_secret_names
+      secrets.sign_in.ordered.pluck(:name)
+    end
+
+    # The saved sign-in the project's browsers start with, or nil.
+    #
+    # @return [Hash, nil]
+    def saved_storage_state
+      secrets.storage_state.ordered.first&.storage_state_value
+    end
+
     # What the project's sandboxes' output is scrubbed of: each secret's
-    # value and its URL-encoded and Base64 forms. A secret whose
-    # organization key is gone has no value to mask.
+    # value and its URL-encoded and Base64 forms, and the parts of a sign-in
+    # secret apart (ProjectSecret#scrub_parts). A secret whose organization
+    # key is gone has no value to mask.
     #
     # @return [Array<String>]
     def scrub_values
-      values = secrets.filter_map do |secret|
-        secret.resolved_value
-      rescue ActiveRecord::RecordNotFound
-        nil
-      end
-      SecretScrubber.with_encodings(values)
+      SecretScrubber.with_encodings(secrets.flat_map(&:scrub_parts))
     end
 
     # The sandbox to run against: the current one while it is booting or
@@ -422,6 +456,13 @@ module ActionAgent
 
     def stream_name
       "project_#{id}"
+    end
+
+    def assign_engine_secret(name, kind, value, set_by)
+      secret = secrets.find_or_initialize_by(name: name)
+      secret.assign_attributes(kind: kind, source: "entered", provider: nil, consented_at: nil, value: value,
+        account_id: account_id, user_id: user_id, set_by_id: set_by.try(:id))
+      secret
     end
 
     def settle!(sandbox)

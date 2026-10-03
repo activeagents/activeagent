@@ -64,6 +64,39 @@ class ProjectSecretTest < ActiveSupport::TestCase
     assert_equal [ "/", true, "without_engine" ], [ spec.start_url, spec.keep_on_failure?, spec.apply ]
   end
 
+  test "sign-in secrets stay out of the boot, and join the scrub lists part by part" do
+    @project.assign_secret(name: "STRIPE_SECRET_KEY", value: SECRET).save!
+    @project.assign_sign_in({ login_url: "/users/sign_in", login: "dev@example.com", password: "sign-in-password-123",
+      password_field: "#user_password" }).save!
+    @project.assign_storage_state({ "cookies" => [ { "name" => "sid", "value" => "cookie-value-456", "domain" => "127.0.0.1", "path" => "/" } ],
+      "origins" => [ { "origin" => "http://127.0.0.1:3000", "localStorage" => [ { "name" => "jwt", "value" => "stored-token-789" } ] } ] }).save!
+
+    assert_equal [ "STRIPE_SECRET_KEY" ], @project.boot_spec.secrets.keys
+    assert_equal({ "login_url" => "/users/sign_in", "login" => "dev@example.com", "password" => "sign-in-password-123",
+                   "password_field" => "#user_password" }, @project.secrets.sign_in.sole.sign_in_credentials)
+    %w[sign-in-password-123 dev@example.com cookie-value-456 stored-token-789].each do |value|
+      assert_includes @project.scrub_values, value
+    end
+    assert_equal [ "APP_SIGN_IN" ], @project.sign_in_secret_names
+    assert_equal "cookie-value-456", @project.saved_storage_state.dig("cookies", 0, "value")
+  end
+
+  test "a secret's kind is fixed, and each kind's value is checked" do
+    env = @project.assign_secret(name: "STRIPE_SECRET_KEY", value: SECRET)
+    env.save!
+    env.kind = "sign_in"
+    assert_not env.valid?
+    assert_includes env.errors[:kind].join, "cannot change"
+
+    assert_not @project.assign_sign_in({ login: "dev@example.com" }).valid?, "a sign-in needs a password"
+    assert_not @project.assign_sign_in({ password: "pw-0123456789", login_field: "a\nb" }).valid?
+    assert_not @project.assign_storage_state({ "origins" => [] }).valid?, "a storage state needs a cookies list"
+    long = { "cookies" => [ { "name" => "a", "value" => "x" * ActionAgent::ProjectSecret::MAX_STORAGE_STATE_LENGTH } ] }
+    assert_not @project.assign_storage_state(long).valid?
+    assert_equal [ "short_value" ], @project.assign_sign_in({ password: "short" }).warnings.map { |warning| warning[:code] }
+    assert_equal "/", @project.assign_sign_in({ password: "pw-0123456789" }).sign_in_credentials["login_url"]
+  end
+
   test "a value joins scrub lists with its URL-encoded and Base64 forms" do
     forms = ActionAgent::SecretScrubber.with_encodings([ SECRET, nil, "" ])
 

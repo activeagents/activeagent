@@ -905,13 +905,14 @@ module ActionAgent
         @dashboard_tool_secrets = [ @api_key&.token ].compact
       end
 
-      # The owner's entered project secrets, with their encodings; a secret
-      # that uses the organization's key is masked as that provider key.
+      # The owner's entered project secrets, with their encodings and a
+      # sign-in secret's parts (ProjectSecret#scrub_parts); a secret that
+      # uses the organization's key is masked as that provider key.
       # Empty on an install that has not run the projects migration, so the
       # other credentials are still masked there.
       def project_secret_values
-        values = owned(ProjectSecret).where(source: "entered").order(id: :desc).limit(SECRET_LOOKUP_LIMIT).pluck(:value)
-        SecretScrubber.with_encodings(values)
+        secrets = owned(ProjectSecret).where(source: "entered").order(id: :desc).limit(SECRET_LOOKUP_LIMIT)
+        SecretScrubber.with_encodings(secrets.flat_map(&:scrub_parts))
       rescue StandardError => e
         Rails.logger.warn("[ActionAgent] MCP project secret lookup failed: #{e.class}")
         []
