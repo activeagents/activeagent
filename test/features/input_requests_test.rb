@@ -209,6 +209,33 @@ class InputRequestsTest < ActiveSupport::TestCase
     assert_equal [ [ :block, [ "issue_refund" ] ], [ :method, true ], :no_argument ], seen
   end
 
+  test "on_input_request adds no action and leaves the release digest unchanged" do
+    build = lambda do |&body|
+      Class.new(ApplicationAgent) do
+        def self.name = "DigestedAgent"
+
+        generate_with :mock, model: "mock-model"
+
+        def triage = prompt(message: "Triage")
+
+        class_eval(&body) if body
+      end
+    end
+
+    plain  = build.call
+    asking = build.call do
+      on_input_request :notify_reviewer
+      on_input_request { |response| response }
+
+      private
+
+      def notify_reviewer(response) = response
+    end
+
+    assert_equal [ "triage" ], asking.action_methods.to_a
+    assert_equal plain.release_digest, asking.release_digest
+  end
+
   test "on_input_request callbacks do not run for a generation that finishes" do
     seen = []
     agent_class = Class.new(RefundAgent) do
