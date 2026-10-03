@@ -51,6 +51,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   documented on the orchestrator and in the dashboard guide; the `:mock` and
   `:local` backends implement none of them. `read_file` refuses a path outside
   the checkout before the backend sees it.
+- **Store browser events on session recordings, and read any session as a
+  timeline** (`actionagent`). `POST <mount>/api/session_recordings/:id/events`
+  takes a batch of `rrweb`, `console` and `marker` events, authenticated by
+  the recording's ingest token (`SessionRecording#issue_ingest_token!`, stored
+  as a digest, expiring with the recording or its sandbox) or by a dashboard
+  session that owns the recording. Each batch's clock offset is applied, so
+  events are stored in server time. Batches over
+  `ActionAgent.recording_limits` answer 413 and are counted as dropped.
+  `GET .../events?after=` reads them back in time order.
+  `GET <mount>/api/session_recordings/:id/timeline` and
+  `GET <mount>/api/sessions/{context,run,scenario_result}/:id/timeline` return
+  message, LLM, tool and browser lanes, derived when read from runs, messages,
+  generations and telemetry spans. An agent's browser tool calls are recorded
+  as `action` events with typed values masked. A recording can belong to a
+  conversation (`agent_context_id`) and records its `source`. Deleting a
+  recording asks the permission checker about `:manage_recordings`. Adds
+  migration `create_active_agent_recording_events`.
 
 ### Changed
 

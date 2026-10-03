@@ -1256,6 +1256,94 @@ prompt, so anything else that would ask is denied. `plan` keeps sessions
 read-only. Avoid `bypassPermissions`: it lets a session run any command as the
 dashboard's user.
 
+## Session timelines
+
+Every conversation, run and evaluation scenario replay can be read as a
+timeline: message, LLM, tool and browser lanes on one time axis. The lanes are
+derived when the timeline is read, from the run log, the conversation's
+messages and generations, and the stored telemetry spans, so a session needs
+no recording to have one.
+
+| Endpoint | The timeline of |
+|---|---|
+| `GET /api/sessions/context/:id/timeline` | a conversation (`AgentContext`) |
+| `GET /api/sessions/run/:id/timeline` | a run (`AgentRun`) |
+| `GET /api/sessions/scenario_result/:id/timeline` | the run that replayed an evaluation scenario |
+| `GET /api/session_recordings/:id/timeline` | a recording: its browser lane, with the lanes of its conversation or run |
+
+The response carries `session` (its runs, conversations and trace ids),
+`lanes` (`message`, `llm`, `tool`, `browser`, each in time order) and
+`recordings`. Every entry has an `id`, a `start` (ISO 8601 with
+milliseconds), a `duration_ms` and a `trace_id`, null when unknown. rrweb
+events are not in the timeline. Read them from
+`GET /api/session_recordings/:id/events?after=<id>`, which returns the
+recording's rows in time order, a page at a time.
+
+A timeline reaches runs, conversations and traces only through ids the server
+set: a recording's run and conversation, and a run's trace id. Each is looked
+up among what the caller owns, and a session the caller does not own answers
+404. Ids inside recorded events are shown, never followed. A browser tool's
+typed values (`browser_type` text, `browser_fill_form` values) are masked, and
+no response carries cookies or web storage.
+
+### Recording events
+
+A recording stores what a browser recorded as `recording_events`, by kind:
+
+| Kind | Written by |
+|---|---|
+| `rrweb`, `console`, `marker` | a browser, through the ingest endpoint below |
+| `action` | the engine, for each browser tool call an agent makes |
+| `human_input` | reserved for input relayed while a person drives the browser |
+
+A browser posts a batch to `POST /api/session_recordings/:id/events`:
+
+```json
+{
+  "sent_at": 1767225600000,
+  "events": [
+    { "kind": "rrweb", "timestamp": 1767225599500, "data": { "type": 3, "data": {} } },
+    { "kind": "console", "timestamp": 1767225599800, "data": { "level": "error", "message": "boom" } }
+  ]
+}
+```
+
+`sent_at` is the client's clock when it sent the batch. The server adds
+receive time minus `sent_at` to every timestamp, so a client with a wrong
+clock is still stored in server time. A batch authenticates with either:
+
+- the recording's ingest token, as `Authorization: Bearer <token>`.
+  `SessionRecording#issue_ingest_token!` returns it and stores only its
+  digest. It is accepted for that recording alone, cannot read anything back,
+  and stops working when it expires (two hours by default), when the
+  recording completes, or when the recording's sandbox stops;
+- a dashboard session with its CSRF token, for a recording the user owns.
+
+A batch is stored whole or not at all. It answers 422 when it holds a kind a
+browser may not write, and 413 (`code: "recording_limit"`) when it is over a
+cap, counting its events in the recording's `dropped_event_count`. The caps
+default to:
+
+```ruby
+ActionAgent.configure do |config|
+  config.recording_limits = {
+    batch_events: 1_000,
+    batch_bytes: 1.megabyte,
+    recording_events: 100_000,
+    recording_bytes: 100.megabytes
+  }
+end
+```
+
+When an agent calls a Playwright MCP browser tool (`browser_*`), the call is
+stored as an `action` event on its run's recording, which the first call
+starts with `source: "agent"`. Typed values are masked and the owner's
+credentials are scrubbed before anything is stored. A failure to record is
+logged and leaves the tool's result unchanged.
+
+Each row's payload is gzip JSON, kept in the row up to 64 KB compressed and
+attached through Active Storage above that when the app has it.
+
 ## Authentication
 
 **The dashboard has no authentication by default.** Anyone who can reach
