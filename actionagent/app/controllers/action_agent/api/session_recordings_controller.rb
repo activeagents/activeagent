@@ -362,6 +362,9 @@ module ActionAgent
         end
       end
 
+      # rrweb events are returned as recorded, since a DOM attribute may carry
+      # any name and a stripped snapshot would not replay. Other kinds lose
+      # SessionRecording::SENSITIVE_STATE_KEYS, as they do in a timeline.
       def event_row_json(row)
         {
           id: row.id,
@@ -370,7 +373,7 @@ module ActionAgent
           occurred_to: row.occurred_to.utc.iso8601(3),
           clock_offset_ms: row.clock_offset_ms,
           event_count: row.event_count,
-          events: row.events
+          events: row.kind == "rrweb" ? row.events : SessionRecording.without_sensitive_state(row.events)
         }
       end
 

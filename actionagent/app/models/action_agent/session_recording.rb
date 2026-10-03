@@ -105,6 +105,21 @@ module ActionAgent
       sandbox_session&.owner || agent_run&.agent&.owner || (conversation_agent.owner if conversation_agent.is_a?(Agent))
     end
 
+    # Returns +value+ without SENSITIVE_STATE_KEYS in any Hash it holds, at
+    # any depth.
+    def self.without_sensitive_state(value)
+      case value
+      when Hash
+        value.each_with_object({}) do |(key, item), clean|
+          next if SENSITIVE_STATE_KEYS.include?(key.to_s)
+
+          clean[key] = without_sensitive_state(item)
+        end
+      when Array then value.map { |item| without_sensitive_state(item) }
+      else value
+      end
+    end
+
     # The digest an ingest token is stored and looked up as.
     def self.ingest_token_digest(token)
       Digest::SHA256.hexdigest(token.to_s)

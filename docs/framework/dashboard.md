@@ -1283,8 +1283,10 @@ A timeline reaches runs, conversations and traces only through ids the server
 set: a recording's run and conversation, and a run's trace id. Each is looked
 up among what the caller owns, and a session the caller does not own answers
 404. Ids inside recorded events are shown, never followed. A browser tool's
-typed values (`browser_type` text, `browser_fill_form` values) are masked, and
-no response carries cookies or web storage.
+typed values (`browser_type` text, `browser_fill_form` values) are masked.
+Timelines, and events other than rrweb, never carry a `cookies`,
+`local_storage` or `session_storage` key. rrweb events are returned as the
+browser recorded them, so that they replay.
 
 ### Recording events
 

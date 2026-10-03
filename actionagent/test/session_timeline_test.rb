@@ -253,6 +253,18 @@ class SessionTimelineTest < ActionDispatch::IntegrationTest
     row.save!
   end
 
+  test "the events endpoint returns no cookies or web storage from events other than rrweb" do
+    recording = ActionAgent::SessionRecording.start!(agent_run: @traced_run, source: "agent")
+    recording.record_server_event!(kind: "action", started_at: T0 + 2, data: { "tool_name" => "browser_evaluate",
+      "parameters" => { "cookies" => [ { "value" => "cookie-sekrit" } ], "local_storage" => { "token" => "lst-sekrit" } } })
+
+    get "/activeagents/api/session_recordings/#{recording.id}/events", params: { kind: "action" }
+
+    assert_response :success
+    assert_equal "browser_evaluate", response.parsed_body["events"].sole["events"].sole.dig("data", "tool_name")
+    %w[cookies local_storage cookie-sekrit lst-sekrit].each { |text| assert_not_includes response.body, text }
+  end
+
   test "a recording with no run or conversation has only its browser lane" do
     recording = ActionAgent::SessionRecording.start_user_session!(page_url: "https://example.com/")
     recording.record_action!(action_type: "handoff", value: "User took over")

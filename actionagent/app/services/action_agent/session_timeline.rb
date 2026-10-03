@@ -144,7 +144,7 @@ module ActionAgent
       starts = entries.map { |entry| Time.iso8601(entry[:start]) }
       ends = entries.zip(starts).map { |entry, start| start + (entry[:duration_ms].to_f / 1000) }
 
-      without_sensitive_state(
+      SessionRecording.without_sensitive_state(
         session: {
           kind: @kind,
           id: @id,
@@ -499,19 +499,6 @@ module ActionAgent
       value.present? ? Time.iso8601(value.to_s) : nil
     rescue ArgumentError
       nil
-    end
-
-    def without_sensitive_state(value)
-      case value
-      when Hash
-        value.each_with_object({}) do |(key, item), clean|
-          next if SessionRecording::SENSITIVE_STATE_KEYS.include?(key.to_s)
-
-          clean[key] = without_sensitive_state(item)
-        end
-      when Array then value.map { |item| without_sensitive_state(item) }
-      else value
-      end
     end
   end
 end
