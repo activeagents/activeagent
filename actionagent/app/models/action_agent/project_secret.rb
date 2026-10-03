@@ -4,10 +4,12 @@ module ActionAgent
   # An environment variable a project's sandbox boots with, such as the
   # app's own STRIPE_SECRET_KEY.
   #
-  # The value is encrypted at rest and never rendered back to the client.
-  # A boot hands it to the steps that run the repository's code (setup,
-  # manifest and start, see Project#boot_spec), and every log, error and
-  # code-session event of the project's sandboxes is scrubbed of it.
+  # The value is encrypted at rest. A boot hands it to the steps that run
+  # the repository's code (setup, manifest and start, see
+  # Project#boot_spec). A secret's value is never rendered back to the
+  # client, and every log, error and code-session event of the project's
+  # sandboxes is scrubbed of it. A value the setup assistant set is not
+  # secret, so it is shown and not scrubbed.
   #
   # A secret has one of three sources:
   #
@@ -124,16 +126,22 @@ module ActionAgent
       end
     end
 
+    # The secret as the Environment tab lists it. Only a value that is not
+    # secret (#plain?) is included, so a person can see what the setup
+    # assistant set.
+    #
     # @param setters [Hash{Integer => Object}] users by id, for set_by
     def as_summary(setters = {})
       setter = set_by_id && setters[set_by_id]
-      {
+      summary = {
         name: name,
         source: source,
         provider: provider,
         set_by: setter && { id: setter.id, name: self.class.display_name(setter) },
         updated_at: updated_at&.iso8601
       }
+      summary[:value] = value if plain?
+      summary
     end
 
     def self.display_name(user)

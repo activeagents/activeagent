@@ -111,6 +111,7 @@ module ActionAgent
         return render json: { error: "secrets must be a list" }, status: :bad_request unless secrets.is_a?(Array)
 
         project = build_project(full_name, ref, report)
+        return unless secret_sources_allowed!(secrets)
         return unless authorize_secrets!(project, secrets)
 
         selecting = connection.repository(full_name).nil?
