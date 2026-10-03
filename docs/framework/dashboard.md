@@ -705,7 +705,8 @@ can revise a candidate that needs a tool the agent does not have, and the
 accepting them asks `:replace_scenarios` on the dashboard. An exploration
 holds at most 200 candidates, and one call and one exploration at most
 2 MiB of candidate JSON. An `evaluation_id` that is a project's evaluation
-files the candidates under that project.
+files the candidates under that project, and an observed agent's evaluation
+is refused unless a host adapter replays it.
 
 ## GitHub connections and checkout sandboxes
 
@@ -1754,7 +1755,7 @@ it was not given:
 |---|---|
 | `GET /api/explorations` | The owner's explorations, newest first; `project_id` or `evaluation_id` filters |
 | `GET /api/explorations/:id` | One exploration with its candidates, the evaluation they merge into, the pre-selection cap and `runs_remaining` |
-| `POST /api/explorations` | Stores `candidates` for a `project_id` or `evaluation_id` as a new exploration, ready for review. A project's evaluation files them under the project |
+| `POST /api/explorations` | Stores `candidates` for a `project_id` or `evaluation_id` as a new exploration, ready for review. A project's evaluation files them under the project, and an observed agent's evaluation answers `422` unless a host adapter replays it |
 | `PATCH /api/explorations/:id/candidates/:candidate_id` | Edits a candidate (`prompt`, `group`, `rubric`, `tools`, `contains`, `not_contains`), rejects it (`state: "rejected"`) or reconsiders a rejected one (`state: "proposed"`). An accepted candidate is not rejected here: disable its scenario in the evaluation |
 | `POST /api/explorations/:id/accept` | Accepts candidates, as above |
 | `POST /api/explorations/:id/stop` | Ends a running exploration and keeps what it found for review; `409` once it has stopped |
