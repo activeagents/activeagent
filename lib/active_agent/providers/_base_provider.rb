@@ -2,6 +2,7 @@ require "active_support/delegation"
 
 require_relative "common/response"
 require_relative "concerns/exception_handler"
+require_relative "concerns/input_requests"
 require_relative "concerns/instrumentation"
 require_relative "concerns/mcp_serving"
 require_relative "concerns/previewable"
@@ -94,6 +95,7 @@ module ActiveAgent
       extend ActiveSupport::Delegation
 
       include ExceptionHandler
+      include InputRequests
       include Instrumentation
       include MCPServing
       include Previewable
@@ -169,6 +171,9 @@ module ActiveAgent
         self.max_tool_turns     = kwargs.delete(:max_tool_turns) || DEFAULT_MAX_TOOL_TURNS
         self.tool_turns         = 0
         self.instrumentation_enabled = kwargs.delete(:instrumentation) != false
+        self.generation_action_name  = kwargs.delete(:action_name)
+        self.input_request_resume    = kwargs.delete(:input_request_resume)
+        self.announce_input_requests = kwargs.delete(:announce_input_requests) != false
         self.options            = options_klass.new(kwargs.extract!(*options_klass.keys))
         self.context            = kwargs
         self.message_stack      = []
@@ -198,7 +203,7 @@ module ActiveAgent
         self.request = prompt_request_type.cast(prompt_context.except(:trace_id))
 
         instrument("prompt.active_agent") do |payload|
-          response = resolve_prompt
+          response = input_request_resume ? resume_prompt : resolve_prompt
           instrumentation_prompt_payload(payload, request, response)
 
           response
@@ -248,7 +253,9 @@ module ActiveAgent
       def call_tool_function(name, **kwargs)
         return mcp_call_tool(name, **kwargs) if mcp_owns_tool?(name)
 
-        tools_function.call(name, **kwargs)
+        result = isolate_undispatched_tool_call { tools_function.call(name, **kwargs) }
+        assert_input_request_supported!(result)
+        result
       end
 
       # @param name [String, nil]
@@ -539,6 +546,8 @@ module ActiveAgent
 
         if (tool_calls = process_prompt_finished_extract_function_calls)&.any? && tool_turn_allowed?
           process_function_calls(tool_calls)
+          return paused_prompt_response(api_response) if awaiting_input?
+
           resolve_prompt
         else
 
@@ -547,23 +556,31 @@ module ActiveAgent
           # as they continue to work.
           broadcast_stream_close
 
-          # To convert the messages into common format we first need to merge the current
-          # stack and then cast them to the provider type, so we can cast them out to common.
-          messages = prompt_request_type.cast(
-            messages: [ *request.messages, *message_stack ]
-          ).messages
-
-          # Create response object with usage_stack array for multi-turn cumulative tracking.
-          # This will returned as it closes up the recursive stack
-          Common::PromptResponse.new(
-            context:,
-            format: request.response_format,
-            messages:,
-            raw_request:  prompt_request_type.serialize(request),
-            raw_response: api_response,
-            usages: usage_stack
-          )
+          build_prompt_response(api_response)
         end
+      end
+
+      # @param api_response [Object, nil] provider-specific response
+      # @param attributes [Hash] further response attributes
+      # @return [Common::PromptResponse]
+      def build_prompt_response(api_response, **attributes)
+        # To convert the messages into common format we first need to merge the current
+        # stack and then cast them to the provider type, so we can cast them out to common.
+        messages = prompt_request_type.cast(
+          messages: [ *request.messages, *message_stack ]
+        ).messages
+
+        # Create response object with usage_stack array for multi-turn cumulative tracking.
+        # This will returned as it closes up the recursive stack
+        Common::PromptResponse.new(
+          context:,
+          format: request.response_format,
+          messages:,
+          raw_request:  prompt_request_type.serialize(request),
+          raw_response: api_response,
+          usages: usage_stack,
+          **attributes
+        )
       end
 
       # Counts a tool round-trip against the per-generation cap. When the
