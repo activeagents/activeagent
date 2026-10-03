@@ -26,7 +26,7 @@ module ActionAgent
       # first, so none is listed as pending.
       def index
         InputRequest.expire_overdue!(owner_input_requests)
-        scope = owner_input_requests.includes(:subject).recent
+        scope = owner_input_requests.for_listing.includes(:subject).recent
         status = params[:status].presence || "pending"
         unless status == "all"
           return render json: { error: "Unknown status #{status.to_s.truncate(32)}" }, status: :bad_request unless InputRequest.statuses.key?(status)
