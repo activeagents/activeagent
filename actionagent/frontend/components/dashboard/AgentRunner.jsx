@@ -22,7 +22,8 @@ import { pendingRequests, runIdFromSearch, runPollState } from '../../utils/inpu
 //
 // A run that pauses for input stays in flight: polling stops, its requests
 // are answered inline, and polling picks up again after each answer until
-// the same run finishes. A `?run=` in the URL opens that run the same way.
+// the same run finishes. Opening another conversation while it waits lets go
+// of it. A `?run=` in the URL opens that run the same way.
 
 // Feed event kinds mapped onto the shared stream chip palette so streamed
 // run output matches the Interactions/Traces visual language.
@@ -264,8 +265,13 @@ export default function AgentRunner({ agent, onBack }) {
   // Bumped to abandon a poll loop when the run it belongs to is superseded
   // or the page unmounts.
   const pollTokenRef = useRef(0);
-  // The conversation a paused run belongs to, for the poll an answer starts.
-  const pausedContextRef = useRef(null);
+  // The run on screen while it is paused for input, `{ id, contextId,
+  // waiting }`, which the poll an answer starts reads. `waiting` holds until
+  // that poll begins. While it holds nothing is in flight, so leaving the
+  // run's conversation lets go of the run.
+  const pausedRunRef = useRef(null);
+  // isRunning for a handler that changes it and then reads it.
+  const runningRef = useRef(false);
   // False once the page is gone, so a request still in flight cannot start a
   // poll loop the unmount has no way left to stop.
   const mountedRef = useRef(true);
@@ -396,10 +402,24 @@ export default function AgentRunner({ agent, onBack }) {
     setActionName(name);
   };
 
+  const setRunning = (value) => {
+    runningRef.current = value;
+    setIsRunning(value);
+  };
+
+  // A paused run that nothing polls keeps waiting on the server once the
+  // page lets go of it. The Needs input lane and Recent Runs lead back to it.
+  const releasePausedRun = () => {
+    if (!pausedRunRef.current?.waiting) return;
+    pausedRunRef.current = null;
+    setRunning(false);
+  };
+
   // The run panel belongs to the conversation on screen: its status pill,
   // activity feed and failure box would otherwise describe the last run of a
   // conversation the user has navigated away from.
   const clearRunPanel = () => {
+    releasePausedRun();
     setCurrentRun(null);
     setRunError(null);
     setExpandedEvents({});
@@ -479,7 +499,8 @@ export default function AgentRunner({ agent, onBack }) {
   };
 
   const finishRun = (run, contextId) => {
-    setIsRunning(false);
+    pausedRunRef.current = null;
+    setRunning(false);
     setSettledRequests([]);
     showRunConversation(run, contextId);
   };
@@ -487,7 +508,7 @@ export default function AgentRunner({ agent, onBack }) {
   // A run waiting on a request: polling stops and the run stays in flight,
   // so the composer stays closed until it finishes.
   const pauseRun = (run, contextId) => {
-    pausedContextRef.current = contextIdOf(run) ?? contextId;
+    pausedRunRef.current = { id: run.id, contextId: contextIdOf(run) ?? contextId, waiting: true };
     showRunConversation(run, contextId);
     notifyInputRequestsChanged();
   };
@@ -526,7 +547,8 @@ export default function AgentRunner({ agent, onBack }) {
       } else {
         // Same teardown as a finished run, minus the reload: the turn stops
         // showing as in flight and its thumbnails give their URLs back.
-        setIsRunning(false);
+        pausedRunRef.current = null;
+        setRunning(false);
         releaseTurn(pendingTurnRef.current);
         setPendingTurn(null);
         setCurrentRun((prev) => (prev ? { ...prev, status: 'failed', error_message: 'Timed out waiting for the run to finish.' } : prev));
@@ -545,7 +567,7 @@ export default function AgentRunner({ agent, onBack }) {
     setRunError(null);
     setInspectedRun(null);
     setInlineRole(null);
-    setIsRunning(true);
+    setRunning(true);
     setExpandedEvents({});
     setSettledRequests([]);
     setCurrentRun({ status: 'pending', input_prompt: trimmed, output: '', logs: [], started_at: new Date().toISOString() });
@@ -590,7 +612,7 @@ export default function AgentRunner({ agent, onBack }) {
       if (response.status === 402 && data.upgrade_required) {
         setLimitUsage(data.usage);
         setCurrentRun((prev) => ({ ...prev, status: 'failed', error_message: data.message || 'Plan limit reached' }));
-        setIsRunning(false);
+        setRunning(false);
         restoreComposer();
         return;
       }
@@ -602,7 +624,7 @@ export default function AgentRunner({ agent, onBack }) {
       pollRun(data.run.id, contextIdOf(data.run) ?? contextId);
     } catch (error) {
       setCurrentRun((prev) => ({ ...prev, status: 'failed', error_message: error.message }));
-      setIsRunning(false);
+      setRunning(false);
       restoreComposer();
     }
   };
@@ -611,22 +633,26 @@ export default function AgentRunner({ agent, onBack }) {
 
   // An answer posted from an inline card resumes the run on the server, so
   // the run is polled again. Still paused (another request of the pause is
-  // pending), the poll stops on it once more.
+  // pending), the poll stops on it once more. A card can settle after the
+  // page let go of its run, and then there is nothing to poll.
   const handleRequestSettled = (request, outcome) => {
+    const paused = pausedRunRef.current;
+    if (!paused || String(paused.id) !== String(request.run_id)) return;
     setSettledRequests((previous) => [...previous.filter((entry) => entry.request.id !== request.id), { request, outcome }]);
-    if (currentRun?.id) pollRun(currentRun.id, pausedContextRef.current);
+    pausedRunRef.current = { ...paused, waiting: false };
+    pollRun(paused.id, paused.contextId);
   };
 
   // Follows a run this page did not start: one waiting for input shows its
   // requests, and one in flight is polled to the end.
   const followRun = (run) => {
     const state = runPollState(run);
-    if (state === 'finished' || isRunning) return;
+    if (state === 'finished' || runningRef.current) return;
     setRunError(null);
     setExpandedEvents({});
     setSettledRequests([]);
     setCurrentRun(run);
-    setIsRunning(true);
+    setRunning(true);
     if (state === 'awaiting') pauseRun(run, contextIdOf(run));
     else pollRun(run.id, contextIdOf(run));
   };
