@@ -1,0 +1,62 @@
+# frozen_string_literal: true
+
+# GitHub App installations an owner linked (Settings -> Integrations), the
+# repositories they chose on each, and the installation a checkout sandbox
+# clones through.
+#
+# Table names follow ActionAgent.table_name_prefix, and JSON columns are
+# jsonb on PostgreSQL and json elsewhere, the same way as
+# create_active_agent_dashboard_tables.
+class AddGithubAppInstallations < ActiveRecord::Migration<%= migration_version %>
+  def change
+    prefix = ActionAgent.table_name_prefix
+
+    create_table "#{prefix}github_installations" do |t|
+      # GitHub's installation id. Unique across every owner: one installation
+      # is linked to one owner at most.
+      t.bigint :installation_id, null: false
+      # The GitHub user or organization the App is installed on.
+      t.bigint :github_account_id, null: false
+      t.string :github_account_login, null: false
+      t.string :github_account_type, null: false
+      # "all" or "selected", as the installation was configured on GitHub.
+      t.string :repository_selection
+      # The permissions GitHub granted the installation.
+      t.column :permissions, json_type, **json_default({})
+      # The repositories the owner made available, shaped like
+      # github_connections.repositories.
+      t.column :repositories, json_type, **json_default([])
+      t.datetime :suspended_at
+      t.datetime :removed_at
+      t.bigint :user_id
+      t.bigint :account_id
+      t.timestamps
+      t.index :installation_id, unique: true, name: "index_#{prefix}github_installations_on_installation"
+      t.index :account_id, name: "index_#{prefix}github_installations_on_account"
+      t.index :user_id, name: "index_#{prefix}github_installations_on_user"
+    end
+
+    change_table "#{prefix}sandbox_sessions" do |t|
+      t.bigint :github_installation_id
+      t.index :github_installation_id, name: "index_#{prefix}sandbox_sessions_on_github_installation"
+    end
+  end
+
+  private
+
+  def json_type
+    @json_type ||= postgres? ? :jsonb : :json
+  end
+
+  # MySQL rejects a default on a JSON column outright, so the column is
+  # created without one there.
+  def json_default(value, null: nil)
+    return {} unless postgres?
+
+    null.nil? ? { default: value } : { default: value, null: null }
+  end
+
+  def postgres?
+    connection.adapter_name.to_s.downcase.include?("postgres")
+  end
+end
