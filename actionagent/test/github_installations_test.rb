@@ -197,6 +197,38 @@ class GithubInstallationsTest < ActionDispatch::IntegrationTest
     assert_equal INSTALLATION_ID, ActionAgent::GithubInstallation.sole.installation_id
   end
 
+  test "a return from configuring an installation that already existed goes through the App's user authorization" do
+    installation = link_installation!(suspended_at: 1.day.ago)
+    exchange = stub_request(:post, "https://github.com/login/oauth/access_token")
+    state = start_install
+
+    get CALLBACK, params: { installation_id: INSTALLATION_ID, setup_action: "update", state: state }
+
+    assert_not_requested exchange
+    location = URI.parse(response.location)
+    assert_equal "/login/oauth/authorize", location.path
+    authorization_state = Rack::Utils.parse_query(location.query)["state"]
+    assert_not_equal state, authorization_state
+
+    WebMock.reset!
+    stub_app_user(installations: [ github_installation(account_type: "Organization", account_id: 555, login: "acme") ])
+    stub_membership("acme")
+    get CALLBACK, params: { code: "app-code", state: authorization_state }
+
+    assert_redirected_to "/activeagents/settings?github_app=linked&tab=integrations"
+    assert installation.reload.usable?, "linking again takes GitHub's word on the installation"
+  end
+
+  test "a user authorization that returns no code is refused rather than started again" do
+    get CALLBACK, params: { installation_id: INSTALLATION_ID, setup_action: "install" }
+    authorization_state = Rack::Utils.parse_query(URI.parse(response.location).query)["state"]
+
+    get CALLBACK, params: { state: authorization_state }
+
+    assert_redirected_to "/activeagents/settings?github_app=missing_code&tab=integrations"
+    assert_equal 0, ActionAgent::GithubInstallation.count
+  end
+
   test "a request to an organization owner links nothing and reports it pending" do
     state = start_install
 

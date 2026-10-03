@@ -85,9 +85,11 @@ module ActionAgent
       #
       # Where GitHub returns from an installation, and from the App's user
       # authorization. A code is exchanged only together with a state this
-      # session issued for the signed-in user. A return with no state (an
-      # install started on GitHub) sends the user through the App's user
-      # authorization with a fresh one.
+      # session issued for the signed-in user. Two returns go through the
+      # App's user authorization with a fresh state first: one with no state
+      # (an install started on GitHub), and one from #install that carries no
+      # code (GitHub returning from a change to an installation that already
+      # existed).
       def callback
         # Single use: read and cleared before anything else can fail.
         issued = session.delete(STATE_SESSION_KEY)
@@ -106,7 +108,14 @@ module ActionAgent
 
         installation_id = issued["installation_id"] || installation_id_param
         return redirect_to_settings(github_app: "missing_installation") unless installation_id
-        return redirect_to_settings(github_app: "missing_code") unless params[:code].is_a?(String) && params[:code].present?
+
+        unless params[:code].is_a?(String) && params[:code].present?
+          # A state that already carries an installation was issued for the
+          # user authorization, which has nothing left to retry.
+          return redirect_to_settings(github_app: "missing_code") if issued.key?("installation_id")
+
+          return start_user_authorization(installation_id)
+        end
 
         redirect_to_settings(github_app: link_installation(installation_id, params[:code]))
       rescue GithubClient::Error => e

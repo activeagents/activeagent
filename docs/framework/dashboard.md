@@ -674,6 +674,8 @@ with:
 - callback URL `<mount>/api/github_installations/callback` (for example
   `https://example.com/activeagents/api/github_installations/callback`)
 - **Request user authorization (OAuth) during installation** turned on
+- **Redirect on update** turned on, so GitHub also returns after an
+  installation that already exists is reconfigured
 - repository permissions Contents (read and write), Pull requests (read and
   write) and Metadata (read), and the organization permission Members (read)
 - no webhook, and no Workflows, Administration or Secrets permission
@@ -701,8 +703,10 @@ repositories. GitHub then returns to the callback, and the dashboard links the
 installation to the owner only when:
 
 - the return carries a state that this browser session issued to the
-  signed-in user (an install started on GitHub itself is sent through the
-  App's user authorization first, to get one), and
+  signed-in user, and a code from the App's user authorization (a return
+  missing either, such as an install started on GitHub itself or a return
+  from reconfiguring an installation that already existed, is sent through
+  the App's user authorization first), and
 - the installation appears in `GET /user/installations` for the authorizing
   GitHub user, and that user is the user account it is installed on, or an
   active admin of its organization.
@@ -710,9 +714,14 @@ installation to the owner only when:
 The authorizing user's token is used for those checks and then dropped. An
 installation is linked to one owner at most, and one owner may link several
 (a personal account and an organization, say). When a member asks an
-organization owner to approve the install, nothing is linked until the owner
-installs it. **Unlink** removes the installation from the dashboard; the App
-stays installed on GitHub.
+organization owner to approve the install, nothing is linked: once an owner
+of the organization approves it on GitHub, that owner links it from Settings.
+**Unlink** removes the installation from the dashboard; the App stays
+installed on GitHub. To link it again, choose **Install the GitHub App**,
+pick the account the App is installed on, and save its configuration on
+GitHub, which returns to the dashboard when the App has **Redirect on
+update** turned on. If GitHub does not return, uninstall the App from that
+account on GitHub and install it again from Settings.
 
 When GitHub refuses a token because the installation was removed or
 suspended, the dashboard marks the installation, and starting a sandbox from

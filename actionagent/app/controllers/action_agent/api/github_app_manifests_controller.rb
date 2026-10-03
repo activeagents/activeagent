@@ -77,6 +77,9 @@ module ActionAgent
           redirect_url: "#{base}/api/github_app_manifest/callback",
           callback_urls: [ "#{base}/api/github_installations/callback" ],
           request_oauth_on_install: true,
+          # Asks GitHub to return after an existing installation is
+          # reconfigured too, which is how one is linked again.
+          setup_on_update: true,
           public: false,
           default_permissions: PERMISSIONS,
           default_events: []
