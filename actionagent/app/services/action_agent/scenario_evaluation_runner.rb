@@ -27,6 +27,15 @@ module ActionAgent
   # agent's owner's sessions, since the run may start well after it was
   # asked for; one that is no longer live fails the run rather than
   # replaying without the tools it was meant to test.
+  #
+  # A selection with `browser` true (a run of a project's evaluation, see
+  # ProjectEvaluationJob) also gives every replay that sandbox's browser:
+  # one already running, or one started headless with the project's saved
+  # sign-in before the first replay, on a backend that runs browsers.
+  # `mount_url`, the dashboard's absolute mount URL, is where a browser
+  # started here posts its recording. Each replay's browser opens at the
+  # project's start URL. A browser that cannot start fails the run before
+  # any replay.
   class ScenarioEvaluationRunner < EvaluationRunnerService
     Evals = ActiveAgent::Evals
 
@@ -53,6 +62,7 @@ module ActionAgent
       run = @run || @evaluation.evaluation_runs.create!(status: :pending)
       run.update!(status: :running, selection: selection_summary(scenarios, specs))
       ensure_sandbox_live!
+      ensure_browser_live!
 
       if scenarios.empty?
         run.update!(status: :failed, error_message: "No scenarios selected — add scenarios to the evaluation or widen the selection",
@@ -162,7 +172,8 @@ module ActionAgent
         "scenario_keys" => scenarios.map(&:key),
         "group" => @selection[:group].presence,
         "models" => specs.map(&:to_h),
-        "sandbox" => sandbox_summary
+        "sandbox" => sandbox_summary,
+        "browser" => browser_requested? ? { "server_key" => "#{SandboxSession::BROWSER_SERVER_PREFIX}#{@selection[:sandbox_id]}" } : nil
       }.compact
     end
 
@@ -200,6 +211,53 @@ module ActionAgent
       raise ArgumentError, "Sandbox #{@selection[:sandbox_id]} is no longer running; start it again, or run without it"
     end
 
+    # --- browser ----------------------------------------------------------
+
+    # Whether the replays reach the sandbox's browser: asked for, and
+    # running or startable on the sandbox's backend.
+    def browser_requested?
+      return @browser_requested if defined?(@browser_requested)
+
+      @browser_requested = sandbox_server_key.present? && ActiveModel::Type::Boolean.new.cast(@selection[:browser]) == true &&
+        sandbox_session.present? && (sandbox_session.browser_running? || SandboxBrowser.orchestrator!.supports?(:start_browser))
+    rescue SandboxBrowser::Error
+      @browser_requested = false
+    end
+
+    # The project the selected sandbox was booted for, or nil.
+    def sandbox_project
+      return @sandbox_project if defined?(@sandbox_project)
+
+      @sandbox_project = sandbox_session&.project_id && Project.find_by(id: sandbox_session.project_id)
+    end
+
+    def ensure_browser_live!
+      return unless browser_requested?
+
+      sandbox = sandbox_session
+      unless sandbox.browser_running?
+        denial = ActionAgent.quota_denial(sandbox.metering_owner, :browser_minutes)
+        raise ArgumentError, "The sandbox's browser could not start: the plan allows no more browser minutes" if denial.present?
+
+        SandboxBrowser.ensure_running!(sandbox, recording_url: SandboxBrowser.recording_url_for(@selection[:mount_url]),
+          storage_state: sandbox_project&.saved_storage_state)
+      end
+      @sandbox_session = sandbox.reload
+    rescue SandboxBrowser::Error => e
+      raise ArgumentError, "The sandbox's browser could not start: #{e.message}"
+    end
+
+    # Opens the project's start URL in the sandbox's browser, so each replay
+    # starts on the same page. A browser that does not answer is left to the
+    # replay, which fails when it cannot reach it.
+    def open_start_url
+      return unless browser_requested?
+
+      SandboxBrowserDriver.new(sandbox_session).open(sandbox_project&.start_url.presence || "/")
+    rescue SandboxBrowserDriver::Error => e
+      Rails.logger.warn("[ActionAgent] evaluation #{@evaluation.id}: could not open the start URL: #{e.message}")
+    end
+
     # --- replay -----------------------------------------------------------
 
     def replay(scenario, spec)
@@ -207,6 +265,7 @@ module ActionAgent
       # (the order SandboxesController#compare uses), so it is counted even
       # when the run fails.
       ActionAgent.record_usage(owner, :execution)
+      open_start_url
 
       agent_run = @evaluation.agent.test_execute(
         scenario.prompt,

@@ -868,10 +868,10 @@ class ProjectsApiTest < ActionDispatch::IntegrationTest
     post "#{BASE}/#{project.id}/run_evaluation", as: :json
     run = ActionAgent::EvaluationRun.find(JSON.parse(response.body).dig("run", "id"))
     clear_enqueued_jobs
-    ActionAgent::ProjectEvaluationJob.perform_now(project.id, run.id)
+    ActionAgent::ProjectEvaluationJob.perform_now(project.id, run.id, "http://www.example.com/activeagents")
 
     assert run.reload.pending?, "still booting: checked again later"
-    assert_enqueued_with(job: ActionAgent::ProjectEvaluationJob, args: [ project.id, run.id ])
+    assert_enqueued_with(job: ActionAgent::ProjectEvaluationJob, args: [ project.id, run.id, "http://www.example.com/activeagents" ])
   end
 
   test "an installed repository targets the synced agent picked from its running sandbox" do

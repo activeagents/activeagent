@@ -241,9 +241,9 @@ module ActionAgent
       end
 
       # POST /api/projects/:id/run_evaluation { confirm: true }
-      # Runs the project's evaluation against its sandbox. An expired sandbox
-      # is booted again first, and the run waits for it (ProjectEvaluationJob)
-      # rather than failing.
+      # Runs the project's evaluation against its sandbox and its browser. An
+      # expired sandbox is booted again first, and the run waits for it
+      # (ProjectEvaluationJob) rather than failing.
       def run_evaluation
         unless @project.target_agent && @project.evaluation
           return render json: { error: "Choose the agent to evaluate first", code: "no_target" }, status: :conflict
@@ -255,7 +255,7 @@ module ActionAgent
 
         run = @project.evaluation.evaluation_runs.create!(status: :pending,
           selection: { "project_id" => @project.id, "sandbox_id" => sandbox.session_id })
-        ProjectEvaluationJob.perform_later(@project.id, run.id)
+        ProjectEvaluationJob.perform_later(@project.id, run.id, "#{request.base_url}#{request.script_name}")
 
         render json: { project: @project.reload.summary, run: { id: run.id, status: run.status, evaluation_id: run.evaluation_id } },
           status: :accepted
