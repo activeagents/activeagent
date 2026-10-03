@@ -30,8 +30,13 @@ module ActionAgent
   #                  screenshots }: how it was found. Shown to the reviewer,
   #                  and never to the judge. recording_id and range are kept
   #                  only when they name this exploration's own
-  #                  session_recording.
+  #                  session_recording. The range is in milliseconds from
+  #                  the recording's start.
   #
+  # An explorer exploration is walked by ExplorerExecutionService within its
+  # budget: { minutes, steps, cost }, where steps counts browser tool calls
+  # and cost is in US dollars. Its usage counts the same. Running out of any
+  # of them, or Stop and review, ends it in review with what it found.
   # Status moves from pending to running to review, or to failed. Review
   # becomes closed once no candidate awaits a decision, and review again
   # when one does.
@@ -79,6 +84,9 @@ module ActionAgent
     # at most this much JSON.
     MAX_BYTES = EvaluationReportImport::MAX_BYTES
     DEFAULT_GROUP = "Explored"
+    # The explorer's budget when a start names none, and the most one may set.
+    DEFAULT_BUDGET = { "minutes" => 15, "steps" => 150 }.freeze
+    MAX_BUDGET = { "minutes" => 120, "steps" => 1_000, "cost" => 100 }.freeze
     # Credentials of each kind read for scrubbing.
     SECRET_LOOKUP_LIMIT = 100
     # A pattern containing one of these does not survive the suite editor,
@@ -193,7 +201,8 @@ module ActionAgent
     # The target agent's tools as verdicts read them: { names:, complete: },
     # where complete is false when one of the agent's own servers failed
     # discovery. An exploration of a project's app (see #app_project) reads
-    # the app's tools from the project's current sandbox.
+    # the app's tools from the project's current sandbox, and the browser's
+    # while the sandbox runs one, as the project's evaluation runs reach it.
     #
     # Nil when the tools cannot be read: there is no target agent, the
     # project has no sandbox, or its sandbox is not live or did not answer.
@@ -205,6 +214,7 @@ module ActionAgent
       if (source = app_project)
         sandbox = source.current_sandbox_session or return nil
         extra << sandbox.runtime_server_key
+        extra << sandbox.browser_server_key if sandbox.browser_running?
       end
 
       roster = RuntimeToolRoster.new(agent, extra_server_keys: extra)
@@ -429,6 +439,66 @@ module ActionAgent
       %w[pending running].include?(status)
     end
 
+    # The explorer budget +raw+ asks for (minutes, steps and an optional
+    # cost), with DEFAULT_BUDGET's limits where it names none.
+    #
+    # @raise [InvalidCandidate] for a limit that is not a positive number,
+    #   or above MAX_BUDGET
+    # @return [Hash{String => Numeric}]
+    def self.budget_from(raw)
+      raw = raw.respond_to?(:to_unsafe_h) ? raw.to_unsafe_h : raw
+      raw = raw.is_a?(Hash) ? raw.stringify_keys.slice(*BUDGET_KEYS).compact_blank : {}
+      budget = DEFAULT_BUDGET.merge(raw.to_h do |key, value|
+        number = key == "cost" ? Float(value.to_s, exception: false) : Integer(value.to_s, exception: false)
+        unless number&.positive? && number <= MAX_BUDGET.fetch(key)
+          raise InvalidCandidate, "The #{key} budget must be a number above 0 and at most #{MAX_BUDGET.fetch(key)}"
+        end
+
+        [ key, number ]
+      end)
+      budget
+    end
+
+    # Marks the explorer's walk started, with nothing used yet.
+    def start_walk!
+      update!(status: "running", started_at: Time.current, usage: { "minutes" => 0, "steps" => 0, "cost" => 0 })
+      broadcast_change
+    end
+
+    # Stores the walk's usage so far ({ minutes, steps, cost }).
+    def record_usage!(minutes:, steps:, cost:)
+      update_columns(usage: { "minutes" => minutes.round(2), "steps" => steps, "cost" => cost.round(4) }, updated_at: Time.current)
+    end
+
+    # Ends a running walk for review with what it found, unless it was
+    # stopped meanwhile. +reason+ becomes the stop_reason: "finished",
+    # "budget_minutes", "budget_steps", "budget_cost" or "stopped".
+    #
+    # @return [Boolean] whether it was running
+    def finish_walk!(reason:)
+      stop!(reason: reason)
+    end
+
+    # Ends a pending or running walk as failed, keeping its candidates for
+    # review. +message+ is stored scrubbed of the values #scrub_secrets lists.
+    def fail_walk!(message)
+      failed = with_lock do
+        next false unless active?
+
+        update!(status: "failed", stop_reason: "error", error_message: SecretScrubber.scrub(message.to_s, scrub_secrets).truncate(2_000),
+          finished_at: Time.current)
+        true
+      end
+      broadcast_change if failed
+      failed
+    end
+
+    # Whether the walk is still meant to go on: false once it was stopped,
+    # failed or reviewed. Reads the stored status.
+    def walking?
+      self.class.where(id: id, status: "running").exists?
+    end
+
     def candidate_counts
       list = candidates
       {
@@ -447,6 +517,8 @@ module ActionAgent
         id: id,
         project_id: project_id,
         evaluation_id: evaluation_id,
+        agent_run_id: agent_run_id,
+        session_recording_id: session_recording_id,
         source: source,
         status: status,
         stop_reason: stop_reason,
@@ -464,15 +536,15 @@ module ActionAgent
 
     # The values candidate text is scrubbed of: the secrets of the project
     # whose app it comes from (see #app_project) with their encodings, the
-    # owner's provider keys, GitHub token and API keys, and the runtime
-    # tokens of that project's sandboxes.
+    # owner's provider keys, GitHub token and API keys, and the runtime and
+    # browser tokens of that project's sandboxes.
     #
     # @return [Array<String>]
     def scrub_secrets
       owner_record = owner
       source = app_project
-      sandbox_tokens = source ? SandboxSession.where(project_id: source.id).where.not(runtime_mcp_token: nil)
-        .order(id: :desc).limit(SECRET_LOOKUP_LIMIT).pluck(:runtime_mcp_token) : []
+      sandbox_tokens = source ? SandboxSession.where(project_id: source.id).order(id: :desc).limit(SECRET_LOOKUP_LIMIT)
+        .pluck(:runtime_mcp_token, :browser_token).flatten.compact : []
 
       [
         *(source ? source.scrub_values : []),

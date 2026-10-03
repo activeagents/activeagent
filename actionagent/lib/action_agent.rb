@@ -325,6 +325,8 @@ module ActionAgent
     #   :project           — creating a project; HTTP 402, and usage is
     #                        recorded under the same kind once it exists
     #   :browser_minutes   — starting a sandbox's browser; HTTP 402
+    #   :exploration       — starting the explorer on a project; HTTP 402,
+    #                        and usage is recorded once for each start
     #
     # The owner of an ingest kind is the tenant the key resolved to, nil on a
     # single-tenant install.
