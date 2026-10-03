@@ -209,7 +209,7 @@ class InputRequestsApiTest < ActionDispatch::IntegrationTest
   test "a request in another account's scope is not found" do
     me, account = sign_in_to_account
     stranger = User.create!(email: "stranger-#{SecureRandom.hex(3)}@example.com", name: "Stranger", age: 30)
-    @agent.update_columns(account_id: stranger.id)
+    give(@agent, stranger.id)
     request = paused_run.input_requests.sole
 
     get "/activeagents/api/input_requests"
@@ -221,11 +221,30 @@ class InputRequestsApiTest < ActionDispatch::IntegrationTest
     assert_response :not_found
     assert request.reload.pending?
 
-    @agent.update_columns(account_id: account.id)
+    give(@agent, account.id)
     mine = paused_run.input_requests.sole
     answer(mine, "Lisbon")
     assert_response :success
     assert_equal me.id, mine.reload.answered_by_id
+  end
+
+  test "a request is found through its run, for an agent created through the API" do
+    me, account = sign_in_to_account
+    post "/activeagents/api/agents", params: { agent: { name: "Planner", provider: "mock", model: "mock-model" } }, as: :json
+    assert_response :success
+    run = paused_run(agent: ActionAgent::Agent.find(json.dig("agent", "id")))
+    request = run.input_requests.sole
+
+    get "/activeagents/api/input_requests"
+    assert_equal [ request.id ], json["input_requests"].map { |entry| entry["id"] }
+    get "/activeagents/api/runs/#{run.id}"
+    assert_equal [ request.id ], json.dig("run", "input_requests").map { |entry| entry["id"] }
+    key = ActionAgent::ApiKey.create!(name: "Harness", account_id: account.id, user_id: me.id)
+    listed = mcp_tool("input_requests_list", {}, key).dig("result", "structuredContent", "input_requests")
+    assert_equal [ request.id ], listed.map { |entry| entry["id"] }
+
+    answer(request, "Lisbon")
+    assert_response :success
   end
 
   test "a denial from the permission checker is forbidden, and the checker sees the request" do
@@ -243,7 +262,7 @@ class InputRequestsApiTest < ActionDispatch::IntegrationTest
   test "in multi-tenant mode a request with no signed-in user is refused, even with no checker" do
     _me, account = sign_in_to_account
     ActionAgent.current_user_resolver = ->(_controller) { nil }
-    @agent.update_columns(account_id: account.id)
+    give(@agent, account.id)
     request = paused_run.input_requests.sole
 
     answer(request, "Lisbon")
@@ -254,7 +273,7 @@ class InputRequestsApiTest < ActionDispatch::IntegrationTest
 
   test "in multi-tenant mode with no checker, only the run's actor answers its request" do
     me, account = sign_in_to_account
-    @agent.update_columns(account_id: account.id)
+    give(@agent, account.id)
     teammate = User.create!(email: "teammate-#{SecureRandom.hex(3)}@example.com", name: "Teammate", age: 30)
     request = paused_run(ActiveAgent::InputRequest.confirm("Allow refund to run?"), actor: teammate).input_requests.sole
     assert_equal teammate.id, request.requested_by_id
@@ -280,7 +299,7 @@ class InputRequestsApiTest < ActionDispatch::IntegrationTest
 
   test "a permission checker decides who answers, whoever the run's actor is" do
     me, account = sign_in_to_account
-    @agent.update_columns(account_id: account.id)
+    give(@agent, account.id)
     teammate = User.create!(email: "teammate-#{SecureRandom.hex(3)}@example.com", name: "Teammate", age: 30)
     request = paused_run(actor: teammate).input_requests.sole
     ActionAgent.permission_checker = ->(_user, action, _subject) { action == :answer_input_request }
@@ -355,12 +374,13 @@ class InputRequestsApiTest < ActionDispatch::IntegrationTest
 
   test "the MCP facade lists only the key owner's requests and answers text and choice requests only" do
     me, account = sign_in_to_account
-    @agent.update_columns(account_id: account.id)
+    give(@agent, account.id)
     mine = paused_run(
       ActiveAgent::InputRequest.text("Where to?"), ActiveAgent::InputRequest.choice("Class?", options: %w[economy business]),
       ActiveAgent::InputRequest.confirm("Allow refund?"), ActiveAgent::InputRequest.secret("Paste the token")
     )
-    other_agent = ActionAgent::Agent.create!(name: "Other", provider: "mock", model: "mock-model", account_id: me.id + 1000)
+    other_agent = ActionAgent::Agent.create!(name: "Other", provider: "mock", model: "mock-model")
+    give(other_agent, me.id + 1000)
     paused_run(agent: other_agent)
     key = ActionAgent::ApiKey.create!(name: "Harness", account_id: account.id, user_id: me.id)
 
@@ -390,6 +410,12 @@ class InputRequestsApiTest < ActionDispatch::IntegrationTest
       params: { jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: name, arguments: arguments } }.to_json,
       headers: { "Content-Type" => "application/json", "Authorization" => "Bearer #{key.token}" }
     JSON.parse(response.body)
+  end
+
+  # Gives +agent+ to the owner with +owner_id+, through the column this
+  # install scopes agents by.
+  def give(agent, owner_id)
+    agent.update_columns("#{ActionAgent::Agent.owner_association}_id" => owner_id)
   end
 
   def sign_in_to_account

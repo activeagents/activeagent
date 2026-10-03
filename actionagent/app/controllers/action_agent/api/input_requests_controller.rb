@@ -5,10 +5,10 @@ module ActionAgent
     # The requests for input paused runs are waiting on, and the answers that
     # resume them.
     #
-    # Every request is read through `owned`, so one outside the caller's
-    # owner scope answers 404. Answering or declining asks
-    # ActionAgent.permitted? about :answer_input_request (403 when denied),
-    # and the request must still be pending and unexpired (409).
+    # Every request is read through the runs the caller can see
+    # (owner_input_requests), so one outside them answers 404. Answering or
+    # declining asks InputRequest#answerable_by? (403 when denied), and the
+    # request must still be pending and unexpired (409).
     class InputRequestsController < BaseController
       LIST_LIMIT = 100
 
@@ -21,7 +21,7 @@ module ActionAgent
       # Pending requests unless `status` names another (or `all`), filtered by
       # `agent_id` and `run_id`, newest first.
       def index
-        scope = owned(InputRequest).includes(:subject).recent
+        scope = owner_input_requests.includes(:subject).recent
         status = params[:status].presence || "pending"
         unless status == "all"
           return render json: { error: "Unknown status #{status.to_s.truncate(32)}" }, status: :bad_request unless InputRequest.statuses.key?(status)
@@ -52,7 +52,7 @@ module ActionAgent
       private
 
       def set_input_request
-        @input_request = owned(InputRequest).find(params[:id])
+        @input_request = owner_input_requests.find(params[:id])
       end
 
       def authorize_answer!
