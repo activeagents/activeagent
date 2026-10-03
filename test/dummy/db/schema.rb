@@ -229,6 +229,7 @@ ActiveRecord::Schema[8.0].define(version: 23) do
     t.string "base_commit", null: false
     t.text "body"
     t.string "branch", null: false
+    t.text "commit_message"
     t.string "compare_url"
     t.datetime "created_at", null: false
     t.string "credential_kind"

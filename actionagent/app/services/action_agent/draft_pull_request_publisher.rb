@@ -26,6 +26,11 @@ module ActionAgent
   # then writes blobs, a tree on the checkout commit's tree, a commit with the
   # checkout commit as its parent, a branch that did not exist, and a draft
   # pull request (see DraftPullRequest for its operations).
+  #
+  # The branch of a pull request always holds the checkout commit's tree with
+  # the files of its last publish on top, so its diff on GitHub is the diff
+  # the dialog showed. An update that leaves out a file published earlier
+  # returns that file to its content in the checkout commit.
   class DraftPullRequestPublisher
     # A publish, preview or patch that cannot go ahead. +code+ is a word the
     # dashboard acts on:
@@ -589,6 +594,8 @@ module ActionAgent
     end
 
     def commit_message(record)
+      return record.commit_message.presence || DraftPullRequest::DEFAULT_UPDATE_MESSAGE if record.operation == "update"
+
       [ record.title, record.body.presence ].compact.join("\n\n")
     end
 

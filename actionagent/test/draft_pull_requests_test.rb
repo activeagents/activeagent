@@ -225,7 +225,7 @@ class DraftPullRequestsTest < ActionDispatch::IntegrationTest
     sandbox = app_sandbox!
     stage!(sandbox)
     stub_github!
-    publish!(sandbox, preview_files: preview!(sandbox), paths: [ "README.md" ])
+    publish!(sandbox, preview_files: preview!(sandbox), paths: [ "README.md", "app/models/gadget.rb" ])
     perform_enqueued_jobs
     published = ActionAgent::DraftPullRequest.sole
     assert_equal "d" * 40, published.head_commit
@@ -234,17 +234,22 @@ class DraftPullRequestsTest < ActionDispatch::IntegrationTest
     @calls.clear
     stub_github!(branch_head: published.head_commit, commit_sha: "f" * 40)
     post "#{BASE_PATH}/#{sandbox.session_id}/pull_request",
-      params: { update: true, files: selection(preview!(sandbox), "README.md") }, as: :json
+      params: { update: true, files: selection(preview!(sandbox), "README.md"), message: "Tidy the README", title: "Ignored" }, as: :json
     assert_response :accepted, response.body
     perform_enqueued_jobs
 
     published.reload
     assert_equal [ "published", "update", "f" * 40 ], [ published.status, published.operation, published.head_commit ]
     writes = @calls.reject { |call| call[:method] == :get }
-    assert_equal %w[blobs trees commits refs], writes.map { |call| call[:endpoint] }
+    assert_equal %w[blobs trees commits refs], writes.map { |call| call[:endpoint] }, "the pull request itself is not written"
+    assert_equal BASE_TREE, writes[1][:body]["base_tree"]
+    assert_equal [ "README.md" ], writes[1][:body]["tree"].map { |entry| entry["path"] },
+      "the branch holds the checkout commit's tree with the ticked files on top, so an unticked file returns to it"
     assert_equal [ "d" * 40 ], writes[2][:body]["parents"]
+    assert_equal "Tidy the README", writes[2][:body]["message"]
     assert_equal :patch, writes[3][:method]
     assert_equal({ "sha" => "f" * 40, "force" => false }, writes[3][:body])
+    assert_equal [ "Add gadgets", [ "README.md" ] ], [ published.title, published.files.map { |file| file["path"] } ]
     assert_equal 1, ActionAgent::DraftPullRequest.count, "an update opens no second pull request"
 
     @calls.clear

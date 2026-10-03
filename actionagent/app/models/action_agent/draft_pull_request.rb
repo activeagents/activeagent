@@ -27,6 +27,7 @@ module ActionAgent
     CREDENTIAL_KINDS = %w[app oauth].freeze
     STATES = %w[open closed merged].freeze
     STATUS_REFRESH_INTERVAL = 1.minute
+    DEFAULT_UPDATE_MESSAGE = "Update from the sandbox"
     MAX_TITLE_CHARACTERS = 256
     MAX_BODY_CHARACTERS = 20_000
 
@@ -34,7 +35,7 @@ module ActionAgent
 
     validates :repository, :branch, :base_commit, :title, presence: true
     validates :title, length: { maximum: MAX_TITLE_CHARACTERS }
-    validates :body, length: { maximum: MAX_BODY_CHARACTERS }
+    validates :body, :commit_message, length: { maximum: MAX_BODY_CHARACTERS }
     validates :operation, inclusion: { in: OPERATIONS }
     validates :status, inclusion: { in: STATUSES }
     validates :credential_kind, inclusion: { in: CREDENTIAL_KINDS }, allow_nil: true

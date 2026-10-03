@@ -22,11 +22,13 @@ class CreateActiveAgentDraftPullRequests < ActiveRecord::Migration[7.2]
       t.string :head_commit
       t.string :title, null: false
       t.text :body
+      # The message of the last update's commit.
+      t.text :commit_message
       # The files of the last publish, each { path, status, mode, digest }.
       t.column :files, json_type, **json_default([])
-      # What the last publish did ("create", "update", "open_regular") and
-      # how it went ("queued", "publishing", "published", "draft_refused",
-      # "failed").
+      # What the last publish did ("create", "update", "open_draft",
+      # "open_regular") and how it went ("queued", "publishing", "published",
+      # "draft_refused", "failed").
       t.string :operation, null: false, default: "create"
       t.string :status, null: false, default: "queued"
       # Why the last publish failed: a word the dashboard acts on (see
