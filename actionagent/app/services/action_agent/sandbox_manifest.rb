@@ -12,8 +12,9 @@ module ActionAgent
   #
   # Writing it also mirrors the checkout's agent classes into its dashboard
   # (AgentSync), so the facade serves their run_<slug> tools to the key it
-  # names. Both belong to the checkout's single owner when it has exactly one
-  # (see .sandbox_owner), and to nobody in an app with no owner model.
+  # names. The key and the agents each belong to the only record of the class
+  # their model is owned through, when there is exactly one (see
+  # .sandbox_owner), and to nobody in an app with no owner model.
   module SandboxManifest
     # Where the manifest task writes, when set; stdout otherwise.
     PATH_ENV = "ACTION_AGENT_SANDBOX_MANIFEST"
@@ -25,9 +26,9 @@ module ActionAgent
     module_function
 
     # Builds the manifest inside the booted app: the engine's MCP path under
-    # wherever the app mounts it, and an API key for the MCP facade. Syncs
-    # the app's agent classes first; a class that cannot be synced is
-    # reported on stderr and the manifest is written regardless.
+    # wherever the app mounts it, and an API key for the MCP facade. Also
+    # syncs the app's agent classes. A class that cannot be synced is
+    # reported on stderr, and the manifest is written regardless.
     #
     # @param routes [ActionDispatch::Routing::RouteSet] the app's routes
     # @param agent_classes [Array<Class>, nil] what to sync; nil for
@@ -41,9 +42,8 @@ module ActionAgent
       mount = ActiveAgent::Telemetry::Configuration.new.mount_path_in(routes)
       raise Error, "ActionAgent::Engine is not mounted in this app's routes" if mount.nil?
 
-      owner = sandbox_owner
-      key = api_key(owner)
-      sync_agents(agent_classes || checkout_agent_classes, owner)
+      key = api_key(sandbox_owner(ActionAgent::ApiKey))
+      sync_agents(agent_classes || checkout_agent_classes, sandbox_owner(ActionAgent::Agent))
       { "mcp_path" => "#{mount}/mcp", "mcp_token" => key.token }
     end
 
@@ -59,15 +59,26 @@ module ActionAgent
       key
     end
 
-    # The record the checkout's agents and key belong to: the only one of
-    # ActionAgent.owner_class. Nil without an owner model, and when the app
-    # has none or several, since a sandbox cannot tell whose it would be.
-    def sandbox_owner
-      owner_class = ActionAgent.owner_class
+    # The record the checkout's +model+ rows belong to: the only one of the
+    # class +model+ is owned through. The API key and the agents can be owned
+    # through different classes (an account and a user), so each is resolved
+    # on its own. Nil when the app configures no owner class for +model+, and
+    # when that class has no record or several, since a sandbox cannot tell
+    # whose it would be.
+    #
+    # @param model [Class] an Ownable model
+    # @return [ActiveRecord::Base, nil]
+    def sandbox_owner(model)
+      owner_class = owner_class_for(model)
       return nil if owner_class.nil?
 
       owners = owner_class.limit(2).to_a
       owners.first if owners.one?
+    end
+
+    def owner_class_for(model)
+      association = model.owner_association
+      association && ActionAgent.public_send(Ownable::CLASS_FOR.fetch(association)).safe_constantize
     end
 
     # The app's own agent classes: those defined under app/agents, except
@@ -101,7 +112,7 @@ module ActionAgent
     def sync_agents(classes, owner)
       if owner.nil? && ActionAgent::Agent.owner_association
         warn "[ActionAgent] sandbox manifest: no agents synced: the app owns agents by " \
-          "#{ActionAgent.owner_class&.name || "an owner model"} and has no single owner for a sandbox to use"
+          "#{owner_class_for(ActionAgent::Agent)&.name || "an owner model"} and has no single owner for a sandbox to use"
         return
       end
 

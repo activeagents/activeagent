@@ -72,10 +72,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Sync a checkout's agents in the sandbox manifest** (`actionagent`).
   `bin/rails action_agent:sandbox:manifest` also mirrors the app's
   `app/agents` classes with `AgentSync`, so a sandbox's MCP facade serves
-  their `run_<slug>` tools. The manifest's API key and the synced agents
-  belong to the app's only owner record when it has exactly one, and to
-  nobody in an app with no owner model, where `AgentSync` now accepts a nil
-  owner.
+  their `run_<slug>` tools. The manifest's API key and the synced agents each
+  belong to the only record of the class their model is owned through, when
+  there is exactly one (the only account for the key and the only user for the
+  agents, in an app that configures both), and to nobody in an app with no
+  owner model, where `AgentSync` now accepts a nil owner.
 
 ### Changed
 

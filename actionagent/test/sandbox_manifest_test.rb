@@ -22,6 +22,9 @@ class SandboxManifestTest < ActionDispatch::IntegrationTest
   def teardown
     ENV[PATH_ENV] = @original_manifest_path
     ActionAgent.user_class = nil
+    ActionAgent.account_class = nil
+    ActionAgent.multi_tenant = false
+    ActionAgent.agent_scope_resolver = nil
   end
 
   test "generate names the engine's MCP path under the app's mount and a key for it" do
@@ -200,6 +203,36 @@ class SandboxManifestTest < ActionDispatch::IntegrationTest
     assert_equal "/activeagents/mcp", manifest["mcp_path"], "the manifest is written regardless"
   end
 
+  # API keys are owned through account_class first and agents through
+  # user_class first, so with both configured the two take owners of
+  # different classes, in a single-tenant app and a multi-tenant one alike.
+  [ false, true ].each do |multi_tenant|
+    test "with an account and a user class#{" in multi-tenant mode" if multi_tenant}, the key takes the only account and the agents the only user" do
+      account, user = account_and_user(multi_tenant: multi_tenant)
+      ActionAgent.agent_scope_resolver = ->(owner) { ActionAgent::Agent.where(user_id: owner.user_id) }
+
+      manifest = ActionAgent::SandboxManifest.generate(agent_classes: [ Overview::SupportAgent ])
+
+      key = ActionAgent::ApiKey.find_by!(name: KEY_NAME)
+      assert_equal [ account.id, nil ], [ key.account_id, key.user_id ]
+      assert_equal account, key.owner
+      assert_equal [ [ user.id, nil ] ], ActionAgent::Agent.pluck(:user_id, :account_id)
+      tools = rpc(manifest["mcp_path"], "tools/list", token: manifest["mcp_token"]).dig("result", "tools").map { |tool| tool["name"] }
+      assert_includes tools, "run_overview-support-agent", "the host's agent scope reaches the user's agents from the account's key"
+    end
+  end
+
+  test "with one account and several users, the key still takes the account and no agents are synced" do
+    account, = account_and_user(multi_tenant: true)
+    User.create!(email: "second@example.com", name: "Second", age: 30)
+
+    _out, err = capture_io { ActionAgent::SandboxManifest.generate(agent_classes: [ Overview::SupportAgent ]) }
+
+    assert_equal account, ActionAgent::ApiKey.find_by!(name: KEY_NAME).owner
+    assert_not ActionAgent::Agent.exists?
+    assert_includes err, "no agents synced: the app owns agents by User and has no single owner for a sandbox to use"
+  end
+
   test "the manifest task aborts with the reason when the engine is not mounted" do
     generate = ActionAgent::SandboxManifest.method(:generate)
     routes = unmounted_routes
@@ -290,6 +323,21 @@ class SandboxManifestTest < ActionDispatch::IntegrationTest
     Post.delete_all
     Profile.delete_all
     User.delete_all
+  end
+
+  # One user, and one Post standing in for an account (the dummy app has no
+  # Account model), configured as the app's two owner classes. The post's id
+  # differs from the user's, so an owner assigned through the wrong class
+  # shows in the foreign keys.
+  def account_and_user(multi_tenant:)
+    remove_users
+    ActionAgent::Agent.delete_all
+    ActionAgent.user_class = "User"
+    ActionAgent.account_class = "Post"
+    ActionAgent.multi_tenant = multi_tenant
+    user = User.create!(email: "owner@example.com", name: "Owner", age: 30)
+    account = Post.create!(id: user.id + 1, user: user, title: "Acme", content: "The only account")
+    [ account, user ]
   end
 
   def rpc(path, method, token:)
