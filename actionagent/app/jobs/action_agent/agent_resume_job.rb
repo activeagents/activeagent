@@ -12,6 +12,10 @@ module ActionAgent
   class AgentResumeJob < ApplicationJob
     queue_as :agents
 
+    # Raised, and recorded as the run's failure, when agent execution was
+    # turned off after the pause was settled.
+    class ExecutionDisabled < StandardError; end
+
     def perform(input_request_id)
       request = InputRequest.find_by(id: input_request_id)
       run = request&.subject
@@ -24,6 +28,8 @@ module ActionAgent
       secrets = pause.select { |paused| paused.kind == "secret" }.filter_map(&:answer)
 
       begin
+        raise ExecutionDisabled, "Agent execution is disabled on this dashboard" unless ActionAgent.execution_enabled?
+
         result = AgentExecutionService.call(
           run.agent, run,
           resume: {

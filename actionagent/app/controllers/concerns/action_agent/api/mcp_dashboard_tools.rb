@@ -429,6 +429,7 @@ module ActionAgent
       def input_requests_answer_tool
         id = tool_argument(:input_request_id)
         raise MCPController::McpError.new("Missing required argument: input_request_id", MCPController::JSONRPC_INVALID_PARAMS) if id.blank?
+        raise MCPController::McpError.new("Agent execution is disabled on this dashboard") unless ActionAgent.execution_enabled?
 
         request = owner_input_requests.find_by(id: id.to_s) or raise ToolError, "No input request #{id.to_s.truncate(32)} was found"
         unless MCP_ANSWERABLE_KINDS.include?(request.kind)
