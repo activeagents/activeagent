@@ -7,6 +7,7 @@ module ActionAgent
     # time, since a run is against the agent as it is.
     belongs_to :agent_version, optional: true
     before_create { self.agent_version_id ||= agent&.latest_version&.id }
+    has_many :input_requests, as: :subject, inverse_of: :subject, dependent: :destroy
 
     # Raised when a caller hands a run files to attach in a host app that
     # has nowhere to keep them.
@@ -118,8 +119,9 @@ module ActionAgent
       "file"
     end
 
-    # Status enum
-    enum :status, { pending: 0, running: 1, complete: 2, failed: 3, cancelled: 4 }
+    # `awaiting_input` is a run paused until a person answers its
+    # InputRequests; AgentResumeJob continues it.
+    enum :status, { pending: 0, running: 1, complete: 2, failed: 3, cancelled: 4, awaiting_input: 5 }
 
     # Validations
     validates :trace_id, presence: true
@@ -278,19 +280,86 @@ module ActionAgent
       LiveUpdates.broadcast("agent_runs_#{agent_id}", type: "update", id: id, status: status)
     end
 
-    # Cancel a running execution
-    def cancel!
-      return unless in_progress?
+    # Cancels a run that is in progress or waiting for input, and every
+    # request for input it still has pending.
+    #
+    # @param reason [String] recorded as the run's error message
+    def cancel!(reason = "Cancelled by user")
+      return unless in_progress? || awaiting_input?
 
-      update!(
-        status: :cancelled,
-        completed_at: Time.current,
-        error_message: "Cancelled by user"
-      )
+      transaction do
+        update!(status: :cancelled, completed_at: Time.current, error_message: reason)
+        input_requests.pending.update_all(status: InputRequest.statuses[:cancelled], updated_at: Time.current)
+      end
       broadcast_update
     end
 
+    # Writes one execution segment's result: `complete` with its output, or,
+    # for a generation that paused, `awaiting_input` with one InputRequest
+    # per paused tool call, stored in the same transaction so an answer can
+    # never find the requests before the run waits on them. Tokens and
+    # duration add to what earlier segments of the run recorded.
+    #
+    # @param result [Hash] AgentExecutionService's result
+    # @param segment_started_at [Time] when this segment started executing
+    def record_result!(result, segment_started_at:)
+      usage = result[:usage] || {}
+      attributes = {
+        output_metadata: result[:metadata],
+        duration_ms: duration_ms.to_i + ((Time.current - segment_started_at) * 1000).to_i,
+        input_tokens: add_tokens(input_tokens, usage[:input_tokens]),
+        output_tokens: add_tokens(output_tokens, usage[:output_tokens]),
+        total_tokens: add_tokens(total_tokens, usage[:total_tokens])
+      }
+
+      transaction do
+        if result[:input_requests].present?
+          InputRequest.record_pause!(self, result[:input_requests], checkpoint: result[:checkpoint])
+          update!(attributes.merge(status: :awaiting_input))
+        else
+          update!(attributes.merge(output: result[:output], status: :complete, completed_at: Time.current))
+        end
+      end
+    end
+
+    # Fails the run with +error+, recording its class beside the message: the
+    # class is what tells a refusal from a crash without reading prose.
+    #
+    # @param error [Exception]
+    # @param message [String] the message to record, when it must differ from
+    #   the error's own
+    def record_failure!(error, message: error.message)
+      update!(
+        status: :failed,
+        completed_at: Time.current,
+        error_message: message,
+        error_backtrace: error.backtrace&.first(10)&.join("\n"),
+        output_metadata: output_metadata.to_h.merge("error_class" => error.class.name)
+      )
+    end
+
+    # Yields under the run's row lock unless the run was cancelled meanwhile,
+    # so a cancel that arrived while the run executed is never overwritten by
+    # the result. Returns whether it yielded.
+    def unless_cancelled
+      with_lock do
+        if cancelled?
+          add_log("Execution finished after cancellation; result discarded", level: :info)
+          next false
+        end
+
+        yield
+        true
+      end
+    end
+
     private
+
+    def add_tokens(recorded, segment)
+      return recorded if segment.nil?
+
+      recorded.to_i + segment.to_i
+    end
 
     def locate_actor
       return nil unless actor_recorded?

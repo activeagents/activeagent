@@ -61,6 +61,7 @@ require "solid_agent"
 require "action_agent/version"
 require "action_agent/engine"
 require "action_agent/compatibility"
+require "action_agent/secret_requests"
 
 # Dashboard engine for visualizing telemetry data and managing agents.
 #
@@ -533,6 +534,12 @@ module ActionAgent
     # @return [ActiveSupport::Duration, Proc, nil]
     attr_accessor :trace_retention
 
+    # How long a run's request for input waits for an answer. An answer
+    # arriving later is refused, and the run fails. One day by default; nil
+    # lets a request wait until it is answered or its run is cancelled.
+    # @return [ActiveSupport::Duration, nil]
+    attr_accessor :input_request_ttl
+
     # Whether API keys and provider credentials are encrypted at rest with
     # Active Record Encryption. On by default, which requires the host app
     # to have run `rails db:encryption:init`. Turning it off stores those
@@ -883,6 +890,7 @@ module ActionAgent
       @table_name_prefix = "active_agent_"
       @agent_polymorphic_name = nil
       @encrypt_credentials = true
+      @input_request_ttl = 1.day
       @github_client_id = nil
       @github_client_secret = nil
       @github_oauth_scopes = "repo read:user"
