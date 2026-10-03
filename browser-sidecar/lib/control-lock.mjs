@@ -35,6 +35,17 @@ export function changesPage(name, args = {}) {
 }
 
 /**
+ * Whether the holders' users `a` and `b` are the same person. A user with no
+ * id is nobody in particular, so is never the same as anyone.
+ *
+ * @param {{ id: string|null }} a
+ * @param {{ id: string|null }} b
+ */
+export function sameUser(a, b) {
+  return a.id !== null && a.id === b.id;
+}
+
+/**
  * Used to let one person at a time drive the browser by hand. While someone
  * holds control, an agent's call that changes the page waits for them to
  * hand it back (#admit).
@@ -78,7 +89,7 @@ export class ControlLock extends EventEmitter {
     const previous = this.holder;
     if (this.closed) return { holder: previous, taken: false };
     if (previous?.key === key) return { holder: previous, taken: true };
-    if (previous && !(previous.user.id !== null && previous.user.id === user.id)) return { holder: previous, taken: false };
+    if (previous && !sameUser(previous.user, user)) return { holder: previous, taken: false };
 
     this.clearGrace();
     this.holder = { key, user, since: previous?.since ?? this.now() };
