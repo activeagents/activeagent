@@ -24,9 +24,15 @@ export function rrwebSource() {
   return readFileSync(join(dirname(require.resolve('@rrweb/record')), 'record.umd.min.cjs'), 'utf8');
 }
 
+// Text inside an editable element. maskAllInputs covers only input,
+// textarea and select values, and text typed into a contenteditable host
+// (a rich-text editor, say) is recorded as DOM text instead.
+export const EDITABLE_TEXT = '[contenteditable]:not([contenteditable="false"])';
+
 /**
  * Returns the init script that records each page with rrweb and hands its
- * events, as JSON text, to the binding named `binding`. Inputs are masked
+ * events, as JSON text, to the binding named `binding`. Input values, and
+ * the text of contenteditable elements and their descendants, are masked
  * before an event leaves the page. The bundle runs with a module object of
  * its own, so it defines no global the page could reach.
  *
@@ -59,6 +65,7 @@ export function initScript({ binding, rrweb, flushMs = PAGE_FLUSH_MS, flushEvent
       else if (timer === null) timer = setTimeout(flush, ${flushMs});
     },
     maskAllInputs: true,
+    maskTextSelector: ${JSON.stringify(EDITABLE_TEXT)},
     recordCrossOriginIframes: true,
     sampling: { mousemove: 50, scroll: 150, input: 'last' },
   });

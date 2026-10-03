@@ -22,11 +22,13 @@ const skip = !installed && 'Chromium is not installed';
 const BIN = new URL('../bin/browser-sidecar.mjs', import.meta.url).pathname;
 const TOKEN = 'smoke-browser-token-0123456789abcdef0123';
 const SECRET = 'hunter2-typed-password';
+const NOTE = 'typed-into-a-rich-text-editor';
 const PRIVATE_BODY = 'PRIVATE-SERVICE-SECRET';
 const FOREIGN_BODY = 'FOREIGN-ORIGIN-SECRET';
 
 const FIXTURE = `<!doctype html><title>Fixture</title><h1>Orders</h1>
-<label>Password <input type="password"></label>`;
+<label>Password <input type="password"></label>
+<div role="textbox" aria-label="Notes" contenteditable="true"></div>`;
 
 function listen(handler) {
   return new Promise((resolve) => {
@@ -200,7 +202,9 @@ test('a real browser: guarded, pinned to the app, recorded with masked inputs, g
 
   const snapshot = text(await mcp.call('browser_snapshot'));
   const password = /textbox "Password" \[ref=([^\]]+)\]/.exec(snapshot)[1];
+  const notes = /textbox "Notes" \[ref=([^\]]+)\]/.exec(snapshot)[1];
   await mcp.call('browser_type', { target: password, text: SECRET });
+  await mcp.call('browser_type', { target: notes, text: NOTE });
   await new Promise((resolve) => setTimeout(resolve, 500));
 
   const exited = new Promise((resolve) => sidecar.on('exit', resolve));
@@ -215,6 +219,7 @@ test('a real browser: guarded, pinned to the app, recorded with masked inputs, g
   assert.ok(events.some((event) => event.kind === 'marker' && event.data.label === 'page_closed'));
   const recorded = JSON.stringify(batches);
   assert.ok(!recorded.includes(SECRET), 'the typed password is masked');
+  assert.ok(!recorded.includes(NOTE), 'text typed into a contenteditable element is masked');
 });
 
 test('a page redirected off the app is closed, and no tool shows any part of it', { skip }, async (t) => {
