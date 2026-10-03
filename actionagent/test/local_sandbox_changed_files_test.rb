@@ -151,6 +151,48 @@ class LocalSandboxChangedFilesTest < ActiveSupport::TestCase
     assert_equal "# Shop\n", read("README.md", base: true)
   end
 
+  test "never looks inside a submodule, whose own config could define filters, and lists it only when its commit moved" do
+    marker = @tmp.join("filter-ran")
+    sub = @app.join("sub")
+    FileUtils.mkdir_p(sub)
+    git("init", "-q", chdir: sub)
+    sub.join("a.txt").write("hi\n")
+    git("add", "--all", chdir: sub)
+    git("commit", "-q", "-m", "Sub", chdir: sub)
+    base = checkout!("README.md" => "# Shop\n")
+    assert_equal "160000", git("ls-tree", "HEAD", "sub").split(" ").first, "sub is a gitlink in the checkout commit"
+    git("config", "filter.probe.clean", "touch #{marker}; cat", chdir: sub)
+    sub.join(".gitattributes").write("*.txt filter=probe\n")
+    # The same size, and an mtime that is not the index's, so only reading
+    # the content tells git whether it changed.
+    sub.join("a.txt").write("ho\n")
+    File.utime(Time.utc(2000), Time.utc(2000), sub.join("a.txt"))
+
+    assert_equal({ base_commit: base, files: [] }, @backend.changed_files(@sandbox))
+    assert_not marker.exist?, "the submodule's filter must not run"
+
+    git("-c", "filter.probe.clean=cat", "commit", "-q", "-a", "-m", "Moved", chdir: sub)
+    assert_equal [ { path: "sub", status: "modified", mode: "160000", base_mode: "160000", size: nil } ],
+      @backend.changed_files(@sandbox)[:files]
+  end
+
+  test "an object of the checkout commit the sandbox rewrote is refused, never read" do
+    checkout!("README.md" => "# Shop\n", "lib/shop.rb" => "SHOP = 1\n")
+    blob = git("rev-parse", "HEAD:README.md").strip
+    forge_object!(blob, "blob", "# Shop\nInjected = true\n")
+
+    error = assert_raises(Backend::Error) { read("README.md", base: true) }
+    assert_match(/does not match the checked-out commit/, error.message)
+
+    # A tree that lists a real blob under the wrong name hashes to another id.
+    other = git("rev-parse", "HEAD:lib/shop.rb").strip
+    tree = git("rev-parse", "HEAD:lib").strip
+    forge_object!(tree, "tree", "100644 shop.rb\0".b + [ git("rev-parse", "HEAD:README.md").strip ].pack("H*"))
+    assert_not_equal other, git("rev-parse", "HEAD:README.md").strip
+    error = assert_raises(Backend::Error) { read("lib/shop.rb", base: true) }
+    assert_match(/does not match the checked-out commit/, error.message)
+  end
+
   test "a checkout that recorded no commit, or is gone, is refused" do
     checkout!("README.md" => "# Shop\n")
     @workspace.join("state.json").write("{}")
@@ -230,6 +272,15 @@ class LocalSandboxChangedFilesTest < ActiveSupport::TestCase
     output, status = Open3.capture2e(env, *argv, chdir: chdir.to_s, stdin_data: input.to_s)
     assert status.success?, "git #{args.join(' ')} failed: #{output}"
     output
+  end
+
+  # Replaces the loose object +id+ with +content+ as a +type+, which no
+  # longer hashes to +id+.
+  def forge_object!(id, type, content)
+    path = @app.join(".git", "objects", id[0, 2], id[2..])
+    assert path.exist?, "#{id} is a loose object"
+    path.chmod(0o644)
+    path.binwrite(Zlib::Deflate.deflate("#{type} #{content.bytesize}\0".b + content.b))
   end
 
   # Every Process.spawn made inside the block, as [env, argv].

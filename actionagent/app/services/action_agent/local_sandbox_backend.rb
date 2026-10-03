@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "digest"
 require "io/wait"
 require "net/http"
 require "open3"
@@ -76,6 +77,8 @@ module ActionAgent
     MAX_LISTING_BYTES = 4 * 1024 * 1024
     MAX_CHANGED_FILES = 5_000
     MAX_READ_BYTES = 1024 * 1024
+    # The verified trees one backend keeps, by object id (see #tree_entries).
+    MAX_CACHED_TREES = 256
     # The environment of the git commands that read a checkout's changes.
     # They take no lock on the index, read every path as a literal name
     # rather than a pathspec, and ignore replace refs, which the checkout
@@ -540,10 +543,13 @@ module ActionAgent
     # `git diff` reports against the commit checked out, and the untracked
     # files the repository does not ignore. Git runs as #capture_diff runs
     # it, with no credential in its environment, and not at all when the
-    # checkout's git config defines filter drivers. Each path's mode and size
-    # come from lstat of the working tree, so a symlink is reported as one
-    # (120000) and a nested repository as a submodule (160000). Sockets,
-    # pipes and devices, which git does not track, are left out.
+    # checkout's git config defines filter drivers. It does not look inside
+    # submodules, whose own configuration could define filters, so a
+    # submodule is listed only when the commit it points at changed. Each
+    # path's mode and size come from lstat of the working tree, so a symlink
+    # is reported as one (120000) and a nested repository as a submodule
+    # (160000). Sockets, pipes and devices, which git does not track, are
+    # left out.
     #
     # @return [Hash] { base_commit:, files: [{ path:, status:, mode:, base_mode:, size: }] },
     #   as SandboxOrchestrator#changed_files describes
@@ -559,7 +565,7 @@ module ActionAgent
       end
 
       diff = git_listing!(env, [ *git, "diff", "--raw", "-z", "--no-renames", "--no-abbrev", "--no-ext-diff", "--no-textconv",
-        "--ignore-submodules=none", base, "--" ], app)
+        "--ignore-submodules=dirty", base, "--" ], app)
       untracked = git_listing!(env, [ *git, "ls-files", "-z", "--others", "--exclude-standard" ], app)
 
       # ":<base mode> <mode> <base object> <object> <status>" per path.
@@ -601,10 +607,12 @@ module ActionAgent
     # The working tree is read with lstat, one path component at a time, and
     # never through a symlink: a symlink reads as its target path, and a path
     # whose parent is a symlink or a file reads as nothing. The commit is
-    # read with `git ls-tree` and `git cat-file`, which run no filters.
+    # read one object at a time with `git cat-file`, which runs no filters,
+    # and each object must hash to its id (see #read_committed_file).
     #
-    # @raise [Error] for a directory, a submodule, a special file, or more
-    #   than MAX_READ_BYTES
+    # @raise [Error] for a directory, a submodule, a special file, more than
+    #   MAX_READ_BYTES, or an object of the commit that does not hash to its
+    #   id
     # @return [String, nil] binary-encoded bytes
     def read_file(sandbox, path, base: false)
       workspace, app = checkout_workspace!(sandbox)
@@ -722,23 +730,74 @@ module ActionAgent
       nil
     end
 
+    # +path+ in the checkout commit, walked from the commit through each
+    # tree to the blob. Git does not check that an object it reads hashes to
+    # its id, and the checkout's object store is the sandbox's to rewrite, so
+    # every object is checked here: the content is the commit's, not
+    # whatever the sandbox wrote in its place.
     def read_committed_file(workspace, app, path)
       commit = recorded_checkout_commit!(workspace)
-      env = read_only_git_environment
-      git = git_command(app)
-      entry = git_listing!(env, [ *git, "ls-tree", "-z", "--full-tree", commit, "--", path ], app).first
+      commit_object = read_object(app, commit, "commit", limit: MAX_LISTING_BYTES)
+      tree = commit_object[/\Atree (\h+)\n/, 1] or raise Error, "The checked-out commit #{commit} names no tree"
+
+      *parents, name = path.split("/")
+      parents.each do |part|
+        entry = tree_entries(app, tree)[part]
+        # Not there, or a file or submodule where a directory would be.
+        return nil unless entry && entry[:mode] == "40000"
+
+        tree = entry[:id]
+      end
+      entry = tree_entries(app, tree)[name]
       return nil if entry.nil?
+      raise Error, "#{path} is a submodule in the checked-out commit" if entry[:mode] == "160000"
+      raise Error, "#{path} is a directory in the checked-out commit" if entry[:mode] == "40000"
 
-      meta, listed_path = entry.split("\t", 2)
-      return nil unless listed_path == path
+      read_object(app, entry[:id], "blob", limit: MAX_READ_BYTES, label: path)
+    end
 
-      _mode, type, object = meta.split(" ")
-      raise Error, "#{path} is a submodule in the checked-out commit" if type == "commit"
-      raise Error, "#{path} is a directory in the checked-out commit" unless type == "blob" && COMMIT_ID.match?(object.to_s)
+    # The entries of tree +id+, { name => { mode:, id: } }. Kept by id once
+    # checked, since a checked object never changes.
+    def tree_entries(app, id)
+      @verified_trees ||= {}
+      @verified_trees.fetch(id) do
+        @verified_trees.clear if @verified_trees.size >= MAX_CACHED_TREES
+        @verified_trees[id] = parse_tree(read_object(app, id, "tree", limit: MAX_LISTING_BYTES), id)
+      end
+    end
 
-      content, status = capture(env, [ *git, "cat-file", "blob", object ], chdir: app, limit: MAX_READ_BYTES + 1, timeout: GIT_TIMEOUT)
-      raise Error, "#{path} is larger than #{MAX_READ_BYTES} bytes" if content.bytesize > MAX_READ_BYTES
-      raise Error, "git could not read #{path} from the checked-out commit" unless status&.success?
+    # A raw tree object: "<mode> <name>\0<id as bytes>" per entry.
+    def parse_tree(raw, id)
+      id_bytes = id.length / 2
+      entries = {}
+      offset = 0
+      while offset < raw.bytesize
+        space = raw.index(" ".b, offset)
+        nul = space && raw.index("\0".b, space)
+        raise Error, "The checkout's tree #{id} could not be read" unless nul && nul + 1 + id_bytes <= raw.bytesize
+
+        name = raw.byteslice(space + 1, nul - space - 1).force_encoding(Encoding::UTF_8)
+        entries[name] = { mode: raw.byteslice(offset, space - offset), id: raw.byteslice(nul + 1, id_bytes).unpack1("H*") }
+        offset = nul + 1 + id_bytes
+      end
+      entries
+    end
+
+    # The content of object +id+ as a +type+ ("commit", "tree" or "blob"),
+    # refused unless it hashes to +id+. +label+ names it in errors.
+    def read_object(app, id, type, limit:, label: nil)
+      label ||= "The checkout's #{type} #{id}"
+      raise Error, "#{label} has no valid object id" unless id.is_a?(String) && COMMIT_ID.match?(id)
+
+      content, status = capture(read_only_git_environment, [ *git_command(app), "cat-file", type, id ],
+        chdir: app, limit: limit + 1, timeout: GIT_TIMEOUT)
+      raise Error, "#{label} is larger than #{limit} bytes" if content.bytesize > limit
+      raise Error, "git could not read #{label} from the checked-out commit" unless status&.success?
+
+      digest = id.length == 64 ? Digest::SHA256 : Digest::SHA1
+      unless digest.hexdigest("#{type} #{content.bytesize}\0".b + content) == id
+        raise Error, "#{label} in the checkout does not match the checked-out commit, so it is not read"
+      end
 
       content.b
     end
@@ -1473,7 +1532,7 @@ module ActionAgent
       base = read_state(workspace)["checkout_commit"]
       base = "HEAD" unless base.is_a?(String) && COMMIT_ID.match?(base)
       diff = ->(commit) do
-        capture(env, [ *git, "diff", "--no-color", "--no-ext-diff", "--no-textconv", commit, "--" ],
+        capture(env, [ *git, "diff", "--no-color", "--no-ext-diff", "--no-textconv", "--ignore-submodules=dirty", commit, "--" ],
           chdir: app, limit: MAX_DIFF_BYTES, timeout: GIT_TIMEOUT)
       end
       output, status = diff.call(base)
