@@ -1283,6 +1283,51 @@ require a Bearer token — see
 multi-tenant mode ingest always authenticates per-account keys (see
 below).
 
+### Permissions
+
+Authentication decides who reaches the dashboard. `config.permission_checker`
+decides which of them may perform its privileged actions. It is called with
+the signed-in user (the dashboard's `current_user`), the action, and the
+record the action applies to. For an action that creates a record, that is
+the unsaved record, with its owner columns already set. A truthy answer
+allows the action, and `false` denies it with HTTP 403:
+
+```ruby
+ActionAgent.configure do |config|
+  config.permission_checker = ->(user, action, subject) do
+    user.present? && user.admin?
+  end
+end
+```
+
+| Action | Asked by |
+|---|---|
+| `:manage_credentials` | storing, testing and deleting a provider credential (`POST /api/provider_keys`, `POST /api/provider_keys/test`, `DELETE /api/provider_keys/:provider`) |
+| `:manage_github` | connecting GitHub, choosing its repositories, and disconnecting it (`GET /api/github_connection/connect` and `/callback`, `PATCH` and `DELETE /api/github_connection`) |
+| `:manage_api_keys` | creating and revoking dashboard API keys (`POST /api/api_keys`, `DELETE /api/api_keys/:id`) |
+| `:publish_pull_request` | reserved: opening a pull request from a sandbox |
+| `:answer_input_request` | reserved: answering a run's request for input |
+| `:manage_project_secrets` | reserved: setting a project's secrets |
+| `:take_over_browser` | reserved: driving a run's browser by hand |
+| `:manage_recordings` | reserved: viewing and deleting session recordings |
+| `:replace_scenarios` | reserved: replacing an evaluation's scenarios |
+
+The list is `ActionAgent::PERMISSION_ACTIONS`. `ActionAgent.permitted?(user,
+action, subject)` asks the checker the same way the endpoints do, and raises
+`ArgumentError` for an action outside the list. Reading a setting is not a
+privileged action, so the `GET` endpoints that list keys or the connection
+are not checked. The connect and callback navigations return a refusal to
+Settings (`?github=forbidden`) rather than as JSON.
+
+Unset, anyone who passes authentication may perform every action, which
+suits a single-user install. With a checker set:
+
+- An exception raised by the checker denies the action, and is logged.
+- In multi-tenant mode, a request with no signed-in user is denied without
+  asking the checker, and a `nil` answer denies.
+- In single-tenant mode, a `nil` answer allows, so a checker can leave the
+  actions it has no rule for alone.
+
 ## Sending traces to a remote endpoint instead
 
 Point telemetry at any compatible receiver — including the hosted

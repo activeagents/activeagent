@@ -15,6 +15,7 @@ module ActionAgent
       before_action :require_owner!
       before_action :require_github_oauth!, only: [ :connect, :callback ]
       before_action :set_connection, only: [ :repositories, :update, :destroy ]
+      before_action :authorize_github!, only: [ :connect, :callback, :update, :destroy ]
 
       # Later handlers win, so the subclass is registered last.
       rescue_from GithubClient::Error, with: :github_unavailable
@@ -118,6 +119,23 @@ module ActionAgent
 
       def set_connection
         @connection = owned(GithubConnection).first!
+      end
+
+      # Asks about the owner's connection, or about an unsaved one when
+      # #connect or #callback is about to create it.
+      def authorize_github!
+        subject = @connection || owned(GithubConnection).first || owned(GithubConnection).new
+        authorize_action!(:manage_github, subject)
+      end
+
+      # #connect and #callback are browser navigations, so a refusal returns
+      # to Settings like their other outcomes. The callback's state is
+      # discarded with it.
+      def permission_denied(action)
+        return super unless action_name.in?(%w[connect callback])
+
+        session.delete(STATE_SESSION_KEY)
+        redirect_to_settings(github: "forbidden")
       end
 
       def require_github_oauth!

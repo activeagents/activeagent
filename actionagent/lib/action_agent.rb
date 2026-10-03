@@ -107,6 +107,30 @@ module ActionAgent
   # What ActionAgent.claude_code_auth may be set to.
   CLAUDE_CODE_AUTH_MODES = %i[api_key local_login].freeze
 
+  # The privileged actions ActionAgent.permission_checker is asked about:
+  #
+  #   :manage_credentials     store, test or delete a provider credential
+  #   :manage_github          connect, disconnect, or choose the repositories of
+  #                           the GitHub connection
+  #   :manage_api_keys        create or revoke a dashboard API key
+  #   :publish_pull_request   open a pull request from a sandbox's changes
+  #   :answer_input_request   answer or decline a run's request for input
+  #   :manage_project_secrets set or remove a project's secrets
+  #   :take_over_browser      drive a run's browser by hand
+  #   :manage_recordings      view or delete a session recording
+  #   :replace_scenarios      replace or merge an evaluation's scenarios
+  PERMISSION_ACTIONS = %i[
+    manage_credentials
+    manage_github
+    manage_api_keys
+    publish_pull_request
+    answer_input_request
+    manage_project_secrets
+    take_over_browser
+    manage_recordings
+    replace_scenarios
+  ].freeze
+
   class << self
     # Deprecation warnings for this gem, routed through Rails' machinery so a
     # host app can silence or escalate them like any other.
@@ -288,6 +312,27 @@ module ActionAgent
     # Unset means unlimited, which is what a self-hosted install wants.
     # @return [Proc, nil]
     attr_accessor :quota_checker
+
+    # Decides whether the signed-in user may perform a privileged action,
+    # called as (user, action, subject):
+    #
+    #   user    the signed-in user (the dashboard's current_user), or nil
+    #   action  one of PERMISSION_ACTIONS
+    #   subject the record the action applies to, unsaved when the action
+    #           creates it, with its owner columns set
+    #
+    # A truthy answer allows and false denies. What nil, an exception and a
+    # missing user mean is up to {.permitted?}. A denied dashboard request
+    # gets HTTP 403.
+    #
+    #   config.permission_checker = ->(user, action, subject) {
+    #     user.present? && (user.admin? || action == :answer_input_request)
+    #   }
+    #
+    # Unset means everyone who can reach the dashboard may do everything,
+    # which is what a single-user install wants.
+    # @return [Proc, nil]
+    attr_accessor :permission_checker
 
     # Resolves LLM provider credentials for a run. Receives
     # (owner, provider_name) and returns a Hash merged into the agent's
@@ -666,6 +711,34 @@ module ActionAgent
       quota_checker.call(owner, kind)
     end
 
+    # Whether +user+ may perform +action+ on +subject+, as permission_checker
+    # answers. Always true when no checker is configured. Otherwise:
+    #
+    #   - an exception from the checker denies, and is logged
+    #   - in multi-tenant mode a nil +user+ denies without asking the checker,
+    #     and a nil answer denies
+    #   - in single-tenant mode a nil answer allows
+    #
+    # @raise [ArgumentError] when +action+ is not one of PERMISSION_ACTIONS
+    # @return [Boolean]
+    def permitted?(user, action, subject = nil)
+      unless PERMISSION_ACTIONS.include?(action)
+        raise ArgumentError, "Unknown permission action #{action.inspect}; expected one of #{PERMISSION_ACTIONS.join(', ')}"
+      end
+      return true if permission_checker.nil?
+      return false if multi_tenant? && user.nil?
+
+      answer = begin
+        permission_checker.call(user, action, subject)
+      rescue StandardError => e
+        Rails.logger.error("[ActionAgent] permission_checker raised for #{action}, denying: #{e.class}: #{e.message}")
+        return false
+      end
+      return !multi_tenant? if answer.nil?
+
+      answer ? true : false
+    end
+
     # Provider options for +owner+, or {} when the host app has none and
     # config/active_agent.yml should be used as-is.
     #
@@ -767,6 +840,7 @@ module ActionAgent
       @model_concerns = []
       @controller_concerns = []
       @quota_checker = nil
+      @permission_checker = nil
       @provider_credentials_resolver = nil
       @sandbox_backends = {}
       @local_sandboxes_enabled = nil
