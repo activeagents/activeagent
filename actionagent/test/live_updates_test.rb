@@ -63,9 +63,27 @@ class LiveUpdatesTest < ActiveSupport::TestCase
     assert_empty messages_on("agent_run_#{run.id}")
   end
 
+  test "Action Cable counts as loaded only when it is defined and has a server" do
+    assert ActionAgent::LiveUpdates.available?, "loaded"
+
+    with_action_cable(nil) { assert_not ActionAgent::LiveUpdates.available?, "not defined" }
+    with_action_cable(Module.new) { assert_not ActionAgent::LiveUpdates.available?, "defined without a server" }
+  end
+
   private
 
   def messages_on(stream)
     broadcasts(stream).map { |message| JSON.parse(message) }
+  end
+
+  # Replaces the top-level ActionCable constant for the block, or removes it
+  # when +replacement+ is nil.
+  def with_action_cable(replacement)
+    original = Object.send(:remove_const, :ActionCable)
+    Object.const_set(:ActionCable, replacement) if replacement
+    yield
+  ensure
+    Object.send(:remove_const, :ActionCable) if Object.const_defined?(:ActionCable, false)
+    Object.const_set(:ActionCable, original)
   end
 end

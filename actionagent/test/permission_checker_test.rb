@@ -191,13 +191,15 @@ class PermissionCheckerTest < ActionDispatch::IntegrationTest
   end
 
   test "a denied GitHub selection change or disconnect answers 403 and changes nothing" do
+    selected = [ { "id" => 7, "full_name" => "acme/web", "private" => true, "default_branch" => "main" } ]
     connection = ActionAgent::GithubConnection.create!(
-      access_token: "gho_secret", github_user_id: 42, login: "octocat", scopes: "repo", repositories: []
+      access_token: "gho_secret", github_user_id: 42, login: "octocat", scopes: "repo", repositories: selected
     )
     deny(:manage_github)
 
     patch "/activeagents/api/github_connection", params: { repositories: [] }, as: :json
     assert_forbidden(:manage_github)
+    assert_equal [ "acme/web" ], connection.reload.repository_names
 
     delete "/activeagents/api/github_connection"
     assert_forbidden(:manage_github)
