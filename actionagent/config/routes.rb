@@ -113,7 +113,8 @@ ActionAgent::Engine.routes.draw do
       end
       put :secrets, to: "project_secrets#upsert"
       resources :secrets, controller: "project_secrets", only: [ :index, :update, :destroy ], param: :name
-      # How the project's browser signs in to the app.
+      # The explorer agent's start, and how the project's browser signs in.
+      resources :explorations, controller: "project_explorations", only: [ :create ]
       resource :sign_in, controller: "project_sign_ins", only: [ :show, :update, :destroy ] do
         post :check
         post :save_browser

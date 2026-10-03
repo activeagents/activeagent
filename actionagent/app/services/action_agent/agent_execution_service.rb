@@ -340,39 +340,7 @@ module ActionAgent
       emit_event(eid: event_id, kind: event_kind, label: event_label, status: "started", detail: kwargs.to_json)
 
       result = begin
-        case name.to_s
-        when "save_memory"
-          entry = agent_memory.remember(
-            kwargs[:content].to_s,
-            source_agent: agent_class_name,
-            category: kwargs[:category]
-          )
-          { saved: true, id: entry.id, content: entry.content }
-        when "recall_memory"
-          entries = agent_memory.recall(limit: kwargs[:limit], category: kwargs[:category])
-          {
-            count: entries.size,
-            entries: entries.map do |entry|
-              {
-                content: entry.content,
-                category: entry.category,
-                source_agent: entry.source_agent,
-                created_at: entry.created_at&.iso8601
-              }.compact
-            end
-          }
-        when "call_agent"
-          call_agent(slug: kwargs[:slug], message: kwargs[:message])
-        else
-          # A tool one of the agent's own MCP servers serves is called there;
-          # AgentToolbox answers the rest. A browser tool call is recorded on
-          # the run's session recording either way.
-          # `actor:` comes from the run, never from kwargs (see
-          # ACTOR_KEYWORDS): it is who the run is for, not what it is about.
-          browser_recorder.intercept(tool_name: name.to_s, parameters: kwargs) do
-            mcp_dispatcher.call(name, kwargs) || AgentToolbox.call(name, actor: actor, **kwargs)
-          end
-        end
+        dispatch_tool(name, kwargs)
       rescue StandardError => e
         Rails.logger.warn("[AgentExecutionService] Tool #{name} failed: #{e.class} - #{e.message}")
         { error: "#{name} failed: #{e.message}" }
@@ -409,6 +377,55 @@ module ActionAgent
     end
 
     private
+
+    # Runs tool +name+ and returns its result: memory tools against the
+    # agent record's AgentMemory, call_agent as a sub-run, a tool one of
+    # the agent's own MCP servers serves there, and AgentToolbox the rest.
+    # A browser tool call is recorded on the run's session recording.
+    # `actor:` comes from the run, never from kwargs (see ACTOR_KEYWORDS):
+    # it is who the run is for, not what it is about.
+    def dispatch_tool(name, kwargs)
+      case name.to_s
+      when "save_memory"
+        entry = agent_memory.remember(
+          kwargs[:content].to_s,
+          source_agent: agent_class_name,
+          category: kwargs[:category]
+        )
+        { saved: true, id: entry.id, content: entry.content }
+      when "recall_memory"
+        entries = agent_memory.recall(limit: kwargs[:limit], category: kwargs[:category])
+        {
+          count: entries.size,
+          entries: entries.map do |entry|
+            {
+              content: entry.content,
+              category: entry.category,
+              source_agent: entry.source_agent,
+              created_at: entry.created_at&.iso8601
+            }.compact
+          end
+        }
+      when "call_agent"
+        call_agent(slug: kwargs[:slug], message: kwargs[:message])
+      else
+        browser_recorder.intercept(tool_name: name.to_s, parameters: kwargs) do
+          mcp_dispatcher.call(name, kwargs) || AgentToolbox.call(name, actor: actor, **kwargs)
+        end
+      end
+    end
+
+    # Options added to the provider's for this run, such as a
+    # max_tool_turns cap above the provider's default.
+    def generation_options
+      {}
+    end
+
+    # A provider class this run generates with in place of the one its
+    # provider name resolves to, or nil.
+    def prompt_provider_class
+      nil
+    end
 
     # Maximum agent-to-agent delegation depth for the call_agent tool. A
     # thread-local counter guards it because the sub-agent runs synchronously
@@ -544,6 +561,8 @@ module ActionAgent
       action = action_name
       run_trace_id = trace_id
       tool_definitions = tool_schemas
+      extra_options = generation_options
+      provider_class = prompt_provider_class
       service = self
 
       # A dashboard-authored agent has no Ruby class — it is rows: a tool
@@ -591,10 +610,11 @@ module ActionAgent
 
         if effective_provider == :mock
           # Test environment only (see #provider_available?).
-          generate_with :mock
+          generate_with :mock, **extra_options
         else
-          generate_with effective_provider, model: provider_model, **model_options
+          generate_with effective_provider, model: provider_model, **model_options, **extra_options
         end
+        self._prompt_provider_klass = provider_class if provider_class
 
         # Expose the agent's server-executable tools as public methods so the
         # gem's tools_function can route provider tool calls to them. The

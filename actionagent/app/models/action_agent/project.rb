@@ -41,6 +41,7 @@ module ActionAgent
     INSTALL_STATES = %w[detected bootstrapped installed].freeze
     REPOSITORY = %r{\A[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+\z}
     APP_ASSISTANT_NAME = "App assistant"
+    EXPLORER_NAME = "Explorer"
     # The secrets the test account step keeps: the credentials the
     # explorer's sign_in tool fills the login form with, and a browser's
     # saved sign-in, which every browser of the project starts with.
@@ -232,14 +233,15 @@ module ActionAgent
       ENV["USER"].presence || "the dashboard's user"
     end
 
-    # Deletes the project with its target agent (and so its evaluation) and
-    # its explorations, and stops its current sandbox.
+    # Deletes the project with its target agent (and so its evaluation), its
+    # explorer agent and its explorations, and stops its current sandbox.
     def discard!
       sandbox = current_sandbox_session
       transaction do
         agent = target_agent
         update_columns(target_agent_id: nil, evaluation_id: nil)
         agent&.destroy!
+        explorer_agent&.destroy!
         # A host that upgraded the engine before migrating has no table yet.
         Exploration.where(project_id: id).delete_all if Exploration.table_exists?
         destroy!
@@ -319,6 +321,39 @@ module ActionAgent
         TEXT
         provider: provider, model: model, slug: nil, tools: nil
       )
+    end
+
+    # The agent the engine's explorer runs as (ExplorerExecutionService), or
+    # nil before the project's first exploration.
+    #
+    # @return [Agent, nil]
+    def explorer_agent
+      id = settings["explorer_agent_id"]
+      id && Agent.find_by(id: id, account_id: account_id, user_id: user_id)
+    end
+
+    # The explorer agent, created on the provider and model the project's
+    # agents run on when the project has none. It carries the project's
+    # owner columns, so its runs reach the project's sandbox browser. Its
+    # instructions are composed for each exploration, so the stored ones
+    # only describe it.
+    #
+    # @return [Agent]
+    def explorer_agent!
+      with_lock do
+        existing = explorer_agent
+        next existing if existing
+
+        provider, model = self.class.assistant_model(owner)
+        agent = Agent.create!(
+          name: "#{EXPLORER_NAME} for #{repository}".truncate(100), user_id: user_id, account_id: account_id, status: :active,
+          description: "Walks #{repository}'s running app in its sandbox browser and proposes evaluation scenarios.",
+          instructions: "Explores #{repository} for its explorations. Its instructions are composed for each exploration.",
+          provider: provider, model: model, mcp_servers: []
+        )
+        update!(settings: settings.merge("explorer_agent_id" => agent.id))
+        agent
+      end
     end
 
     # Makes a proxy for the checkout's agent +slug+ the project's target
