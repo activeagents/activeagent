@@ -58,12 +58,18 @@ module ActionAgent
         Resolution.new(options: {}, source: configured?(provider) ? "config" : "none")
       end
 
-      # Every stored credential of +owner+'s account, organization and
-      # personal, for masking out of output. Nil values are dropped.
+      # The stored credentials of +owner+'s account, for masking out of
+      # output: every organization key (at most one per provider), then up
+      # to +limit+ of the members' personal keys, most recently saved first.
+      # Nil values are dropped.
       #
       # @return [Array<String>]
       def secrets_for(owner, limit:)
-        ProviderKey.every_scope_for(owner).limit(limit).pluck(:credential, :api_key).flatten.compact
+        organization = ProviderKey.for_owner(owner)
+        personal = ProviderKey.every_scope_for(owner).where.not(scope_key: ProviderKey::ORGANIZATION_SCOPE)
+          .order(updated_at: :desc, id: :desc).limit(limit)
+
+        [ organization, personal ].flat_map { |keys| keys.pluck(:credential, :api_key) }.flatten.compact
       end
 
       private

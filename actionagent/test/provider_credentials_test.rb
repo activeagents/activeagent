@@ -102,6 +102,15 @@ class ProviderCredentialsTest < ActionDispatch::IntegrationTest
     assert_equal "sk-ant-organization", options[:access_token]
   end
 
+  test "the secrets to mask hold every organization key, then the most recently saved personal keys" do
+    @grace_key.touch(time: 1.minute.from_now)
+    key("openai", "sk-organization-openai")
+
+    secrets = ActionAgent::ProviderCredentials.secrets_for(@account, limit: 1)
+
+    assert_equal %w[sk-ant-grace sk-ant-organization sk-organization-openai], secrets.sort
+  end
+
   test "the evaluation form offers only the providers a scenario replay can use" do
     ActionAgent.provider_key_scope = :personal_override
     key("openai", "sk-ada-openai", member: @ada)
