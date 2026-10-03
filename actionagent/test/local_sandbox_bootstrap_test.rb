@@ -439,6 +439,31 @@ class LocalSandboxBootstrapTest < ActiveSupport::TestCase
     assert_equal [ "bundle install", "rails db:prepare", "rails action_agent:sandbox:manifest" ], tool_calls.first(3)
   end
 
+  test "a checkout that bundles the engine boots as its sandbox.yml says, with the spec's secrets" do
+    control("echo" => "STRIPE_KEY")
+    sandbox = sandbox_double(rails_origin!(gems: [ "actionagent (1.8.1)", "activeagent (1.8.1)" ]))
+    spec = Spec.bootstrap(engine: ENGINE, apply: "without_engine", secrets: { "STRIPE_KEY" => SECRET })
+
+    with_fake_tools { @backend.create_sandbox(sandbox, boot_config: spec.to_h) }
+
+    assert_equal "config", @backend.boot_status(sandbox)[:mode]
+    setup_log = workspace(sandbox).join("logs/setup.log").read
+    assert_includes setup_log, "fake rails: db:prepare sees [REDACTED]", "the step had the value, and its output is masked"
+    assert_not_includes setup_log, SECRET
+  end
+
+  test "boot logs are scrubbed of the secrets of the project the sandbox was booted for" do
+    sandbox = sandbox_double(rails_origin!)
+    with_fake_tools { @backend.create_sandbox(sandbox, boot_config: Spec.bootstrap(engine: ENGINE).to_h) }
+    encoded = [ SECRET ].pack("m0")
+    sandbox.define_singleton_method(:project_scrub_values) { ActionAgent::SecretScrubber.with_encodings([ SECRET ]) }
+    workspace(sandbox).join("logs/server.log").open("a") { |file| file.puts("project #{SECRET} #{encoded}") }
+
+    text = @backend.boot_log(sandbox, step: "start", limit: 1_000_000)[:text]
+
+    assert_includes text, "project [REDACTED] [REDACTED]"
+  end
+
   test "a spec for checkouts without the engine bootstraps one that lacks it" do
     sandbox = sandbox_double(rails_origin!)
 
