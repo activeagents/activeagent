@@ -109,11 +109,13 @@ frames, so the last one is kept for whoever joins later. `control`, `agent`
 and `page` messages tell of who holds control, an agent call waiting for it,
 and the page on screen.
 
-A connection opened with a control ticket, or sent one in
-`{ type: "take_control", ticket }`, can take control with
-`{ type: "take_control" }` and give it back with `{ type: "hand_back" }`. One
-person holds control at a time; their other connections may move it between
-them. While they hold it:
+Either mode of ticket lets a connection watch. To take control it sends
+`{ type: "take_control", ticket }` with a control ticket of its own, issued
+to the user it connected as, each time it asks. Withdrawing a person's
+permission therefore stops them taking control again, but does not take it
+from a connection that holds it. `{ type: "hand_back" }` gives control back.
+One person holds control at a time; their other connections may move it
+between them. While they hold it:
 
 - their `mouse`, `wheel`, `key` and `text` messages reach the page through
   `Input.dispatchMouseEvent`, `Input.dispatchKeyEvent` and `Input.insertText`.

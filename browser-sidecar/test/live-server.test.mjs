@@ -110,6 +110,11 @@ async function viewer(port, options) {
   return client;
 }
 
+// Asks to take control with a fresh control ticket for `user` (Ada by default).
+function takeControl(client, user = {}) {
+  client.send({ type: 'take_control', ticket: ticket({ ...user, mode: 'control' }) });
+}
+
 test('the live view is refused from another origin, without one, through a foreign Host, or with a ticket in the URL', async (t) => {
   const { port } = await start(t);
 
@@ -166,7 +171,7 @@ test('a viewer is told the state and sent the last frame, then every frame, whil
   const client = await viewer(port);
 
   assert.deepEqual(client.messages[0], {
-    type: 'ready', can_control: false,
+    type: 'ready',
     control: { held: false, mine: false, by: null, since: null },
     agent: { waiting: false, tool: null, since: null },
     page: { url: 'http://127.0.0.1:4100/orders', tab: 1, tabs: 1 },
@@ -185,17 +190,18 @@ test('a viewer is told the state and sent the last frame, then every frame, whil
   await until(() => !screencast.streaming, 'the stream to stop once nobody watches');
 });
 
-test('a viewer with a view ticket can neither take control nor send input', async (t) => {
+test('a viewer without a control ticket of its own user can neither take control nor send input', async (t) => {
   const { port, lock, screencast } = await start(t);
-  const client = await viewer(port, { mode: 'view' });
+  const client = await viewer(port, { mode: 'control' });
 
   client.send({ type: 'take_control' });
-  assert.equal((await message(client, 'error')).code, 'view_only');
+  assert.equal((await message(client, 'error')).code, 'view_only', 'a control ticket used to connect does not take control');
   client.send({ type: 'mouse', action: 'down', x: 0.5, y: 0.5 });
-  client.send({ type: 'take_control', ticket: ticket({ mode: 'control', sub: '2', name: 'Grace' }) });
-  await until(() => client.messages.filter((received) => received.type === 'error').length === 2, 'a second refusal');
+  client.send({ type: 'take_control', ticket: ticket({ mode: 'view' }) });
+  takeControl(client, { sub: '2', name: 'Grace' });
+  await until(() => client.messages.filter((received) => received.type === 'error').length === 3, 'three refusals');
 
-  assert.equal(lock.holder, null, "another user's control ticket does not help");
+  assert.equal(lock.holder, null, "neither a view ticket nor another user's control ticket takes control");
   assert.deepEqual(screencast.dispatched, []);
 });
 
@@ -203,25 +209,47 @@ test('a watching viewer takes control with a control ticket of its own user', as
   const { port, lock } = await start(t);
   const client = await viewer(port, { mode: 'view' });
 
-  client.send({ type: 'take_control', ticket: ticket({ mode: 'control' }) });
+  takeControl(client);
 
   assert.equal((await message(client, 'control')).mine, true);
   assert.equal(lock.holder.user.name, 'Ada');
 });
 
+test('taking control again after handing it back needs a new control ticket', async (t) => {
+  const { port, lock } = await start(t);
+  const client = await viewer(port);
+  const used = ticket({ mode: 'control' });
+  client.send({ type: 'take_control', ticket: used });
+  await message(client, 'control', (state) => state.mine);
+  client.send({ type: 'hand_back' });
+  await message(client, 'control', (state) => !state.held);
+
+  client.send({ type: 'take_control' });
+  client.send({ type: 'take_control', ticket: used });
+  await until(() => client.messages.filter((received) => received.type === 'error').length === 2, 'two refusals');
+  assert.equal(lock.holder, null, 'neither no ticket nor a used one takes control');
+
+  takeControl(client);
+  const controls = await until(() => {
+    const received = client.messages.filter(({ type }) => type === 'control');
+    return received.length === 3 && received;
+  }, 'control to be taken again');
+  assert.equal(controls.at(-1).mine, true);
+});
+
 test('the person who takes control drives the browser, and everyone else sees who it is', async (t) => {
   const { port, screencast, markers, logs } = await start(t);
-  const ada = await viewer(port, { mode: 'control', sub: '1', name: 'Ada' });
-  const grace = await viewer(port, { mode: 'control', sub: '2', name: 'Grace' });
+  const ada = await viewer(port, { sub: '1', name: 'Ada' });
+  const grace = await viewer(port, { sub: '2', name: 'Grace' });
 
-  ada.send({ type: 'take_control' });
+  takeControl(ada);
   assert.equal((await message(ada, 'control')).mine, true);
   const seen = await message(grace, 'control');
   assert.equal(seen.held, true);
   assert.equal(seen.by, 'Ada');
   assert.equal(seen.mine, false);
 
-  grace.send({ type: 'take_control' });
+  takeControl(grace, { sub: '2', name: 'Grace' });
   assert.match((await message(grace, 'error')).message, /Ada is driving the browser/);
 
   grace.send({ type: 'mouse', action: 'down', x: 0.1, y: 0.1 });
@@ -245,9 +273,9 @@ test('the person who takes control drives the browser, and everyone else sees wh
 
 test('control is released after the grace period when its holder disconnects', async (t) => {
   const { port, markers } = await start(t, { graceMs: 50 });
-  const ada = await viewer(port, { mode: 'control' });
-  const grace = await viewer(port, { mode: 'view', sub: '2', name: 'Grace' });
-  ada.send({ type: 'take_control' });
+  const ada = await viewer(port);
+  const grace = await viewer(port, { sub: '2', name: 'Grace' });
+  takeControl(ada);
   await message(grace, 'control', (state) => state.held);
 
   ada.ws.close();
@@ -258,8 +286,8 @@ test('control is released after the grace period when its holder disconnects', a
 
 test('viewers see when an agent is waiting for control to be handed back', async (t) => {
   const { port, lock } = await start(t);
-  const ada = await viewer(port, { mode: 'control' });
-  ada.send({ type: 'take_control' });
+  const ada = await viewer(port);
+  takeControl(ada);
   await message(ada, 'control', (state) => state.mine);
 
   const admitted = lock.admit('browser_click', { target: 'e3' }, 5000);
@@ -272,10 +300,10 @@ test('viewers see when an agent is waiting for control to be handed back', async
 
 test('closing ends every connection and releases control', async (t) => {
   const { port, live, markers } = await start(t);
-  const ada = await viewer(port, { mode: 'control' });
+  const ada = await viewer(port);
   const pending = connect(port);
   await pending.opened;
-  ada.send({ type: 'take_control' });
+  takeControl(ada);
   await message(ada, 'control', (state) => state.mine);
 
   live.close();

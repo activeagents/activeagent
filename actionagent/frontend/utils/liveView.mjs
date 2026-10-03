@@ -76,7 +76,6 @@ export function textMessage(text) {
 
 export const initialLiveViewState = {
   ready: false,
-  canControl: false,
   control: { held: false, mine: false, by: null, since: null },
   agent: { waiting: false, tool: null, since: null },
   page: null,
@@ -94,7 +93,6 @@ export function liveViewReducer(state, message) {
       return {
         ...state,
         ready: true,
-        canControl: message.can_control === true,
         control: message.control || initialLiveViewState.control,
         agent: message.agent || initialLiveViewState.agent,
         page: message.page || null,
@@ -103,13 +101,7 @@ export function liveViewReducer(state, message) {
       if (state.frameSize?.width === message.width && state.frameSize?.height === message.height) return state;
       return { ...state, frameSize: { width: message.width, height: message.height } };
     case 'control':
-      return {
-        ...state,
-        // Holding control proves this connection may take it: a watching
-        // connection becomes one by sending a control ticket.
-        canControl: state.canControl || message.mine === true,
-        control: { held: message.held, mine: message.mine, by: message.by, since: message.since },
-      };
+      return { ...state, control: { held: message.held, mine: message.mine, by: message.by, since: message.since } };
     case 'agent':
       return { ...state, agent: { waiting: message.waiting, tool: message.tool, since: message.since } };
     case 'page':

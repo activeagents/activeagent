@@ -130,18 +130,12 @@ export default function LiveView({ sessionId, headed = false }) {
     }
   };
 
-  // A watching view sends a control ticket with its first Take over; once it
-  // has held control it may take it again without one.
   const takeOver = async () => {
     dispatch({ type: 'clear_error' });
     setTaking(true);
     try {
-      if (state.canControl) {
-        send({ type: 'take_control' });
-      } else {
-        const { ticket } = await requestTicket(sessionId, 'control');
-        send({ type: 'take_control', ticket });
-      }
+      const { ticket } = await requestTicket(sessionId, 'control');
+      send({ type: 'take_control', ticket });
     } catch (e) {
       setNotice(e.message);
     } finally {

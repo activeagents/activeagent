@@ -42,17 +42,18 @@ function parse(data, isBinary) {
  *
  * A connection proves who it is with the ticket in its first message
  * (TicketVerifier), and is closed with CLOSE_CODES.unauthorized, before
- * anything is sent to it, when that message is anything else. A view ticket
- * lets it watch; a control ticket also lets it take control.
+ * anything is sent to it, when that message is anything else. Either mode of
+ * ticket lets it watch. Each request to take control carries a control
+ * ticket of its own, issued to the same user.
  *
  * Viewer to sidecar, as JSON text:
  *   { type: "auth", ticket }            first, and only first
- *   { type: "take_control", ticket? }   a control ticket turns a watching connection into one that may take control
+ *   { type: "take_control", ticket }    a control ticket issued to the user the connection authenticated as
  *   { type: "hand_back" }
  *   mouse, wheel, key and text input    see input.mjs; dropped unless this connection holds control
  *
  * Sidecar to viewer:
- *   { type: "ready", can_control, control, agent, page }   once the ticket is accepted
+ *   { type: "ready", control, agent, page }                 once the ticket is accepted
  *   { type: "frame", data, width, height }                  a JPEG as base64, and the page's size in CSS pixels
  *   { type: "control", held, mine, by, since }              who holds control, by name
  *   { type: "agent", waiting, tool, since }                 an agent's call is waiting for control to be handed back
@@ -136,12 +137,12 @@ export class LiveServer {
       return;
     }
 
-    const { sub, name, mode } = result.claims;
-    const viewer = { id: randomUUID(), ws, user: { id: sub, name }, canControl: mode === 'control', behind: false };
+    const { sub, name } = result.claims;
+    const viewer = { id: randomUUID(), ws, user: { id: sub, name }, behind: false };
     this.viewers.set(ws, viewer);
     ws.on('message', (data, isBinary) => this.receive(viewer, parse(data, isBinary)));
 
-    this.send(viewer, { type: 'ready', can_control: viewer.canControl, control: this.controlState(viewer), agent: this.agentState(), page: this.screencast.pageInfo });
+    this.send(viewer, { type: 'ready', control: this.controlState(viewer), agent: this.agentState(), page: this.screencast.pageInfo });
     if (this.screencast.lastFrame) this.sendFrame(viewer, JSON.stringify(frameMessage(this.screencast.lastFrame)));
     void this.screencast.start();
   }
@@ -154,13 +155,13 @@ export class LiveServer {
     else if (INPUT_TYPES.has(message.type)) this.relay(viewer, message);
   }
 
+  // A ticket per request, rather than one per connection, means a person
+  // whose permission is withdrawn cannot take control again on a connection
+  // they opened before.
   takeControl(viewer, ticket) {
-    if (!viewer.canControl && ticket !== undefined) {
-      const { claims } = this.verifier.verify(ticket);
-      viewer.canControl = claims?.mode === 'control' && claims.sub === viewer.user.id;
-    }
-    if (!viewer.canControl) {
-      this.send(viewer, { type: 'error', code: 'view_only', message: 'This view can watch the browser but not take it over' });
+    const { claims } = this.verifier.verify(ticket);
+    if (claims?.mode !== 'control' || claims.sub !== viewer.user.id) {
+      this.send(viewer, { type: 'error', code: 'view_only', message: 'Taking over this browser needs a control ticket issued to you' });
       return;
     }
 

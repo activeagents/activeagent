@@ -85,7 +85,7 @@ test('pasted or composed text is sent as one insertion, up to the limit', () => 
 
 test('the state follows what the sidecar says', () => {
   let state = liveViewReducer(initialLiveViewState, {
-    type: 'ready', can_control: false,
+    type: 'ready',
     control: { held: true, mine: false, by: 'Grace', since: 1 },
     agent: { waiting: false, tool: null, since: null },
     page: { url: 'http://127.0.0.1:4100/orders', tab: 1, tabs: 1 },
@@ -98,7 +98,6 @@ test('the state follows what the sidecar says', () => {
   assert.equal(liveViewReducer(state, { type: 'frame', data: 'y', width: 1280, height: 800 }), state, 'a frame of the same size changes nothing');
 
   state = liveViewReducer(state, { type: 'control', held: true, mine: true, by: 'Ada', since: 2 });
-  assert.equal(state.canControl, true, 'holding control shows this view may take it');
   assert.equal(controlLabel(state), 'You are driving');
 
   state = liveViewReducer(state, { type: 'page', page: { url: 'http://127.0.0.1:4100/cart', tab: 2, tabs: 3 } });

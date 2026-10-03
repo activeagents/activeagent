@@ -317,7 +317,7 @@ test('watch live and take over: frames of the page on screen, input from the per
     ticket: signTicket(ticketKey(TOKEN), { v: 1, sid: 'live-session', sub: '1', name: 'Ada', mode: 'control', iat, exp: iat + 30, jti: 'smoke-ticket-0123456789' }),
   }));
 
-  assert.equal((await latest('ready')).can_control, true);
+  assert.equal((await latest('ready')).control.held, false);
   const frame = await latest('frame');
   assert.ok(Buffer.from(frame.data, 'base64').subarray(0, 2).equals(Buffer.from([0xff, 0xd8])), 'a frame is a JPEG');
   assert.deepEqual([frame.width, frame.height], [1280, 800]);
@@ -327,7 +327,10 @@ test('watch live and take over: frames of the page on screen, input from the per
   })).match(/center ([\d.]+) ([\d.]+)/);
   const point = { x: Number(center[1]) / frame.width, y: Number(center[2]) / frame.height };
 
-  ws.send(JSON.stringify({ type: 'take_control' }));
+  ws.send(JSON.stringify({
+    type: 'take_control',
+    ticket: signTicket(ticketKey(TOKEN), { v: 1, sid: 'live-session', sub: '1', name: 'Ada', mode: 'control', iat, exp: iat + 30, jti: 'smoke-ticket-control-0123456789' }),
+  }));
   assert.equal((await latest('control')).mine, true);
 
   const refused = await mcp.call('browser_navigate', { url: '/' });
