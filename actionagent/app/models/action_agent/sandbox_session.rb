@@ -72,6 +72,9 @@ module ActionAgent
     #   stop_at       when the browser stops on its own (browser_stops_at)
     #   recording     where to post recorded events: { url:, token:,
     #                 batch_events:, batch_bytes: }, or nil to record nothing
+    #   live          the live view: { session_id:, origins: }, the session
+    #                 its tickets name and the dashboard origins that may
+    #                 open it, or nil for none (BrowserLiveTicket)
     #
     # @return [Hash, nil]
     attr_accessor :browser_launch
@@ -239,6 +242,8 @@ module ActionAgent
         started_at: browser_started_at&.iso8601,
         # The key an agent run reaches the browser by; nil unless it runs.
         server_key: browser_running? ? browser_server_key : nil,
+        # The live view's WebSocket, opened with a ticket from
+        # POST .../browser/tickets; nil unless it runs and has one.
         live_url: browser_running? ? browser_live_url : nil
       }
     end

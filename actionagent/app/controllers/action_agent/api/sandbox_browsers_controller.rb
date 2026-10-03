@@ -11,7 +11,10 @@ module ActionAgent
     #
     # Found the way SandboxesController finds a checkout: among the caller's
     # sandboxes, within their current account. A response carries the
-    # browser's mode, status and server key, never its endpoint or token.
+    # browser's mode, status, server key and live view URL, never its MCP
+    # endpoint or token. The live view may be opened from the dashboard
+    # origin the browser was started from, and from
+    # ActionAgent.browser_live_origins.
     class SandboxBrowsersController < BaseController
       # A browser runs the sandbox app's pages: the same gate as running an
       # agent, and its own plan limit.
@@ -28,7 +31,8 @@ module ActionAgent
           @sandbox,
           mode: params[:mode].presence || "headless",
           capabilities: capability_params,
-          recording_url: ->(recording) { events_api_session_recording_url(recording) }
+          recording_url: ->(recording) { events_api_session_recording_url(recording) },
+          live_origins: [ request.base_url, *ActionAgent.browser_live_origins ]
         )
         render json: { browser: @sandbox.browser_summary }, status: :created
       rescue SandboxBrowser::Error => e

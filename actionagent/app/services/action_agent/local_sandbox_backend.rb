@@ -538,7 +538,8 @@ module ActionAgent
     # tokens included, goes in on stdin. Any browser the sandbox already had
     # is stopped first.
     #
-    # @return [Hash] { mcp_url:, mcp_token: }
+    # @return [Hash] { mcp_url:, mcp_token: }, and live_url: when the launch
+    #   asked for a live view
     def start_browser(sandbox, mode: :headless)
       ensure_enabled!
       session_id = session_id!(sandbox.session_id)
@@ -1432,7 +1433,7 @@ module ActionAgent
         port = Integer(ready["port"])
         update_state(workspace, create: false) { |state| state["browser"]["port"] = port if state["browser"].is_a?(Hash) }
         started = true
-        { mcp_url: "http://127.0.0.1:#{port}/mcp", mcp_token: launch[:token] }
+        { mcp_url: "http://127.0.0.1:#{port}/mcp", mcp_token: launch[:token], live_url: ("ws://127.0.0.1:#{port}/live" if launch[:live]) }.compact
       rescue Errno::ENOENT
         raise Error, "Sandbox #{session_id} was stopped while its browser started"
       ensure
@@ -1455,7 +1456,8 @@ module ActionAgent
         port: 0,
         workdir: dir.to_s,
         stop_at: launch[:stop_at] && (launch[:stop_at].to_f * 1000).floor,
-        recording: recording && recording.slice(:url, :token, :batch_events, :batch_bytes)
+        recording: recording && recording.slice(:url, :token, :batch_events, :batch_bytes),
+        live: launch[:live] && launch[:live].slice(:session_id, :origins)
       }.compact
     end
 
