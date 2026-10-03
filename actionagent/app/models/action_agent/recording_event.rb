@@ -37,6 +37,11 @@ module ActionAgent
 
     INLINE_PAYLOAD_LIMIT = 64.kilobytes
 
+    # How deep a batch's JSON may nest. An rrweb full snapshot nests two
+    # levels per DOM element, so an ordinary page passes the JSON gem's
+    # default of 100.
+    MAX_NESTING = 512
+
     belongs_to :session_recording
 
     # Guarded like RecordingSnapshot: the gem depends on railties, not rails,
@@ -65,6 +70,18 @@ module ActionAgent
       false
     end
 
+    # Parses JSON text nested up to MAX_NESTING levels.
+    def self.parse_json(text)
+      JSON.parse(text, max_nesting: MAX_NESTING)
+    end
+
+    # Returns +value+ as JSON text at any depth. Responses that carry event
+    # data are generated with it: the default encoder refuses more than 100
+    # levels, and event data was parsed with a limit of MAX_NESTING.
+    def self.generate_json(value)
+      JSON.generate(value.as_json, max_nesting: false)
+    end
+
     # Converts epoch milliseconds to a Time.
     def self.time_at(milliseconds)
       Time.zone.at(milliseconds.to_r / 1000)
@@ -80,7 +97,7 @@ module ActionAgent
     def events
       @events ||= begin
         compressed = payload.nil? || payload.empty? ? attached_payload : payload
-        compressed ? JSON.parse(ActiveSupport::Gzip.decompress(compressed)) : []
+        compressed ? self.class.parse_json(ActiveSupport::Gzip.decompress(compressed)) : []
       rescue StandardError => e
         Rails.logger.warn("[ActionAgent] recording event #{id} payload unreadable: #{e.class}: #{e.message}")
         []
@@ -90,7 +107,7 @@ module ActionAgent
     # Stores +list+ as the payload and sets the counts and the time range
     # from it. Each entry is a Hash with an "at" in epoch milliseconds.
     def events=(list)
-      json = list.to_json
+      json = self.class.generate_json(list)
       compressed = ActiveSupport::Gzip.compress(json)
       times = list.map { |event| event["at"].to_i }
 

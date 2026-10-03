@@ -46,6 +46,8 @@ module ActionAgent
 
     def call
       batch = parse_body
+      return invalid("The batch nests deeper than #{RecordingEvent::MAX_NESTING} levels") if batch == :too_deep
+
       events = batch.is_a?(Hash) ? batch["events"] : nil
       return invalid("The body must be a JSON object with a non-empty events array") unless events.is_a?(Array) && events.any?
 
@@ -66,8 +68,12 @@ module ActionAgent
 
     private
 
+    # The parsed body, :too_deep when it nests past RecordingEvent::MAX_NESTING,
+    # or nil when it is not JSON.
     def parse_body
-      JSON.parse(@body)
+      RecordingEvent.parse_json(@body)
+    rescue JSON::NestingError
+      :too_deep
     rescue JSON::ParserError
       nil
     end

@@ -16,7 +16,7 @@ module ActionAgent
           when "scenario_result" then SessionTimeline.for_run(scenario_result_run, timeline_scope)
           end
 
-        render json: { timeline: timeline.retitle(params[:kind], integer_param(:id)).as_json }
+        render json: RecordingEvent.generate_json(timeline: timeline.retitle(params[:kind], integer_param(:id)).as_json)
       end
 
       private
