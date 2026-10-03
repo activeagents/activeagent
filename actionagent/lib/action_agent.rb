@@ -389,6 +389,23 @@ module ActionAgent
     # @return [Integer]
     attr_accessor :local_sandbox_boot_timeout
 
+    # A checkout of the browser sidecar (the repository's browser-sidecar/
+    # directory) for the :local backend to run instead of the package
+    # `bin/rails action_agent:browser:install` installs. For working on the
+    # sidecar itself: a checkout's version is not checked against the
+    # engine's. Unset, the installed package runs.
+    # @return [String, Pathname, nil]
+    attr_accessor :browser_sidecar_path
+
+    # The Node.js and npm executables the browser sidecar is installed and
+    # run with.
+    # @return [String]
+    attr_accessor :node_command, :npm_command
+
+    # How long the :local backend waits for a browser to start, in seconds.
+    # @return [Integer]
+    attr_accessor :browser_start_timeout
+
     # The Claude Code executable a sandbox backend runs headless sessions
     # with. The :local backend runs it on the dashboard's machine.
     # @return [String]
@@ -881,6 +898,10 @@ module ActionAgent
       @local_sandboxes_enabled = nil
       @local_sandbox_root = nil
       @local_sandbox_boot_timeout = 600
+      @browser_sidecar_path = nil
+      @node_command = "node"
+      @npm_command = "npm"
+      @browser_start_timeout = 60
       @claude_code_command = "claude"
       @claude_code_permission_mode = "acceptEdits"
       @claude_code_max_turns = nil
