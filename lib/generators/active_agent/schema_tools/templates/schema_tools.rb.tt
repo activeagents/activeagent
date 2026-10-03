@@ -9,18 +9,26 @@
 class <%= class_name %>Tools < ActiveAgent::SchemaTools
   model <%= class_name %>
 
+<% if (declared = declared_columns(:filterable)) -%>
+  filterable <%= column_list(declared) %>
+<% else -%>
   filterable :id
 <% if suggested_columns.any? -%>
   # filterable <%= suggested_columns.map { |name, _type| ":#{name}" }.join(", ") %>
 <% else -%>
   # filterable :status, :owner_id   # columns an agent may filter on
 <% end -%>
+<% end -%>
 
+<% if (declared = declared_columns(:returns)) -%>
+  returns <%= column_list(declared) %>
+<% else -%>
   returns :id
 <% if suggested_columns.any? -%>
   # returns <%= suggested_columns.map { |name, _type| ":#{name}" }.join(", ") %>
 <% else -%>
   # returns :id, :title, :status    # columns an agent may read back
+<% end -%>
 <% end -%>
 <% if suggested_columns.any? -%>
   #
