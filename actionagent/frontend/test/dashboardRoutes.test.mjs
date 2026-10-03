@@ -2,11 +2,14 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  SESSION_KINDS,
   dashboardFeatures,
   dashboardNavSections,
   dashboardViewPath,
   isDashboardViewEnabled,
   matchDashboardRoute,
+  navView,
+  sessionReplayPath,
 } from '../utils/dashboardRoutes.mjs';
 import { mountedPath, mountRelativePath } from '../utils/mountPath.mjs';
 
@@ -76,8 +79,19 @@ const EXPECTED_MATCHES = [
   ['/agents', 'list'],
   ['/agents/', 'list'],
   ['/x/agents/7/edit', 'editor', { agentId: '7' }],
-  ['/replay', 'replay'],
-  ['/replay/9', 'replay'],
+  ['/sessions', 'sessions'],
+  ['/sessions/x', 'sessions'],
+  ['/replay', 'sessions'],
+  ['/replay/', 'sessions'],
+  ['/replay/x', 'sessions'],
+  ['/replay/9', 'replay', { sessionKind: 'recording', sessionId: '9' }],
+  ['/replay/9/', 'replay', { sessionKind: 'recording', sessionId: '9' }],
+  ['/replay/context/4', 'replay', { sessionKind: 'context', sessionId: '4' }],
+  ['/replay/run/12', 'replay', { sessionKind: 'run', sessionId: '12' }],
+  ['/replay/scenario_result/7', 'replay', { sessionKind: 'scenario_result', sessionId: '7' }],
+  ['/replay/recording/7', 'sessions'],
+  ['/replay/context/x', 'sessions'],
+  ['/replay/context/4/extra', 'sessions'],
   ['/replay/agents/5', 'history', { agentId: '5' }],
   ['/sandbox', 'sandbox'],
   ['/sandbox/x', 'sandbox'],
@@ -135,7 +149,8 @@ const EXPECTED_PATHS = [
   ['tools', null, '/tools'],
   ['mcp', null, '/mcp'],
   ['evaluations', null, '/evaluations'],
-  ['replay', null, '/replay'],
+  ['sessions', null, '/sessions'],
+  ['replay', null, ''],
   ['sandbox', null, '/sandbox'],
   ['organization', null, '/organization'],
   ['settings', null, '/settings'],
@@ -217,7 +232,7 @@ const EXPECTED_NAV = [
     ['mcp', 'MCP Services', { icon: 'mcp' }],
     ['metrics', 'Metrics', { icon: 'metrics' }],
     ['evaluations', 'Evaluations', { icon: 'evaluations' }],
-    ['replay', 'Session Replay', { icon: 'replay' }],
+    ['sessions', 'Sessions', { icon: 'replay', also: ['replay'] }],
   ]],
   ['workspace', 'Workspace', [
     ['organization', 'Organization', { glyph: '🏢' }],
@@ -264,4 +279,30 @@ test('only a gated view can be missing from a dashboard', () => {
   assert.equal(isDashboardViewEnabled('history', OFF), true);
   assert.equal(isDashboardViewEnabled('list', OFF), true);
   assert.equal(isDashboardViewEnabled('unknown-view', OFF), true);
+});
+
+test('a replay path is built for each kind of session and opens it again', () => {
+  assert.equal(sessionReplayPath('recording', 9), '/replay/9');
+  assert.equal(sessionReplayPath('context', '4'), '/replay/context/4');
+  assert.equal(sessionReplayPath('run', 12), '/replay/run/12');
+  assert.equal(sessionReplayPath('scenario_result', 7), '/replay/scenario_result/7');
+  for (const mount of MOUNTS) {
+    for (const kind of SESSION_KINDS) {
+      const url = mountedPath(mount, sessionReplayPath(kind, 31));
+      assert.deepEqual(matchDashboardRoute(mountRelativePath(mount, url), ON), { view: 'replay', sessionKind: kind, sessionId: '31' }, url);
+    }
+  }
+});
+
+test('no replay path is built for an unknown kind or an id that is not a positive integer', () => {
+  assert.equal(sessionReplayPath('trace', 1), null);
+  assert.equal(sessionReplayPath('context', 0), null);
+  assert.equal(sessionReplayPath('context', '4/edit'), null);
+  assert.equal(sessionReplayPath('recording', null), null);
+});
+
+test('the Sessions item is current while a replay is open', () => {
+  assert.equal(navView('replay'), 'sessions');
+  assert.equal(navView('sessions'), 'sessions');
+  assert.equal(navView('traces'), 'traces');
 });

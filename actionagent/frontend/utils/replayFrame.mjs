@@ -6,13 +6,13 @@
 // expects: the frame from its parent, the dashboard from the frame.
 //
 // Dashboard to frame:
-//   load    { events }           replace the recording being replayed
+//   load    { events, token }    replace the recording being replayed
 //   append  { events }           add events to its end
 //   seek    { offset, playing }  move `offset` ms into the recording, then play or hold
 //   speed   { speed }            the playback speed multiplier
 // Frame to dashboard:
 //   ready                        the player is listening
-//   loaded  { startTime, endTime }  the recording's range, epoch ms
+//   loaded  { startTime, endTime, token }  the load's range, epoch ms, and its token
 //   finished                     playback reached the recording's end
 //   error   { message }
 
@@ -50,4 +50,11 @@ export function fitScale(recorded, available) {
   if (!(width > 0 && height > 0 && available?.width > 0 && available?.height > 0)) return 1;
 
   return Math.min(1, available.width / width, available.height / height);
+}
+
+// The offset to pause rrweb's Replayer at so it shows every event at or
+// before `offset`. It applies only the events strictly before the position
+// it pauses at.
+export function holdOffset(offset) {
+  return Math.max(0, Number(offset) || 0) + 1;
 }
