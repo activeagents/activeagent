@@ -113,12 +113,19 @@ module ActionAgent
       end
 
       def require_personal_keys!
-        return if ProviderKey.personal_keys_enabled? && signed_in_user
+        return if personal_keys_writable?
 
         render json: {
           error: "Personal provider keys are not enabled on this dashboard",
           code: "personal_keys_disabled"
         }, status: :unprocessable_entity
+      end
+
+      # Whether the signed-in user can hold personal keys here. The owner has
+      # to resolve to an account, or a personal write would have no account
+      # to belong to.
+      def personal_keys_writable?
+        ProviderKey.personal_keys_enabled? && signed_in_user.present? && ProviderKey.resolve_owner(current_owner).present?
       end
 
       # The keys of the requested scope: the organization's, or the signed-in

@@ -105,6 +105,18 @@ class ProviderKeysApiTest < ActionDispatch::IntegrationTest
     assert_response :unprocessable_entity, "an install without accounts has no personal keys"
   end
 
+  test "a personal write is refused when the owner does not resolve to an account" do
+    ActionAgent.provider_key_scope = :personal_override
+    ActionAgent.account_class = "Post"
+    ActionAgent.permission_checker = ->(_user, action, _subject) { action != :manage_credentials }
+
+    post "/activeagents/api/provider_keys", params: { provider: "openai", credential: "sk-probe", scope: "personal" }
+
+    assert_response :unprocessable_entity
+    assert_equal "personal_keys_disabled", response.parsed_body["code"]
+    assert_not ActionAgent::ProviderKey.unscoped.exists?(provider: "openai"), "no ownerless row is saved"
+  end
+
   test "a connection test sends the stored key only to the stored host" do
     key("ollama", "http://ollama.organization:11434", api_key: "sk-ollama-organization")
     stored = stub_request(:get, "http://ollama.organization:11434/v1/models")
