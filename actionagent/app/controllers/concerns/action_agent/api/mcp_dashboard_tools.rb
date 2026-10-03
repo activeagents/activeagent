@@ -14,6 +14,12 @@ module ActionAgent
     # (Api::TraceReportsController). A record outside that scope reads as
     # nonexistent.
     #
+    # Two tools write: `evaluations_create` and `scenarios_merge`, so a
+    # harness that has read or browsed the app can seed the suite it then
+    # runs. Both ask ActionAgent.permitted? for :replace_scenarios as the
+    # key's user, and neither removes, disables or reorders a scenario it
+    # was not given.
+    #
     # Names are a noun family followed by a verb (`evaluations_list`,
     # `traces_get`). Host schema tools are always `find_`, `count_` or `get_`
     # plus a model name, and agent tools are `run_<slug>`, so no host model or
@@ -28,8 +34,8 @@ module ActionAgent
       include EvaluationRunStarting
 
       NAMES = %w[
-        evaluations_list evaluations_get evaluations_run evaluation_runs_get evaluation_runs_compare
-        traces_search traces_get
+        evaluations_list evaluations_get evaluations_create scenarios_merge evaluations_run evaluation_runs_get
+        evaluation_runs_compare traces_search traces_get
       ].freeze
 
       LIST_LIMIT = 20
@@ -60,6 +66,47 @@ module ActionAgent
         }
       }.freeze
 
+      # The scenarios evaluations_create and scenarios_merge accept, in the
+      # forms POST /api/evaluations accepts them.
+      SCENARIO_PROPERTIES = {
+        scenarios: {
+          type: "array",
+          description: "Scenarios as objects. Give `scenarios` or `scenarios_text`.",
+          items: {
+            type: "object",
+            properties: {
+              prompt: { type: "string", description: "The message a user would send the agent" },
+              key: {
+                type: "string",
+                description: "A stable key. A scenario whose key the evaluation holds is updated; one without a key " \
+                             "gets the next unused <group>_<n>"
+              },
+              group: { type: "string", description: "The group of related scenarios this one belongs to" },
+              notes: { type: "string", description: "What a good answer does: the judge grades the answer against it" },
+              tools: { type: "array", items: { type: "string" }, description: "A passing answer calls at least one of these tools" },
+              contains: { type: "array", items: { type: "string" }, description: "Patterns the answer must contain" },
+              not_contains: { type: "array", items: { type: "string" }, description: "Patterns the answer must not contain" }
+            },
+            required: [ "prompt" ]
+          }
+        },
+        scenarios_text: {
+          type: "string",
+          description: "Scenarios as text: one message per line, `# Heading` lines starting a group, and " \
+                       "`| tools: a, b | contains: x | not_contains: y | notes: n | key: k` options after a line; or a " \
+                       "JSON array, or a YAML or JSON suite document with groups"
+        },
+        include_production_only: {
+          type: "boolean",
+          description: "Keep a suite document's production_only scenarios, which are left out by default"
+        },
+        key_prefix: {
+          type: "string",
+          description: "A namespace for generated keys: `batch2` makes the first generated Orders key batch2_orders_1. " \
+                       "Keys you give are kept as they are"
+        }
+      }.freeze
+
       DEFINITIONS = [
         {
           name: "evaluations_list",
@@ -80,6 +127,54 @@ module ActionAgent
           inputSchema: {
             type: "object",
             properties: { evaluation_id: { type: "integer", description: "The evaluation's id" } },
+            required: [ "evaluation_id" ]
+          }
+        },
+        {
+          name: "evaluations_create",
+          description: "Create an evaluation of one of this key's agents: a scenario suite, which replays its scenarios " \
+                       "through the agent, or, without scenarios, criteria scored against the agent's recorded " \
+                       "generations. Runs nothing; start a run with evaluations_run. Add scenarios later with " \
+                       "scenarios_merge.",
+          inputSchema: {
+            type: "object",
+            properties: {
+              agent: { type: "string", description: "The agent's slug or id" },
+              name: { type: "string", description: "The evaluation's name, unique among the agent's evaluations" },
+              judge_kind: {
+                type: "string", enum: Evaluation::JUDGE_KINDS,
+                description: "rules (the default) scores with rule criteria alone; llm adds a judge model; " \
+                             "judge_defined lets the judge write the criteria on the first run"
+              },
+              judge_model: { type: "string", description: "The model the judge runs on" },
+              criteria: {
+                type: "array",
+                description: "Criteria every result is scored on. Rule-based defaults (an answer is present, long " \
+                             "enough, fast enough and within a token budget) when omitted",
+                items: {
+                  type: "object",
+                  properties: {
+                    key: { type: "string", description: "The criterion's name; its type when omitted" },
+                    type: { type: "string", enum: Evaluation::CRITERION_TYPES },
+                    config: { type: "object", description: "The type's settings, such as { \"chars\": 40 } for min_length" }
+                  },
+                  required: [ "type" ]
+                }
+              },
+              compare_models: { type: "array", items: { type: "string" }, description: "Candidate models a run compares" }
+            }.merge(SCENARIO_PROPERTIES),
+            required: %w[agent name]
+          }
+        },
+        {
+          name: "scenarios_merge",
+          description: "Add scenarios to an evaluation, and update the ones whose keys it already holds. A scenario " \
+                       "the call does not name is left exactly as it is, results included; nothing is removed or " \
+                       "disabled. A scenario without a key gets the next <group>_<n> the evaluation does not use. " \
+                       "Returns the added, updated and unchanged keys.",
+          inputSchema: {
+            type: "object",
+            properties: { evaluation_id: { type: "integer", description: "The evaluation's id" } }.merge(SCENARIO_PROPERTIES),
             required: [ "evaluation_id" ]
           }
         },
@@ -156,6 +251,8 @@ module ActionAgent
         }
       ].freeze
 
+      OBSERVED_AGENT_REFUSAL = "Observed agents are read-only — duplicate this agent to create an executable copy"
+
       # Raised by a tool for a call the client can correct. Answered as a tool
       # result with isError.
       class ToolError < StandardError; end
@@ -181,6 +278,8 @@ module ActionAgent
         case name
         when "evaluations_list" then evaluations_list_tool
         when "evaluations_get" then evaluations_get_tool
+        when "evaluations_create" then evaluations_create_tool
+        when "scenarios_merge" then scenarios_merge_tool
         when "evaluations_run" then evaluations_run_tool
         when "evaluation_runs_get" then evaluation_runs_get_tool
         when "evaluation_runs_compare" then evaluation_runs_compare_tool
@@ -230,6 +329,159 @@ module ActionAgent
         }
       end
 
+      # Builds the evaluation as POST /api/evaluations does, scenarios
+      # before the save, because an evaluation with neither criteria nor
+      # scenarios is invalid. Runs nothing, so neither the execution switch
+      # nor the execution quota applies.
+      def evaluations_create_tool
+        agent = resolve_tool_agent!(required_tool_argument!(:agent))
+        name = required_tool_argument!(:name).to_s.strip
+        if name.length > EvaluationReportImport::MAX_EVALUATION_NAME
+          raise ToolError, "name is longer than #{EvaluationReportImport::MAX_EVALUATION_NAME} characters"
+        end
+
+        attributes = tool_scenario_attributes
+        if attributes.size > EvaluationReportImport::MAX_SCENARIOS_PER_EVALUATION
+          raise ToolError, "Scenario limit reached (#{EvaluationReportImport::MAX_SCENARIOS_PER_EVALUATION} per " \
+                           "evaluation): this call gives #{attributes.size}"
+        end
+
+        evaluation = build_tool_evaluation(agent, name, attributes)
+        authorize_scenario_write!(evaluation)
+
+        # Locked, so two creates for one agent cannot both pass the limit.
+        agent.with_lock do
+          if agent.evaluations.count >= EvaluationReportImport::MAX_EVALUATIONS_PER_AGENT
+            raise ToolError, "Evaluation limit reached (#{EvaluationReportImport::MAX_EVALUATIONS_PER_AGENT} for this " \
+                             "agent); remove evaluations on the dashboard first"
+          end
+          raise ToolError, evaluation.errors.full_messages.to_sentence unless evaluation.save
+
+          # Checked once saved, because a host adapter resolver is handed a
+          # persisted evaluation; the refusal rolls the save back.
+          refuse_unexecutable_suite!(evaluation) if attributes.any?
+        end
+
+        {
+          evaluation: EvaluationSerializer.summary(evaluation),
+          added: evaluation.scenarios.ordered.pluck(:key)
+        }
+      end
+
+      # A scenario given without a key gets the next <group>_<n> the suite
+      # does not hold, so a second batch never lands on the first one's keys.
+      def scenarios_merge_tool
+        evaluation = find_tool_evaluation!
+        authorize_scenario_write!(evaluation)
+        refuse_unexecutable_suite!(evaluation)
+
+        merged = evaluation.with_lock do
+          attributes = tool_scenario_attributes(reserved_keys: evaluation.scenarios.pluck(:key))
+          raise ToolError, "Give the scenarios to merge as scenarios or scenarios_text" if attributes.empty?
+
+          evaluation.merge_scenarios!(attributes.map { |attrs| attrs.except("position") },
+                                      limit: EvaluationReportImport::MAX_SCENARIOS_PER_EVALUATION)
+        end
+
+        {
+          evaluation: { id: evaluation.id, name: evaluation.name },
+          added: merged[:added],
+          updated: merged[:updated],
+          unchanged: merged[:unchanged],
+          scenario_count: evaluation.scenarios.count
+        }
+      rescue Evaluation::ScenarioLimitExceeded, ActiveRecord::RecordInvalid => e
+        raise ToolError, e.message
+      end
+
+      def build_tool_evaluation(agent, name, attributes)
+        judge_kind = tool_argument(:judge_kind).to_s.presence || "rules"
+        criteria = tool_criteria
+        criteria = EvaluationsController::DEFAULT_CRITERIA.deep_dup if criteria.empty? && judge_kind != "judge_defined"
+        compare_models = tool_compare_models
+
+        evaluation = Evaluation.new(
+          agent: agent,
+          name: name,
+          judge_kind: judge_kind,
+          judge_model: tool_argument(:judge_model).to_s.presence,
+          criteria: criteria,
+          config: compare_models.any? ? { "compare_models" => compare_models } : {}
+        )
+        attributes.each_with_index do |attrs, index|
+          evaluation.scenarios.build(
+            key: attrs["key"], prompt: attrs["prompt"], group: attrs["group"], notes: attrs["notes"],
+            expectations: attrs["expectations"] || {}, position: index
+          )
+        end
+        evaluation
+      end
+
+      # The scenarios the call gives, parsed as POST /api/evaluations parses
+      # them; empty when it gives none. Generated keys skip +reserved_keys+.
+      def tool_scenario_attributes(reserved_keys: [])
+        list = tool_argument(:scenarios)
+        text = tool_argument(:scenarios_text).to_s
+        return [] if list.blank? && text.blank?
+
+        source =
+          if list.present?
+            raise ToolError, "scenarios must be an array of scenario objects" unless list.is_a?(Array)
+
+            list.map { |entry| entry.respond_to?(:to_unsafe_h) ? entry.to_unsafe_h : entry }.to_json
+          else
+            text
+          end
+        parsed = ActiveAgent::Evals::ScenarioParser.parse(
+          source,
+          include_production_only: boolean_argument(:include_production_only),
+          reserved_keys: reserved_keys,
+          key_prefix: tool_argument(:key_prefix).to_s
+        )
+        raise ToolError, "No scenarios matched the import. Check the text or the include_production_only selection." if parsed.empty?
+
+        parsed
+      rescue ActiveAgent::Evals::ScenarioParser::ParseError => e
+        raise ToolError, e.message
+      end
+
+      def tool_criteria
+        raw = tool_argument(:criteria)
+        return [] if raw.blank?
+        unless raw.is_a?(Array) && raw.all? { |criterion| criterion.respond_to?(:permit) }
+          raise ToolError, "criteria must be an array of { key, type, config } objects"
+        end
+
+        raw.map do |criterion|
+          criterion.permit(:key, :type, config: {}).to_h.tap do |c|
+            c["key"] = c["key"].presence || c["type"]
+            c["config"] ||= {}
+          end
+        end
+      end
+
+      def tool_compare_models
+        models = tool_argument(:compare_models)
+        models = models.to_s.split(",") unless models.is_a?(Array)
+        models.map(&:to_s).map(&:strip).reject(&:blank?)
+      end
+
+      # Raises unless the key's user may change +evaluation+'s scenarios. A
+      # multi-tenant key that records no user is refused (ActionAgent.permitted?).
+      def authorize_scenario_write!(evaluation)
+        return if ActionAgent.permitted?(current_user, :replace_scenarios, evaluation)
+
+        raise MCPController::McpError.new(
+          "This key's user may not change evaluation scenarios (replace_scenarios)", MCPController::JSONRPC_FORBIDDEN
+        )
+      end
+
+      # Raises for a suite that could never run: its agent is observed and
+      # no host adapter replays it, the case evaluations_run refuses.
+      def refuse_unexecutable_suite!(evaluation)
+        raise ToolError, OBSERVED_AGENT_REFUSAL if unexecutable_scenario_run?(evaluation)
+      end
+
       # Checked in the order Api::EvaluationsController#run checks a request:
       # the execution switch, an executable agent, the execution quota, then
       # the sandbox. Only a scenario suite executes the agent, so a sampling
@@ -239,9 +491,7 @@ module ActionAgent
         evaluation = find_tool_evaluation!
         if evaluation.scenario_suite?
           raise MCPController::McpError.new("Agent execution is disabled on this dashboard") unless ActionAgent.execution_enabled?
-          if unexecutable_scenario_run?(evaluation)
-            raise ToolError, "Observed agents are read-only — duplicate this agent to create an executable copy"
-          end
+          raise ToolError, OBSERVED_AGENT_REFUSAL if unexecutable_scenario_run?(evaluation)
           if (denial = ActionAgent.quota_denial(current_owner, :execution)).present?
             raise MCPController::McpError.new(denial.is_a?(Hash) ? denial[:message] || denial["message"] : denial)
           end
@@ -439,8 +689,7 @@ module ActionAgent
       end
 
       def find_tool_evaluation!
-        id = tool_argument(:evaluation_id)
-        raise MCPController::McpError.new("Missing required argument: evaluation_id", MCPController::JSONRPC_INVALID_PARAMS) if id.blank?
+        id = required_tool_argument!(:evaluation_id)
 
         dashboard_evaluations.find_by(id: id.to_s) or raise ToolError, "No evaluation #{id.to_s.truncate(32)} was found"
       end
@@ -470,6 +719,14 @@ module ActionAgent
 
       def tool_argument(name)
         tool_arguments[name]
+      end
+
+      # The argument, or a JSON-RPC invalid-params error when it is blank.
+      def required_tool_argument!(name)
+        value = tool_argument(name)
+        raise MCPController::McpError.new("Missing required argument: #{name}", MCPController::JSONRPC_INVALID_PARAMS) if value.blank?
+
+        value
       end
 
       # An integer argument clamped into [min, max], or +default+ when absent
