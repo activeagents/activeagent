@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
-  ANSWER_FIELD,
   LIST_LIMIT,
   actorLabel,
   answerBlocks,
   answerControl,
+  answerField,
   answerFromUiAction,
   askedLabel,
   choiceOptions,
@@ -107,7 +107,7 @@ test('choice options read strings and hashes, the value falling back to the labe
 test('text and choice requests are answered through Generative UI blocks; confirm and secret are not', () => {
   const [form] = answerBlocks(request());
   assert.equal(form.type, 'form');
-  assert.deepEqual(form.fields.map((field) => [field.name, field.required]), [[ANSWER_FIELD, true]]);
+  assert.deepEqual(form.fields.map((field) => [field.name, field.required]), [['answer-7', true]]);
 
   assert.deepEqual(answerBlocks(request({ kind: 'choice', options: [{ label: 'Full refund', value: 'full' }, 'Credit'] })), [
     { type: 'choices', options: ['Full refund', 'Credit'] },
@@ -116,8 +116,15 @@ test('text and choice requests are answered through Generative UI blocks; confir
   assert.deepEqual(answerBlocks(request({ kind: 'secret' })), []);
 });
 
+test('each request answers through a field of its own', () => {
+  assert.equal(answerField(request()), 'answer-7');
+  assert.equal(answerField(request({ id: 8 })), 'answer-8');
+  assert.equal(answerField({}), 'answer');
+});
+
 test('a form submission answers with its field and a choice with the picked option value', () => {
-  assert.equal(answerFromUiAction(request(), { kind: 'form', text: 'Answer: x', values: { [ANSWER_FIELD]: 'acct-9' } }), 'acct-9');
+  assert.equal(answerFromUiAction(request(), { kind: 'form', text: 'Answer: x', values: { 'answer-7': 'acct-9' } }), 'acct-9');
+  assert.equal(answerFromUiAction(request(), { kind: 'form', text: 'Answer: x', values: { 'answer-8': 'acct-9' } }), undefined);
   const choice = request({ kind: 'choice', options: [{ label: 'Full refund', value: 'full' }, 'Credit'] });
   assert.equal(answerFromUiAction(choice, { kind: 'choice', text: 'Full refund' }), 'full');
   assert.equal(answerFromUiAction(choice, { kind: 'choice', text: 'Credit' }), 'Credit');

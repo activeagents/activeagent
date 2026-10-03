@@ -103,9 +103,18 @@ test('a text request is answered in a required Generative UI form field, or decl
   const html = card();
 
   assert.match(html, /data-block-type="form"/);
-  assert.match(html, /<textarea[^>]*name="answer"[^>]*required=""/);
+  assert.match(html, /<textarea[^>]*name="answer-7"[^>]*required=""/);
   assert.match(html, /data-testid="input-request-decline"/);
   assert.doesNotMatch(html, /type="password"/);
+});
+
+test('two text requests on one page label fields of their own', () => {
+  const html = render('NeedsInputList', { pending: [request(), request({ id: 8, prompt: 'Which order?' })] });
+  const ids = [...html.matchAll(/<textarea[^>]*id="([^"]+)"/g)].map((match) => match[1]);
+  const labelled = [...html.matchAll(/<label[^>]*for="([^"]+)"/g)].map((match) => match[1]);
+
+  assert.equal(new Set(ids).size, 2);
+  assert.deepEqual(labelled, ids);
 });
 
 test('a choice request offers its options as Generative UI choice buttons', () => {
