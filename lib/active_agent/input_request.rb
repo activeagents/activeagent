@@ -48,9 +48,11 @@ module ActiveAgent
     # loop cannot pause.
     class UnsupportedProviderError < StandardError; end
 
-    # Raised in place of an error whose message holds a secret that a copy of
-    # the error cannot drop, because its class builds the message from its own
-    # state. The message starts with the original error's class name.
+    # Stands in for an error whose message held a secret, with the secret
+    # replaced and the original error's class name at the start of the
+    # message. {.raise_scrubbed} raises it in place of a tool's error whose
+    # class builds the message from its own state, and sets it as the cause
+    # in place of a cause chain that held a secret.
     class ScrubbedError < StandardError; end
 
     EXECUTION_STATE_KEY = :active_agent_input_request_tool_call
