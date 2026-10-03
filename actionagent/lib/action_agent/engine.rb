@@ -65,8 +65,11 @@ module ActionAgent
     # input (a secret among them) are posted to the dashboard in the clear
     # and encrypted at rest — filtering keeps them out of the request logs
     # in between, where the gem would otherwise print them verbatim.
+    # `answer` and `value` match whole names only, at any depth, so a host
+    # param or model attribute such as `values` or `default_value` is not
+    # filtered with them.
     initializer "action_agent.filter_parameters" do |app|
-      app.config.filter_parameters += [ :credential, :api_key, :access_token, :answer, :value ]
+      app.config.filter_parameters += [ :credential, :api_key, :access_token, /\A(?:answer|value)\z/i ]
     end
 
     # This engine's constants are spelled the way Zeitwerk's own inflector
