@@ -169,12 +169,13 @@ module ActionAgent
 
     # The values of the secrets of the project this checkout was booted for,
     # with their encodings (Project#scrub_values), for scrubbing whatever the
-    # sandbox outputs. Empty for a sandbox no project booted, and when the
-    # secrets cannot be read.
+    # sandbox outputs. Empty for a sandbox no project booted, on an install
+    # that has not run the projects migration, and when the secrets cannot be
+    # read.
     #
     # @return [Array<String>]
     def project_scrub_values
-      return [] unless app_runtime? && project_id
+      return [] unless app_runtime? && has_attribute?(:project_id) && project_id
 
       project&.scrub_values || []
     rescue StandardError => e

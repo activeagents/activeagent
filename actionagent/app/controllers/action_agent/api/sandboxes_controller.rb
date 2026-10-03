@@ -214,7 +214,7 @@ module ActionAgent
         status = @sandbox.app_runtime? && orchestrator.supports?(:boot_status) ? orchestrator.boot_status(@sandbox) : nil
         # A project's checkout booted with its secrets, which the backend may
         # not know to mask.
-        status = SecretScrubber.scrub(status, @sandbox.project_scrub_values) if status && @sandbox.project_id
+        status = SecretScrubber.scrub(status, @sandbox.project_scrub_values) if status
         render json: {
           boot: status,
           resumable: !!(status&.dig(:kept) && @sandbox.failed? && !@sandbox.past_expiry? && orchestrator.supports?(:resume_boot)),
