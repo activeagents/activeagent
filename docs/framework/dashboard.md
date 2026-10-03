@@ -239,7 +239,8 @@ wait for a person: toolbox tools, schema tools and its MCP servers' tools. A
 call to a listed tool raises a `confirm` request that carries the call's
 arguments, before the tool runs. Approved, the tool runs once. Declined, it
 never runs, and the model reads an error. The list is part of the agent's
-versioned configuration. An agent run from its host class uses the framework's
+versioned configuration, and changing it makes the agent's evaluations stale,
+because a replay that calls a listed tool pauses. An agent run from its host class uses the framework's
 own approval declarations instead.
 
 **While a run waits.** Its status is `awaiting_input`, with one request per
