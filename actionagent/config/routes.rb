@@ -100,6 +100,12 @@ ActionAgent::Engine.routes.draw do
           post :cancel
         end
       end
+      # A pull request opened from the checkout's changes, its preview, and
+      # the patch to download instead.
+      resource :pull_request, only: [ :show, :create ], controller: "draft_pull_requests" do
+        post :preview
+        get :patch
+      end
     end
 
     # Projects: a repository booted in a checkout sandbox and evaluated,
@@ -203,6 +209,24 @@ ActionAgent::Engine.routes.draw do
     resource :github_connection, only: [ :show, :update, :destroy ], controller: "github_connections" do
       get :repositories
       get :connect
+      get :callback
+    end
+
+    # The owner's GitHub App installations: install sends the admin to GitHub,
+    # which returns to callback; each installation's repositories are chosen
+    # with PATCH, and DELETE unlinks one (the App stays installed on GitHub).
+    resources :github_installations, only: [ :index, :update, :destroy ] do
+      collection do
+        get :install
+        get :callback
+      end
+      member do
+        get :repositories
+      end
+    end
+
+    # Creating the GitHub App from a manifest on a self-hosted dashboard.
+    resource :github_app_manifest, only: [ :create ] do
       get :callback
     end
 

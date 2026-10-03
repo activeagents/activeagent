@@ -108,6 +108,7 @@ module ActionAgent
           sandboxes: listed_sandboxes.map(&:summary),
           code_sessions_supported: code_sessions_supported?,
           codex_sessions_supported: codex_sessions_supported?,
+          pull_requests_supported: pull_requests_supported?,
           codex_connected: owned(ProviderKey).where(provider: "codex").any? { |key| key.runtime_environment.present? },
           **claude_code_status
         }
@@ -349,6 +350,14 @@ module ActionAgent
 
       def codex_sessions_supported?
         SandboxOrchestrator.new.supports_code_runner?("codex")
+      rescue StandardError, LoadError
+        false
+      end
+
+      # Whether the configured backend can read a checkout's changes, which
+      # opening a pull request and downloading a patch both need.
+      def pull_requests_supported?
+        SandboxOrchestrator.new.reads_checkouts?
       rescue StandardError, LoadError
         false
       end

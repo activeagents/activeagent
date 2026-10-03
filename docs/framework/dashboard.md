@@ -756,10 +756,100 @@ false` to leave the facade serving agents and schema tools only.
 
 ## GitHub connections and checkout sandboxes
 
-Settings -> **Integrations** connects the owner's GitHub account over OAuth.
-The owner then chooses which repositories the workspace may use. Register a
-[GitHub OAuth app](https://github.com/settings/developers) whose callback URL
-is `<mount>/api/github_connection/callback` (for example
+Settings -> **Integrations** gives checkout sandboxes access to GitHub
+repositories in one of two ways, and an install can offer both:
+
+- **A GitHub App installation.** An admin installs the dashboard's GitHub
+  App on the repositories they choose. Each checkout then gets its own token,
+  valid for an hour and limited to that one repository and to reading its
+  contents. Nothing stores the token.
+- **An OAuth connection.** One person connects their GitHub account, and
+  checkouts use that person's token, which carries the `repo` scope and does
+  not expire.
+
+In both, the owner then chooses which repositories the workspace may use, and
+the selection only keeps repositories GitHub itself lists. When a repository
+is selected both ways, its checkouts go through the installation.
+
+### A GitHub App
+
+Settings -> Integrations -> **Create GitHub App** registers the App for you
+on a single-tenant dashboard. It posts a manifest to GitHub (under your
+account, or under an organization you name), and GitHub returns to the
+dashboard, which shows the new App's id, slug, client id, client secret and
+private key once, with the lines to add to your configuration. The dashboard
+stores none of them. A multi-tenant platform registers its App per
+environment instead, and the button is not offered. The manifest goes to
+GitHub as a form post from the browser, so a host app whose content security
+policy sets `form-action` must allow `https://github.com`.
+
+To register it by hand, create a [GitHub App](https://github.com/settings/apps/new)
+with:
+
+- callback URL `<mount>/api/github_installations/callback` (for example
+  `https://example.com/activeagents/api/github_installations/callback`)
+- **Request user authorization (OAuth) during installation** turned on
+- **Redirect on update** turned on, so GitHub also returns after an
+  installation that already exists is reconfigured
+- repository permissions Contents (read and write), Pull requests (read and
+  write) and Metadata (read), and the organization permission Members (read)
+- no webhook, and no Workflows, Administration or Secrets permission
+
+Then configure it, and restart the dashboard:
+
+```ruby
+ActionAgent.configure do |config|
+  config.github_app_id = Rails.application.credentials.dig(:github_app, :id)
+  config.github_app_slug = Rails.application.credentials.dig(:github_app, :slug)
+  config.github_app_client_id = Rails.application.credentials.dig(:github_app, :client_id)
+  config.github_app_client_secret = Rails.application.credentials.dig(:github_app, :client_secret)
+  config.github_app_private_key = Rails.application.credentials.dig(:github_app, :private_key)
+end
+```
+
+Unset, each setting falls back to `GITHUB_APP_ID`, `GITHUB_APP_SLUG`,
+`GITHUB_APP_CLIENT_ID`, `GITHUB_APP_CLIENT_SECRET` and
+`GITHUB_APP_PRIVATE_KEY`. A private key written on one line with `\n` for
+its line breaks is read correctly. The dashboard offers the App once all five
+are set (`ActionAgent.github_app_configured?`).
+
+**Install the GitHub App** sends the admin to GitHub to pick the account and
+repositories. GitHub then returns to the callback, and the dashboard links the
+installation to the owner only when:
+
+- the return carries a state that this browser session issued to the
+  signed-in user, and a code from the App's user authorization (a return
+  missing either, such as an install started on GitHub itself or a return
+  from reconfiguring an installation that already existed, is sent through
+  the App's user authorization first), and
+- the installation appears in `GET /user/installations` for the authorizing
+  GitHub user, and that user is the user account it is installed on, or an
+  active admin of its organization.
+
+The authorizing user's token is used for those checks and then dropped. An
+installation is linked to one owner at most, and one owner may link several
+(a personal account and an organization, say). When a member asks an
+organization owner to approve the install, nothing is linked: once an owner
+of the organization approves it on GitHub, that owner links it from Settings.
+**Unlink** removes the installation from the dashboard; the App stays
+installed on GitHub. To link it again, choose **Install the GitHub App**,
+pick the account the App is installed on, and save its configuration on
+GitHub, which returns to the dashboard when the App has **Redirect on
+update** turned on. If GitHub does not return, uninstall the App from that
+account on GitHub and install it again from Settings.
+
+When GitHub refuses a token because the installation was removed or
+suspended, the dashboard marks the installation, and starting a sandbox from
+it asks for a reinstall. **Check again** on a marked installation asks
+GitHub once more, and the mark clears as soon as GitHub mints a token for it,
+as it does again once a suspended installation is unsuspended. An App
+uninstalled from an account comes back as a new installation when it is
+installed again; unlink the old one.
+
+### An OAuth connection
+
+Register a [GitHub OAuth app](https://github.com/settings/developers) whose
+callback URL is `<mount>/api/github_connection/callback` (for example
 `https://example.com/activeagents/api/github_connection/callback`), then
 configure it:
 
@@ -774,15 +864,20 @@ end
 
 Unset, both settings fall back to `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET`.
 The token is encrypted at rest like a provider key and is never returned to
-the browser. The selection only keeps repositories GitHub lists for that
-token.
+the browser.
+
+### Starting a sandbox
 
 **Start sandbox** on a selected repository creates an `app_runtime` sandbox
 session. A sandbox backend (see `ActionAgent.sandbox_backends`) does the
 following for that session:
 
 1. Reads `sandbox_session.checkout_spec`, which holds `repository`, `ref`,
-   `clone_url`, `username` and `token`, and clones it.
+   `clone_url`, `username` and `token`, and clones it. For a checkout through
+   a GitHub App installation, `SandboxProvisionJob` mints the token once,
+   just before it calls `create_sandbox`, and only the session object passed
+   to `create_sandbox` carries it. A backend reads the spec from that object;
+   a copy of the session loaded from the database carries no token.
 2. Boots the app. If the app mounts this engine, its MCP facade serves the
    app's agents and schema tools. A backend that takes a
    [boot spec](#bootstrapping-a-checkout-without-the-engine) can also install
@@ -796,6 +891,109 @@ runs and evaluations of that agent call the checkout's own tools. The lookup
 is scoped to the agent's owner, so one tenant cannot name another tenant's
 sandbox.
 
+### Opening a draft pull request
+
+A ready checkout sandbox has a **Pull request** card. **Open draft PR** reads
+what the checkout changed since it was cloned and shows:
+
+- every changed file, ticked when it may be published, and the reason when it
+  may not
+- the exact diff of the ticked files
+- the new branch's name, and the pull request's title and description
+
+These are never published, and the dialog names the file and the reason:
+
+- anything under `.github/` (the App asks for no Workflows permission)
+- symlinks, and submodules or nested repositories
+- a file over 1 MB
+- a file holding one of the sandbox's secrets (a stored checkout token, the
+  Claude Code and Codex credentials it runs with, its runtime's MCP token, the
+  OAuth connection's token) or anything shaped like a GitHub token. The value
+  is never shown.
+
+One publish carries at most 300 files and 10 MB of the ticked files. A
+preview reads at most 300 files and 20 MB (counting each file now and in the
+checkout commit), in path order. A file after that is listed as not read and
+cannot be ticked: **Only read paths matching** (`app/**, lib/*.rb`) reads
+the preview again with fewer files. A publish and a patch read only the files
+they were asked for.
+
+Files the repository ignores are not listed at all. A file is published as
+the bytes in the checkout: git's clean conversions do not run, so a
+repository whose `.gitattributes` sets `eol=crlf` or
+`working-tree-encoding`, or a filter such as Git LFS, gets the working-tree
+bytes rather than what `git add` would store. **Open draft PR** in the dialog
+sends each ticked file with the digest it was previewed at, and a file that
+changed since is refused, and the dialog reads the sandbox again. The publish
+then runs in `ActionAgent::DraftPullRequestJob`, from the dashboard's own
+process:
+
+1. It gets a token for the one repository: an installation token limited to
+   Contents and Pull requests write, minted now, or the OAuth connection's
+   token.
+2. It writes a blob per file, a tree on top of the checkout commit's tree,
+   and a commit whose parent is the checkout commit. The commit names no
+   author, so GitHub records it as the token's identity, and signs it for an
+   App.
+3. It creates the branch. A name that already exists on GitHub is refused,
+   and no branch is ever overwritten.
+4. It opens a draft pull request against the branch the sandbox checked out,
+   or the default branch when it checked out a tag or a commit.
+
+No git process ever holds that token. The sandbox backend only lists and
+reads files (`changed_files` and `read_file`, below), and several things can
+rewrite a checkout's `.git/config`, which decides where git sends a request
+and which programs it starts.
+
+**Update draft PR** publishes the ticked files as a new commit on the pull
+request's branch, as a fast-forward that is never forced, with the commit
+message the dialog asks for. The pull request's title and description stay
+as they are. The new commit's tree is the checkout commit's with the ticked
+files on top, so the pull request's diff on GitHub is the diff the dialog
+showed: a file the branch holds that the update leaves out returns to its
+content in the checkout commit, and the dialog names those files. A branch
+with commits the dashboard did not publish is not updated, and neither is a
+branch with no pull request.
+
+GitHub opens no draft pull request in a private repository of an account on
+GitHub Free. The branch is kept, the card links it on GitHub to compare, and
+**Open as a regular pull request** opens a regular one. The dashboard never
+does that on its own. When opening the pull request fails for another
+reason, the branch is kept the same way, and **Open the draft PR again**
+tries once more.
+
+A publish still queued or running 15 minutes after it last moved (its worker
+died, or none picked it up) is marked failed as stalled, and the sandbox can
+publish again.
+
+A publish goes ahead only when:
+
+- `ActionAgent.permission_checker` allows `:publish_pull_request`, asked when
+  the user publishes and again when the job runs
+- the sandbox is ready or running, since the publish reads its live checkout
+- something can write to the repository: the installation the sandbox
+  checked out through, while GitHub serves it with write permissions, or
+  the OAuth connection. The OAuth connection publishes only for the user who
+  connected it (a connection made before the dashboard recorded that user
+  must be connected again), and only with the `repo` scope, or `public_repo`
+  for a public repository. Its commit and pull request then appear as that
+  user.
+
+Where nothing can write, or GitHub refuses the write (403 or 404),
+**Download patch** opens the same dialog to choose filtered and scanned files
+for a patch for `git am` or `git apply`, built without any GitHub token. The
+card reads the pull request's state (open, closed, merged, draft) again at
+most once a minute. No agent tool, toolbox tool or MCP tool publishes. Run
+`rails g action_agent:install` and `rails db:migrate` for the
+`draft_pull_requests` table.
+
+| Endpoint | Does |
+|---|---|
+| `POST <mount>/api/sandboxes/:id/pull_request/preview` | the changed files, each with its refusal or its diff and digest; `allowlist:` limits what may be published to matching paths (`"app/**"`) |
+| `POST <mount>/api/sandboxes/:id/pull_request` | queues a publish of `files: [{ path:, digest: }]` with `title:`, `body:` and `branch:`; `update: true` publishes `files:` onto the last pull request's branch with `message:` as the commit message; `open: true` opens a draft pull request for a branch published without one, and `regular: true` a regular one. A second request while a publish is queued or running answers 409 |
+| `GET <mount>/api/sandboxes/:id/pull_request` | the latest pull request, and whether publishing is available and why not |
+| `GET <mount>/api/sandboxes/:id/pull_request/patch` | the patch of `paths[]`, or of every publishable file when one read covers them all |
+
 ### What a sandbox backend implements
 
 A backend registered in `ActionAgent.sandbox_backends` is a plain class.
@@ -807,8 +1005,8 @@ defines, and `orchestrator.supports?(:verb)` answers whether it defines one:
 | `create_sandbox(session)` | yes | `{ container_name:, url:, mcp_url:, mcp_token: }`. A backend that also takes `boot_config:` is handed a [boot spec](#boot-specs) as a plain Hash, and boots the checkout by it instead of by the checkout's `.activeagents/sandbox.yml` |
 | `status(handle)`, `terminate(handle)`, `list_sandboxes`, `cleanup_expired` | yes | a status hash, true, an array of status hashes, a count |
 | `run_code_session(session, code_session, &on_event)`, `cancel_code_session(session, code_session)` | no | `{ exit_status:, diff: }`, true |
-| `changed_files(session)` | no | `{ base_commit:, files: [{ path:, status:, mode: }] }`: what the checkout changed since it was cloned, read without running the checkout's git hooks, filters or configuration |
-| `read_file(session, path)` | no | the file's current bytes, or nil; a symlink reads as its target. `path` is always relative and inside the checkout |
+| `changed_files(session)` | no | `{ base_commit:, files: [{ path:, status:, mode:, base_mode:, size: }] }`: what the checkout changed since it was cloned, without the files the repository ignores, read without running the checkout's git hooks, filters or configuration (or a submodule's). `base_mode` and `size` are optional |
+| `read_file(session, path, base: false)` | no | the file's current bytes, or with `base: true` its bytes in the commit the checkout was cloned at; nil when nothing is there. A symlink reads as its target. `path` is always relative and inside the checkout, and `base:` is passed only when true. A backend whose `read_file` takes no `base:` cannot read the checkout commit, so it offers no publishing |
 | `start_browser(session, mode:)` | no | `{ mcp_url:, mcp_token: }` for a browser of the sandbox's own; `mode` is `:headless` or `:headed` |
 | `stop_browser(session)` | no | true, also when none was running |
 | `resume_boot(session, from:)` | no | what `create_sandbox` returns, after re-running a failed boot it kept from the step named `from` (nil for the step that failed). A backend that also takes `boot_config:` is handed the spec to continue with |
@@ -818,10 +1016,12 @@ defines, and `orchestrator.supports?(:verb)` answers whether it defines one:
 `session` is the `ActionAgent::SandboxSession`, and `handle` is the
 `container_name` that `create_sandbox` returned. Calling a verb the backend
 does not define raises `SandboxOrchestrator::UnsupportedBackendError`. The
-engine's `:local` backend defines `resume_boot`, `boot_status` and
-`boot_log`, and takes `boot_config:`. The `:mock` backend takes
-`boot_config:` and records it without the secrets' values. Neither defines
-the other optional verbs from `changed_files` down.
+engine's `:local` backend defines `changed_files`, `read_file`,
+`resume_boot`, `boot_status` and `boot_log`, and takes `boot_config:`. It
+reads the checkout commit object by object and refuses any object that does
+not hash to its id, since the checkout's object store is the sandbox's to
+write. The `:mock` backend takes `boot_config:` and records it without the
+secrets' values, and defines none of the optional verbs.
 
 ### Running against a sandbox without editing the agent
 
@@ -1791,7 +1991,7 @@ end
 | Action | Asked by |
 |---|---|
 | `:manage_credentials` | storing, testing and deleting a provider credential (`POST /api/provider_keys`, `POST /api/provider_keys/test`, `DELETE /api/provider_keys/:provider`), and having a project's secret use the organization's provider key (asked about that `ProviderKey`) |
-| `:manage_github` | connecting GitHub, choosing its repositories, and disconnecting it (`GET /api/github_connection/connect` and `/callback`, `PATCH` and `DELETE /api/github_connection`), and reading a repository the connection has not selected or creating a project from one (`GET /api/projects/preflight`, `GET /api/projects/discover_secrets`, `POST /api/projects`) |
+| `:manage_github` | connecting GitHub, choosing its repositories, and disconnecting it (`GET /api/github_connection/connect` and `/callback`, `PATCH` and `DELETE /api/github_connection`); installing and linking the GitHub App, listing and choosing an installation's repositories, and unlinking it (`GET /api/github_installations/install` and `/callback`, `GET /api/github_installations/:id/repositories`, `PATCH` and `DELETE /api/github_installations/:id`); creating the App from a manifest (`POST /api/github_app_manifest`, `GET /api/github_app_manifest/callback`); and reading a repository the connection has not selected or creating a project from one (`GET /api/projects/preflight`, `GET /api/projects/discover_secrets`, `POST /api/projects`) |
 | `:manage_api_keys` | creating and revoking dashboard API keys (`POST /api/api_keys`, `DELETE /api/api_keys/:id`) |
 | `:publish_pull_request` | reserved: opening a pull request from a sandbox |
 | `:answer_input_request` | answering or declining a paused run's request for input (`POST /api/input_requests/:id/answer` and `/decline`, and the MCP `input_requests_answer` tool) |
@@ -1804,8 +2004,10 @@ The list is `ActionAgent::PERMISSION_ACTIONS`. `ActionAgent.permitted?(user,
 action, subject)` asks the checker the same way the endpoints do, and raises
 `ArgumentError` for an action outside the list. Reading a setting is not a
 privileged action, so the `GET` endpoints that list keys or the connection
-are not checked. The connect and callback navigations return a refusal to
-Settings (`?github=forbidden`) rather than as JSON.
+are not checked. Listing an installation's repositories is: the installation
+can reach repositories a member cannot see on GitHub. The connect, install and callback navigations return a
+refusal to Settings (`?github=forbidden` or `?github_app=forbidden`) rather
+than as JSON.
 
 Unset, anyone who passes authentication may perform every action, which
 suits a single-user install. In multi-tenant mode that is every member of
