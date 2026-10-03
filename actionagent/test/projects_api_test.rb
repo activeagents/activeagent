@@ -223,7 +223,8 @@ class ProjectsApiTest < ActionDispatch::IntegrationTest
     assert_equal [ "3.3.6", "Gemfile.lock", "8.0.1" ], preflight.values_at("ruby", "ruby_source", "railties")
     assert_equal [ "postgresql" ], preflight["database_adapters"]
     assert_equal [ "Redis (for Sidekiq)" ], preflight["services"]
-    assert_requested(:get, "https://api.github.com/repos/acme/shop/contents/Gemfile.lock?ref=main",
+    assert_equal commit_for("acme/shop", "main"), preflight["commit"]
+    assert_requested(:get, "https://api.github.com/repos/acme/shop/contents/Gemfile.lock?ref=#{commit_for("acme/shop", "main")}",
       headers: { "Authorization" => "Bearer #{GITHUB_TOKEN}" })
   end
 
@@ -253,7 +254,7 @@ class ProjectsApiTest < ActionDispatch::IntegrationTest
       .to_return(status: 200, body: { id: 7, full_name: "someone/private-app", private: true, default_branch: "main" }.to_json)
     stub_contents("someone/private-app", "Gemfile.lock" => rails_lock, "config/application.rb" => "# app\n",
       ".env.example" => "INTERNAL_PAYMENTS_TOKEN=\n")
-    stub_tree("someone/private-app", "main", [])
+    stub_tree("someone/private-app", "main", [ ".env.example" ])
     stub_supported_repository
     stub_tree("acme/shop", "main", [])
     asked = []
@@ -285,7 +286,7 @@ class ProjectsApiTest < ActionDispatch::IntegrationTest
   end
 
   test "a revoked GitHub token asks for GitHub to be reconnected" do
-    stub_request(:get, %r{\Ahttps://api\.github\.com/repos/acme/shop/contents/}).to_return(status: 401, body: "{}")
+    stub_request(:get, %r{\Ahttps://api\.github\.com/repos/acme/shop/}).to_return(status: 401, body: "{}")
 
     get "#{BASE}/preflight", params: { repository: "acme/shop" }
 
@@ -299,7 +300,8 @@ class ProjectsApiTest < ActionDispatch::IntegrationTest
       ".activeagents/sandbox.yml" => { "secrets" => { "MAILER_PASSWORD" => "SMTP password for the sandbox" } }.to_yaml,
       "config/initializers/stripe.rb" => "Stripe.api_key = ENV.fetch(\"STRIPE_SECRET_KEY\")\nX = ENV[\"OPTIONAL_FLAG\"]\n",
       "config/storage.yml" => "s3:\n  secret: <%= ENV.fetch('AWS_SECRET', 'none') %>\n  path: <%= ENV['PATH'] %>\n")
-    stub_tree("acme/shop", "main", [ "config/initializers/stripe.rb", "config/storage.yml", "app/models/user.rb", "README.md" ])
+    stub_tree("acme/shop", "main", [ ".env.example", ".activeagents/sandbox.yml", "config/initializers/stripe.rb", "config/storage.yml",
+                                     "app/models/user.rb", "README.md" ])
 
     first = discover("acme/shop")
     second = discover("acme/shop")
@@ -315,6 +317,54 @@ class ProjectsApiTest < ActionDispatch::IntegrationTest
     assert_equal "openai", first["variables"].find { |variable| variable["name"] == "OPENAI_API_KEY" }["organization_key"]
     assert_equal %w[config/initializers/stripe.rb config/storage.yml], first["scanned"]
     assert_not_requested(:post, /api\.(openai|anthropic)\.com/)
+    # The commit does not list it.
+    assert_not_requested(:get, %r{/contents/\.env\.sample})
+  end
+
+  test "a repository is read once per commit: checking it again costs one GitHub call until the ref moves" do
+    lock = rails_lock
+    stub_contents("acme/shop", "Gemfile.lock" => lock, "config/application.rb" => "# app\n", ".env.example" => "STRIPE_SECRET_KEY=\n")
+    stub_tree("acme/shop", "main", [ ".env.example" ])
+    pushed = "f" * 40
+
+    Rails.stub(:cache, ActiveSupport::Cache::MemoryStore.new) do
+      2.times { get "#{BASE}/preflight", params: { repository: "acme/shop" } }
+      2.times { discover("acme/shop") }
+      post BASE, params: { repository: "acme/shop" }, as: :json
+      assert_response :created, response.body
+
+      assert_requested(:get, "https://api.github.com/repos/acme/shop/commits", query: hash_including("sha" => "main"), times: 5)
+      assert_requested(:get, %r{/contents/Gemfile\.lock\?}, times: 1)
+      assert_requested(:get, %r{/contents/\.env\.example\?}, times: 1)
+      assert_requested(:get, %r{/git/trees/}, times: 1)
+
+      stub_contents("acme/shop", commit: pushed, "Gemfile.lock" => rails_lock(railties: "7.1.3"), "config/application.rb" => "# app\n")
+      get "#{BASE}/preflight", params: { repository: "acme/shop" }
+
+      assert_equal [ "unsupported", pushed ], JSON.parse(response.body)["preflight"].values_at("status", "commit")
+      assert_requested(:get, %r{/contents/Gemfile\.lock\?}, times: 2)
+    end
+  end
+
+  test "a ref that names no commit is unsupported, and discovery answers 404" do
+    stub_request(:get, "https://api.github.com/repos/acme/shop/commits").with(query: hash_including("sha" => "gone"))
+      .to_return(status: 404, body: { message: "No commit found for SHA: gone" }.to_json)
+    # What GitHub answers for a repository with no commits at all.
+    stub_request(:get, "https://api.github.com/repos/acme/shop/commits").with(query: hash_including("sha" => "main"))
+      .to_return(status: 409, body: { message: "Git Repository is empty." }.to_json)
+
+    %w[gone main].each do |ref|
+      get "#{BASE}/preflight", params: { repository: "acme/shop", ref: ref }
+
+      assert_response :success
+      assert_equal [ "unsupported", "acme/shop has no commit at #{ref}" ],
+        JSON.parse(response.body)["preflight"].values_at("status", "summary")
+    end
+
+    get "#{BASE}/discover_secrets", params: { repository: "acme/shop", ref: "gone" }
+    assert_response :not_found
+    assert_equal [ "not_found", "acme/shop has no commit at gone" ], JSON.parse(response.body).values_at("code", "error")
+    assert_not_requested(:get, %r{/contents/|/git/trees/})
   end
 
   # --- creating -------------------------------------------------------------
@@ -899,7 +949,7 @@ class ProjectsApiTest < ActionDispatch::IntegrationTest
     assert_equal "manage_project_secrets", JSON.parse(response.body)["permission"]
     assert_nil project.reload.default_ref
     assert old.reload.ready?
-    assert_not_requested(:get, %r{/contents/.*\?ref=their-branch})
+    assert_not_requested(:get, "https://api.github.com/repos/acme/shop/commits", query: hash_including("sha" => "their-branch"))
 
     patch "#{BASE}/#{project.id}", params: { name: "Renamed" }, as: :json
     assert_response :success, "the name and start URL hand nothing over"
@@ -947,7 +997,7 @@ class ProjectsApiTest < ActionDispatch::IntegrationTest
 
     patch "#{BASE}/#{project.id}", params: { default_ref: "plain" }, as: :json
     assert_response :success
-    assert_requested(:get, %r{/contents/Gemfile\.lock\?ref=plain}, times: 1)
+    assert_requested(:get, "https://api.github.com/repos/acme/shop/commits", query: hash_including("sha" => "plain"), times: 1)
   end
 
   test "broadcasts name the project and its status, never a secret" do
@@ -971,14 +1021,19 @@ class ProjectsApiTest < ActionDispatch::IntegrationTest
 
   def json_headers = { "Content-Type" => "application/json" }
 
-  # Serves +files+ from GitHub's contents API for +repository+ at +ref+, and
-  # 404 for any other path.
-  def stub_contents(repository, ref: "main", **files)
+  # The commit the stubs say +ref+ names in +repository+.
+  def commit_for(repository, ref) = Digest::SHA1.hexdigest("#{repository}@#{ref}")
+
+  # Has +ref+ name +commit+ in +repository+, and serves +files+ from
+  # GitHub's contents API at that commit, alongside what earlier calls serve
+  # at other commits. Any other path answers 404.
+  def stub_contents(repository, ref: "main", commit: commit_for(repository, ref), **files)
+    stub_commit(repository, ref, commit)
+    served[[ repository, commit ]] = files
     stub_request(:get, %r{\Ahttps://api\.github\.com/repos/#{Regexp.escape(repository)}/contents/}).to_return do |request|
       uri = URI(request.uri.to_s)
       path = uri.path.delete_prefix("/repos/#{repository}/contents/").split("/").map { |part| CGI.unescape(part) }.join("/")
-      query = Rack::Utils.parse_query(uri.query)
-      content = query["ref"] == ref ? files[path] : nil
+      content = served[[ repository, Rack::Utils.parse_query(uri.query)["ref"] ]]&.dig(path)
       if content
         { status: 200, headers: json_headers,
           body: { type: "file", encoding: "base64", size: content.bytesize, content: [ content ].pack("m") }.to_json }
@@ -988,8 +1043,18 @@ class ProjectsApiTest < ActionDispatch::IntegrationTest
     end
   end
 
-  def stub_tree(repository, ref, paths)
-    stub_request(:get, "https://api.github.com/repos/#{repository}/git/trees/#{ref}?recursive=1")
+  def stub_commit(repository, ref, commit = commit_for(repository, ref))
+    stub_request(:get, "https://api.github.com/repos/#{repository}/commits").with(query: { "sha" => ref, "per_page" => "1" })
+      .to_return(status: 200, headers: json_headers, body: [ { sha: commit } ].to_json)
+  end
+
+  def served
+    @served ||= {}
+  end
+
+  def stub_tree(repository, ref, paths, commit: commit_for(repository, ref))
+    stub_commit(repository, ref, commit)
+    stub_request(:get, "https://api.github.com/repos/#{repository}/git/trees/#{commit}?recursive=1")
       .to_return(status: 200, headers: json_headers,
         body: { tree: paths.map { |path| { path: path, type: "blob", size: 100 } } + [ { path: "config", type: "tree" } ],
                 truncated: false }.to_json)

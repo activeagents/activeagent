@@ -15,8 +15,14 @@ module ActionAgent
   #
   # Variables Rails or the sandbox sets (RUNTIME_VARIABLES, and the names a
   # ProjectSecret may not take) are left out.
+  #
+  # Every file is read at the commit the ref names, and only when the
+  # commit's file listing has it. What was found is kept in Rails.cache for
+  # that commit, so discovering a repository again costs one GitHub call
+  # until it changes.
   class ProjectSecretDiscovery
     ENV_FILES = %w[.env.example .env.sample].freeze
+    CACHE_TTL = 1.day
     SANDBOX_CONFIG = LocalSandboxBackend::Config::PATH
     SCANNED = %r{\A(?:config|lib)/[^\0]+\.(?:rb|ya?ml|erb)\z}
     MAX_SCANNED_FILES = 40
@@ -38,8 +44,17 @@ module ActionAgent
     # @param client [GithubClient]
     # @param repository [String] owner/name
     # @param ref [String] the branch, tag or commit to read
+    # @return [Hash] see #call, with +ref+ as asked and +commit+, the SHA it
+    #   named
+    # @raise [GithubClient::NotFound] when the ref names no commit
     def self.call(client, repository:, ref:)
-      new(client, repository: repository, ref: ref).call
+      commit = client.commit_sha(repository, ref) or
+        raise GithubClient::NotFound, "#{repository} has no commit at #{ref.presence || "its default branch"}"
+
+      found = Rails.cache.fetch([ name, ActionAgent::VERSION, repository, commit ], expires_in: CACHE_TTL) do
+        new(client, repository: repository, ref: commit).call
+      end
+      found.deep_symbolize_keys.merge(ref: ref, commit: commit)
     end
 
     def initialize(client, repository:, ref:)
@@ -57,9 +72,12 @@ module ActionAgent
     #   truncated  whether files were left unread (more than
     #              MAX_SCANNED_FILES, or GitHub truncated the file listing)
     def call
-      ENV_FILES.each { |path| scan_env_file(path) }
-      scan_sandbox_config
       listing = @client.tree(@repository, ref: @ref)
+      listed = listing[:paths].to_set { |entry| entry[:path] }
+      # A truncated listing may leave out a file that is there.
+      present = ->(path) { listing[:truncated] || listed.include?(path) }
+      ENV_FILES.select(&present).each { |path| scan_env_file(path) }
+      scan_sandbox_config if present.call(SANDBOX_CONFIG)
       candidates = listing[:paths].select { |entry| SCANNED.match?(entry[:path]) && entry[:size] <= MAX_SCANNED_BYTES }
         .sort_by { |entry| entry[:path] }
       scanned = candidates.first(MAX_SCANNED_FILES).map { |entry| entry[:path] }

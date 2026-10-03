@@ -25,6 +25,7 @@ module ActionAgent
 
       # Later handlers win, so subclasses are registered after GithubClient::Error.
       rescue_from GithubClient::Error, with: :github_unavailable
+      rescue_from GithubClient::NotFound, with: :github_not_found
       rescue_from GithubClient::Unauthorized, with: :github_unauthorized
       rescue_from Project::ConfirmationRequired, with: :confirmation_required
       rescue_from Project::BootRefused, with: :boot_refused
@@ -486,6 +487,10 @@ module ActionAgent
       def github_unauthorized
         render json: { error: "GitHub rejected the stored token. Reconnect GitHub.", reconnect_required: true },
           status: :unprocessable_entity
+      end
+
+      def github_not_found(exception)
+        render json: { error: exception.message, code: "not_found" }, status: :not_found
       end
 
       def github_unavailable(exception)
