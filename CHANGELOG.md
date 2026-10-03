@@ -108,16 +108,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   The sidecar streams the page on screen over a WebSocket (`/live`),
   following new tabs and the tab the agent selects, and relays the input of
   the one person in control. `POST <mount>/api/sandboxes/:id/browser/tickets`
-  issues a ticket, sent as the WebSocket's first message, that lives 30
-  seconds and opens once: `mode: "view"` needs access to the sandbox, and
-  `mode: "control"` also asks the permission checker about
-  `:take_over_browser`. The WebSocket also checks `Host` and the dashboard's
+  issues a ticket that lives 30 seconds and is accepted once: `mode:
+  "view"`, sent as the WebSocket's first message, needs access to the
+  sandbox, and `mode: "control"`, which every Take over asks for afresh,
+  also asks the permission checker about `:take_over_browser`. The
+  WebSocket also checks `Host` and the dashboard's
   `Origin` (the one the browser was started from, plus
   `ActionAgent.browser_live_origins`). While a person holds control, an
   agent's browser call that would change the page waits for them to hand
   back and then returns an error naming them; calls that only read the page
   go ahead. Control is released 10 seconds after its holder's connection
-  drops. Relayed input is never logged or recorded; a takeover's start and
+  drops, and the same person may continue driving from another tab before
+  then. Relayed input is never logged or recorded; a takeover's start and
   end are recorded as `marker` events with `source: "human"`. The sandbox
   listing reports `browser_modes`.
 - **Report quantities to the usage recorder** (`actionagent`).
