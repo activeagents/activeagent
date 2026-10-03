@@ -278,10 +278,10 @@ module ExplorerSetup
     exploration
   end
 
-  # Runs ExplorationJob for +exploration+ on the scripted model.
+  # Runs ExplorationJob for +exploration+ on the scripted model, which the
+  # explorer agent's mock provider resolves to.
   def walk(exploration, stop_browser: false)
-    original = ActionAgent::ExplorerExecutionService.method(:new)
-    ActionAgent::ExplorerExecutionService.stub(:new, ->(record, run) { original.call(record, run, provider_class: ScriptedExplorer) }) do
+    stub_const(ActiveAgent::Providers, :MockProvider, ScriptedExplorer) do
       ActionAgent::ExplorationJob.perform_now(exploration.id, stop_browser)
     end
     exploration.reload
