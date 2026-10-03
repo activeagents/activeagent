@@ -49,8 +49,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `start_browser`, `stop_browser` and `resume_boot` to a backend that defines
   them, and `supports?` is false for one that does not. Their signatures are
   documented on the orchestrator and in the dashboard guide; the `:mock` and
-  `:local` backends implement none of them. `read_file` refuses a path outside
-  the checkout before the backend sees it.
+  `:local` backends implement `changed_files` and `read_file` only.
+  `read_file` refuses a path outside the checkout before the backend sees it.
 - **Check out sandboxes through a GitHub App** (`actionagent`). Configure
   `github_app_id`, `github_app_private_key`, `github_app_slug`,
   `github_app_client_id` and `github_app_client_secret` (or the matching
@@ -78,6 +78,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `SecretScrubber` masks `ghp_`, `gho_`, `ghu_`, `ghs_`, `ghr_` and
   `github_pat_` tokens even when it is given no values, so a code session's
   transcript masks a checkout token it never knew.
+- **Open a draft pull request from a sandbox** (`actionagent`). A ready
+  checkout's **Open draft PR** previews the exact diff of the files it would
+  publish, then publishes them from the dashboard's own process through
+  GitHub's Git Data API: a commit on the checkout commit, a new branch (an
+  existing one is refused, never overwritten) and a draft pull request. No
+  git process holds the token, which is minted at publish time for the one
+  repository, or is the OAuth connection's token when the user who connected
+  it publishes and its scopes allow writing. `.github/`, symlinks,
+  submodules, oversize files and files holding one of the sandbox's secrets
+  or a GitHub token are never published, and a file that changed since the
+  preview refuses the publish. **Update draft PR** fast-forwards the branch;
+  a draft GitHub refuses keeps the branch and offers a regular pull request
+  as a second step. Where nothing can write, **Download patch** offers the
+  same files for `git am`. Publishing asks `ActionAgent.permission_checker`
+  for `:publish_pull_request`, also when its job runs, and needs a ready or
+  running sandbox. The `:local` backend now implements `changed_files` and
+  `read_file`, which gains `base: true`. The OAuth connect callback records
+  the user who connected. Run `rails g action_agent:install` and
+  `rails db:migrate` for the `draft_pull_requests` table.
 
 ### Changed
 
