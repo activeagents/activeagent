@@ -205,6 +205,30 @@ class MCPApprovalsTest < ActiveSupport::TestCase
     assert_not request_bodies.first.key?("mcp_servers")
   end
 
+  test "requires_approval: naming a tool no declared tool has runs a url server without allowed_tools client-side" do
+    files = FILES.except(:require_approval)
+    stub_messages(assistant_message(DELETE))
+
+    paused = with_fake_servers { generation(mcps: [ files ], options: { requires_approval: [ "delete" ] }).generate_now }
+
+    request = paused.input_requests.sole
+    assert_equal [ :confirm, "delete" ], [ request.kind, request.tool_name ]
+    assert_empty @clients["files"].calls
+    assert_not request_bodies.first.key?("mcp_servers"), "Anthropic would run delete where nobody is asked to approve it"
+  end
+
+  test "mcp_strategy: :server refuses a url server that may offer a tool requires_approval: names, before any request" do
+    files = FILES.except(:require_approval)
+    stub_messages(assistant_message(DONE))
+
+    error = assert_raises(ArgumentError) do
+      generation(mcps: [ files ], options: { requires_approval: [ "delete" ], mcp_strategy: :server }).generate_now
+    end
+
+    assert_includes error.message, "`requires_approval:` names delete"
+    assert_not_requested :post, ENDPOINT
+  end
+
   def responses_body(*output)
     { id: "resp_#{SecureRandom.hex(4)}", object: "response", created_at: 1_761_502_994, status: "completed", model: "gpt-5-mini",
       output:, usage: { input_tokens: 20, output_tokens: 10, total_tokens: 30 } }

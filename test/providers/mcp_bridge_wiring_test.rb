@@ -27,6 +27,7 @@ class MCPBridgeWiringTest < ActiveSupport::TestCase
   COMMAND_SERVER = [ { name: "local", command: "mcp-server", args: [ "--stdio" ] } ].freeze
   BOTH_SERVERS   = (URL_SERVER + COMMAND_SERVER).freeze
   MESSAGES       = [ { role: "user", content: "Fetch https://example.com" } ].freeze
+  ARCHIVE_TOOL   = { name: "archive", description: "Archive a file", parameters: { type: "object", properties: {} } }.freeze
 
   # Only the tool list is needed here — the call path is covered by
   # MCPBridgeTest.
@@ -148,6 +149,60 @@ class MCPBridgeWiringTest < ActiveSupport::TestCase
 
       assert_not context.key?(:mcps)
       assert_not context.key?(:requires_approval), "the approval list instructs us; no provider accepts it"
+    end
+  end
+
+  test "a remote server without allowed_tools is run client-side when requires_approval: names a tool no declared tool has" do
+    [ AnthropicProvider, ResponsesProvider ].each do |klass|
+      with_bridge do
+        context = provider(klass, mcps: URL_SERVER, tools: [ ARCHIVE_TOOL ], requires_approval: %i[archive delete]).send(:prompt_context)
+
+        assert_not context.key?(:mcps), "#{klass.service_name} could run delete where nobody is asked to approve it"
+      end
+    end
+  end
+
+  test "a remote server stays native when requires_approval: names only declared tools, in either tool format" do
+    chat_format = { type: "function", function: { name: "archive", description: "Archive a file", parameters: {} } }
+
+    [ ARCHIVE_TOOL, chat_format ].each do |tool|
+      ActiveAgent::Providers::MCPBridge.stub(:new, ->(*) { flunk "a server that offers no named tool is not bridged" }) do
+        context = provider(AnthropicProvider, mcps: URL_SERVER, tools: [ tool ], requires_approval: [ :archive ]).send(:prompt_context)
+
+        assert_equal URL_SERVER, context[:mcps]
+      end
+    end
+  end
+
+  test "a remote server whose allowed_tools leave out every named tool stays native" do
+    declaration = URL_SERVER.first.merge(allowed_tools: [ "get_page" ])
+
+    ActiveAgent::Providers::MCPBridge.stub(:new, ->(*) { flunk "a server that cannot offer delete is not bridged" }) do
+      context = provider(ResponsesProvider, mcps: [ declaration ], requires_approval: [ :delete ]).send(:prompt_context)
+
+      assert_equal [ declaration ], context[:mcps]
+    end
+  end
+
+  test "a require_approval map that covers no tool keeps a remote server native" do
+    declaration = URL_SERVER.first.merge(require_approval: { always: [] })
+
+    assert_equal [ declaration ], provider(AnthropicProvider, mcps: [ declaration ]).send(:prompt_context)[:mcps]
+  end
+
+  test "mcp_strategy: :server refuses a remote server that may offer a tool requires_approval: names" do
+    [ AnthropicProvider, ResponsesProvider ].each do |klass|
+      error = assert_raises(ArgumentError) do
+        provider(klass, mcps: URL_SERVER, requires_approval: [ :delete ], mcp_strategy: :server).send(:prompt_context)
+      end
+      assert_includes error.message, "`requires_approval:` names delete"
+      assert_includes error.message, "List the tools it may offer in `allowed_tools:`"
+
+      declaration = URL_SERVER.first.merge(allowed_tools: %w[get_page delete])
+      error = assert_raises(ArgumentError) do
+        provider(klass, mcps: [ declaration ], requires_approval: [ :delete ], mcp_strategy: :server).send(:prompt_context)
+      end
+      assert_includes error.message, "Remove delete from its `allowed_tools:`"
     end
   end
 

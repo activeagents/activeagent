@@ -47,8 +47,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `true` runs it, `false` declines. It covers agent tools, delegations and
   client-side MCP tools, and is never sent to the provider. An MCP declaration's
   own `require_approval` (`"always"`, or a map of `always`/`never` tool lists)
-  gates its tools the same way. A paused call to an MCP tool its server no
-  longer offers returns an `{ error: }` result on resume.
+  gates its tools the same way. A remote MCP server that may offer a listed
+  tool runs client-side so that its calls are gated too: one whose
+  `allowed_tools:` include the tool, or one without `allowed_tools:` when no
+  tool in `tools:` has the name; `mcp_strategy: :server` with such a server
+  raises `ArgumentError`. A paused call to an MCP tool its server no longer
+  offers returns an `{ error: }` result on resume.
 - **Resume a paused generation in a job** (`activeagent`).
   `Generation#resume_later(checkpoint:, answers:, **job_options)` validates the
   answers, refuses any answer to a `:secret` request, and enqueues

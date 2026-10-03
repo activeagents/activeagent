@@ -135,7 +135,7 @@ class ResearchAgent < ApplicationAgent
 end
 ```
 
-A local (`command:`) server always runs client-side, so `mcp_strategy: :server` with one raises even on Anthropic or OpenAI Responses. So does a server whose calls need approval; see [Approving tool calls](#approving-tool-calls).
+A local (`command:`) server always runs client-side, so `mcp_strategy: :server` with one raises even on Anthropic or OpenAI Responses. So does a server whose calls may need approval; see [Approving tool calls](#approving-tool-calls).
 
 ::: warning Requires the `mcp` gem
 Add `gem "mcp"` to your Gemfile. It is loaded only when a client-side bridge is built, so it stays optional for applications that do not use `mcps:` against a client-side provider. Without it, the error names the gem to add.
@@ -179,7 +179,12 @@ response.input_requests.first.tool_name # => "delete_file"
 
 The approval is asked for in ActiveAgent's own tool loop, which never sees the calls of a server the provider runs itself. A declaration that sets `require_approval` to anything but `"never"` is therefore run client-side on every provider, Anthropic and OpenAI Responses included, and `mcp_strategy: :server` with one raises `ArgumentError`. A server whose `require_approval` is `"never"` or absent runs where `mcp_strategy:` puts it.
 
-The `requires_approval:` prompt option names tools to approve whatever serves them, and covers MCP tools too. It can only gate calls ActiveAgent makes: a remote server on Anthropic or OpenAI Responses runs client-side when the option names one of its `allowed_tools:`, and otherwise stays with the provider, whose calls the option cannot see. Use `mcp_strategy: :client` to gate it by tool name alone.
+The `requires_approval:` prompt option names tools to approve whatever serves them, and covers MCP tools too. It can only gate calls ActiveAgent makes, so on Anthropic and OpenAI Responses a remote server that may offer a named tool runs client-side:
+
+- a server with `allowed_tools:` runs client-side when they include a named tool
+- a server without `allowed_tools:` runs client-side when a named tool is not one of the prompt's `tools:`, because the server's tools are unknown until ActiveAgent connects to it
+
+To keep a server with the provider, list its tools in `allowed_tools:` and leave the named tools out. `mcp_strategy: :server` with a server that may offer a named tool raises `ArgumentError`.
 
 The call pauses the generation like any other [input request](/framework/input_requests#requiring-approval): approving runs the tool on the server, and declining never calls it.
 
