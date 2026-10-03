@@ -152,12 +152,17 @@ module ActiveAgent
       end
 
       # Whether a declaration's `require_approval` asks for approval of any of
-      # its tools: anything but blank or `"never"`.
+      # its tools: anything but blank, `"never"`, or a map whose only list,
+      # under `always`, is empty.
       #
       # @param policy [String, Symbol, Hash, nil]
       # @return [Boolean]
       def self.approval_policy?(policy)
-        policy.present? && policy.to_s != "never"
+        return false if policy.blank? || policy.to_s == "never"
+        return true unless policy.is_a?(Hash)
+
+        policy = policy.to_h.transform_keys(&:to_s)
+        policy.key?("never") || !policy.key?("always") || approval_tool_names(policy["always"]).any?
       end
 
       # Whether `require_approval` covers a tool. The policy takes the shapes
