@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { acceptedHosts, refusal } from '../lib/guard.mjs';
+import { acceptedHosts, liveRefusal, refusal } from '../lib/guard.mjs';
 
 const TOKEN = 'browser-token-0123456789abcdef0123456789';
 const hosts = acceptedHosts('127.0.0.1', 4321);
@@ -48,4 +48,16 @@ test('refuses a missing, malformed or wrong token', () => {
       message: 'Missing or invalid bearer token',
     });
   }
+});
+
+test("the live view's upgrade needs an accepted Host, an allowed Origin and no query, and no token", () => {
+  const origins = new Set(['http://localhost:3000']);
+  const live = (headers, url = '/live') => liveRefusal({ headers, url }, { hosts, origins });
+
+  assert.equal(live({ host: '127.0.0.1:4321', origin: 'http://localhost:3000' }), null);
+  assert.equal(live({ host: '127.0.0.1:4321', origin: 'HTTP://LOCALHOST:3000' }), null, 'origins compare without case');
+  assert.equal(live({ host: 'attacker.test:4321', origin: 'http://localhost:3000' }).message, 'Host not allowed');
+  assert.equal(live({ host: '127.0.0.1:4321' }).message, 'Origin not allowed', 'a request without an Origin did not come from the dashboard');
+  assert.equal(live({ host: '127.0.0.1:4321', origin: 'http://127.0.0.1:4100' }).message, 'Origin not allowed', 'the sandbox app is not the dashboard');
+  assert.equal(live({ host: '127.0.0.1:4321', origin: 'http://localhost:3000' }, '/live?ticket=abc').status, 400);
 });

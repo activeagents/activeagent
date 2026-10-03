@@ -37,6 +37,22 @@ test('reads the recording and the stop time', () => {
   assert.equal(config.recording.batchBytes, 1024 * 1024);
 });
 
+test('reads the live view, with its defaults', () => {
+  assert.equal(parseConfig(base).live, null);
+
+  const config = parseConfig({ ...base, live: { session_id: 'session-1', origins: ['http://localhost:3000/', 'HTTP://LOCALHOST:3000', 'https://dash.example'] } });
+  assert.deepEqual(config.live, {
+    sessionId: 'session-1',
+    origins: ['http://localhost:3000', 'https://dash.example'],
+    agentWaitMs: 20_000,
+    releaseGraceMs: 10_000,
+  });
+
+  const tuned = parseConfig({ ...base, live: { session_id: 's', origins: ['http://localhost:3000'], agent_wait_ms: 0, release_grace_ms: 500 } });
+  assert.equal(tuned.live.agentWaitMs, 0);
+  assert.equal(tuned.live.releaseGraceMs, 500);
+});
+
 const invalid = {
   'not JSON': 'nope',
   'a short token': { ...base, token: 'short' },
@@ -48,6 +64,12 @@ const invalid = {
   'a port out of range': { ...base, port: 70000 },
   'a recording without a token': { ...base, recording: { url: 'http://127.0.0.1:3000/events' } },
   'a non-boolean sandbox setting': { ...base, chromium_sandbox: 'no' },
+  'a live view without its session': { ...base, live: { origins: ['http://localhost:3000'] } },
+  'a live view without origins': { ...base, live: { session_id: 's', origins: [] } },
+  'a live view origin with a path': { ...base, live: { session_id: 's', origins: ['http://localhost:3000/activeagents'] } },
+  'a live view origin that is not http': { ...base, live: { session_id: 's', origins: ['file:///etc'] } },
+  'an agent wait past the tool call timeout': { ...base, live: { session_id: 's', origins: ['http://localhost:3000'], agent_wait_ms: 60_000 } },
+  'a zero grace period': { ...base, live: { session_id: 's', origins: ['http://localhost:3000'], release_grace_ms: 0 } },
 };
 
 for (const [name, input] of Object.entries(invalid)) {

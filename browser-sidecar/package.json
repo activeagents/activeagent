@@ -29,7 +29,8 @@
   "dependencies": {
     "@playwright/mcp": "0.0.83",
     "@rrweb/record": "2.1.7",
-    "playwright": "1.64.0-alpha-1790635538000"
+    "playwright": "1.64.0-alpha-1790635538000",
+    "ws": "8.22.0"
   },
   "publishConfig": {
     "access": "public"

@@ -60,3 +60,27 @@ export function refusal(request, { token, hosts, origins = new Set() }) {
 
   return null;
 }
+
+/**
+ * Checks a WebSocket upgrade to the live view before it is accepted. The
+ * dashboard's page opens it, so it carries the dashboard's Origin, and it
+ * carries no token: a viewer proves who they are with the ticket in its
+ * first message (LiveServer). The request must name an accepted Host, come
+ * from one of `origins`, and carry no query, which keeps a ticket out of
+ * URLs and the logs that record them.
+ *
+ * @param {import('node:http').IncomingMessage} request
+ * @param {{ hosts: Set<string>, origins: Set<string> }} rules
+ * @returns {{ status: number, message: string } | null} the refusal, or null to proceed
+ */
+export function liveRefusal(request, { hosts, origins }) {
+  const host = (request.headers.host ?? '').toLowerCase();
+  if (!hosts.has(host)) return { status: 403, message: 'Host not allowed' };
+
+  const origin = request.headers.origin;
+  if (typeof origin !== 'string' || !origins.has(origin.toLowerCase())) return { status: 403, message: 'Origin not allowed' };
+
+  if (request.url.includes('?')) return { status: 400, message: 'The live view takes no query' };
+
+  return null;
+}
