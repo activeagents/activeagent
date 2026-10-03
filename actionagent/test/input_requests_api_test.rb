@@ -326,6 +326,22 @@ class InputRequestsApiTest < ActionDispatch::IntegrationTest
     ActiveSupport::Notifications.unsubscribe(subscriber) if subscriber
   end
 
+  test "only parameters named answer or value are filtered, at any depth" do
+    filter = ActiveSupport::ParameterFilter.new(Rails.application.config.filter_parameters)
+    params = {
+      "answer" => "a", "Value" => "v", "evaluation" => { "value" => "n" },
+      "values" => "x", "default_value" => "d", "expected_answer" => "e"
+    }
+
+    assert_equal(
+      {
+        "answer" => "[FILTERED]", "Value" => "[FILTERED]", "evaluation" => { "value" => "[FILTERED]" },
+        "values" => "x", "default_value" => "d", "expected_answer" => "e"
+      },
+      filter.filter(params)
+    )
+  end
+
   test "cancelling a paused run cancels its pending requests" do
     run = paused_run(ActiveAgent::InputRequest.text("Where to?"), ActiveAgent::InputRequest.text("When?"))
     run.input_requests.order(:id).first.answer!("Lisbon")

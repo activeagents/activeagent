@@ -99,8 +99,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   every status other than `pending` and `running` as finished must handle it.
 - **Filter `answer` and `value` from request logs** (`actionagent`). The engine
   adds them to the host's `filter_parameters`, beside `credential`, `api_key`
-  and `access_token`. Rails matches these names as substrings, so a host
-  parameter such as `values` or `default_value` is filtered from its logs too.
+  and `access_token`, matching only parameters named exactly `answer` or
+  `value`, at any depth. Rails also copies `filter_parameters` into Active
+  Record's `filter_attributes`, so a host model attribute named `answer` or
+  `value` shows as `[FILTERED]` in `inspect` and in logged SQL binds.
 
 ### Fixed
 
