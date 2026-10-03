@@ -69,6 +69,10 @@ module ActionAgent
       # Merges the candidates into the target evaluation (see
       # Exploration#accept!). A refused candidate answers 422 with
       # `problems` keyed by candidate id, and nothing is written.
+      #
+      # :replace_scenarios is asked about the evaluation the candidates
+      # merge into, or about the exploration when a project's accept will
+      # create that evaluation.
       def accept
         return unless authorize_action!(:replace_scenarios, @exploration.target_evaluation || @exploration)
 

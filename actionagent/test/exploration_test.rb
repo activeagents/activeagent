@@ -329,6 +329,19 @@ class ExplorationTest < ActiveSupport::TestCase
     assert_equal %w[closed closed], [ empty.reload.status, decided.reload.status ]
   end
 
+  test "a project whose evaluation is on another agent has no target evaluation, and its accept creates one" do
+    stale = @project.evaluation
+    other = ActionAgent::Agent.create!(name: "Elsewhere", provider: "mock", model: "mock-model", status: :active)
+    stale.update_columns(agent_id: other.id)
+    exploration = explore(candidate("Where is order A-17?"))
+
+    assert_nil exploration.target_evaluation
+    evaluation = exploration.accept!([ 1 ])[:evaluation]
+    assert_not_equal stale.id, evaluation.id
+    assert_equal [ @project.target_agent_id, evaluation.id ], [ evaluation.agent_id, exploration.reload.target_evaluation.id ]
+    assert_equal 0, stale.scenarios.count
+  end
+
   test "candidates for the project's own evaluation are filed under the project and scrubbed of its secrets" do
     exploration = ActionAgent::Exploration.build_for(evaluation: @project.evaluation, source: "external", status: "review")
     exploration.save_with_candidates!([ candidate("Pay with #{SECRET}", tools: [ "lookup_order", "refund_order" ]) ])
