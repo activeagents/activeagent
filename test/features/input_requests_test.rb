@@ -8,6 +8,8 @@ require_relative "../../lib/active_agent/providers/mock_provider"
 # with the answers. These tests run the real provider tool loop against a
 # scripted model, so no request leaves the process.
 class InputRequestsTest < ActiveSupport::TestCase
+  include ActiveJob::TestHelper
+
   # A fake model that answers with a scripted sequence of assistant turns,
   # in the Anthropic content-block shape, and records every request.
   class ScriptedProvider < ActiveAgent::Providers::MockProvider
@@ -561,6 +563,79 @@ class InputRequestsTest < ActiveSupport::TestCase
     assert_equal [ true, nil ], roots.map { _1.attributes["agent.awaiting_input"] }
   ensure
     config.enabled, config.api_key = saved if saved
+  end
+
+  ##### Resuming later ######################################################
+
+  # Records the params and actor its tool runs with.
+  class TicketRefundAgent < RefundAgent
+    def self.name = "InputRequestsTest::TicketRefundAgent"
+
+    def issue_refund(order_id:, amount:)
+      result = super
+      record(:context, params[:ticket], current_user) unless result.is_a?(ActiveAgent::InputRequest)
+      result
+    end
+  end
+
+  test "resume_later enqueues the resume with its params and actor, and the job continues the generation" do
+    ScriptedProvider.script([ self.class.tool_use("call_1", "issue_refund", order_id: 7, amount: 40) ])
+    paused = TicketRefundAgent.with(ticket: 42).as("user-1").triage(order_id: 7).generate_now
+
+    TicketRefundAgent.with(ticket: 42).as("user-1").triage(order_id: 7)
+                     .resume_later(checkpoint: paused.checkpoint, answers: { "call_1" => true }, queue: :refunds)
+
+    job = enqueued_jobs.sole
+    arguments = ActiveJob::Arguments.deserialize(job[:args]).last
+    assert_equal "refunds", job[:queue]
+    assert_equal({ "checkpoint" => paused.checkpoint, "answers" => { "call_1" => true } }, arguments[:resume])
+
+    perform_enqueued_jobs
+
+    assert_equal [ [ :issue_refund, true ], [ :context, 42, "user-1" ] ], RefundAgent.calls
+    assert_equal "call_1", ScriptedProvider.requests.last.last[:content].sole[:tool_use_id]
+  end
+
+  test "resume_later refuses a secret answer before enqueueing" do
+    ScriptedProvider.script([ self.class.tool_use("call_1", "deploy", environment: "staging") ])
+    paused = RefundAgent.triage(order_id: 7).generate_now
+
+    error = assert_raises(ActiveAgent::InputRequest::ResumeError) do
+      RefundAgent.triage(order_id: 7).resume_later(checkpoint: paused.checkpoint, answers: { "call_1" => "tok-live-12345" })
+    end
+
+    assert_no_match "tok-live-12345", error.message
+    assert_no_enqueued_jobs
+  end
+
+  test "resume_later refuses answers that do not fit before enqueueing" do
+    paused = paused_triage([ self.class.tool_use("call_1", "issue_refund", order_id: 7, amount: 40) ])
+
+    assert_raises(ActiveAgent::InputRequest::ResumeError) do
+      RefundAgent.triage(order_id: 7).resume_later(checkpoint: paused.checkpoint, answers: {})
+    end
+    assert_no_enqueued_jobs
+  end
+
+  test "resume_later continues a direct prompt, which has no action to run again" do
+    ScriptedProvider.script([ self.class.tool_use("call_1", "issue_refund", order_id: 7, amount: 40) ])
+    paused = RefundAgent.prompt(message: "Handle order 7").generate_now
+    assert paused.awaiting_input?
+
+    RefundAgent.prompt(message: "Handle order 7").resume_later(checkpoint: paused.checkpoint, answers: { "call_1" => true })
+    perform_enqueued_jobs
+
+    assert_equal [ [ :issue_refund, true ] ], RefundAgent.calls
+    assert_equal [ "Handle order 7" ], ScriptedProvider.requests.last.select { _1[:role] == "user" && _1[:content].is_a?(String) }.pluck(:content)
+  end
+
+  test "resume_later from the generation that paused raises, as generate_later does after the agent was used" do
+    generation = RefundAgent.triage(order_id: 7)
+    ScriptedProvider.script([ self.class.tool_use("call_1", "issue_refund", order_id: 7, amount: 40) ])
+    paused = generation.generate_now
+
+    assert_raises(RuntimeError) { generation.resume_later(checkpoint: paused.checkpoint, answers: { "call_1" => true }) }
+    assert_no_enqueued_jobs
   end
 
   ##### Refusals ############################################################

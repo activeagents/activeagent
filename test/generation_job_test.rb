@@ -39,6 +39,10 @@ class GenerationJobTest < ActiveSupport::TestCase
     assert_same exception, FailingAgent.exception_handled
   end
 
+  test "does not log its arguments, which can hold a paused conversation" do
+    assert_not ActiveAgent::GenerationJob.log_arguments
+  end
+
   test "handle_exception_with_agent_class re-raises when no agent class" do
     job = ActiveAgent::GenerationJob.new
     job.arguments = []
