@@ -15,6 +15,12 @@ class ProjectInstallPullRequestTest < ActionDispatch::IntegrationTest
   BASE = "/activeagents/api/projects"
   SECRET = "sk_test_install s3cret-0123456789"
   BRANCH = ActionAgent::ProjectInstallPullRequest::DEFAULT_BRANCH
+  # What the bootstrapped checkout changed that every boot of the branch
+  # needs.
+  REQUIRED = %w[
+    Gemfile Gemfile.lock config/initializers/action_agent.rb config/routes.rb db/schema.rb
+    db/migrate/20260101000000_create_active_agent_dashboard_tables.rb db/migrate/20260101000001_add_agent_releases.rb
+  ].freeze
 
   def setup
     [ ActionAgent::DraftPullRequest, ActionAgent::Project, ActionAgent::ProjectSecret, ActionAgent::EvaluationScenario,
@@ -62,7 +68,7 @@ class ProjectInstallPullRequestTest < ActionDispatch::IntegrationTest
     publishable = files.reject { |_path, file| file["refusal"] }.keys.sort
     assert_equal [
       ".activeagents/evals/shop.yml", ".activeagents/sandbox.yml", "Gemfile", "Gemfile.lock", "app/agent_tools/post_tools.rb",
-      "app/agents/application_agent.rb", "config/active_agent.yml", "config/routes.rb",
+      "app/agents/application_agent.rb", "config/initializers/action_agent.rb", "config/routes.rb",
       "db/migrate/20260101000000_create_active_agent_dashboard_tables.rb", "db/migrate/20260101000001_add_agent_releases.rb",
       "db/schema.rb"
     ], publishable
@@ -70,19 +76,22 @@ class ProjectInstallPullRequestTest < ActionDispatch::IntegrationTest
     %w[.env config/database.yml app/agent_tools/user_tools.rb db/migrate/20260101000002_create_widgets.rb].each do |path|
       assert_equal "not_allowed", files.dig(path, "refusal"), path
     end
-    assert_equal "secret", files.dig("config/initializers/action_agent.rb", "refusal")
+    assert_equal "secret", files.dig("config/active_agent.yml", "refusal")
     assert_match(/^\+gem "actionagent"/, files.dig("Gemfile", "diff"))
     assert_equal BRANCH, JSON.parse(response.body).dig("preview", "suggested_branch")
     assert_not_includes response.body, SECRET
   end
 
   test "sandbox.yml holds the setup and the secrets' names, never their values" do
+    @project.assign_secret(name: "RAILS_LOG_LEVEL", value: "debug", source: "setup_assistant").save!
+
     config = ActionAgent::ProjectInstallPullRequest.new(@project).generated_files(@sandbox)[".activeagents/sandbox.yml"]
 
     data = YAML.safe_load(config)
     assert_equal [ "bundle install", "bin/rails db:prepare" ], data["setup"]
     assert_equal [ "SHOP_API_KEY" ], data["secrets"]
     assert_not_includes config, SECRET
+    assert_not_includes config, "RAILS_LOG_LEVEL", "a value the setup assistant set stays with the project"
   end
 
   test "the evaluation suite loads with ActiveAgent::Evals::Suite.load and yields the enabled scenarios" do
@@ -105,15 +114,15 @@ class ProjectInstallPullRequestTest < ActionDispatch::IntegrationTest
 
     perform_enqueued_jobs do
       post "#{BASE}/#{@project.id}/install_pull_request",
-        params: { title: "Install ActiveAgent", branch: BRANCH, files: chosen(preview, "Gemfile", ".activeagents/sandbox.yml") }, as: :json
+        params: { title: "Install ActiveAgent", branch: BRANCH, files: chosen(preview, *REQUIRED, ".activeagents/sandbox.yml") }, as: :json
     end
 
     assert_response :accepted, response.body
     record = @project.reload.install_pull_request
     assert_equal [ "published", 3, "open" ], [ record.status, record.number, record.state ], record.error_message
-    assert_equal %w[.activeagents/sandbox.yml Gemfile], record.files.map { |file| file["path"] }.sort
+    assert_equal [ ".activeagents/sandbox.yml", *REQUIRED ].sort, record.files.map { |file| file["path"] }.sort
     assert_requested(:post, "#{API}/git/trees") do |request|
-      JSON.parse(request.body)["tree"].map { |entry| entry["path"] }.sort == %w[.activeagents/sandbox.yml Gemfile]
+      JSON.parse(request.body)["tree"].map { |entry| entry["path"] }.sort == [ ".activeagents/sandbox.yml", *REQUIRED ].sort
     end
     get "#{BASE}/#{@project.id}"
     assert_equal 3, JSON.parse(response.body).dig("project", "install_pull_request", "number")
@@ -129,14 +138,52 @@ class ProjectInstallPullRequestTest < ActionDispatch::IntegrationTest
     assert_equal %w[bundle_install javascript_build css_build tailwindcss_build db_prepare schema_tools], spec.steps.map { |step| step["name"] }
   end
 
+  test "a publish that leaves out a file every boot of the branch needs is refused, naming it" do
+    stub_github!
+    preview = preview!
+
+    post "#{BASE}/#{@project.id}/install_pull_request",
+      params: { title: "Install", branch: BRANCH, files: chosen(preview, *(REQUIRED - [ "Gemfile.lock", "config/routes.rb" ])) }, as: :json
+
+    assert_response :unprocessable_entity
+    body = JSON.parse(response.body)
+    assert_equal "incomplete_install", body["code"]
+    assert_match(/needs Gemfile\.lock and config\/routes\.rb/, body["error"])
+    assert_nil @project.reload.install_pull_request
+    assert_not_requested :post, "#{API}/git/blobs"
+  end
+
+  test "the patch holds only allowlisted files, even when others are named" do
+    get "#{BASE}/#{@project.id}/install_pull_request/patch", params: { paths: [ "Gemfile", "config/database.yml" ] }
+
+    assert_response :unprocessable_entity
+    assert_match(/config\/database\.yml cannot be published/, JSON.parse(response.body)["error"])
+
+    get "#{BASE}/#{@project.id}/install_pull_request/patch", params: { paths: [ "Gemfile" ] }
+    assert_response :success
+    assert_includes response.body, "+gem \"actionagent\""
+  end
+
+  test "a model taken off the App assistant's list keeps its tools file publishable, so the branch can lose it too" do
+    allowlist = ->(project) { ActionAgent::ProjectInstallPullRequest.new(project).allowlist }
+    assert_includes allowlist.call(@project), "app/agent_tools/post_tools.rb"
+    @project.update!(settings: @project.settings.merge("app_models" => [ { "name" => "Post", "columns" => [ { "name" => "title" } ] } ]))
+
+    @project.choose_schema_tools!([])
+
+    assert_empty @project.schema_tools
+    assert_includes allowlist.call(@project.reload), "app/agent_tools/post_tools.rb"
+  end
+
   test "a file holding a project secret, or under .github/, is refused when it is chosen" do
     stub_github!
     preview = preview!
     digests = preview["files"].to_h { |file| [ file["path"], file["digest"].to_s ] }
 
-    [ "config/initializers/action_agent.rb", ".github/workflows/ci.yml" ].each do |path|
+    [ "config/active_agent.yml", ".github/workflows/ci.yml" ].each do |path|
       post "#{BASE}/#{@project.id}/install_pull_request",
-        params: { title: "Install", branch: BRANCH, files: [ { path: path, digest: digests[path].presence || "x" } ] }, as: :json
+        params: { title: "Install", branch: BRANCH, files: chosen(preview, *REQUIRED) + [ { path: path, digest: digests[path].presence || "x" } ] },
+        as: :json
 
       assert_response :unprocessable_entity
       assert_includes %w[secret not_publishable], JSON.parse(response.body)["code"], path
@@ -149,7 +196,7 @@ class ProjectInstallPullRequestTest < ActionDispatch::IntegrationTest
     ActionAgent.permission_checker = ->(_user, action, _subject) { action != :publish_pull_request }
     preview = preview!
 
-    post "#{BASE}/#{@project.id}/install_pull_request", params: { title: "Install", files: chosen(preview, "Gemfile") }, as: :json
+    post "#{BASE}/#{@project.id}/install_pull_request", params: { title: "Install", files: chosen(preview, *REQUIRED) }, as: :json
 
     assert_response :forbidden
     assert_nil @project.reload.install_pull_request
@@ -159,7 +206,7 @@ class ProjectInstallPullRequestTest < ActionDispatch::IntegrationTest
     stub_github!
     preview = preview!
     perform_enqueued_jobs do
-      post "#{BASE}/#{@project.id}/install_pull_request", params: { title: "Install", branch: BRANCH, files: chosen(preview, "Gemfile") },
+      post "#{BASE}/#{@project.id}/install_pull_request", params: { title: "Install", branch: BRANCH, files: chosen(preview, *REQUIRED) },
         as: :json
     end
     opened = @project.reload.install_pull_request
@@ -190,7 +237,7 @@ class ProjectInstallPullRequestTest < ActionDispatch::IntegrationTest
     stub_github!
     preview = preview!
     perform_enqueued_jobs do
-      post "#{BASE}/#{@project.id}/install_pull_request", params: { title: "Install", branch: BRANCH, files: chosen(preview, "Gemfile") },
+      post "#{BASE}/#{@project.id}/install_pull_request", params: { title: "Install", branch: BRANCH, files: chosen(preview, *REQUIRED) },
         as: :json
     end
     @project.reload.install_pull_request.update_columns(last_checked_at: 2.minutes.ago)
@@ -212,7 +259,7 @@ class ProjectInstallPullRequestTest < ActionDispatch::IntegrationTest
     )
     preview = preview!
     perform_enqueued_jobs do
-      post "#{BASE}/#{@project.id}/install_pull_request", params: { title: "Install", branch: BRANCH, files: chosen(preview, "Gemfile") },
+      post "#{BASE}/#{@project.id}/install_pull_request", params: { title: "Install", branch: BRANCH, files: chosen(preview, *REQUIRED) },
         as: :json
     end
     assert_equal "draft_refused", @project.reload.install_pull_request.status
@@ -223,6 +270,33 @@ class ProjectInstallPullRequestTest < ActionDispatch::IntegrationTest
     assert_response :accepted, response.body
     record = @project.reload.install_pull_request
     assert_equal [ "published", 4, false ], [ record.status, record.number, record.draft ], record.error_message
+  end
+
+  test "a branch pushed when opening its pull request failed is opened again, not published again" do
+    stub_github!
+    stub_request(:post, "#{API}/pulls").to_return(
+      { status: 502, body: { message: "Bad Gateway" }.to_json },
+      { status: 201, body: { number: 5, html_url: "https://github.com/#{REPO}/pull/5", state: "open", draft: true }.to_json }
+    )
+    preview = preview!
+    perform_enqueued_jobs do
+      post "#{BASE}/#{@project.id}/install_pull_request", params: { title: "Install", branch: BRANCH, files: chosen(preview, *REQUIRED) },
+        as: :json
+    end
+    record = @project.reload.install_pull_request
+    assert_equal [ "failed", nil ], [ record.status, record.number ]
+    assert record.head_commit.present?, "the branch was pushed before opening failed"
+
+    post "#{BASE}/#{@project.id}/install_pull_request", params: { title: "Install", branch: BRANCH, files: chosen(preview, *REQUIRED) },
+      as: :json
+    assert_response :conflict
+    assert_match(/published without a pull request/, JSON.parse(response.body)["error"])
+
+    perform_enqueued_jobs { post "#{BASE}/#{@project.id}/install_pull_request", params: { open: true }, as: :json }
+
+    assert_response :accepted, response.body
+    record.reload
+    assert_equal [ "published", 5, true ], [ record.status, record.number, record.draft ], record.error_message
   end
 
   test "a request while the sandbox is not running boots one and answers 202" do
@@ -269,8 +343,8 @@ class ProjectInstallPullRequestTest < ActionDispatch::IntegrationTest
       "Gemfile" => "source \"https://rubygems.org\"\ngem \"rails\"\ngem \"actionagent\", \"~> 1.9.0\"\n",
       "Gemfile.lock" => "GEM\n  specs:\n    actionagent (1.9.0)\n    rails (8.0.1)\n",
       "config/routes.rb" => "Rails.application.routes.draw do\n  mount ActionAgent::Engine => \"/activeagents\"\nend\n",
-      "config/initializers/action_agent.rb" => "ActionAgent.configure { |config| config.api_key = \"#{SECRET}\" }\n",
-      "config/active_agent.yml" => "development:\n  openai:\n    service: OpenAI\n",
+      "config/initializers/action_agent.rb" => "ActionAgent.configure { |config| config.multi_tenant = false }\n",
+      "config/active_agent.yml" => "development:\n  openai:\n    service: OpenAI\n    access_token: #{SECRET}\n",
       "app/agents/application_agent.rb" => "class ApplicationAgent < ActiveAgent::Base\nend\n",
       "app/agent_tools/post_tools.rb" => "class PostTools < ActiveAgent::SchemaTools\n  model Post\nend\n",
       "app/agent_tools/user_tools.rb" => "class UserTools < ActiveAgent::SchemaTools\n  model User\nend\n",

@@ -273,6 +273,24 @@ module ActionAgent
       raise Refused.new("The sandbox's changes could not be read: #{e.message}", code: "unreadable")
     end
 
+    # The paths of the files the sandbox changed since the checkout commit,
+    # listed by the backend and not read: what #changes would consider
+    # before the generated files are added.
+    #
+    # @raise [Refused]
+    # @return [Array<String>]
+    def changed_paths
+      refusal = read_refusal
+      raise refusal if refusal
+
+      Array(@orchestrator.changed_files(sandbox)[:files]).map { |entry| entry[:path].to_s }
+    rescue Refused
+      raise
+    rescue StandardError => e
+      Rails.logger.warn("[ActionAgent] could not list the changes of sandbox #{sandbox.session_id}: #{e.class}: #{e.message}")
+      raise Refused.new("The sandbox's changes could not be read: #{e.message}", code: "unreadable")
+    end
+
     # What the dialog shows before a publish: every changed file with its
     # refusal, and for each one that may be published its diff and digest.
     def preview(allowlist: nil)
@@ -342,13 +360,13 @@ module ActionAgent
 
     # A patch of the publishable files named by +paths+ (all of them when
     # nil), for `git am` or `git apply`. Built from the backend's reads,
-    # with no GitHub token.
+    # with no GitHub token. +allowlist+ is #changes'.
     #
     # @raise [Refused] when a named file is refused or unchanged, or, without
     #   +paths+, when the changes are more than one read covers
     # @return [String] binary-encoded
-    def patch(paths: nil, title: nil, body: nil)
-      changes = self.changes(paths: paths)
+    def patch(paths: nil, title: nil, body: nil, allowlist: nil)
+      changes = self.changes(paths: paths, allowlist: allowlist)
       files = if paths.nil?
         if changes.files.any? { |file| file.refusal == "not_read" }
           raise Refused.new("The sandbox changed more files than one patch reads (#{MAX_FILES} files, " \

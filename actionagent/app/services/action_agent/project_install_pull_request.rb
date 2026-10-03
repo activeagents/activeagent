@@ -13,8 +13,9 @@ module ActionAgent
   #   the migrations `action_agent:install` emits, by exact name after the
   #     timestamp (ENGINE_MIGRATIONS and the numbered templates)
   #   db/schema.rb or db/structure.sql
-  #   app/agent_tools/<model>_tools.rb for the models the App assistant may
-  #     read (Project#schema_tools)
+  #   app/agent_tools/<model>_tools.rb for every model the App assistant was
+  #     ever given (Project#schema_tools_models), so that a file a boot
+  #     removed can be removed on the branch too
   #   .activeagents/sandbox.yml and .activeagents/evals/<project>.yml
   #
   # The last two are generated here rather than read from the checkout (see
@@ -24,6 +25,10 @@ module ActionAgent
   # ActiveAgent::Evals::Suite.load reads. Anything else the sandbox changed,
   # .github/ and any file holding one of the project's secrets is refused by
   # the publisher.
+  #
+  # A publish takes every REQUIRED_PATHS file and engine migration the
+  # sandbox changed (#missing_required_paths): every boot of the branch
+  # installs nothing, so it boots only with all of them.
   class ProjectInstallPullRequest
     SANDBOX_CONFIG = ".activeagents/sandbox.yml"
     STATIC_PATHS = [
@@ -40,6 +45,11 @@ module ActionAgent
       create_active_agent_dashboard_tables ensure_agent_release_columns create_active_agent_evaluation_scenarios
       add_evaluation_report_identity add_provider_key_api_key create_active_agent_github_connections
       create_active_agent_code_sessions add_code_session_runner
+    ].freeze
+    # What a boot of the branch, which installs nothing, needs to load the
+    # engine.
+    REQUIRED_PATHS = [
+      "Gemfile", "Gemfile.lock", "config/initializers/action_agent.rb", "config/routes.rb", "db/schema.rb", "db/structure.sql"
     ].freeze
     NUMBERED_MIGRATION = /\A\d{3}_(?<name>[a-z0-9_]+)\.rb\.erb\z/
     NUMBERED_MIGRATIONS_PATH = File.expand_path("../../../lib/generators/action_agent/templates/migrations", __dir__)
@@ -82,11 +92,21 @@ module ActionAgent
     def allowlist
       paths = STATIC_PATHS.dup
       paths.concat(FRAMEWORK_PATHS) if framework_generated?
-      paths.concat(project.schema_tools.map { |choice| "app/agent_tools/#{choice["model"].underscore}_tools.rb" })
+      paths.concat(project.schema_tools_models.map { |model| "#{SandboxBootSpec::SCHEMA_TOOLS_DIR}/#{model.underscore}_tools.rb" })
       paths << evaluation_path
-      names = self.class.engine_migration_names.map { |name| Regexp.escape(name) }.join("|")
-      paths << %r{\Adb/migrate/\d+_(?:#{names})\.rb\z}
+      paths << engine_migration_pattern
       paths
+    end
+
+    # The REQUIRED_PATHS and engine migrations +publisher+'s sandbox changed
+    # that +paths+ leaves out.
+    #
+    # @return [Array<String>]
+    def missing_required_paths(publisher, paths)
+      chosen = paths.to_set
+      publisher.changed_paths.select do |path|
+        (REQUIRED_PATHS.include?(path) || engine_migration_pattern.match?(path)) && !chosen.include?(path)
+      end
     end
 
     # Where the project evaluation's suite is published.
@@ -112,10 +132,12 @@ module ActionAgent
 
     # The project's sandbox.yml: the checkout's own, if it has one, with the
     # setup that booted the project and the names of the project's secrets.
+    # The values the setup assistant set are not secrets, and stay with the
+    # project: a boot passes them as env.
     def sandbox_config(sandbox)
       data = base_sandbox_config(sandbox)
       data["setup"] = setup_commands(sandbox)
-      names = Array(data["secrets"]).map(&:to_s) | project.secrets.ordered.pluck(:name)
+      names = Array(data["secrets"]).map(&:to_s) | project.secrets.ordered.reject(&:plain?).map(&:name)
       data["secrets"] = names if names.any?
 
       <<~YAML + data.to_yaml.delete_prefix("---\n")
@@ -145,6 +167,13 @@ module ActionAgent
     end
 
     private
+
+    def engine_migration_pattern
+      @engine_migration_pattern ||= begin
+        names = self.class.engine_migration_names.map { |name| Regexp.escape(name) }.join("|")
+        %r{\Adb/migrate/\d+_(?:#{names})\.rb\z}
+      end
+    end
 
     # Whether the bootstrap wrote the framework's files: the repository's
     # lock had no activeagent when the project picked it.
@@ -176,7 +205,7 @@ module ActionAgent
       status = sandbox && @orchestrator.supports?(:boot_status) ? @orchestrator.boot_status(sandbox) : nil
       succeeded = Array(status&.dig(:steps)).filter_map { |step| step[:name] if step[:status] == "succeeded" }.to_set
       commands = project.boot_spec(sandbox).steps.filter_map do |step|
-        next if SandboxBootSpec::INSTALL_STEPS.include?(step["name"]) || step["name"] == "schema_tools"
+        next if SandboxBootSpec::INSTALL_STEPS.include?(step["name"]) || SandboxBootSpec.schema_tools_step?(step["name"])
 
         step["command"] if succeeded.include?(step["name"])
       end
