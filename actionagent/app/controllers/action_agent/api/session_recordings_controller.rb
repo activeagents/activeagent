@@ -76,21 +76,23 @@ module ActionAgent
       end
 
       # GET /api/session_recordings/:id/actions
-      # Get the action timeline for playback
+      # One page of the action timeline, in sequence order. Pass the last
+      # sequence received as after_sequence to get the next page; has_more
+      # says whether one exists. limit is 1..500, default 100.
       def actions
         actions = @recording.recording_actions.ordered
 
-        # Support pagination for large recordings
-        if params[:after_sequence].present?
-          actions = actions.where("sequence > ?", integer_param(:after_sequence, default: 0))
-        end
+        after_sequence = integer_param(:after_sequence)
+        actions = actions.where("sequence > ?", after_sequence) if after_sequence
 
-        limit = [ integer_param(:limit, default: 100), 500 ].min
-        actions = actions.limit(limit)
+        limit = clamped_param(:limit, default: 100, min: 1, max: 500)
+        # One row past the page tells whether another page follows.
+        page = actions.limit(limit + 1).to_a
+        has_more = page.size > limit
 
         render json: {
-          actions: actions.map(&:as_json_for_api),
-          has_more: actions.count == limit,
+          actions: page.first(limit).map(&:as_json_for_api),
+          has_more: has_more,
           total_actions: @recording.action_count
         }
       end
