@@ -48,6 +48,9 @@ test('reads the live view, with its defaults', () => {
     releaseGraceMs: 10_000,
   });
 
+  const spelled = parseConfig({ ...base, live: { session_id: 's', origins: ['http://127.1:3000', 'http://[0:0:0:0:0:0:0:1]:3000', 'https://DASH.example:443/'] } });
+  assert.deepEqual(spelled.live.origins, ['http://127.0.0.1:3000', 'http://[::1]:3000', 'https://dash.example'], 'as a browser sends them');
+
   const tuned = parseConfig({ ...base, live: { session_id: 's', origins: ['http://localhost:3000'], agent_wait_ms: 0, release_grace_ms: 500 } });
   assert.equal(tuned.live.agentWaitMs, 0);
   assert.equal(tuned.live.releaseGraceMs, 500);
@@ -68,6 +71,9 @@ const invalid = {
   'a live view without origins': { ...base, live: { session_id: 's', origins: [] } },
   'a live view origin with a path': { ...base, live: { session_id: 's', origins: ['http://localhost:3000/activeagents'] } },
   'a live view origin that is not http': { ...base, live: { session_id: 's', origins: ['file:///etc'] } },
+  'a live view origin with a query': { ...base, live: { session_id: 's', origins: ['http://localhost:3000/?next=1'] } },
+  'a live view origin with credentials': { ...base, live: { session_id: 's', origins: ['http://user@localhost:3000'] } },
+  'a live view origin that is no URL': { ...base, live: { session_id: 's', origins: ['localhost'] } },
   'an agent wait past the tool call timeout': { ...base, live: { session_id: 's', origins: ['http://localhost:3000'], agent_wait_ms: 60_000 } },
   'a zero grace period': { ...base, live: { session_id: 's', origins: ['http://localhost:3000'], release_grace_ms: 0 } },
 };
