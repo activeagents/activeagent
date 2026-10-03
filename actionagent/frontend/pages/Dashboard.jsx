@@ -121,6 +121,13 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
     setTimeout(() => setNotification(null), 3000);
   };
 
+  // Pushes the URL the view opens at; a view this dashboard does not have
+  // pushes nothing.
+  const pushViewPath = (view, agent = null) => {
+    const path = dashboardViewPath(view, { agent, features });
+    if (path !== null) window.history.pushState({}, '', dashboardPath(path));
+  };
+
   const handleCreateAgent = async (agentData) => {
     setIsLoading(true);
     try {
@@ -136,7 +143,7 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
         setSelectedAgent(data.agent);
         setCurrentView('editor');
         showNotification('Agent created successfully!', 'success');
-        window.history.pushState({}, '', dashboardPath(dashboardViewPath('editor', { agent: data.agent, features })));
+        pushViewPath('editor', data.agent);
         return null;
       }
 
@@ -194,7 +201,7 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
         setSelectedAgent(null);
         setCurrentView('list');
         showNotification('Agent deleted', 'success');
-        window.history.pushState({}, '', dashboardPath(dashboardViewPath('list', { features })));
+        pushViewPath('list');
       }
     } catch (error) {
       showNotification('Failed to delete agent', 'error');
@@ -238,8 +245,7 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
   const AGENT_DETAIL_VIEWS = ['editor', 'runner', 'agent-analytics', 'history'];
 
   const navigateTo = (view, agent = null) => {
-    const path = dashboardViewPath(view, { agent, features });
-    if (path === null) return;
+    if (!isDashboardViewEnabled(view, features)) return;
     if (view === 'builder') setBuilderDraft(null);
     if (agent?.id && AGENT_DETAIL_VIEWS.includes(view) && agent.instructions === undefined) {
       loadAgent(agent.id, view);
@@ -248,7 +254,7 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
       setCurrentView(view);
     }
 
-    window.history.pushState({}, '', dashboardPath(path));
+    pushViewPath(view, agent);
   };
 
   // One renderer per view in utils/dashboardRoutes.mjs; the agent list is
@@ -263,7 +269,7 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
         onReviewDraft={draft => {
           setBuilderDraft(draft);
           setCurrentView('builder');
-          window.history.pushState({}, '', dashboardPath(dashboardViewPath('builder', { features })));
+          pushViewPath('builder');
         }}
       />
     ),
