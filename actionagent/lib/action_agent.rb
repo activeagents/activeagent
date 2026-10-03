@@ -474,6 +474,14 @@ module ActionAgent
     # @return [Proc, nil]
     attr_accessor :scenario_evaluation_adapter_resolver
 
+    # How many answerable candidates an exploration's review pre-selects for
+    # acceptance: an Integer, or a Proc called with (owner) that returns one.
+    # A platform can cap a free plan's suite this way. Unset, or nil from the
+    # Proc, pre-selects every answerable candidate. See
+    # {.exploration_preselect_limit_for}.
+    # @return [Integer, Proc, nil]
+    attr_accessor :exploration_preselect_limit
+
     # Where the dashboard's upgrade CTAs should send people. Unset in a
     # self-hosted install, where there is nothing to upgrade, and the CTAs
     # say so instead of linking nowhere.
@@ -710,6 +718,21 @@ module ActionAgent
     rescue StandardError => e
       Rails.logger.warn("[ActionAgent] usage lookup failed: #{e.message}")
       UNLIMITED_USAGE.dup
+    end
+
+    # The exploration_preselect_limit for +owner+, or nil for no limit. A
+    # value that is not a non-negative Integer, and a Proc that raises, mean
+    # no limit: the setting only trims a default selection, and the
+    # reviewer can still select every candidate.
+    #
+    # @return [Integer, nil]
+    def exploration_preselect_limit_for(owner)
+      limit = exploration_preselect_limit
+      limit = limit.call(owner) if limit.respond_to?(:call)
+      limit.is_a?(Integer) && !limit.negative? ? limit : nil
+    rescue StandardError => e
+      Rails.logger.warn("[ActionAgent] exploration_preselect_limit failed: #{e.class}: #{e.message}")
+      nil
     end
 
     # Asks the host app whether +owner+ may perform +kind+.
