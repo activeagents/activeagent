@@ -9,6 +9,9 @@ import { attachmentKind } from '../../utils/attachments';
 import { Badge, Button } from './AgentEditor';
 import InteractionStream, { roleBubble, streamPreStyle, AttachmentChips } from './InteractionStream';
 import Markdown from './Markdown';
+import InputRequestCard from './InputRequestCard';
+import { notifyInputRequestsChanged } from '../../hooks/useInputRequests';
+import { pendingRequests, runIdFromSearch, runPollState } from '../../utils/inputRequests.mjs';
 
 // The runner is a conversation workbench: an operator tests the agent as a
 // user would, against a persisted conversation (a solid_agent context) that
@@ -16,6 +19,11 @@ import Markdown from './Markdown';
 // without a run, and files ride along with the prompt. Assistant replies
 // render markdown and generative UI; a form or choice in that UI sends the
 // next user message.
+//
+// A run that pauses for input stays in flight: polling stops, its requests
+// are answered inline, and polling picks up again after each answer until
+// the same run finishes. Opening another conversation while it waits lets go
+// of it. A `?run=` in the URL opens a run the way a Recent Runs row does.
 
 // Feed event kinds mapped onto the shared stream chip palette so streamed
 // run output matches the Interactions/Traces visual language.
@@ -31,7 +39,7 @@ const eventBubble = (kind, darkMode) => {
   return { ...roleBubble(mapping.role, darkMode), label: mapping.label };
 };
 
-const STATUS_TONE = { complete: 'success', failed: 'error', running: 'info', pending: 'warning', cancelled: 'neutral' };
+const STATUS_TONE = { complete: 'success', failed: 'error', running: 'info', pending: 'warning', cancelled: 'neutral', awaiting_input: 'warning' };
 
 const EXAMPLE_PROMPTS = [
   'Hello, what can you help me with?',
@@ -61,7 +69,8 @@ const prettyEventJson = (value) => {
 
 // Pair started/done progress events by eid for the live activity feed.
 // The started event's detail is the call's input (tool arguments); the
-// finishing event's detail is its output (result preview or error).
+// finishing event's detail is its output (result preview or error), or the
+// question for a call that paused the run (status `awaiting`).
 const activityFeed = (run) => {
   const byEid = new Map();
   (run?.logs || []).filter((entry) => entry.eid).forEach((event) => {
@@ -93,7 +102,7 @@ const Chevron = ({ open, color }) => (
 // Live activity feed — same chip/expansion design as the Interactions
 // stream, one row per llm/tool/agent call. Click a row to inspect the
 // call's input and output.
-function ActivityFeed({ run, darkMode, colors, expanded, onToggle }) {
+export function ActivityFeed({ run, darkMode, colors, expanded, onToggle }) {
   const events = activityFeed(run);
   const preStyle = streamPreStyle(darkMode);
   return (
@@ -126,6 +135,8 @@ function ActivityFeed({ run, darkMode, colors, expanded, onToggle }) {
                 <div className="text-xs mt-0.5 font-mono flex items-center gap-2 flex-wrap" style={{ color: colors.textMuted }}>
                   {event.status === 'started' ? (
                     <span className="animate-pulse" style={{ color: '#3b82f6' }}>running…</span>
+                  ) : event.status === 'awaiting' ? (
+                    <span data-testid="runner-activity-awaiting" style={{ color: 'var(--color-warning-text)' }}>waiting for input</span>
                   ) : (
                     <span style={event.status === 'error' ? { color: '#ef4444' } : undefined}>
                       {event.status === 'error' ? 'failed' : '✓'}
@@ -149,7 +160,7 @@ function ActivityFeed({ run, darkMode, colors, expanded, onToggle }) {
                 {event.output && (
                   <div>
                     <div className="text-xs uppercase tracking-wide mb-1" style={{ color: colors.textMuted }}>
-                      {event.status === 'error' ? 'Error' : 'Result'}
+                      {event.status === 'error' ? 'Error' : event.status === 'awaiting' ? 'Asked' : 'Result'}
                     </div>
                     <pre
                       style={{
@@ -231,6 +242,10 @@ export default function AgentRunner({ agent, onBack }) {
   const [inspectedRun, setInspectedRun] = useState(null);
   const [runError, setRunError] = useState(null);
   const [expandedEvents, setExpandedEvents] = useState({});
+  // Requests of the run on screen answered from this page, `{ request,
+  // outcome }`, kept so each card still says what became of it once the run
+  // no longer lists it as pending.
+  const [settledRequests, setSettledRequests] = useState([]);
 
   const [limitUsage, setLimitUsage] = useState(null);
   const [isUpgrading, setIsUpgrading] = useState(false);
@@ -250,6 +265,13 @@ export default function AgentRunner({ agent, onBack }) {
   // Bumped to abandon a poll loop when the run it belongs to is superseded
   // or the page unmounts.
   const pollTokenRef = useRef(0);
+  // The run on screen while it is paused for input, `{ id, contextId,
+  // waiting }`, which the poll an answer starts reads. `waiting` holds until
+  // that poll begins. While it holds nothing is in flight, so leaving the
+  // run's conversation lets go of the run.
+  const pausedRunRef = useRef(null);
+  // isRunning for a handler that changes it and then reads it.
+  const runningRef = useRef(false);
   // False once the page is gone, so a request still in flight cannot start a
   // poll loop the unmount has no way left to stop.
   const mountedRef = useRef(true);
@@ -270,6 +292,8 @@ export default function AgentRunner({ agent, onBack }) {
   useEffect(() => {
     mountedRef.current = true;
     loadRuns();
+    const linkedRun = runIdFromSearch(window.location.search);
+    if (linkedRun) attachLinkedRun(linkedRun);
     return () => {
       mountedRef.current = false;
       pollTokenRef.current += 1;
@@ -300,7 +324,7 @@ export default function AgentRunner({ agent, onBack }) {
   useEffect(() => {
     const node = messagesRef.current;
     if (node) node.scrollTop = node.scrollHeight;
-  }, [visibleMessages.length, pendingTurn, currentRun?.logs?.length, inlineRole, inspectedRun]);
+  }, [visibleMessages.length, pendingTurn, currentRun?.logs?.length, currentRun?.input_requests?.length, inlineRole, inspectedRun]);
 
   useEffect(() => {
     if (!addMenuOpen) return undefined;
@@ -378,13 +402,28 @@ export default function AgentRunner({ agent, onBack }) {
     setActionName(name);
   };
 
+  const setRunning = (value) => {
+    runningRef.current = value;
+    setIsRunning(value);
+  };
+
+  // A paused run that nothing polls keeps waiting on the server once the
+  // page lets go of it. The Needs input lane and Recent Runs lead back to it.
+  const releasePausedRun = () => {
+    if (!pausedRunRef.current?.waiting) return;
+    pausedRunRef.current = null;
+    setRunning(false);
+  };
+
   // The run panel belongs to the conversation on screen: its status pill,
   // activity feed and failure box would otherwise describe the last run of a
   // conversation the user has navigated away from.
   const clearRunPanel = () => {
+    releasePausedRun();
     setCurrentRun(null);
     setRunError(null);
     setExpandedEvents({});
+    setSettledRequests([]);
   };
 
   const pickConversation = (value) => {
@@ -440,8 +479,9 @@ export default function AgentRunner({ agent, onBack }) {
     });
   };
 
-  const finishRun = (run, contextId) => {
-    setIsRunning(false);
+  // Puts the run's conversation on screen, reloaded, with the turn that was
+  // in flight handed over to it.
+  const showRunConversation = (run, contextId) => {
     releaseTurn(pendingTurnRef.current);
     setPendingTurn(null);
     loadRuns();
@@ -456,6 +496,21 @@ export default function AgentRunner({ agent, onBack }) {
       loadConversation(usedContext);
     }
     loadConversations(actionName);
+  };
+
+  const finishRun = (run, contextId) => {
+    pausedRunRef.current = null;
+    setRunning(false);
+    setSettledRequests([]);
+    showRunConversation(run, contextId);
+  };
+
+  // A run waiting on a request: polling stops and the run stays in flight,
+  // so the composer stays closed until it finishes.
+  const pauseRun = (run, contextId) => {
+    pausedRunRef.current = { id: run.id, contextId: contextIdOf(run) ?? contextId, waiting: true };
+    showRunConversation(run, contextId);
+    notifyInputRequestsChanged();
   };
 
   // Poll the run endpoint so the activity feed streams pending llm/tool/agent
@@ -474,8 +529,13 @@ export default function AgentRunner({ agent, onBack }) {
           const runData = await runResponse.json();
           if (pollTokenRef.current !== token) return;
           setCurrentRun(runData.run);
-          if (!['pending', 'running'].includes(runData.run.status)) {
+          const state = runPollState(runData.run);
+          if (state === 'finished') {
             finishRun(runData.run, contextId);
+            return;
+          }
+          if (state === 'awaiting') {
+            pauseRun(runData.run, contextId);
             return;
           }
         }
@@ -487,7 +547,8 @@ export default function AgentRunner({ agent, onBack }) {
       } else {
         // Same teardown as a finished run, minus the reload: the turn stops
         // showing as in flight and its thumbnails give their URLs back.
-        setIsRunning(false);
+        pausedRunRef.current = null;
+        setRunning(false);
         releaseTurn(pendingTurnRef.current);
         setPendingTurn(null);
         setCurrentRun((prev) => (prev ? { ...prev, status: 'failed', error_message: 'Timed out waiting for the run to finish.' } : prev));
@@ -506,8 +567,9 @@ export default function AgentRunner({ agent, onBack }) {
     setRunError(null);
     setInspectedRun(null);
     setInlineRole(null);
-    setIsRunning(true);
+    setRunning(true);
     setExpandedEvents({});
+    setSettledRequests([]);
     setCurrentRun({ status: 'pending', input_prompt: trimmed, output: '', logs: [], started_at: new Date().toISOString() });
     releaseTurn(pendingTurnRef.current);
     setPendingTurn({ content: trimmed || '(see attached files)', attachments: files.map(({ file, ...chip }) => chip) });
@@ -550,7 +612,7 @@ export default function AgentRunner({ agent, onBack }) {
       if (response.status === 402 && data.upgrade_required) {
         setLimitUsage(data.usage);
         setCurrentRun((prev) => ({ ...prev, status: 'failed', error_message: data.message || 'Plan limit reached' }));
-        setIsRunning(false);
+        setRunning(false);
         restoreComposer();
         return;
       }
@@ -562,12 +624,61 @@ export default function AgentRunner({ agent, onBack }) {
       pollRun(data.run.id, contextIdOf(data.run) ?? contextId);
     } catch (error) {
       setCurrentRun((prev) => ({ ...prev, status: 'failed', error_message: error.message }));
-      setIsRunning(false);
+      setRunning(false);
       restoreComposer();
     }
   };
 
   const handleRun = () => startRun({ text: prompt, files: pendingFiles, fromComposer: true });
+
+  // An answer posted from an inline card resumes the run on the server, so
+  // the run is polled again. Still paused (another request of the pause is
+  // pending), the poll stops on it once more. A card can settle after the
+  // page let go of its run, and then there is nothing to poll.
+  const handleRequestSettled = (request, outcome) => {
+    const paused = pausedRunRef.current;
+    if (!paused || String(paused.id) !== String(request.run_id)) return;
+    setSettledRequests((previous) => [...previous.filter((entry) => entry.request.id !== request.id), { request, outcome }]);
+    pausedRunRef.current = { ...paused, waiting: false };
+    pollRun(paused.id, paused.contextId);
+  };
+
+  // Follows a run this page did not start: one waiting for input shows its
+  // requests, and one in flight is polled to the end.
+  const followRun = (run) => {
+    const state = runPollState(run);
+    if (state === 'finished' || runningRef.current) return;
+    setRunError(null);
+    setExpandedEvents({});
+    setSettledRequests([]);
+    setCurrentRun(run);
+    setRunning(true);
+    if (state === 'awaiting') pauseRun(run, contextIdOf(run));
+    else pollRun(run.id, contextIdOf(run));
+  };
+
+  // Pins the conversation a run belongs to, under the action the run ran, so
+  // the next message continues that action's conversation.
+  const pinRunConversation = (contextId, runAction) => {
+    pinnedRef.current = contextId;
+    if (runAction && actionNames.includes(runAction) && runAction !== actionName) setActionName(runAction);
+    setConversationId(contextId);
+  };
+
+  // The run a `?run=` link names, when it is one of this agent's.
+  const attachLinkedRun = async (runId) => {
+    try {
+      const response = await fetch(`/api/runs/${runId}`);
+      if (!response.ok) return;
+      const data = await response.json();
+      if (!mountedRef.current || !data.run || String(data.agent?.id) !== String(agent.id)) return;
+      const contextId = contextIdOf(data.run);
+      if (contextId) pinRunConversation(contextId, data.run.action_name);
+      followRun(data.run);
+    } catch (error) {
+      console.error('Failed to open the linked run:', error);
+    }
+  };
 
   // A submitted form or clicked choice in the assistant's UI is the next
   // user message.
@@ -651,7 +762,7 @@ export default function AgentRunner({ agent, onBack }) {
   // context and output fields.
   const openRun = async (run) => {
     let detail = run;
-    if (contextIdOf(run) == null) {
+    if (contextIdOf(run) == null || run.status === 'awaiting_input') {
       try {
         const response = await fetch(`/api/runs/${run.id}`);
         if (response.ok) detail = (await response.json()).run;
@@ -663,10 +774,8 @@ export default function AgentRunner({ agent, onBack }) {
     if (contextId) {
       setInspectedRun(null);
       if (contextId !== conversationIdRef.current) clearRunPanel();
-      pinnedRef.current = contextId;
-      const runAction = detail.action_name || run.action_name;
-      if (runAction && actionNames.includes(runAction) && runAction !== actionName) setActionName(runAction);
-      setConversationId(contextId);
+      pinRunConversation(contextId, detail.action_name || run.action_name);
+      followRun(detail);
     } else {
       setInspectedRun({
         ...detail,
@@ -705,6 +814,9 @@ export default function AgentRunner({ agent, onBack }) {
   }
 
   const canRun = (prompt.trim().length > 0 || pendingFiles.length > 0) && !isRunning;
+  const awaitingInput = currentRun?.status === 'awaiting_input';
+  const waitingRequests = awaitingInput ? pendingRequests(currentRun.input_requests) : [];
+  const settledIds = new Set(settledRequests.map(({ request }) => request.id));
   const runFailed = currentRun && !isRunning && currentRun.status === 'failed';
   // A finished run whose reply has nowhere to show: no conversation to reload.
   const runOutputInline = currentRun && !isRunning && currentRun.status === 'complete' && !contextIdOf(currentRun) && !conversationId;
@@ -933,12 +1045,28 @@ export default function AgentRunner({ agent, onBack }) {
                   expanded={expandedEvents}
                   onToggle={(eid) => setExpandedEvents((prev) => ({ ...prev, [eid]: !prev[eid] }))}
                 />
-                {isRunning && (
+                {isRunning && !awaitingInput && (
                   <div className="flex items-center gap-2 text-sm" style={{ color: colors.textSecondary }}>
                     <span className="animate-pulse">●</span>
                     <span>{activityFeed(currentRun).length > 0 ? 'Working…' : 'Starting run…'}</span>
                   </div>
                 )}
+              </div>
+            )}
+
+            {(waitingRequests.length > 0 || settledRequests.length > 0) && (
+              <div data-testid="runner-input-requests" className="mt-3 space-y-2">
+                {awaitingInput && (
+                  <div className="text-sm" style={{ color: colors.textSecondary }}>
+                    Paused for input: answer to continue this run.
+                  </div>
+                )}
+                {waitingRequests.filter((request) => !settledIds.has(request.id)).map((request) => (
+                  <InputRequestCard key={request.id} request={request} showRunLink={false} onSettled={handleRequestSettled} />
+                ))}
+                {settledRequests.map(({ request, outcome }) => (
+                  <InputRequestCard key={request.id} request={request} initialOutcome={outcome} showRunLink={false} />
+                ))}
               </div>
             )}
 
@@ -1090,7 +1218,11 @@ export default function AgentRunner({ agent, onBack }) {
               </span>
             </div>
             <Button testId="runner-run" variant="primary" colors={colors} onClick={handleRun} disabled={!canRun}>
-              {isRunning ? (
+              {isRunning && awaitingInput ? (
+                <>
+                  <span style={{ fontFamily: TYPOGRAPHY.mono }}>{'[?]'}</span> Waiting for input
+                </>
+              ) : isRunning ? (
                 <>
                   <span className="animate-spin inline-block" style={{ fontFamily: TYPOGRAPHY.mono }}>{'[~]'}</span> Running…
                 </>

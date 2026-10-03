@@ -97,7 +97,9 @@ export const DEFAULT_VIEW = 'list';
 
 // The sidebar's sections, in display order. `icon` names a glyph in
 // ICONS.nav (utils/designTokens.js); `glyph` is the character itself.
-// `badge` names a count the sidebar is given.
+// `badge` names a count the sidebar is given. An `attention` badge is drawn
+// in the warning tone, is left out while its count is zero, and says what it
+// counts in `badgeTitle`.
 export const DASHBOARD_NAV = [
   {
     id: 'agents',
@@ -114,7 +116,14 @@ export const DASHBOARD_NAV = [
     label: 'Observability',
     items: [
       { view: 'traces', label: 'Traces', icon: 'traces' },
-      { view: 'interactions', label: 'Interactions', icon: 'interactions' },
+      {
+        view: 'interactions',
+        label: 'Interactions',
+        icon: 'interactions',
+        badge: 'pendingInputCount',
+        badgeTone: 'attention',
+        badgeTitle: 'requests waiting for an answer',
+      },
       { view: 'tools', label: 'Tools', icon: 'tools' },
       { view: 'mcp', label: 'MCP Services', icon: 'mcp' },
       { view: 'metrics', label: 'Metrics', icon: 'metrics' },
