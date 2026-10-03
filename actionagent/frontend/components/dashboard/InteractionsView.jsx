@@ -11,6 +11,7 @@ import TraceSpanBar from './TraceSpanBar';
 import TraceDetail from './TraceDetail';
 import { formatDuration } from './SpanWaterfall';
 import { dashboardPath } from '../../utils/dashboardPath';
+import ReplayLink from './replay/ReplayLink';
 import {
   Chevron,
   META_COLUMN,
@@ -639,6 +640,9 @@ export default function InteractionsView({ agentId = null, embedded = false }) {
                         },
                       ]}
                     />
+                    {session.source !== 'telemetry' && (
+                      <ReplayLink kind="context" id={session.id} title="Replay this conversation" />
+                    )}
                     <Chevron open={isExpanded} darkMode={darkMode} />
                   </div>
                 </div>

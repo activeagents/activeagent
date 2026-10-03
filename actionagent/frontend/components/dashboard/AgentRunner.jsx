@@ -4,7 +4,8 @@ import { TYPOGRAPHY } from '../../utils/designTokens';
 import { startCheckout } from '../../utils/checkout';
 import { useTheme } from '../../contexts/ThemeContext';
 import { paletteFor, ACCENT } from '../../utils/dashboardTheme';
-import { dashboardPath } from '../../utils/dashboardPath';
+import { dashboardPath, navigateTo } from '../../utils/dashboardPath';
+import { sessionReplayPath } from '../../utils/dashboardRoutes.mjs';
 import { attachmentKind } from '../../utils/attachments';
 import { Badge, Button } from './AgentEditor';
 import InteractionStream, { roleBubble, streamPreStyle, AttachmentChips } from './InteractionStream';
@@ -828,6 +829,11 @@ export default function AgentRunner({ agent, onBack }) {
             </div>
             <div className="flex items-center gap-3 flex-wrap">
               <RunVitals run={currentRun} darkMode={darkMode} colors={colors} />
+              {conversation && (
+                <Button testId="runner-replay" variant="secondary" size="sm" colors={colors} onClick={() => navigateTo(sessionReplayPath('context', conversation.id))} disabled={isRunning} title="Replay this conversation: its messages, model calls and tool calls on one timeline">
+                  Replay
+                </Button>
+              )}
               <div className="relative" ref={addMenuRef}>
                 <Button testId="runner-add-message" variant="secondary" size="sm" colors={colors} onClick={() => setAddMenuOpen((open) => !open)} disabled={isRunning} title="Insert a message into the context without running">
                   + Add message
