@@ -18,7 +18,7 @@ module ActionAgent
       started_at = Time.current
 
       # Broadcast that run has started
-      broadcast_run_started(sandbox, run_id, task, provider)
+      broadcast_run_started(sandbox, run_id)
 
       begin
         # Use ActiveAgent with generate_later for async processing
@@ -32,7 +32,7 @@ module ActionAgent
       rescue => e
         Rails.logger.error("Sandbox run failed: #{e.message}")
         back_to_ready(sandbox, error_message: e.message)
-        broadcast_run_error(sandbox, run_id, provider, e.message)
+        broadcast_run_error(sandbox, run_id)
       end
     end
 
@@ -247,46 +247,18 @@ module ActionAgent
       PROMPT
     end
 
-    def broadcast_run_started(sandbox, run_id, task, provider)
-      ActionCable.server.broadcast(
-        "sandbox_#{sandbox.session_id}",
-        {
-          type: "run_started",
-          run_id: run_id,
-          provider: provider,
-          task: task,
-          started_at: Time.current.iso8601
-        }
-      )
-      Rails.logger.info "[SandboxRunJob] Broadcast run_started for #{provider} (#{run_id})"
+    # The run messages carry the job's run_id; the run itself is read back
+    # from the session.
+    def broadcast_run_started(sandbox, run_id)
+      LiveUpdates.broadcast("sandbox_#{sandbox.session_id}", type: "run_started", id: run_id, status: "running")
     end
 
     def broadcast_run_complete(sandbox, run_id, run)
-      ActionCable.server.broadcast(
-        "sandbox_#{sandbox.session_id}",
-        {
-          type: "run_complete",
-          run_id: run_id,
-          provider: run[:provider],
-          run: run,
-          sandbox: sandbox.summary
-        }
-      )
-      Rails.logger.info "[SandboxRunJob] Broadcast run_complete for #{run[:provider]} (#{run_id})"
+      LiveUpdates.broadcast("sandbox_#{sandbox.session_id}", type: "run_complete", id: run_id, status: run[:status])
     end
 
-    def broadcast_run_error(sandbox, run_id, provider, error)
-      ActionCable.server.broadcast(
-        "sandbox_#{sandbox.session_id}",
-        {
-          type: "run_error",
-          run_id: run_id,
-          provider: provider,
-          error: error,
-          sandbox: sandbox.summary
-        }
-      )
-      Rails.logger.info "[SandboxRunJob] Broadcast run_error for #{provider} (#{run_id})"
+    def broadcast_run_error(sandbox, run_id)
+      LiveUpdates.broadcast("sandbox_#{sandbox.session_id}", type: "run_error", id: run_id, status: "failed")
     end
   end
 end

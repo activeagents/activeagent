@@ -271,11 +271,11 @@ module ActionAgent
       }
     end
 
-    # Stream output updates via ActionCable
+    # Tells subscribers of this run's stream, and of its agent's, that the
+    # run's status changed.
     def broadcast_update
-      payload = { type: "update", run: summary }
-      ActionCable.server.broadcast("agent_run_#{id}", payload)
-      ActionCable.server.broadcast("agent_runs_#{agent_id}", payload)
+      LiveUpdates.broadcast("agent_run_#{id}", type: "update", id: id, status: status)
+      LiveUpdates.broadcast("agent_runs_#{agent_id}", type: "update", id: id, status: status)
     end
 
     # Cancel a running execution

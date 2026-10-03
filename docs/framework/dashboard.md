@@ -1391,6 +1391,23 @@ request. The evaluation report collector authenticates the same keys but does
 not call it: it asks `quota_checker` with `:evaluation_report` and tells
 `usage_recorder` of each stored report.
 
+### Live updates
+
+When the host has loaded Action Cable, the engine announces status changes
+on these streams:
+
+| Stream | `type` | `id` |
+|---|---|---|
+| `agent_run_<run id>`, `agent_runs_<agent id>` | `update` | the run's id |
+| `sandbox_<session id>` | `status_update` | the sandbox's session id |
+| `sandbox_<session id>` | `run_started`, `run_complete`, `run_error` | the sandbox run's id |
+
+Each message is `{ type, id, status }` and nothing else: a client reads the
+record back over the dashboard's JSON API, which scopes it to the signed-in
+owner. The engine ships no channel classes; a host channel that streams these
+checks that the subscriber owns the record before it streams. Without Action
+Cable nothing is sent, and the dashboard polls.
+
 ## Relationship to the hosted platform
 
 | | This engine | activeagents.ai (production) |
