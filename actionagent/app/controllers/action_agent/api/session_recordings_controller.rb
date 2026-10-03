@@ -22,10 +22,7 @@ module ActionAgent
       # GET /api/session_recordings
       # List recordings with optional filters
       def index
-        # Recordings the caller can reach, plus the shared demo. Ownership is
-        # a real column rather than a JSON metadata key, so this works on
-        # every adapter.
-        recordings = reachable_recordings.or(SessionRecording.where(name: "lander_demo")).recent
+        recordings = reachable_recordings.recent
 
         # Filter by status
         recordings = recordings.where(status: params[:status]) if params[:status].present?
@@ -277,10 +274,9 @@ module ActionAgent
 
       private
 
-      # Scoped through can_manage_recording? rather than owned(): nothing in
-      # the engine writes user_id/account_id onto a recording, so an
-      # ownership scope would hide it from the person who made it. 404 rather
-      # than 403 so ids stay unenumerable.
+      # Opens a recording only when can_manage_recording? allows it, the
+      # reachability reachable_recordings lists by. 404 rather than 403 so
+      # ids stay unenumerable.
       def set_recording
         @recording = SessionRecording.find(params[:id])
         return if can_manage_recording?(@recording)
