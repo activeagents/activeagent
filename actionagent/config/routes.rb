@@ -86,6 +86,8 @@ ActionAgent::Engine.routes.draw do
           post :cancel
         end
       end
+      # The checkout's browser (SandboxBrowser).
+      resource :browser, only: [ :show, :create, :destroy ], controller: "sandbox_browsers"
     end
 
     # Tool inventory — auto-detected from the tool roster each generation
