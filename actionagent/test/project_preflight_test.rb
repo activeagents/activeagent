@@ -5,13 +5,22 @@ require "test_helper"
 # Whether a repository can become a project, decided from files GitHub's
 # contents API serves (a fake client here), before any sandbox exists.
 class ProjectPreflightTest < ActiveSupport::TestCase
-  # Serves a fixed set of files, and records what was asked.
+  # Serves a fixed set of files at the commit each ref names, and records
+  # what was asked. +commits+ maps a ref to its commit; any other ref names
+  # "sha-<ref>".
   class FakeClient
-    attr_reader :requests
+    attr_reader :requests, :commit_requests
 
-    def initialize(files)
+    def initialize(files, commits = {})
       @files = files
+      @commits = commits
       @requests = []
+      @commit_requests = []
+    end
+
+    def commit_sha(repository, ref)
+      @commit_requests << [ repository, ref ]
+      @commits.fetch(ref) { "sha-#{ref}" }
     end
 
     def file(repository, path, ref:)
@@ -78,14 +87,47 @@ class ProjectPreflightTest < ActiveSupport::TestCase
     assert_match(/sqlserver, which a local sandbox cannot give databases of its own/, report["warnings"].last)
   end
 
-  test "every file is read at the ref asked for, once" do
+  test "every file is read once, at the commit the ref names" do
     client = FakeClient.new("Gemfile.lock" => lock, "config/application.rb" => "# app\n")
 
-    ActionAgent::ProjectPreflight.call(client, repository: "acme/shop", ref: "release")
+    report = ActionAgent::ProjectPreflight.call(client, repository: "acme/shop", ref: "release")
 
+    assert_equal [ "release", "sha-release" ], report.values_at("ref", "commit")
     paths = client.requests.map { |_repository, path, _ref| path }
     assert_equal paths.uniq, paths
-    assert client.requests.all? { |repository, _path, ref| repository == "acme/shop" && ref == "release" }
+    assert client.requests.all? { |repository, _path, ref| repository == "acme/shop" && ref == "sha-release" }
+  end
+
+  test "a ref that names no commit is unsupported, and no file is read" do
+    client = FakeClient.new({ "Gemfile.lock" => lock }, { "gone" => nil })
+
+    report = ActionAgent::ProjectPreflight.call(client, repository: "acme/shop", ref: "gone")
+
+    assert_equal [ "unsupported", "acme/shop has no commit at gone", nil ], report.values_at("status", "summary", "commit")
+    assert_empty client.requests
+  end
+
+  test "a report is kept for its commit, and a new commit is read again" do
+    files = { "Gemfile.lock" => lock, "config/application.rb" => "# app\n" }
+    commits = { "main" => "a" * 40 }
+    client = FakeClient.new(files, commits)
+
+    Rails.stub(:cache, ActiveSupport::Cache::MemoryStore.new) do
+      first = ActionAgent::ProjectPreflight.call(client, repository: "acme/shop", ref: "main")
+      reads = client.requests.size
+      again = ActionAgent::ProjectPreflight.call(client, repository: "acme/shop", ref: "main")
+
+      assert_equal first, again
+      assert_equal reads, client.requests.size, "the same commit is not read again"
+      assert_equal 2, client.commit_requests.size
+
+      commits["main"] = "b" * 40
+      files["Gemfile.lock"] = lock(railties: "7.1.3")
+      moved = ActionAgent::ProjectPreflight.call(client, repository: "acme/shop", ref: "main")
+
+      assert_equal [ "unsupported", "b" * 40 ], moved.values_at("status", "commit")
+      assert_operator client.requests.size, :>, reads
+    end
   end
 
   private

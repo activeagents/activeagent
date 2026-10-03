@@ -21,7 +21,8 @@ module ActionAgent
     # The token was revoked or expired: the owner has to connect again.
     class Unauthorized < Error; end
     # GitHub answered 404: no such repository, ref or path, or one the token
-    # cannot see, which GitHub does not tell apart.
+    # cannot see, which GitHub does not tell apart. Also 409, which GitHub
+    # answers for the commits and trees of a repository with no commits.
     class NotFound < Error; end
 
     def self.authorize_url(redirect_uri:, state:)
@@ -60,7 +61,7 @@ module ActionAgent
       ) { |http| http.request(request) }
 
       raise Unauthorized, "GitHub rejected the token" if response.code.to_i == 401
-      raise NotFound, "GitHub found nothing at #{uri.path}" if response.code.to_i == 404
+      raise NotFound, "GitHub found nothing at #{uri.path}" if [ 404, 409 ].include?(response.code.to_i)
       raise Error, "GitHub answered #{response.code}" unless response.code.to_i.between?(200, 299)
 
       JSON.parse(response.body.presence || "{}")
@@ -110,6 +111,17 @@ module ActionAgent
       return nil if data["size"].to_i > MAX_FILE_BYTES
 
       data["content"].to_s.unpack1("m").force_encoding(Encoding::UTF_8).scrub
+    rescue NotFound
+      nil
+    end
+
+    # The SHA of the commit +ref+ (a branch, tag or commit; the default
+    # branch when nil) names in +full_name+, or nil when there is none.
+    def commit_sha(full_name, ref)
+      query = { per_page: 1 }
+      query[:sha] = ref if ref.present?
+      commit = Array(get("/repos/#{repository_path(full_name)}/commits", query)).first
+      commit.is_a?(Hash) ? commit["sha"].presence : nil
     rescue NotFound
       nil
     end

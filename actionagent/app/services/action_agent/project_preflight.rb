@@ -10,8 +10,13 @@ module ActionAgent
   #
   # Nothing of the repository runs: the lock is parsed with Bundler's parser,
   # and the other files are only matched against.
+  #
+  # The files are read at the commit the ref names, and the report is kept in
+  # Rails.cache for that commit, so checking a repository again costs one
+  # GitHub call until it changes.
   class ProjectPreflight
     STATUSES = %w[supported bootstrap unsupported].freeze
+    CACHE_TTL = 1.day
     SUMMARIES = {
       "supported" => "Supported",
       "bootstrap" => "Supported: installs the engine in the sandbox"
@@ -31,8 +36,25 @@ module ActionAgent
     # @param client [GithubClient]
     # @param repository [String] owner/name
     # @param ref [String] the branch, tag or commit to read
+    # @return [Hash] see #call, with +ref+ as asked and +commit+, the SHA it
+    #   named. A ref naming no commit is unsupported, and nothing is read.
     def self.call(client, repository:, ref:)
-      new(client, repository: repository, ref: ref).call
+      commit = client.commit_sha(repository, ref)
+      return no_commit(repository, ref) if commit.nil?
+
+      report = Rails.cache.fetch([ name, ActionAgent::VERSION, repository, commit ], expires_in: CACHE_TTL) do
+        new(client, repository: repository, ref: commit).call
+      end
+      report.deep_stringify_keys.merge("ref" => ref, "commit" => commit)
+    end
+
+    def self.no_commit(repository, ref)
+      reason = "#{repository} has no commit at #{ref.presence || "its default branch"}"
+      {
+        "status" => "unsupported", "summary" => reason, "reasons" => [ reason ], "warnings" => [], "engine" => false,
+        "ruby" => nil, "ruby_source" => nil, "railties" => nil, "activeagent" => nil, "actionagent" => nil,
+        "database_adapters" => [], "services" => [], "ref" => ref, "commit" => nil, "checked_at" => Time.current.iso8601
+      }
     end
 
     def initialize(client, repository:, ref:)

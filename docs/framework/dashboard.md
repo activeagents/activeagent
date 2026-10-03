@@ -1485,6 +1485,11 @@ cannot provision are warnings. A repository the connection has not selected
 is looked up by name, which also reaches repositories past the listing's
 500-repository cap.
 
+The files are read at the commit the ref names (`ref`, or the default
+branch), and the report is kept in `Rails.cache` for that commit: checking
+the repository again, or creating the project, costs one GitHub call until
+the ref moves. A ref that names no commit is `unsupported`.
+
 Reading a repository the connection has not selected, whether to check it,
 to discover its secrets or to create a project from it, needs `:manage_github`
 (see [Permissions](#permissions)). The connection's token can be one
@@ -1506,6 +1511,9 @@ New Project page asks for all of them in one form:
 - `ENV.fetch("NAME")` and `ENV["NAME"]` call sites in the Ruby, YAML and ERB
   files under `config/` and `lib/`, at most 40 files. `ENV.fetch` with no
   default marks the variable as required.
+
+Only files the commit lists are read, and the result is cached per commit
+like the preflight. A ref that names no commit answers `404`.
 
 ```yaml
 # .activeagents/sandbox.yml
