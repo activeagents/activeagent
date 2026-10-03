@@ -39,6 +39,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `OPENROUTER_API_KEY` and the other OpenRouter variables, as it does for the
   other providers. An explicit `api_key` is no longer dropped when no
   OpenRouter variable is set.
+- **Use an explicit OpenAI project before the environment** (`activeagent`).
+  A `project` or `project_id` passed to the OpenAI provider wins over
+  `OPENAI_PROJECT_ID`, and an explicit `project_id` is no longer dropped.
 
 ## [1.8.1] - 2026-10-01
 
