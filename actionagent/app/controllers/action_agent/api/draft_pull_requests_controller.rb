@@ -23,6 +23,7 @@ module ActionAgent
       # opened from this sandbox (its state read again from GitHub at most
       # once a minute), and whether publishing is available.
       def show
+        @sandbox.draft_pull_requests.fail_stalled!
         record = @sandbox.draft_pull_requests.recent.first
         DraftPullRequestPublisher.refresh_status!(record) if record && !record.in_progress?
 
@@ -125,7 +126,8 @@ module ActionAgent
       end
 
       # Checks the request against the sandbox as it is now, then queues the
-      # publish: one at a time per sandbox, under its row lock.
+      # publish: one at a time per sandbox, under its row lock. A record that
+      # is itself queued or publishing is busy too.
       def queue(record, allowlist: nil, files: true)
         refusal = publisher.read_refusal
         raise refusal if refusal
@@ -146,7 +148,8 @@ module ActionAgent
 
         busy = nil
         @sandbox.with_lock do
-          busy = @sandbox.draft_pull_requests.where(status: %w[queued publishing]).where.not(id: record.id).first
+          @sandbox.draft_pull_requests.fail_stalled!
+          busy = @sandbox.draft_pull_requests.where(status: %w[queued publishing]).first
           record.save! unless busy
         end
         if busy
