@@ -488,8 +488,9 @@ module ActionAgent
         models.map(&:to_s).map(&:strip).reject(&:blank?)
       end
 
-      # Raises unless the key's user may change +evaluation+'s scenarios. A
-      # multi-tenant key that records no user is refused (ActionAgent.permitted?).
+      # Raises unless the key's user may change +evaluation+'s scenarios. With
+      # a permission checker set, a multi-tenant key that records no user is
+      # refused; with none, every key may (ActionAgent.permitted?).
       def authorize_scenario_write!(evaluation)
         return if ActionAgent.permitted?(current_user, :replace_scenarios, evaluation)
 

@@ -288,6 +288,10 @@ class McpEvaluationAuthoringTest < ActionDispatch::IntegrationTest
   end
 
   test "the checker is asked about replace_scenarios as the key's user, with the evaluation" do
+    ActionAgent.user_class = "User"
+    creator = User.create!(email: "creator-#{SecureRandom.hex(3)}@example.com", name: "Creator", age: 30)
+    @agent.update_columns(user_id: creator.id)
+    @key.update_columns(user_id: creator.id)
     suite = create_suite
     ActionAgent.permission_checker = ->(*args) { @asked << args; true }
 
@@ -296,8 +300,7 @@ class McpEvaluationAuthoringTest < ActionDispatch::IntegrationTest
 
     (create_user, create_action, create_subject), (merge_user, merge_action, merge_subject) = @asked
     assert_equal [ :replace_scenarios, :replace_scenarios ], [ create_action, merge_action ]
-    assert_nil create_user
-    assert_nil merge_user
+    assert_equal [ creator, creator ], [ create_user, merge_user ]
     assert_kind_of ActionAgent::Evaluation, create_subject
     assert_equal [ "Refunds", 2 ], [ create_subject.name, create_subject.scenarios.size ]
     assert_equal suite, merge_subject
@@ -326,7 +329,7 @@ class McpEvaluationAuthoringTest < ActionDispatch::IntegrationTest
     assert_equal member, @asked.sole.first
   end
 
-  test "multi-tenant: a key that records no user is denied without asking the checker" do
+  test "multi-tenant: with a checker set, a key that records no user is denied without asking it" do
     multi_tenant_key
     @key.update_columns(user_id: nil)
     suite = create_suite
@@ -339,6 +342,18 @@ class McpEvaluationAuthoringTest < ActionDispatch::IntegrationTest
     assert_empty @asked
     assert_equal 1, ActionAgent::Evaluation.count
     assert_equal 1, suite.scenarios.count
+  end
+
+  test "multi-tenant: with no checker set, a key that records no user may write" do
+    multi_tenant_key
+    @key.update_columns(user_id: nil)
+    suite = create_suite
+
+    structured(call_tool("evaluations_create", { agent: "support", name: "Refunds", scenarios_text: PASTE }))
+    structured(call_tool("scenarios_merge", { evaluation_id: suite.id, scenarios_text: PASTE }))
+
+    assert_equal 2, ActionAgent::Evaluation.count
+    assert_equal 3, suite.scenarios.count
   end
 
   test "a create that would pass the evaluation or scenario limit is refused whole" do
