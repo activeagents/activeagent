@@ -1409,7 +1409,7 @@ end
 | Action | Asked by |
 |---|---|
 | `:manage_credentials` | storing, testing and deleting a provider credential (`POST /api/provider_keys`, `POST /api/provider_keys/test`, `DELETE /api/provider_keys/:provider`) |
-| `:manage_github` | connecting GitHub, choosing its repositories, and disconnecting it (`GET /api/github_connection/connect` and `/callback`, `PATCH` and `DELETE /api/github_connection`); installing and linking the GitHub App, choosing an installation's repositories, and unlinking it (`GET /api/github_installations/install` and `/callback`, `PATCH` and `DELETE /api/github_installations/:id`); creating the App from a manifest (`POST /api/github_app_manifest`, `GET /api/github_app_manifest/callback`) |
+| `:manage_github` | connecting GitHub, choosing its repositories, and disconnecting it (`GET /api/github_connection/connect` and `/callback`, `PATCH` and `DELETE /api/github_connection`); installing and linking the GitHub App, listing and choosing an installation's repositories, and unlinking it (`GET /api/github_installations/install` and `/callback`, `GET /api/github_installations/:id/repositories`, `PATCH` and `DELETE /api/github_installations/:id`); creating the App from a manifest (`POST /api/github_app_manifest`, `GET /api/github_app_manifest/callback`) |
 | `:manage_api_keys` | creating and revoking dashboard API keys (`POST /api/api_keys`, `DELETE /api/api_keys/:id`) |
 | `:publish_pull_request` | reserved: opening a pull request from a sandbox |
 | `:answer_input_request` | reserved: answering a run's request for input |
@@ -1422,7 +1422,8 @@ The list is `ActionAgent::PERMISSION_ACTIONS`. `ActionAgent.permitted?(user,
 action, subject)` asks the checker the same way the endpoints do, and raises
 `ArgumentError` for an action outside the list. Reading a setting is not a
 privileged action, so the `GET` endpoints that list keys or the connection
-are not checked. The connect, install and callback navigations return a
+are not checked. Listing an installation's repositories is: the installation
+can reach repositories a member cannot see on GitHub. The connect, install and callback navigations return a
 refusal to Settings (`?github=forbidden` or `?github_app=forbidden`) rather
 than as JSON.
 
