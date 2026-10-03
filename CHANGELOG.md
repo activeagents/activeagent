@@ -91,21 +91,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   checked through GitHub's contents API (Ruby, railties, a root
   `config/application.rb`) and its environment variables are found in
   `.env.example`, `.env.sample`, a new `secrets:` key in
-  `.activeagents/sandbox.yml` and `ENV` call sites. Reading a repository the
-  GitHub connection has not selected needs `:manage_github`. Secrets are encrypted,
+  `.activeagents/sandbox.yml` and `ENV` call sites. Both read the commit the
+  ref names and are cached per commit. Reading a repository the GitHub
+  connection has not selected needs `:manage_github`. Secrets are encrypted,
   never returned, refused for names the sandbox sets or that change how code
   loads, and need `:manage_project_secrets`, as do changing the ref they are
   handed to (preflighted again, and stopping the old ref's sandbox) and
-  deleting a project that has them. A provider key variable can use
-  the organization's stored key, with consent and `:manage_credentials`, and
-  without copying it. Values
-  reach only the steps that run the repository's code and are scrubbed, with
-  their URL-encoded and Base64 forms, from errors, logs and code-session
-  events. The project's agent is an App assistant over the sandbox's tools,
-  or a proxy for one of the checkout's own agents; Run evaluation boots an
-  expired sandbox again and waits for it. The first boot on `:local` asks for
-  confirmation, and `quota_checker` is asked about `:project`. A boot spec
-  that does not apply to a checkout now still hands it its `secrets`.
+  deleting a project that has them. A provider key variable can use the
+  organization's stored key, with consent and `:manage_credentials`, and
+  without copying it. Values reach only the steps that run the repository's
+  code and are scrubbed, with their URL-encoded and Base64 forms, from
+  errors, logs, code-session events and the MCP dashboard tools. The
+  project's agent is an App assistant over the sandbox's tools, or a proxy for
+  one of the checkout's own agents; Run evaluation boots an expired sandbox
+  again and waits for it. The first boot on `:local` asks for confirmation,
+  and `quota_checker` is asked about `:project`. A boot spec that does not
+  apply to a checkout now still hands it its `secrets`.
 
 ### Changed
 
