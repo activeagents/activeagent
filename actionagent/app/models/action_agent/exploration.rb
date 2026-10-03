@@ -337,9 +337,9 @@ module ActionAgent
     # +edits+ maps a candidate id to an edit, as #update_candidate! takes
     # one, applied first.
     #
-    # Nothing is written when any candidate is refused: one the suite
-    # editor cannot save unchanged, or one whose key a scenario from outside
-    # this exploration already holds.
+    # Nothing is written when any candidate is refused: a rejected one
+    # (reconsider it first), one the suite editor cannot save unchanged, or
+    # one whose key a scenario from outside this exploration already holds.
     #
     # @raise [AcceptRefused]
     # @raise [InvalidCandidate] for an edit, as #update_candidate! raises it
@@ -370,6 +370,11 @@ module ActionAgent
         problems = {}
         entries = ids.filter_map do |id|
           candidate = by_id[id]
+          if candidate["state"] == "rejected"
+            problems[id] = "it was rejected: reconsider it first"
+            next
+          end
+
           apply_edit!(candidate, edits[id], roster: roster, secrets: secrets) if edits[id].present?
           entry, problem = suite_entry(candidate)
           problems[id] = problem if problem
