@@ -47,11 +47,12 @@ module ActionAgent
     end
 
     # The last message in +mailbox+, a file Mail's file delivery appended
-    # messages to, each followed by a blank line. A message starts with its
-    # Date header, and its header block carries a Message-ID.
+    # messages to, each followed by a blank line. A message starts with a
+    # header line after that blank line (Date, or Return-Path when the app
+    # sets one), and its header block carries a Message-ID.
     def last_raw_message(mailbox)
       starts = [ 0 ]
-      mailbox.scan(/\r?\n\r?\n(?=Date: )/) { starts << Regexp.last_match.end(0) }
+      mailbox.scan(/\r?\n\r?\n(?=[A-Za-z][A-Za-z0-9-]*: )/) { starts << Regexp.last_match.end(0) }
       start = starts.reverse.find do |offset|
         header_end = mailbox.index(/\r?\n\r?\n/, offset) || mailbox.length
         mailbox[offset...header_end].match?(/^Message-ID:/i)
