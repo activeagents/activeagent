@@ -1217,10 +1217,11 @@ the one above. `#to_h` is plain JSON, so a backend that boots somewhere else
   such Rake task.
 - With `"apply": "without_engine"` (what `bootstrap: "auto"` sends), a
   checkout that bundles the engine, names a `manifest` in its `sandbox.yml`,
-  or has no `Gemfile.lock` boots exactly as it would without a spec. A
-  backend whose `create_sandbox` takes no `boot_config:` is not handed such a
-  spec, and boots as it always has. One with `"apply": "always"` is refused
-  for that backend instead.
+  or has no `Gemfile.lock` boots as it would without a spec, except that the
+  spec's `secrets` are added to its `sandbox.yml` env. A backend whose
+  `create_sandbox` takes no `boot_config:` is not handed such a spec, and
+  boots as it always has. One with `"apply": "always"` is refused for that
+  backend instead.
 - `secrets` are environment for the steps, manifest and server, like `env`,
   and are scrubbed from every log and message the backend produces. They
   travel in memory only. The backend records the spec without their values
@@ -1445,6 +1446,138 @@ prompt, so anything else that would ask is denied. `plan` keeps sessions
 read-only. Avoid `bypassPermissions`: it lets a session run any command as the
 dashboard's user.
 
+## Projects
+
+A project is a repository the dashboard boots in a checkout sandbox and
+evaluates an agent against, whether or not the repository uses ActiveAgent.
+It keeps what every boot needs: the ref, the [start URL](#bootstrapping-a-checkout-without-the-engine),
+the secrets the app reads from its environment, and the agent and evaluation
+it tests the booted app with. Projects are under **Projects** in the sidebar.
+
+### Before the first project
+
+`GET /api/projects/capabilities` is the New Project page's checklist. Each
+item says whether it holds and, when not, the configuration line or step that
+fixes it. Creating a project is refused while a blocking item fails.
+
+| Item | Blocking | Holds when |
+|---|---|---|
+| `sandbox_backend` | yes | the backend runs checkouts. The `:mock` backend runs nothing, so it is refused outside the test environment |
+| `local_sandboxes` | yes | `:local` only: `ActionAgent.local_sandboxes_enabled?` |
+| `boot_spec` | yes | the backend's `create_sandbox` takes [`boot_config:`](#boot-specs), which is how a project's bootstrap and secrets reach it |
+| `execution` | yes | agent execution is enabled |
+| `github` | yes | a GitHub App or OAuth app is configured. The item names the exact callback URL to register |
+| `github_connection` | yes | the owner connected GitHub |
+| `model_credentials` | no | a provider has credentials for the project's agent |
+| `browser` | no | browser sessions, not available yet |
+| `code_runners` | no | the backend runs Claude Code or Codex sessions |
+
+### Picking a repository
+
+Before any sandbox exists, `GET /api/projects/preflight?repository=owner/name`
+reads the repository through GitHub's contents API: `Gemfile.lock`,
+`.ruby-version`, `config/application.rb`, `config/database.yml` and the
+`Gemfile`. It applies the bootstrap preflight's requirements and answers
+`supported` (the repository bundles the engine), `bootstrap` (the sandbox
+installs it) or `unsupported`, with the reason. Services a sandbox does not
+run (Redis, Sidekiq, Elasticsearch) and database adapters a local sandbox
+cannot provision are warnings. A repository the connection's listing does not
+include is looked up by name, which also reaches repositories past the
+listing's 500-repository cap.
+
+Creating a project from a repository the connection has not selected selects
+it, and needs `:manage_github` (see [Permissions](#permissions)). Before a
+project is created, `ActionAgent.quota_checker` is asked about `:project`, and
+a denial answers `402`.
+
+### Secrets
+
+`GET /api/projects/discover_secrets?repository=owner/name` lists the
+environment variables the repository expects, without a model call, so the
+New Project page asks for all of them in one form:
+
+- every `NAME=` line of `.env.example` and `.env.sample`;
+- the `secrets:` key of `.activeagents/sandbox.yml`, a list of names or a
+  mapping of names to descriptions. It holds names only, never values;
+- `ENV.fetch("NAME")` and `ENV["NAME"]` call sites in the Ruby, YAML and ERB
+  files under `config/` and `lib/`, at most 40 files. `ENV.fetch` with no
+  default marks the variable as required.
+
+```yaml
+# .activeagents/sandbox.yml
+secrets:
+  STRIPE_SECRET_KEY: Test-mode key for checkout
+  MAILER_PASSWORD: SMTP password
+```
+
+A project's secrets are `ActionAgent::ProjectSecret` records, encrypted at
+rest. The API returns their names, sources, who set them and when, never
+their values.
+
+| Endpoint | What it does |
+|---|---|
+| `GET /api/projects/:id/secrets` | The Environment tab's list |
+| `PUT /api/projects/:id/secrets` | Sets a list of `{ name, value }` or `{ name, source: "organization_key", consent: true }`, all or none |
+| `PUT /api/projects/:id/secrets/:name` | Replaces one value |
+| `DELETE /api/projects/:id/secrets/:name` | Removes one |
+
+- Setting, replacing and removing need `:manage_project_secrets`.
+- A secret may not take a name the sandbox sets or one that changes how code
+  is loaded, the same names a [boot spec's](#boot-specs) `secrets` refuse.
+  Such a name answers `422`.
+- For `OPENAI_API_KEY`, `ANTHROPIC_API_KEY` and `OPENROUTER_API_KEY`, a
+  secret can use the organization's stored provider key instead of a value.
+  It needs `consent: true`, since the repository's code can read the key. The
+  key is read when the sandbox boots and never copied into the project, and a
+  secret is refused when the owner stores no such key.
+- Saving a live-mode key (`sk_live_`, `rk_live_`), a value shorter than 8
+  characters (which logs cannot mask) or `RAILS_MASTER_KEY` returns a
+  warning, and the form shows it before saving.
+- Values reach only the steps that run the repository's code (setup,
+  manifest and start), never the checkout's git fetch or a Claude Code or
+  Codex session. Each value, with its URL-encoded and Base64 forms, is
+  scrubbed from provision errors, step logs, boot status and code-session
+  events.
+
+### Booting
+
+`POST /api/projects/:id/boot` returns the project's sandbox: the current one
+while it boots or serves, the current one resumed from the step that failed
+when its failed boot was kept, or a new one. A project boots from a
+`without_engine` bootstrap spec with `keep_on_failure`, carrying its secrets:
+a repository that lacks the engine is bootstrapped, and one that bundles it
+boots as its `sandbox.yml` says, with the secrets added to its env.
+
+On `:local`, the first boot of each project answers `409` with
+`"This runs <owner/repo>'s code on this machine as <user>."`. The same
+request with `confirm: true` boots it, and later boots do not ask again.
+
+`GET /api/projects/:id/boot` returns the project, its boot's steps with their
+status and elapsed time, and the scrubbed tail of the step that failed or is
+running. `GET /api/projects/:id/boot_log` pages through one step's log. The
+project page follows the sandbox's `{ type, id, status }` broadcasts (see
+[Live updates](#live-updates)) and polls every 2 seconds while the sandbox
+boots. A project's own changes are announced on `project_<id>`.
+
+### The agent under evaluation
+
+A project owns one dashboard agent, and its evaluation belongs to that agent.
+The agent's `mcp_servers` name the project's current sandbox, and follow it to
+each new one.
+
+- A repository without the engine gets the **App assistant**, whose tools are
+  everything the sandbox's MCP facade serves.
+- A repository that bundles the engine evaluates one of its own agents. Once
+  the sandbox serves, `GET /api/projects/:id/synced_agents` lists the
+  checkout's agents (its facade's `run_<slug>` tools), and
+  `PATCH /api/projects/:id/target` with `synced_agent: "<slug>"` makes the
+  project's agent answer through that one tool.
+
+`POST /api/projects/:id/run_evaluation` runs the project's evaluation against
+its sandbox. A sandbox that has expired is booted again first, and the run
+stays pending until it serves. A boot that fails, or that is still booting
+after an hour, fails the run with the reason.
+
 ## Authentication
 
 **The dashboard has no authentication by default.** Anyone who can reach
@@ -1516,11 +1649,11 @@ end
 | Action | Asked by |
 |---|---|
 | `:manage_credentials` | storing, testing and deleting a provider credential (`POST /api/provider_keys`, `POST /api/provider_keys/test`, `DELETE /api/provider_keys/:provider`) |
-| `:manage_github` | connecting GitHub, choosing its repositories, and disconnecting it (`GET /api/github_connection/connect` and `/callback`, `PATCH` and `DELETE /api/github_connection`) |
+| `:manage_github` | connecting GitHub, choosing its repositories, and disconnecting it (`GET /api/github_connection/connect` and `/callback`, `PATCH` and `DELETE /api/github_connection`), and creating a project from a repository the connection has not selected (`POST /api/projects`) |
 | `:manage_api_keys` | creating and revoking dashboard API keys (`POST /api/api_keys`, `DELETE /api/api_keys/:id`) |
 | `:publish_pull_request` | reserved: opening a pull request from a sandbox |
 | `:answer_input_request` | reserved: answering a run's request for input |
-| `:manage_project_secrets` | reserved: setting a project's secrets |
+| `:manage_project_secrets` | setting, replacing and removing a project's secrets (`POST /api/projects` with `secrets`, `PUT /api/projects/:id/secrets`, `PUT` and `DELETE /api/projects/:id/secrets/:name`) |
 | `:take_over_browser` | reserved: driving a run's browser by hand |
 | `:manage_recordings` | reserved: viewing and deleting session recordings |
 | `:replace_scenarios` | reserved: replacing an evaluation's scenarios |

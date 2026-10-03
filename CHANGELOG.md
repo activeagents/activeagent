@@ -80,6 +80,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   there is exactly one (the only account for the key and the only user for the
   agents, in an app that configures both), and to nobody in an app with no
   owner model, where `AgentSync` now accepts a nil owner.
+- **Projects** (`actionagent`). A project boots a GitHub repository in a
+  checkout sandbox, installing the engine there when the repository lacks it,
+  and evaluates an agent against the running app. `ActionAgent::Project` and
+  `ActionAgent::ProjectSecret` (migration template `019`, owned by the account
+  first) are served under `/api/projects` and the new **Projects** view.
+  `GET /api/projects/capabilities` is a checklist of what the install still
+  needs, with the line that fixes each item; the mock backend is refused
+  outside the test environment. Before any sandbox exists, the repository is
+  checked through GitHub's contents API (Ruby, railties, a root
+  `config/application.rb`) and its environment variables are found in
+  `.env.example`, `.env.sample`, a new `secrets:` key in
+  `.activeagents/sandbox.yml` and `ENV` call sites. Secrets are encrypted,
+  never returned, refused for names the sandbox sets or that change how code
+  loads, and need `:manage_project_secrets`. A provider key variable can use
+  the organization's stored key, with consent and without copying it. Values
+  reach only the steps that run the repository's code and are scrubbed, with
+  their URL-encoded and Base64 forms, from errors, logs and code-session
+  events. The project's agent is an App assistant over the sandbox's tools,
+  or a proxy for one of the checkout's own agents; Run evaluation boots an
+  expired sandbox again and waits for it. The first boot on `:local` asks for
+  confirmation, and `quota_checker` is asked about `:project`. A boot spec
+  that does not apply to a checkout now still hands it its `secrets`.
 
 ### Changed
 
