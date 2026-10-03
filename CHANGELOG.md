@@ -66,6 +66,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   caller instead, without announcing the pause. Supported by the Anthropic and
   OpenAI Chat Completions tool loops; under OpenAI Responses and RubyLLM a tool
   that asks raises `InputRequest::UnsupportedProviderError`.
+- **Let a dashboard run stop to ask a person, and continue with the answer**
+  (`actionagent`). A paused run is `awaiting_input`, with one
+  `ActionAgent::InputRequest` per paused tool call (migration `016`, emitted by
+  `rails g action_agent:install`). The request's owner is copied from the run's
+  agent, and its answer and the pause's checkpoint are encrypted at rest. The
+  `ask` tools (`ask_user`, `request_approval`) raise `text`, `choice` and
+  `confirm` requests. An agent's `approval_required_tools` holds a listed
+  tool's call until a person approves it. `request_secret` is reserved for
+  agents the engine defines. `GET /api/input_requests` lists requests without
+  their answers. `POST /api/input_requests/:id/answer` and `/decline` check
+  `:answer_input_request`, and return 409 for a settled or expired request and
+  422 for an invalid answer. Once a pause is settled, `AgentResumeJob` resumes
+  the same run under its trace id. MCP `run_<slug>` returns a paused run's
+  request ids, and `input_requests_list` and `input_requests_answer` (text and
+  choice only) join the MCP facade. `config.input_request_ttl` (one day by
+  default) bounds how long a request waits.
 
 ### Changed
 
@@ -75,6 +91,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the run or sandbox back over the JSON API. Nothing is broadcast when the host
   has not loaded Action Cable. A host channel or client that read `run`,
   `sandbox`, `task`, `error` or `provider` from these messages must refetch.
+- **Add the `awaiting_input` run status** (`actionagent`). `AgentRun` status
+  `5` is a run waiting on its input requests: neither `in_progress?` nor
+  `finished?`, never picked up again by `AgentExecutionJob`, and cancellable
+  with `cancel!`, which also cancels its pending requests. A client that treats
+  every status other than `pending` and `running` as finished must handle it.
+- **Filter `answer` and `value` from request logs** (`actionagent`). The engine
+  adds them to the host's `filter_parameters`, beside `credential`, `api_key`
+  and `access_token`. Rails matches these names as substrings, so a host
+  parameter such as `values` or `default_value` is filtered from its logs too.
 
 ### Fixed
 
