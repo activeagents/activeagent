@@ -14,6 +14,7 @@ import RunsList from './evaluations/RunsList';
 import SpendStrip from './evaluations/SpendStrip';
 import CriteriaFooter from './evaluations/CriteriaFooter';
 import { fmtPasses } from '../../utils/evalFormat.mjs';
+import { scenariosToText } from '../../utils/scenarioSuiteText.mjs';
 import {
   FixList, ModelsPanel, ScenarioDetail, ScenarioMatrix,
   fixItemsFor, inProgress, isPassed, isSettled, labelForResult, modelColumns, modelPassStats, plural,
@@ -27,27 +28,6 @@ import {
 // It also carries the suite's controls: edit the pasted scenarios, run a
 // group / everything / one scenario under chosen models, enable or disable a
 // scenario, delete the suite.
-
-// Rebuilds the pasted form of a suite so it can be edited in place.
-function scenariosToText(scenarios) {
-  const lines = [];
-  let group = null;
-  scenarios.forEach((scenario) => {
-    if ((scenario.group || '') !== (group || '')) {
-      group = scenario.group;
-      if (group) lines.push(`# ${group}`);
-    }
-    const options = [];
-    const expectations = scenario.expectations || {};
-    if (expectations.tools?.length) options.push(`tools: ${expectations.tools.join(', ')}`);
-    if (expectations.contains?.length) options.push(`contains: ${expectations.contains.join(', ')}`);
-    if (expectations.not_contains?.length) options.push(`not_contains: ${expectations.not_contains.join(', ')}`);
-    if (scenario.notes) options.push(`notes: ${scenario.notes}`);
-    options.push(`key: ${scenario.key}`);
-    lines.push(`${scenario.prompt} | ${options.join(' | ')}`);
-  });
-  return lines.join('\n');
-}
 
 const stripResults = (run) => {
   const { results, fix_items: fixItems, ...summary } = run;

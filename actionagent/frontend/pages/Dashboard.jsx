@@ -20,6 +20,7 @@ import OrganizationView from '../components/dashboard/OrganizationView';
 import SettingsView from '../components/dashboard/SettingsView';
 import DashboardAssistant from '../components/dashboard/DashboardAssistant';
 import ProjectsView from '../components/dashboard/ProjectsView';
+import ExplorationsView from '../components/dashboard/ExplorationsView';
 import { ThemeProvider, useTheme } from '../contexts/ThemeContext';
 import { TimeWindowProvider } from '../contexts/TimeWindowContext';
 import { dashboardPath, dashboardRelativePath } from '../utils/dashboardPath';
@@ -360,6 +361,7 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
     ),
     evaluations: () => <EvaluationsView />,
     projects: () => <ProjectsView visit={visit} />,
+    exploration: () => <ExplorationsView visit={visit} />,
     replay: () => (
       <SessionReplayView
         onHandoff={(handoffData) => {

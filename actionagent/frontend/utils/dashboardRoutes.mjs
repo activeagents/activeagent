@@ -71,6 +71,8 @@ export const DASHBOARD_ROUTES = [
   { view: 'analytics', match: prefix('/analytics'), path: '/analytics' },
   // ProjectsView reads /projects/new and /projects/:id itself.
   { view: 'projects', match: prefix('/projects'), path: '/projects' },
+  // ExplorationsView reads /explorations/:id itself.
+  { view: 'exploration', match: prefix('/explorations'), path: '/explorations' },
   { view: 'builder', match: prefix('/agents/new'), path: '/agents/new' },
   {
     view: 'history',
