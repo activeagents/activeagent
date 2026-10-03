@@ -89,14 +89,87 @@ class InputRequestTest < ActiveSupport::TestCase
     assert_same request, ActiveAgent::InputRequest.scrub(request, [ "abc123" ])
   end
 
-  test "scrub_error copies an error only when its message holds a secret" do
-    clean = RuntimeError.new("timed out")
-    dirty = RuntimeError.new("bad token abc123")
+  test "scrub compares a number in its string form" do
+    assert_equal({ "pin" => "[FILTERED]", "total" => 40 }, ActiveAgent::InputRequest.scrub({ "pin" => 4821, "total" => 40 }, [ "4821" ]))
+  end
 
-    assert_same clean, ActiveAgent::InputRequest.scrub_error(clean, [ "abc123" ])
+  # Errors whose message is built from their own state, not from the text
+  # they were raised with.
+  class TokenError < StandardError
+    def initialize(token)
+      @token = token
+      super("rejected")
+    end
 
-    scrubbed = ActiveAgent::InputRequest.scrub_error(dirty, [ "abc123" ])
-    assert_instance_of RuntimeError, scrubbed
-    assert_equal "bad token [FILTERED]", scrubbed.message
+    def message = "token #{@token} rejected"
+  end
+
+  def raised
+    yield
+  rescue StandardError => error
+    error
+  end
+
+  def scrubbed(error, secrets = [ "abc123" ])
+    raised { ActiveAgent::InputRequest.raise_scrubbed(error, secrets) }
+  end
+
+  test "raise_scrubbed raises the error itself when no message in its chain holds a secret" do
+    clean = raised { raise RuntimeError, "timed out" }
+
+    assert_same clean, scrubbed(clean)
+  end
+
+  test "raise_scrubbed raises a copy of the error with the secret replaced" do
+    dirty = raised { raise ArgumentError, "bad token abc123" }
+
+    error = scrubbed(dirty)
+
+    assert_instance_of ArgumentError, error
+    assert_equal "bad token [FILTERED]", error.message
+    assert_equal dirty.backtrace, error.backtrace
+    assert_nil error.cause
+  end
+
+  test "raise_scrubbed raises a ScrubbedError when a copy of the error still reports the secret" do
+    dirty = raised { raise TokenError.new("abc123") }
+
+    error = scrubbed(dirty)
+
+    assert_instance_of ActiveAgent::InputRequest::ScrubbedError, error
+    assert_equal "#{TokenError.name}: token [FILTERED] rejected", error.message
+    assert_equal dirty.backtrace, error.backtrace
+  end
+
+  test "raise_scrubbed replaces a cause that holds a secret" do
+    dirty = raised do
+      begin
+        raise TokenError.new("abc123")
+      rescue TokenError
+        raise RuntimeError, "deploy failed"
+      end
+    end
+
+    error = scrubbed(dirty)
+
+    assert_equal "deploy failed", error.message
+    assert_instance_of ActiveAgent::InputRequest::ScrubbedError, error.cause
+    assert_equal "#{TokenError.name}: token [FILTERED] rejected", error.cause.message
+    assert_nil error.cause.cause
+  end
+
+  test "raise_scrubbed keeps a cause that holds no secret" do
+    dirty = raised do
+      begin
+        raise IOError, "connection reset"
+      rescue IOError
+        raise RuntimeError, "token abc123 failed"
+      end
+    end
+
+    error = scrubbed(dirty)
+
+    assert_equal "token [FILTERED] failed", error.message
+    assert_same dirty.cause, error.cause
   end
 end

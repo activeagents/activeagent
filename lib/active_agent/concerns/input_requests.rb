@@ -121,9 +121,10 @@ module ActiveAgent
     end
 
     # @param error [Exception]
-    # @return [Exception] `error`, or a copy whose message holds no secret answer
-    def scrub_input_request_secrets_error(error)
-      InputRequest.scrub_error(error, input_request_secrets)
+    # @raise [Exception] `error`, or a replacement without the secret answers
+    #   (see InputRequest.raise_scrubbed)
+    def raise_without_input_request_secrets(error)
+      InputRequest.raise_scrubbed(error, input_request_secrets)
     end
 
     # Calls one on_input_request callback, with the paused response when it
