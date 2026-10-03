@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useTheme } from '../../contexts/ThemeContext';
 import { dashboardPath } from '../../utils/dashboardPath';
 import CodeSessionPanel, { StatusBadge } from './CodeSessionPanel';
+import DraftPullRequestPanel from './DraftPullRequestPanel';
 import GithubAppSection from './GithubAppSection';
 import RepoPicker from './RepoPicker';
 import {
@@ -40,9 +41,10 @@ const CALLBACK_MESSAGES = {
 // connection that give checkout sandboxes repository access, the
 // repositories they make available, and checkout sandboxes booted from one
 // of them — each listed under its repository, polled while it boots, and,
-// once ready, able to run Claude Code sessions in its checkout. The
-// sandboxes are listed whether or not GitHub is still connected:
-// disconnecting stops nothing, so they stay here to be stopped.
+// once ready, able to run Claude Code sessions in its checkout and publish
+// its changes as a draft pull request. The sandboxes are listed whether or
+// not GitHub is still connected: disconnecting stops nothing, so they stay
+// here to be stopped.
 // callbackStatus and appCallbackStatus are the ?github= and ?github_app=
 // outcomes the OAuth and installation callbacks redirect back with.
 // refreshKey changes when another Integrations card changed something the
@@ -91,7 +93,12 @@ export default function GithubIntegrationCard({ callbackStatus, appCallbackStatu
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(apiErrorMessage(data, `Could not list your sandboxes (HTTP ${res.status}).`));
       setSandboxes(data.sandboxes || []);
-      setSandboxSupport({ codeSessions: Boolean(data.code_sessions_supported), claudeCode: claudeCodeAuth(data), codex: { supported: data.codex_sessions_supported === true, connected: data.codex_connected === true } });
+      setSandboxSupport({
+        codeSessions: Boolean(data.code_sessions_supported),
+        claudeCode: claudeCodeAuth(data),
+        codex: { supported: data.codex_sessions_supported === true, connected: data.codex_connected === true },
+        pullRequests: data.pull_requests_supported === true,
+      });
     } catch (e) {
       setError(e.message);
     }
@@ -350,6 +357,7 @@ export default function GithubIntegrationCard({ callbackStatus, appCallbackStatu
         {ready && sandboxSupport && !sandboxSupport.codeSessions && (
           <p className={`text-xs ${muted}`}>The configured sandbox backend cannot run Claude Code sessions.</p>
         )}
+        {ready && sandboxSupport?.pullRequests && <DraftPullRequestPanel sandbox={sandbox} />}
       </div>
     );
   };
