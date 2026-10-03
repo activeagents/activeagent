@@ -1691,10 +1691,14 @@ can be replayed through them:
 - Each replay's browser opens at the project's start URL.
 - The run's `selection` records the browser's `server_key` beside the
   sandbox's, and the diagnosis roster lists the browser's tools.
+- A browser the run started is stopped once the run ends, which completes
+  its recording and stops its minutes. One that was already running is left
+  running.
 - On a backend that runs no browsers, the replays reach the sandbox alone.
 
 A run started another way, such as the Evaluations page or the
-`evaluations_run` MCP tool, reaches no browser.
+`evaluations_run` MCP tool, uses the sandbox's browser only while one is
+already running. It starts none and does not record it in `selection`.
 
 ### Explorations
 
@@ -1823,7 +1827,7 @@ that page would ask the agent, each with a rubric for a good answer.
 
 | Tool | Does |
 |---|---|
-| browser tools | the browser's `browser_navigate`, `browser_navigate_back`, `browser_snapshot`, `browser_find`, `browser_click`, `browser_type`, `browser_fill_form`, `browser_select_option`, `browser_press_key`, `browser_hover`, `browser_wait_for`, `browser_tabs`, `browser_handle_dialog`, `browser_take_screenshot`, `browser_console_messages`, `browser_network_requests`, `browser_network_request`, `browser_generate_locator` and `browser_verify_*`, without their `filename` argument. Script evaluation, file uploads and cookie or storage tools are not offered, nor the toolbox's own browser tools |
+| browser tools | the browser's `browser_navigate`, `browser_navigate_back`, `browser_snapshot`, `browser_find`, `browser_click`, `browser_type`, `browser_fill_form`, `browser_select_option`, `browser_press_key`, `browser_hover`, `browser_wait_for`, `browser_tabs`, `browser_handle_dialog`, `browser_take_screenshot`, `browser_console_messages`, `browser_generate_locator` and `browser_verify_*`, without their `filename` argument. Script evaluation, file uploads, cookie or storage tools and the network request tools (a page's request list holds the sign-in form's body) are not offered, nor the toolbox's own browser tools |
 | `sign_in(secret_ref:)` | signs the browser in with the project's saved credentials of that name; see [Signing in](#signing-in-to-the-app) |
 | `read_last_email(to:)` | the newest email the app sent to an address; see [Mail](#mail-in-the-sandbox) |
 | `propose_candidate` | stores a candidate (`prompt`, `group`, `rubric`, `tools`, `contains`, `not_contains`) as `POST /api/explorations` does, and answers its verdict |
@@ -1838,17 +1842,22 @@ that page would ask the agent, each with a rubric for a good answer.
   recording, and that stretch of it as `range`, in milliseconds from the
   recording's start.
 - **Browser results are scrubbed** of the project's secrets and the sandbox's
-  tokens before the model, the trace or the run's log sees them.
+  tokens before the model, the trace or the run's log sees them, and each is
+  cut to 24,000 characters.
 - **The budget is checked after every tool call.** Once the minutes, steps
-  or cost are used up, or someone chooses **Stop and review**
+  or cost are used up, the tool results the explorer was answered with
+  reach 400,000 characters (its conversation would no longer fit a model's
+  context window), or someone chooses **Stop and review**
   (`POST /api/explorations/:id/stop`), every tool but `finish` answers that
   the walk is over, and a model that keeps calling tools is cut short. The
   exploration then moves to `review` with what it found, and `stop_reason`
-  says why: `finished`, `budget_minutes`, `budget_steps`, `budget_cost` or
-  `stopped`. A crash moves it to `failed` and keeps its candidates.
-- **A browser the start launched is stopped** when the walk ends, which
-  completes its recording and stops its minutes. One that was already
-  running is left running.
+  says why: `finished`, `budget_minutes`, `budget_steps`, `budget_cost`,
+  `budget_context` or `stopped`. A crash moves it to `failed` and keeps its
+  candidates.
+- **A browser the start launched is stopped** when the walk ends, or when
+  the walk never began because it was stopped first, which completes its
+  recording and stops its minutes. One that was already running is left
+  running.
 
 ### Signing in to the app
 
@@ -1870,25 +1879,32 @@ in, as one of these:
 `sign_in` is done in the Rails process: it opens the login URL through a
 second MCP session on the browser, finds the password field (and the login
 field and submit button near it), types the credentials and submits. It
-answers only `signed_in` (the browser left the login page), `failed` (it did
-not, and the password field is emptied, since a page snapshot shows what a
-password field holds) or `unsupported`, when the login page has no password
-field, as with sign-in through OAuth or SSO only, which the sandbox does not
-support. The values are never a tool argument or result, a log line, a span,
-a recorded action or candidate text, and each part of a sign-in secret is
-scrubbed on its own from everything the project's sandboxes and the explorer
-produce. The browser's own recording masks what is typed.
+answers only `signed_in` (the page the browser shows has no password field),
+`failed` (it still shows one, and the password field is emptied, since a page
+snapshot shows what a password field holds) or `unsupported`, when the login
+page has no password field, as with sign-in through OAuth or SSO only, which
+the sandbox does not support. The credentials are never a tool argument or
+result, a log line, a span, a recorded action or candidate text. The
+password, and the session values of a saved sign-in (its httpOnly cookies and
+any cookie or localStorage value of 20 characters or more), are scrubbed on
+their own from everything the project's sandboxes and the explorer produce.
+The login is not: it is an account name the app shows and mails to, and the
+explorer may read that mail. The browser's own recording masks what is
+typed.
+
+A password under 8 characters is too short to scrub from output, so it is
+kept safe by the steps above alone. Prefer a longer one for the test account.
 
 | Endpoint | What it does |
 |---|---|
 | `GET /api/projects/:id/sign_in` | What is set: the login URL, the login, whether a password and a saved sign-in are set, never the password |
-| `PUT /api/projects/:id/sign_in` | Sets `login_url`, `login`, `password`, `login_field`, `password_field` and `submit_field` |
+| `PUT /api/projects/:id/sign_in` | Sets `login_url`, `login`, `password`, `login_field`, `password_field` and `submit_field`. A blank `password` keeps the saved one |
 | `POST /api/projects/:id/sign_in/check` | Signs the project's browser in with them, starting the browser when none runs, and answers the `sign_in` result |
 | `POST /api/projects/:id/sign_in/save_browser` | Keeps the running browser's sign-in; `409` when no browser runs |
 | `DELETE /api/projects/:id/sign_in` | Removes both secrets |
 
 Changing them needs `:manage_project_secrets`, asked about the secret. An
-environment secret cannot take either name.
+environment secret cannot take either name (`422`).
 
 ### Mail in the sandbox
 

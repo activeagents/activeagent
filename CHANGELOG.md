@@ -210,17 +210,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `read_last_email(to:)`, `propose_candidate` (verdicts against the target
   agent's real tools, provenance with the pages, steps and recording range
   filled in server-side) and `finish`. Browser results are scrubbed of the
-  project's secrets. Running out of budget, or Stop and review, moves the
-  exploration to review with its candidates; a crash fails it and keeps
-  them.
+  project's secrets and cut to 24,000 characters each. Running out of
+  budget or of conversation room, or Stop and review, moves the exploration
+  to review with its candidates; a crash fails it and keeps them.
 - **Sign a project's browser in without a model seeing the credentials**
   (`actionagent`, `@activeagents/browser-sidecar`). A project secret now has
   a `kind`: `env` (as before), `sign_in` (login URL, login, password and
   optional field selectors) or `storage_state` (a saved browser sign-in).
-  Only `env` secrets reach the sandbox's environment, and each part of a
-  sign-in secret is scrubbed on its own. `sign_in` types the credentials
-  from the Rails process and answers only whether the browser left the
-  login page, or `unsupported` when the login page has no password field.
+  Only `env` secrets reach the sandbox's environment, the two sign-in names
+  are refused for `env` secrets, and the password and a saved sign-in's
+  session values are scrubbed on their own. `sign_in` types the credentials
+  from the Rails process, never logging them, and answers only whether the
+  browser left the login form, or `unsupported` when the login page has no
+  password field.
   `<mount>/api/projects/:id/sign_in` sets, checks, saves from the running
   browser and removes them, asked as `:manage_project_secrets`. The sidecar
   takes a `storage_state` to start with and answers `GET /storage-state`.
@@ -230,12 +232,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Mailer to file delivery, and `ActionAgent::SandboxMail.last_message`
   reads the newest message for an address through the backend's
   `read_file` verb.
+- **Mask JSON-escaped secrets** (`actionagent`).
+  `ActionAgent::SecretScrubber.with_encodings` also lists each value as it
+  appears escaped inside a JSON string, so a secret with a quote or a
+  backslash is masked in JSON output too.
 - **Give a project's evaluation runs the sandbox's browser**
   (`actionagent`). A run started from the project page reaches the
   sandbox's browser in every replay, starting it headless with the
   project's saved sign-in when none runs and opening the start URL before
   each replay, and records the browser in its selection. A browser that
-  cannot start fails the run before any replay.
+  cannot start fails the run before any replay, and one the run started is
+  stopped when it ends.
 
 ### Changed
 
