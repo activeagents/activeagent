@@ -213,8 +213,11 @@ class McpEvaluationAuthoringTest < ActionDispatch::IntegrationTest
     suite = create_suite
 
     merged = structured(call_tool("scenarios_merge", { evaluation_id: suite.id, scenarios_text: PASTE, key_prefix: "batch2" }))
+    unusable = tool_error(call_tool("scenarios_merge", { evaluation_id: suite.id, scenarios_text: PASTE, key_prefix: "日本" }))
 
     assert_equal %w[batch2_orders_1 batch2_orders_2], merged["added"]
+    assert_match(/key_prefix "日本" has no letters or digits/, unusable)
+    assert_equal 3, suite.scenarios.count
   end
 
   test "scenarios_merge with nothing to merge is a tool error" do

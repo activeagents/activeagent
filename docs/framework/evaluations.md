@@ -398,10 +398,12 @@ evaluation.merge_scenarios!(attributes, limit: 2_000)
 
 The parser numbers `"position"` within its own paste, which is why the example
 drops it. `reserved_keys:` makes a scenario with no key take the next
-`<group>_<n>` the suite does not hold, so merging the same keyless paste twice
-adds it twice under distinct keys rather than overwriting the first copy.
-`key_prefix:` puts a namespace in front of every generated key. Keys a paste
-names are kept as they are, so a named key the suite holds is updated.
+`<group>_<n>` the suite does not hold, ignoring case, so merging the same
+keyless paste twice adds it twice under distinct keys rather than overwriting
+the first copy. `key_prefix:` puts a namespace in front of every generated
+key, and raises `ScenarioParser::ParseError` when it has no letters or digits
+a key can use. Keys a paste names are kept as they are, so a named key the
+suite holds is updated.
 
 The MCP facade's `scenarios_merge` tool does exactly this for a coding
 harness (see the [dashboard guide](/framework/dashboard#writing-a-suite-from-your-harness)).

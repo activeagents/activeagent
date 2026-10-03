@@ -65,8 +65,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   scenario keys, groups and judge models. A refused call writes nothing.
 - **Generate scenario keys around keys already in use** (`activeagent`).
   `ScenarioParser.parse` and `.scenarios` take `reserved_keys:`, which
-  generated keys skip, and `key_prefix:`, a namespace in front of every
-  generated key. Keys a paste names are unchanged.
+  generated keys skip ignoring case, and `key_prefix:`, a namespace in front
+  of every generated key. A prefix with no letters or digits a key can use
+  raises `ParseError`. Keys a paste names are unchanged.
 
 ### Changed
 

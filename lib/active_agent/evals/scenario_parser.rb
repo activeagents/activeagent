@@ -25,12 +25,14 @@ module ActiveAgent
     # Two options shape the generated keys, and leave named keys alone:
     #
     #   reserved_keys: keys already in use, such as the suite a paste is
-    #                  merged into. A generated key skips them, so a second
-    #                  paste's first "Orders" line becomes `orders_3` after a
-    #                  suite holding `orders_1` and `orders_2`.
+    #                  merged into. A generated key skips them, ignoring
+    #                  case, so a second paste's first "Orders" line becomes
+    #                  `orders_3` after a suite holding `orders_1` and
+    #                  `Orders_2`.
     #   key_prefix:    a namespace in front of every generated key:
-    #                  `key_prefix: "batch2"` turns `orders_1` into
-    #                  `batch2_orders_1`.
+    #                  `key_prefix: "Batch 2"` turns `orders_1` into
+    #                  `batch_2_orders_1`. A prefix with no letters or
+    #                  digits a key can use raises ParseError.
     class ScenarioParser
       class ParseError < ArgumentError; end
 
@@ -55,8 +57,10 @@ module ActiveAgent
 
       def initialize(text, reserved_keys: [], key_prefix: nil)
         @text = text.to_s
-        @reserved_keys = Array(reserved_keys).map(&:to_s).to_set
-        @key_prefix = key_prefix.to_s.parameterize(separator: "_").first(MAX_KEY_PREFIX).presence
+        # Generated keys are lowercase, and a database whose collation
+        # ignores case holds `Orders_1` and `orders_1` as one key.
+        @reserved_keys = Array(reserved_keys).map { |key| key.to_s.downcase }.to_set
+        @key_prefix = normalize_key_prefix(key_prefix)
       end
 
       # @return [Array<Hash>] scenario attributes with string keys
@@ -76,6 +80,15 @@ module ActiveAgent
       end
 
       private
+
+      def normalize_key_prefix(value)
+        return nil if value.blank?
+
+        prefix = value.to_s.parameterize(separator: "_").first(MAX_KEY_PREFIX).sub(/_+\z/, "")
+        raise ParseError, "key_prefix #{value.to_s.truncate(40).inspect} has no letters or digits a key can use" if prefix.empty?
+
+        prefix
+      end
 
       def json?(text)
         text.start_with?("[", "{")
