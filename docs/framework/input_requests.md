@@ -46,7 +46,7 @@ end
 | `InputRequest.choice(prompt, options: [...])` | `:choice` | One of `options` (a value, or the `value` of a `{ value:, label: }` hash) |
 | `InputRequest.secret(prompt)` | `:secret` | A value the tool uses and the model never sees |
 
-Every constructor also takes `schema:` (a JSON Schema for the answer) and `metadata:` (anything you want to keep with the request). The provider fills in `tool_call_id` and `tool_name`.
+Every constructor also takes `schema:` (a JSON Schema for the answer) and `metadata:` (anything you want to keep with the request). The provider fills in `tool_call_id`, `tool_name` and `arguments`, the arguments the model called the tool with.
 
 Answering `false` declines a request of any kind: the tool does not run again, and the model reads `{"error":"declined by user"}` as its result.
 
@@ -63,6 +63,7 @@ if response.awaiting_input?
     request.prompt        # => "Refund $40 on order 7?"
     request.tool_call_id  # => "toolu_01..."
     request.tool_name     # => "issue_refund"
+    request.arguments     # => { "order_id" => 7, "amount" => 40 }
   end
 
   PendingQuestion.create!(ticket_id: 42, checkpoint: response.checkpoint,
@@ -93,7 +94,31 @@ The result is an ordinary response — or a paused one, if a tool asked again.
 - a `:confirm` answer is not `true` or `false`, or a `:choice` answer is not one of the options;
 - the checkpoint was taken by a different action, provider or model. The checkpoint holds the conversation in the provider's own message format, so it only resumes where it was taken.
 
+To resume in a background job instead, see [Resuming later](#resuming-later).
+
 Calls that finished before the pause are not run again; their results come from the checkpoint. The tool-turn count carries over, so `max_tool_turns` covers the whole generation, pauses included. A forced `tool_choice` stays forced only until the model has used the tool, as it would without the pause: the action sets it again on resume, and it is cleared again when the paused turn or any turn before it used the tool.
+
+## Requiring approval
+
+A tool does not have to ask for approval itself. List it in `requires_approval:` and every call to it waits for the user before the tool runs:
+
+```ruby
+class SupportAgent < ApplicationAgent
+  generate_with :openai, model: "gpt-5-mini"
+
+  def handle(ticket_id:)
+    prompt(message: "Resolve support ticket #{ticket_id}", tools: SUPPORT_TOOLS,
+           requires_approval: [ :issue_refund, :close_account ])
+  end
+end
+```
+
+The call pauses with a `:confirm` request whose `prompt` is `"Allow issue_refund to run?"`, whose `tool_name` and `arguments` say what would run, and whose `metadata` is `{ "approval" => true }`, so your app can tell it from a question the tool asked. Nothing runs until you resume:
+
+- `true` runs the tool once, with no answer in `input_answer`. The approval answers the gate, not the tool, so a tool that asks its own question still asks it, and is not asked to be approved again. The checkpoint records which calls wait for approval, so an answer is read as an approval even when the resumed action lists different tools.
+- `false` declines: the tool never runs, and the model reads `{"error":"declined by user"}`.
+
+`requires_approval:` is read by ActiveAgent and never sent to the provider. It takes a tool name or an array of them, and raises `ArgumentError` for anything else, such as `true`. It names tools of any kind: agent methods, [delegations](/actions/delegation), and tools served by [MCP servers](/actions/mcps#approving-tool-calls). An MCP declaration can also ask for approval itself with `require_approval:`.
 
 ## Secrets
 
@@ -123,7 +148,22 @@ A tool's error is raised again as a copy with the secret replaced. When the copy
 
 Secrets are matched as text. A number in a tool result is compared in its written form and becomes the string `"[FILTERED]"` when it matches. Every occurrence is replaced, so a short answer, such as a four-digit PIN, also replaces the same digits inside unrelated ids and amounts for the rest of the generation. Ask for secrets long enough not to collide.
 
-The answer still passes through your app on its way to `resume_now`. Keep it out of logs, job arguments and request parameters you record, and never store it with the checkpoint.
+The answer still passes through your app on its way to `resume_now`. Keep it out of logs, job arguments and request parameters you record, and never store it with the checkpoint. For the same reason, `resume_later` refuses secret answers.
+
+## Resuming later
+
+`resume_later` takes the same checkpoint and answers as `resume_now`, plus job options, and resumes in `ActiveAgent::GenerationJob`:
+
+```ruby
+SupportAgent.with(ticket:).as(current_user).handle(ticket_id: ticket.id)
+  .resume_later(checkpoint: question.checkpoint, answers: { request_id => true }, queue: :agents)
+```
+
+The job runs the action again from its arguments, params and actor, as `generate_later` does, and calls `resume_now`. `resume_later` checks the answers before it enqueues anything and raises `ActiveAgent::InputRequest::ResumeError` for an incomplete answer, an answer that does not fit, or any answer to a `:secret` request: job arguments are stored by the queue backend. Resume a generation that waits on a secret inside your own job, reading the answer from where your app keeps it.
+
+The checkpoint becomes a job argument too, so `GenerationJob` does not log its arguments. The queue backend still stores the checkpoint as it is, without the encryption [Storing checkpoints](#storing-checkpoints) recommends. When conversations are sensitive, call `resume_now` from your own job that reads an encrypted checkpoint.
+
+Like `generate_later`, `resume_later` needs a generation whose agent has not run yet: call it on a new one built the same way, not on the generation that paused. An agent that sets its own `generation_job` receives the checkpoint and answers in a `resume:` keyword argument, which a subclass of `ActiveAgent::GenerationJob` already handles.
 
 ## Storing checkpoints
 
@@ -137,8 +177,12 @@ The answer still passes through your app on its way to `resume_now`. Keep it out
 | `tool_turns` | Tool round-trips used so far |
 | `tool_choice_cleared` | Whether a forced `tool_choice` was already cleared |
 | `messages` | The conversation through the assistant turn that made the tool calls, in the provider's format, without the messages derived from instructions |
+| `tool_call_turn_size` | How many of the last `messages` make up that turn: 1, or more on OpenAI Responses, which sends reasoning and each function call as items of their own |
 | `completed_results` | The results of the calls that finished, by tool call id |
 | `input_requests` | One request per paused call |
+| `approval_tool_calls` | Paused calls that wait for approval before their tool runs |
+| `approved_tool_calls` | Paused calls that were already approved, and paused again on the tool's own question |
+| `mcp_tool_calls` | Paused calls to tools that a client-side MCP server serves |
 
 It contains the conversation, so store it the way you store conversations — encrypted at rest if they are sensitive — and resume only from a checkpoint your app stored itself, never from one a client sends you.
 
@@ -164,8 +208,8 @@ Each pause also publishes `input_requested.active_agent`, with the requests in `
 
 ## Limitations
 
-- Pausing works in the Anthropic and OpenAI Chat Completions tool loops, streamed or not, and in the providers that share them (Bedrock, and the Chat Completions-compatible providers such as Azure, OpenRouter and Ollama). Under OpenAI Responses or RubyLLM, a tool that returns a request raises `ActiveAgent::InputRequest::UnsupportedProviderError`.
-- Only agent tool methods can ask. Tools served by an MCP server cannot return a request.
-- A pause ends the generation, so client-side MCP connections close. A `command:` server is started again on resume and loses any state it held.
-- A [delegated agent](/actions/delegation) cannot pause: nothing holds its checkpoint once the delegated call returns. Its questions go back to the calling model as `{ "error": "input_required", "questions": [...] }`, and the pause is neither published as `input_requested.active_agent` nor passed to the delegated agent's `on_input_request` callbacks. The other tool calls of the turn that paused have already run, and run again if the calling model retries the delegation.
-- There is no `resume_later` yet; resume inside your own job, reading the answers from where your app stored them.
+- Pausing works in every built-in tool loop, streamed or not: Anthropic, OpenAI Chat Completions, OpenAI Responses and RubyLLM, and the providers that share them (Bedrock, and the Chat Completions-compatible providers such as Azure, OpenRouter and Ollama). On OpenAI Responses, a reasoning model's reasoning items are kept in the checkpoint and sent back with the function calls they led to.
+- A custom provider takes part by running its tool calls through `dispatch_tool_calls`. Under one that calls `call_tool_function` itself, a tool that returns a request, or a tool that needs approval, raises `ActiveAgent::InputRequest::UnsupportedProviderError` instead of running.
+- Tools served by an MCP server cannot return a request, but their calls can require approval.
+- A pause ends the generation, so [client-side MCP connections](/actions/mcps#pauses-and-client-side-servers) close. A `command:` server is started again on resume and loses any state it held. A paused call to a tool the server no longer offers gets an `{ "error": ... }` result instead of running.
+- A [delegated agent](/actions/delegation) cannot pause: nothing holds its checkpoint once the delegated call returns. Its questions go back to the calling model as `{ "error": "input_required", "questions": [...] }`, or, under the `on_exceeded: :raise` budget policy, raise `ActiveAgent::Delegation::InputRequiredError`. The pause is neither published as `input_requested.active_agent` nor passed to the delegated agent's `on_input_request` callbacks. The other tool calls of the turn that paused have already run, and run again if the calling model retries the delegation.

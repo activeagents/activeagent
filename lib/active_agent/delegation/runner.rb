@@ -32,6 +32,8 @@ module ActiveAgent
       # @return [Object] the sub-agent's result, or a structured error the
       #   calling model can act on
       # @raise [BudgetExceededError] when the budget policy is +:raise+
+      # @raise [InputRequiredError] when the sub-agent pauses for input and
+      #   the budget policy is +:raise+
       # @raise [InvalidResultError] when the returns policy is +:raise+
       def call(**arguments)
         if (violation = budget_violation)
@@ -263,8 +265,14 @@ module ActiveAgent
       # @param response [ActiveAgent::Providers::Common::PromptResponse] a paused response
       # @param payload [Hash] instrumentation payload
       # @return [Hash]
+      # @raise [InputRequiredError] when the budget policy is +:raise+
       def input_required(response, payload)
         payload[:status] = :input_required
+
+        if budget.policy == :raise
+          raise InputRequiredError, "#{definition.agent_class}##{definition.action} stopped to ask the user for input " \
+                                    "(#{response.input_requests.map(&:tool_name).join(", ")}), which a delegated agent cannot do"
+        end
 
         {
           error: "input_required",

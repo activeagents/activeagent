@@ -17,8 +17,17 @@ module ActiveAgent
     #   - `messages`           the provider-native conversation through the
     #                          assistant turn that made the tool calls, without
     #                          the messages the provider derives from instructions
+    #   - `tool_call_turn_size` how many of the last `messages` make up the turn
+    #                          that made the tool calls: 1, except where the
+    #                          provider sends a turn as several items (OpenAI
+    #                          Responses' reasoning and function_call items)
     #   - `completed_results`  each finished call's result in JSON form, by tool call id
     #   - `input_requests`     one {InputRequest#to_h} per paused call
+    #   - `approval_tool_calls` the paused calls that wait for approval before
+    #                          their tool runs
+    #   - `approved_tool_calls` the paused calls that were already approved to
+    #                          run and paused again on the tool's own request
+    #   - `mcp_tool_calls`     the paused calls a client-side MCP server serves
     #
     # @api private
     class Resume
@@ -37,7 +46,7 @@ module ActiveAgent
         @answers    = answers.to_h.transform_keys(&:to_s)
 
         raise ResumeError, "Unsupported checkpoint version #{@checkpoint[:version].inspect}" unless @checkpoint[:version] == VERSION
-        raise ResumeError, "The checkpoint has no assistant tool-call turn to resume from" unless tool_call_turn.is_a?(Hash) && tool_call_turn[:role].to_s == "assistant"
+        raise ResumeError, "The checkpoint has no tool-call turn to resume from" unless valid_tool_call_turn?
 
         @input_requests = Array(@checkpoint[:input_requests]).map { InputRequest.from_h(_1) }
         @completed      = @checkpoint[:completed_results].to_h.transform_keys(&:to_s)
@@ -66,12 +75,12 @@ module ActiveAgent
       # Returns the conversation before the turn that made the tool calls.
       #
       # @return [Array<Hash>]
-      def messages = Array(@checkpoint[:messages])[0...-1]
+      def messages = Array(@checkpoint[:messages])[0...-tool_call_turn_size]
 
-      # Returns the assistant turn that made the tool calls.
+      # Returns the messages of the turn that made the tool calls.
       #
-      # @return [Hash]
-      def tool_call_turn = Array(@checkpoint[:messages]).last
+      # @return [Array<Hash>]
+      def tool_call_turn = Array(@checkpoint[:messages]).last(tool_call_turn_size)
 
       # @param id [String]
       # @return [Boolean]
@@ -88,6 +97,24 @@ module ActiveAgent
       # @param id [String]
       # @return [Object, nil] the answer for a paused call; nil for any other call
       def answer(id) = pending?(id) ? @answers[id.to_s] : nil
+
+      # Whether a paused call was approved to run before it paused again on
+      # its tool's own request.
+      #
+      # @param id [String]
+      # @return [Boolean]
+      def approved?(id) = pending?(id) && approved_ids.include?(id.to_s)
+
+      # Whether the answers approve a paused call that waited for approval
+      # before its tool ran.
+      #
+      # @param id [String]
+      # @return [Boolean]
+      def approval_given?(id) = pending?(id) && approval_ids.include?(id.to_s) && @answers[id.to_s] == true
+
+      # @param id [String]
+      # @return [Boolean] whether a client-side MCP server served the paused call
+      def mcp_tool_call?(id) = pending?(id) && Array(@checkpoint[:mcp_tool_calls]).map(&:to_s).include?(id.to_s)
 
       # Returns the answers given to `:secret` requests, which must not reach
       # the model, telemetry or errors.
@@ -130,6 +157,17 @@ module ActiveAgent
       end
 
       private
+
+      def tool_call_turn_size = (@checkpoint[:tool_call_turn_size] || 1).to_i
+
+      def valid_tool_call_turn?
+        size = tool_call_turn_size
+        size.positive? && Array(@checkpoint[:messages]).size >= size && tool_call_turn.all?(Hash)
+      end
+
+      def approval_ids = Array(@checkpoint[:approval_tool_calls]).map(&:to_s)
+
+      def approved_ids = Array(@checkpoint[:approved_tool_calls]).map(&:to_s)
 
       def pending_ids = input_requests.map(&:tool_call_id)
 

@@ -18,6 +18,10 @@ module ActiveAgent
 
     rescue_from StandardError, with: :handle_exception_with_agent_class
 
+    # The arguments can hold a paused generation's whole conversation and the
+    # user's answers.
+    self.log_arguments = false
+
     # +actor+ is the caller the generation runs on behalf of
     # (ActiveAgent::Authorization). ActiveJob serializes it like any other
     # argument, so a record arrives as the same record the caller passed and
@@ -28,14 +32,17 @@ module ActiveAgent
     # Agent.embed(...), which have no action to call: +agent_method+ is then
     # the synthetic +__direct_*__+ name, so the generation is rebuilt from
     # +direct_args+ and +direct_options+ instead.
+    #
+    # +resume+ holds the +checkpoint+ and +answers+ a paused generation
+    # continues from (Generation#resume_later).
     def perform(agent, agent_method, generation_method, args:, kwargs: nil, params: nil, actor: nil,
-                direct_generation_type: nil, direct_args: nil, direct_options: nil)
+                direct_generation_type: nil, direct_args: nil, direct_options: nil, resume: nil)
       if direct_generation_type
         generation = ActiveAgent::Parameterized::DirectGeneration.new(
           agent.constantize, direct_generation_type.to_sym, params || {},
           *Array(direct_args), **(direct_options || {}).symbolize_keys
         )
-        return generation.public_send(generation_method)
+        return resume ? resume_generation(generation, resume) : generation.public_send(generation_method)
       end
 
       agent_class = params ? agent.constantize.with(params) : agent.constantize
@@ -45,10 +52,14 @@ module ActiveAgent
       else
         agent_class.public_send(agent_method, *args)
       end
-      prompt.send(generation_method)
+      resume ? resume_generation(prompt, resume) : prompt.send(generation_method)
     end
 
     private
+
+    def resume_generation(generation, resume)
+      generation.resume_now(checkpoint: resume.fetch("checkpoint"), answers: resume.fetch("answers"))
+    end
 
     # "Deserialize" the agent class name by hand in case another argument
     # (like a Global ID reference) raised DeserializationError.

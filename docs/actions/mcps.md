@@ -37,7 +37,8 @@ A server uses either an HTTP `url:` or a local stdio `command:`.
 {
   name: "server_name",        # Optional: server identifier, defaults to the host
   url: "https://server.url",  # Required: MCP endpoint
-  authorization: "token"      # Optional: auth token
+  authorization: "token",     # Optional: auth token
+  require_approval: "always"  # Optional: see Approving tool calls
 }
 
 # Local server, over stdio
@@ -134,7 +135,7 @@ class ResearchAgent < ApplicationAgent
 end
 ```
 
-A local (`command:`) server always runs client-side, so `mcp_strategy: :server` with one raises even on Anthropic or OpenAI Responses.
+A local (`command:`) server always runs client-side, so `mcp_strategy: :server` with one raises even on Anthropic or OpenAI Responses. So does a server whose calls may need approval; see [Approving tool calls](#approving-tool-calls).
 
 ::: warning Requires the `mcp` gem
 Add `gem "mcp"` to your Gemfile. It is loaded only when a client-side bridge is built, so it stays optional for applications that do not use `mcps:` against a client-side provider. Without it, the error names the gem to add.
@@ -145,6 +146,53 @@ Two tools sharing a name are **refused** rather than resolved by guessing, since
 :::
 
 Because discovering tools means connecting to the servers, `preview` does not resolve `mcps:` — a preview must not perform I/O. It shows the agent's declared tools only.
+
+## Approving tool calls
+
+A server's tool calls can wait for the user before they run. Set `require_approval:` on the declaration:
+
+| `require_approval:` | Calls that wait for approval |
+|:--------------------|:-----------------------------|
+| `"never"` or absent | None |
+| `"always"`          | Every tool the server offers |
+| `{ always: [...] }` | The tools listed |
+| `{ never: [...] }`  | Every tool except the ones listed |
+
+A list is an array of tool names or `{ tool_names: [...] }`, the shape OpenAI's hosted MCP tool takes. A map with both keys asks for the tools under `always` and every tool not listed under `never`.
+
+```ruby
+class FilesAgent < ApplicationAgent
+  generate_with :anthropic, model: "claude-sonnet-4-5"
+
+  def tidy
+    prompt(
+      "Remove the drafts older than a month",
+      mcps: [ { name: "files", url: "https://files.example.com/mcp", require_approval: { never: [ "list_files" ] } } ]
+    )
+  end
+end
+
+response = FilesAgent.tidy.generate_now
+response.awaiting_input?                # => true
+response.input_requests.first.tool_name # => "delete_file"
+```
+
+The approval is asked for in ActiveAgent's own tool loop, which never sees the calls of a server the provider runs itself. A declaration that sets `require_approval` to anything but `"never"` is therefore run client-side on every provider, Anthropic and OpenAI Responses included, and `mcp_strategy: :server` with one raises `ArgumentError`. A server whose `require_approval` is `"never"` or absent runs where `mcp_strategy:` puts it.
+
+The `requires_approval:` prompt option names tools to approve whatever serves them, and covers MCP tools too. It can only gate calls ActiveAgent makes, so on Anthropic and OpenAI Responses a remote server that may offer a named tool runs client-side:
+
+- a server with `allowed_tools:` runs client-side when they include a named tool
+- a server without `allowed_tools:` runs client-side when a named tool is not one of the prompt's `tools:`, because the server's tools are unknown until ActiveAgent connects to it
+
+To keep a server with the provider, list its tools in `allowed_tools:` and leave the named tools out. `mcp_strategy: :server` with a server that may offer a named tool raises `ArgumentError`.
+
+The call pauses the generation like any other [input request](/framework/input_requests#requiring-approval): approving runs the tool on the server, and declining never calls it.
+
+### Pauses and client-side servers
+
+A pause ends the generation, so the client-side connections close as they do after any generation, and a `command:` server's process stops. A local server loses whatever state it held in memory, such as a browser page or an open file.
+
+On resume, ActiveAgent connects again and lists the tools, or takes the list from the tool cache. A paused call to a tool the server no longer lists gets `{ "error": "<tool> is no longer offered by its MCP server" }` as its result, without a call to the server. While the tool cache still lists the tool, the call goes to the server, and the server's own error becomes the result.
 
 ## What it costs
 

@@ -574,6 +574,39 @@ class MCPBridgeTest < ActiveSupport::TestCase
     assert_equal({ "Authorization" => "Bearer secret" }, headers)
   end
 
+  test "require_approval covers the tools its policy names" do
+    covered = lambda do |policy|
+      %w[search delete_file].select { ActiveAgent::Providers::MCPBridge.approval_required?(policy, _1) }
+    end
+
+    assert_equal %w[], covered.(nil)
+    assert_equal %w[], covered.("never")
+    assert_equal %w[search delete_file], covered.("always")
+    assert_equal %w[search delete_file], covered.(:always)
+    assert_equal %w[delete_file], covered.({ always: [ "delete_file" ] })
+    assert_equal %w[delete_file], covered.({ always: { tool_names: [ "delete_file" ] } })
+    assert_equal %w[delete_file], covered.({ never: { tool_names: [ "search" ] } })
+    assert_equal %w[delete_file], covered.({ "never" => [ "search" ], "always" => [ "delete_file" ] })
+    assert_equal %w[search delete_file], covered.({ read_only: true }), "a policy it cannot read covers every tool"
+  end
+
+  test "approval_policy? is false for a policy that covers no tool" do
+    policy = ActiveAgent::Providers::MCPBridge.method(:approval_policy?)
+
+    assert_equal [ false, false, false, false ], [ nil, "never", { always: [] }, { "always" => { tool_names: [] } } ].map(&policy)
+    assert_equal [ true, true, true, true ], [ "always", { always: [ "delete_file" ] }, { always: [], never: [] }, { read_only: true } ].map(&policy)
+  end
+
+  test "requires_approval? reads the policy of the server that offers the tool" do
+    bridge = build_bridge(
+      [ { name: "alpha", url: "https://alpha.test/mcp", require_approval: { never: [ "one" ] } },
+        { name: "beta", url: "https://beta.test/mcp" } ],
+      { "alpha" => FakeClient.new(tools: [ tool("one"), tool("two") ]), "beta" => FakeClient.new(tools: [ tool("three") ]) }
+    )
+
+    assert_equal [ false, true, false, false ], %w[one two three unknown].map { bridge.requires_approval?(_1) }
+  end
+
   private
 
   def tool(name, description: "#{name} tool", input_schema: { type: "object", properties: {} })

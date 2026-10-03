@@ -92,6 +92,10 @@ module ActiveAgent
     # schema and the policy is +:raise+.
     class InvalidResultError < StandardError; end
 
+    # Raised when a sub-agent pauses to ask the user for input and the budget
+    # policy is +:raise+.
+    class InputRequiredError < StandardError; end
+
     included do
       # Contracts this agent exposes to callers, keyed by action.
       class_attribute :delegation_contracts, instance_accessor: false, default: {}.freeze
