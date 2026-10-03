@@ -8,11 +8,14 @@ module ActionAgent
     # Every request is read through the runs the caller can see
     # (owner_input_requests), so one outside them answers 404. Answering or
     # declining asks InputRequest#answerable_by? (403 when denied), and the
-    # request must still be pending and unexpired (409).
+    # request must still be pending and unexpired (409). Neither is allowed
+    # while agent execution is disabled (403).
     class InputRequestsController < BaseController
       LIST_LIMIT = 100
 
       before_action :require_owner!
+      # Settling a pause resumes its run, which calls the model.
+      before_action :require_execution_enabled!, only: [ :answer, :decline ]
       before_action :set_input_request, only: [ :answer, :decline ]
       before_action :authorize_answer!, only: [ :answer, :decline ]
 

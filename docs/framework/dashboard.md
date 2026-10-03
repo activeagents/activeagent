@@ -280,11 +280,15 @@ answer or a decline returns:
 
 - **404** for a request of a run the caller cannot see. A request is found
   through its run, so the list and `GET /api/runs/:id` show the same requests.
-- **403** when `permission_checker` denies `:answer_input_request`, and in
-  multi-tenant mode when no user is signed in. The checker receives the
-  request; its `subject` is the run, and its `requested_by_id` is the run's
-  actor when that is a user. With no checker set, a multi-tenant install lets
-  only that actor answer the request, because the run acts as them.
+- **403** when:
+  - `permission_checker` denies `:answer_input_request`. The checker receives
+    the request: its `subject` is the run, and its `requested_by_id` is the
+    run's actor when that is a user.
+  - no checker is set, the install is multi-tenant, and the signed-in user is
+    not the actor the request records, because the run acts as that actor.
+  - no user is signed in, in multi-tenant mode.
+  - `execution_enabled` is off, because settling a pause resumes the run. A
+    resume job that finds execution turned off fails the run.
 - **409** when the request is no longer pending or has expired. The body's
   `status` says which, and an expired request fails its run.
 - **422** for a blank answer, a `choice` answer that is not one of the

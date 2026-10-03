@@ -23,6 +23,7 @@ class InputRequestsApiTest < ActionDispatch::IntegrationTest
     ActionAgent.current_account_resolver = nil
     ActionAgent.permission_checker = nil
     ActionAgent.input_request_ttl = 1.day
+    ActionAgent.execution_enabled = true
   end
 
   # A run of +agent+ for +actor+, paused on +requests+, one InputRequest per
@@ -423,6 +424,29 @@ class InputRequestsApiTest < ActionDispatch::IntegrationTest
     assert_equal CHECKPOINT, resumed.sole[:checkpoint]
     assert run.reload.complete?
     assert_equal "Booked.", run.output
+  end
+
+  test "with agent execution disabled, nothing settles a pause or resumes its run" do
+    request = paused_run.input_requests.sole
+    key = ActionAgent::ApiKey.create!(name: "Harness")
+    ActionAgent.execution_enabled = false
+
+    answer(request, "Lisbon")
+    assert_response :forbidden
+    post "/activeagents/api/input_requests/#{request.id}/decline", as: :json
+    assert_response :forbidden
+    body = mcp_tool("input_requests_answer", { input_request_id: request.id, answer: "Lisbon" }, key)
+    assert_match(/execution is disabled/, body.to_json)
+    assert request.reload.pending?
+
+    request.update!(status: :answered, answer: "Lisbon")
+    ActionAgent::AgentExecutionService.stub(:call, ->(*) { flunk "the model must not be called" }) do
+      ActionAgent::AgentResumeJob.perform_now(request.id)
+    end
+
+    run = request.subject.reload
+    assert run.failed?
+    assert_equal "Agent execution is disabled on this dashboard", run.error_message
   end
 
   test "the MCP facade lists only the key owner's requests and answers text and choice requests only" do
