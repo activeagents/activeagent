@@ -34,6 +34,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (`activeagent`). Keep only request-supported message fields.
 - **Name conflicting gems in provider load errors** (`activeagent`). Explain
   when another gem already defines `OpenAI` and show the Gemfile replacement.
+- **Use an explicit OpenRouter key before the environment** (`activeagent`).
+  An `api_key` or `access_token` passed to the OpenRouter provider wins over
+  `OPENROUTER_API_KEY` and the other OpenRouter variables, as it does for the
+  other providers. An explicit `api_key` is no longer dropped when no
+  OpenRouter variable is set.
 
 ## [1.8.1] - 2026-10-01
 
