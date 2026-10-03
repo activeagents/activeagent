@@ -1545,6 +1545,15 @@ their values.
   Codex session. Each value, with its URL-encoded and Base64 forms, is
   scrubbed from provision errors, step logs, boot status and code-session
   events.
+- Whoever can push to the project's ref can read its secrets once it boots,
+  so changing the ref needs what setting each secret needs. `PATCH
+  /api/projects/:id` with a new `default_ref` (empty for the repository's
+  default branch) is preflighted like a new repository and refused when
+  unsupported. It stops the sandbox booted from the old ref, and the next
+  boot checks the new one out. A ref whose lock lacks the engine is evaluated
+  with the App assistant. Changing `name` or `start_url` needs nothing.
+- Deleting a project that has secrets (`DELETE /api/projects/:id`) needs
+  `:manage_project_secrets`.
 
 ### Booting
 
@@ -1660,7 +1669,7 @@ end
 | `:manage_api_keys` | creating and revoking dashboard API keys (`POST /api/api_keys`, `DELETE /api/api_keys/:id`) |
 | `:publish_pull_request` | reserved: opening a pull request from a sandbox |
 | `:answer_input_request` | reserved: answering a run's request for input |
-| `:manage_project_secrets` | setting, replacing and removing a project's secrets (`POST /api/projects` with `secrets`, `PUT /api/projects/:id/secrets`, `PUT` and `DELETE /api/projects/:id/secrets/:name`) |
+| `:manage_project_secrets` | setting, replacing and removing a project's secrets (`POST /api/projects` with `secrets`, `PUT /api/projects/:id/secrets`, `PUT` and `DELETE /api/projects/:id/secrets/:name`), changing the ref they are handed to (`PATCH /api/projects/:id` with `default_ref`) and deleting a project that has them (`DELETE /api/projects/:id`). Always asked about a `ProjectSecret` |
 | `:take_over_browser` | reserved: driving a run's browser by hand |
 | `:manage_recordings` | reserved: viewing and deleting session recordings |
 | `:replace_scenarios` | reserved: replacing an evaluation's scenarios |

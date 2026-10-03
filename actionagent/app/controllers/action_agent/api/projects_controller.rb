@@ -126,15 +126,30 @@ module ActionAgent
       end
 
       # PATCH /api/projects/:id { name:, default_ref:, start_url: }
+      #
+      # A new default_ref (empty for the repository's default branch) is
+      # preflighted like a new project's repository and refused when not
+      # supported. The next boot hands the project's secrets to the code at
+      # that ref, so changing it needs what setting each secret needs, and
+      # stops the sandbox booted from the old ref (see Project#change_ref!).
       def update
-        @project.update!(params.permit(*UPDATABLE).to_h)
-        render json: { project: @project.summary }
+        attributes = params.permit(*UPDATABLE).to_h
+        if attributes.key?("default_ref")
+          ref, report = new_ref(attributes.delete("default_ref").to_s)
+          return if performed?
+        end
+
+        @project.assign_attributes(attributes)
+        report ? @project.change_ref!(ref, report) : @project.save!
+        render json: { project: @project.reload.summary }
       end
 
       # DELETE /api/projects/:id
       # Deletes the project, its secrets, its agent and evaluation, and stops
-      # its sandbox.
+      # its sandbox. Deleting its secrets needs :manage_project_secrets.
       def destroy
+        return unless authorize_secrets_removal!(@project)
+
         @project.discard!
         head :no_content
       end
@@ -322,6 +337,26 @@ module ActionAgent
       def ref_param
         ref = params[:ref].presence || params[:default_ref].presence
         ref.is_a?(String) ? ref : nil
+      end
+
+      # [ref, preflight report] for the default_ref +requested+ ("" for the
+      # repository's default branch), or nil when the project is on it
+      # already. Renders why the ref cannot be used, when it cannot.
+      def new_ref(requested)
+        return nil if requested == @project.default_ref.to_s
+        return nil unless authorize_secret_handover!(@project)
+
+        connection = github_connection! or return
+        repository = reachable_repository!(connection, @project.repository) or return
+        report = ProjectPreflight.call(connection.client, repository: @project.repository,
+          ref: requested.presence || repository["default_branch"])
+        if report["status"] == "unsupported"
+          render json: { error: report["summary"], code: "unsupported_repository", preflight: report },
+            status: :unprocessable_entity
+          return nil
+        end
+
+        [ requested.presence, report ]
       end
 
       def build_project(full_name, ref, report)

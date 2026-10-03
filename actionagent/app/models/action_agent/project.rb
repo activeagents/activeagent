@@ -211,6 +211,22 @@ module ActionAgent
       sandbox.expire! if sandbox && !sandbox.expired?
     end
 
+    # Moves the project to +ref+ (nil for the repository's default branch),
+    # which +preflight+ is ProjectPreflight's report on, saving any other
+    # attribute assigned with it. The sandbox booted from the old ref is
+    # stopped, so the next boot checks the new one out, and a ref whose lock
+    # lacks the engine is evaluated with the App assistant.
+    def change_ref!(ref, preflight)
+      sandbox = current_sandbox_session
+      transaction do
+        update!(default_ref: ref, status: "draft", install_state: preflight["engine"] ? "installed" : "detected",
+          settings: settings.merge("preflight" => preflight))
+        ensure_app_assistant! unless engine_installed? || app_assistant?
+      end
+      sandbox.expire! if sandbox && !sandbox.expired?
+      LiveUpdates.broadcast(stream_name, type: "project", id: id, status: status)
+    end
+
     # Called by SandboxProvisionJob once +sandbox+ is serving. Ignored for a
     # sandbox that is no longer the current one.
     def sandbox_ready!(sandbox)
