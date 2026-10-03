@@ -328,14 +328,19 @@ module ActionAgent
     # request gets HTTP 403, and a denied GitHub connect or callback returns
     # to Settings.
     #
+    # For :answer_input_request the subject is the InputRequest, whose
+    # `requested_by_id` is the id of the user the paused run acts for.
+    #
     #   config.permission_checker = ->(user, action, subject) {
-    #     user.present? && (user.admin? || action == :answer_input_request)
+    #     user.present? && (user.admin? ||
+    #       action == :answer_input_request && subject.requested_by_id.in?([ nil, user.id ]))
     #   }
     #
     # Unset means everyone who can reach the dashboard may do everything,
     # which is what a single-user install wants. In multi-tenant mode it means
-    # every member of a tenant may do everything, and the engine logs a
-    # warning at boot (see {.warn_about_unchecked_permissions}).
+    # every member of a tenant may do everything except answer a request for
+    # input another member's run raised (InputRequest#answerable_by?), and the
+    # engine logs a warning at boot (see {.warn_about_unchecked_permissions}).
     # @return [Proc, nil]
     attr_accessor :permission_checker
 

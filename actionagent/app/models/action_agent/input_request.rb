@@ -136,12 +136,19 @@ module ActionAgent
     end
 
     # Whether +user+ may answer or decline this request. A multi-tenant
-    # install refuses a request with no user, whatever the permission checker
-    # says, so every answer names who gave it.
+    # install refuses a nil user, so every answer names who gave it.
+    # Otherwise a configured permission checker decides
+    # (:answer_input_request). Without one:
+    #
+    #   - multi-tenant: only the run's actor answers a request that records
+    #     one (`requested_by_id`), because the run acts as that person
+    #   - single-tenant: anyone may answer
     def answerable_by?(user)
       return false if ActionAgent.multi_tenant? && user.nil?
+      return ActionAgent.permitted?(user, :answer_input_request, self) if ActionAgent.permission_checker
+      return true unless ActionAgent.multi_tenant? && requested_by_id
 
-      ActionAgent.permitted?(user, :answer_input_request, self)
+      self.class.user_id_of(user) == requested_by_id
     end
 
     # Answers the request, and enqueues AgentResumeJob when it was the last

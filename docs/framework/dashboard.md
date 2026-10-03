@@ -271,7 +271,8 @@ answer or a decline returns:
 - **403** when `permission_checker` denies `:answer_input_request`, and in
   multi-tenant mode when no user is signed in. The checker receives the
   request; its `subject` is the run, and its `requested_by_id` is the run's
-  actor when that is a user.
+  actor when that is a user. With no checker set, a multi-tenant install lets
+  only that actor answer the request, because the run acts as them.
 - **409** when the request is no longer pending or has expired. The body's
   `status` says which, and an expired request fails its run.
 - **422** for a blank answer, a `choice` answer that is not one of the
@@ -1439,7 +1440,8 @@ Settings (`?github=forbidden`) rather than as JSON.
 Unset, anyone who passes authentication may perform every action, which
 suits a single-user install. In multi-tenant mode that is every member of
 every tenant, so the engine logs a warning at boot when `multi_tenant` is on
-and no checker is set. With a checker set:
+and no checker is set. The one exception is a run's request for input that
+records the run's actor: in multi-tenant mode only that actor may answer it. With a checker set:
 
 - An exception raised by the checker denies the action, and is logged.
 - In multi-tenant mode, a request with no signed-in user is denied without
