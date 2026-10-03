@@ -87,6 +87,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **The dashboard page no longer carries the telemetry key**
+  (`actionagent`). `account.telemetry_api_key` is gone from the dashboard's
+  `data-props`, so nothing that reads the page's markup sees it. The
+  Organization page reads it from `GET <mount>/api/telemetry_key` when you
+  show or copy it. A host layout or script that read it from the props must
+  call that endpoint.
 - **Mask dashboard API keys and the telemetry key in MCP tool output**
   (`actionagent`). The MCP facade masks the same owner credentials as session
   recording ingest, which adds the owner's dashboard API keys and telemetry
