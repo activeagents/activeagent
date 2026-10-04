@@ -6,8 +6,8 @@ module ActionAgent
     # them, never values. Setting, replacing and removing one needs
     # :manage_project_secrets, and using the organization's provider key
     # :manage_credentials as well (see ProjectSecretAuthorization). A name
-    # the sandbox sets itself, or one that changes how code is loaded, is
-    # refused with 422 (see ProjectSecret).
+    # the sandbox sets itself, one that changes how code is loaded, or one
+    # the project's sign-in keeps is refused with 422 (see ProjectSecret).
     class ProjectSecretsController < BaseController
       include ProjectSecretAuthorization
 

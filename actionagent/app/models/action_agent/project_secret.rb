@@ -16,11 +16,36 @@ module ActionAgent
   #                     resolved at boot and never copied here. Taking it
   #                     needs the consent of whoever set the secret, because
   #                     the repository's code can read it.
+  #
+  # And one of three kinds. Only an env secret reaches the sandbox's
+  # environment; the other two are read by the engine alone, when the
+  # project's browser signs in to the app:
+  #
+  #   env            an environment variable a boot sets
+  #   sign_in        a JSON object the explorer's sign_in tool fills a login
+  #                  form with (see #sign_in_credentials)
+  #   storage_state  a Playwright storage state (cookies and localStorage)
+  #                  the project's browser starts with, saved from a browser
+  #                  someone signed in by hand
   class ProjectSecret < ApplicationRecord
     include Ownable
     owned_by :account, :user
 
     SOURCES = %w[entered organization_key].freeze
+    KINDS = %w[env sign_in storage_state].freeze
+    # The sign-in fields a sign_in secret may hold. login_url is a path on
+    # the app; the *_field entries are CSS selectors for when the form's
+    # fields cannot be found on their own.
+    SIGN_IN_FIELDS = %w[login_url login password login_field password_field submit_field].freeze
+    MAX_SELECTOR_LENGTH = 200
+    # A storage state's values are scrubbed only when they look like a
+    # credential: an httpOnly cookie's, or one at least this long. Shorter
+    # values are preferences such as "accepted" or "expanded", which ordinary
+    # page text also holds.
+    STORAGE_SECRET_MIN_LENGTH = 20
+    # A storage state is kept in the value column (text), encrypted; its
+    # ciphertext must still fit there.
+    MAX_STORAGE_STATE_LENGTH = 40_000
     # The variables "Use the organization's key" is offered for, with the
     # stored provider key each one reads.
     ORGANIZATION_KEY_PROVIDERS = {
@@ -39,10 +64,16 @@ module ActionAgent
     validates :name, presence: true, length: { maximum: 255 }, format: { with: SandboxBootSpec::ENV_NAME, message: "must be an environment variable name" }
     validates :name, uniqueness: { scope: :project_id, case_sensitive: true }
     validates :source, inclusion: { in: SOURCES }
+    validates :kind, inclusion: { in: KINDS }
     validate :name_allowed
     validate :value_matches_source
+    validate :value_matches_kind
+    validate :kind_unchanged, on: :update
 
     scope :ordered, -> { order(:name) }
+    scope :env, -> { where(kind: "env") }
+    scope :sign_in, -> { where(kind: "sign_in") }
+    scope :storage_state, -> { where(kind: "storage_state") }
 
     # Whether +name+ is one the backend sets itself or one that changes how
     # Ruby, Bundler, Node or git load code (SandboxBootSpec::REFUSED_SECRET_NAME).
@@ -80,6 +111,63 @@ module ActionAgent
       source == "organization_key"
     end
 
+    def env?
+      kind == "env"
+    end
+
+    def sign_in?
+      kind == "sign_in"
+    end
+
+    def storage_state?
+      kind == "storage_state"
+    end
+
+    # A sign_in secret's fields: login_url (a path on the app, "/" when
+    # unset), login, password and the optional *_field selectors. Empty for
+    # any other secret, or a value that is not a JSON object.
+    #
+    # @return [Hash{String => String}]
+    def sign_in_credentials
+      return {} unless sign_in?
+
+      parsed = parse_json_object(value) || {}
+      fields = parsed.slice(*SIGN_IN_FIELDS).select { |_name, field| field.is_a?(String) && field.present? }
+      fields["login_url"] = "/" if fields["login_url"].blank?
+      fields
+    end
+
+    # A storage_state secret's state as Playwright reads it, or nil.
+    #
+    # @return [Hash, nil]
+    def storage_state_value
+      storage_state? ? parse_json_object(value) : nil
+    end
+
+    # The values a sandbox's output, a candidate or a recording is scrubbed
+    # of for this secret:
+    #
+    #   env            its value, the organization's key resolved; none
+    #                  once that key is gone
+    #   sign_in        its value and the password apart. The login is an
+    #                  account name the app shows and mails, so it is kept.
+    #   storage_state  its value, and each cookie and localStorage value
+    #                  that looks like a credential (STORAGE_SECRET_MIN_LENGTH)
+    #
+    # @return [Array<String>]
+    def scrub_parts
+      case kind
+      when "sign_in"
+        [ value, sign_in_credentials["password"] ].compact
+      when "storage_state"
+        [ value, *storage_state_credentials ].compact.map(&:to_s)
+      else
+        [ resolved_value ].compact
+      end
+    rescue ActiveRecord::RecordNotFound
+      []
+    end
+
     # The value a boot sets the variable to: the entered value, or the
     # owner's stored provider key.
     #
@@ -95,6 +183,9 @@ module ActionAgent
     end
 
     def warnings
+      return self.class.warnings_for(nil, sign_in_credentials["password"]) if sign_in?
+      return [] if storage_state?
+
       self.class.warnings_for(name, organization_key? ? nil : value)
     end
 
@@ -120,6 +211,7 @@ module ActionAgent
       setter = set_by_id && setters[set_by_id]
       {
         name: name,
+        kind: kind,
         source: source,
         provider: provider,
         set_by: setter && { id: setter.id, name: self.class.display_name(setter) },
@@ -138,6 +230,8 @@ module ActionAgent
 
       if self.class.refused_name?(name)
         errors.add(:name, "#{name} is set by the sandbox or changes how code is loaded, so a project cannot set it")
+      elsif env? && [ Project::SIGN_IN_SECRET, Project::STORAGE_STATE_SECRET ].include?(name)
+        errors.add(:name, "#{name} keeps the project's sign-in, so an environment variable cannot take it")
       end
     end
 
@@ -156,9 +250,73 @@ module ActionAgent
         end
       elsif value.blank?
         errors.add(:value, "can't be blank")
-      elsif value.length > MAX_VALUE_LENGTH || value.include?("\0")
-        errors.add(:value, "must be text of at most #{MAX_VALUE_LENGTH} characters")
+      elsif value.length > max_value_length || value.include?("\0")
+        errors.add(:value, "must be text of at most #{max_value_length} characters")
       end
+    end
+
+    def max_value_length
+      storage_state? ? MAX_STORAGE_STATE_LENGTH : MAX_VALUE_LENGTH
+    end
+
+    def value_matches_kind
+      return if env? || value.blank?
+
+      errors.add(:source, "must be entered for a #{kind} secret") if organization_key?
+      if sign_in?
+        validate_sign_in
+      elsif storage_state?
+        state = storage_state_value
+        unless state && state["cookies"].is_a?(Array) && (state["origins"].nil? || state["origins"].is_a?(Array))
+          errors.add(:value, "must be a storage state: a JSON object with a cookies list")
+        end
+      end
+    end
+
+    def validate_sign_in
+      fields = parse_json_object(value)
+      return errors.add(:value, "must be a JSON object with login_url, login and password") unless fields
+
+      errors.add(:value, "needs a password") unless fields["password"].is_a?(String) && fields["password"].present?
+      unless fields["login_url"].blank? || SandboxBootSpec.start_url_path?(fields["login_url"].to_s)
+        errors.add(:value, "login_url must be a path on the app, such as /users/sign_in")
+      end
+      %w[login_field password_field submit_field].each do |field|
+        selector = fields[field]
+        next if selector.nil?
+
+        unless selector.is_a?(String) && selector.length <= MAX_SELECTOR_LENGTH && !selector.match?(/[\r\n\0]/)
+          errors.add(:value, "#{field} must be a CSS selector of at most #{MAX_SELECTOR_LENGTH} characters")
+        end
+      end
+    end
+
+    def storage_state_credentials
+      state = storage_state_value || {}
+      cookies = Array(state["cookies"]).filter_map do |cookie|
+        next unless cookie.is_a?(Hash)
+
+        cookie["value"].to_s if cookie["httpOnly"] == true || cookie["value"].to_s.length >= STORAGE_SECRET_MIN_LENGTH
+      end
+      stored = Array(state["origins"]).flat_map do |origin|
+        next [] unless origin.is_a?(Hash)
+
+        Array(origin["localStorage"]).filter_map do |item|
+          item["value"].to_s if item.is_a?(Hash) && item["value"].to_s.length >= STORAGE_SECRET_MIN_LENGTH
+        end
+      end
+      cookies + stored
+    end
+
+    def kind_unchanged
+      errors.add(:kind, "cannot change: remove #{name} and set it again") if kind_changed?
+    end
+
+    def parse_json_object(text)
+      parsed = JSON.parse(text.to_s)
+      parsed.is_a?(Hash) ? parsed : nil
+    rescue JSON::ParserError
+      nil
     end
   end
 end

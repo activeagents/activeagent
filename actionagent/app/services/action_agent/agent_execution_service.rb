@@ -340,36 +340,7 @@ module ActionAgent
       emit_event(eid: event_id, kind: event_kind, label: event_label, status: "started", detail: kwargs.to_json)
 
       result = begin
-        case name.to_s
-        when "save_memory"
-          entry = agent_memory.remember(
-            kwargs[:content].to_s,
-            source_agent: agent_class_name,
-            category: kwargs[:category]
-          )
-          { saved: true, id: entry.id, content: entry.content }
-        when "recall_memory"
-          entries = agent_memory.recall(limit: kwargs[:limit], category: kwargs[:category])
-          {
-            count: entries.size,
-            entries: entries.map do |entry|
-              {
-                content: entry.content,
-                category: entry.category,
-                source_agent: entry.source_agent,
-                created_at: entry.created_at&.iso8601
-              }.compact
-            end
-          }
-        when "call_agent"
-          call_agent(slug: kwargs[:slug], message: kwargs[:message])
-        else
-          # A tool one of the agent's own MCP servers serves is called there;
-          # AgentToolbox answers the rest.
-          # `actor:` comes from the run, never from kwargs (see
-          # ACTOR_KEYWORDS): it is who the run is for, not what it is about.
-          mcp_dispatcher.call(name, kwargs) || AgentToolbox.call(name, actor: actor, **kwargs)
-        end
+        dispatch_tool(name, kwargs)
       rescue StandardError => e
         Rails.logger.warn("[AgentExecutionService] Tool #{name} failed: #{e.class} - #{e.message}")
         { error: "#{name} failed: #{e.message}" }
@@ -407,6 +378,49 @@ module ActionAgent
 
     private
 
+    # Runs tool +name+ and returns its result: memory tools against the
+    # agent record's AgentMemory, call_agent as a sub-run, a tool one of
+    # the agent's own MCP servers serves there, and AgentToolbox the rest.
+    # A browser tool call is recorded on the run's session recording.
+    # `actor:` comes from the run, never from kwargs (see ACTOR_KEYWORDS):
+    # it is who the run is for, not what it is about.
+    def dispatch_tool(name, kwargs)
+      case name.to_s
+      when "save_memory"
+        entry = agent_memory.remember(
+          kwargs[:content].to_s,
+          source_agent: agent_class_name,
+          category: kwargs[:category]
+        )
+        { saved: true, id: entry.id, content: entry.content }
+      when "recall_memory"
+        entries = agent_memory.recall(limit: kwargs[:limit], category: kwargs[:category])
+        {
+          count: entries.size,
+          entries: entries.map do |entry|
+            {
+              content: entry.content,
+              category: entry.category,
+              source_agent: entry.source_agent,
+              created_at: entry.created_at&.iso8601
+            }.compact
+          end
+        }
+      when "call_agent"
+        call_agent(slug: kwargs[:slug], message: kwargs[:message])
+      else
+        browser_recorder.intercept(tool_name: name.to_s, parameters: kwargs) do
+          mcp_dispatcher.call(name, kwargs) || AgentToolbox.call(name, actor: actor, **kwargs)
+        end
+      end
+    end
+
+    # Options added to the provider's for this run, such as a
+    # max_tool_turns cap above the provider's default.
+    def generation_options
+      {}
+    end
+
     # Maximum agent-to-agent delegation depth for the call_agent tool. A
     # thread-local counter guards it because the sub-agent runs synchronously
     # on the same thread via Agent#test_execute.
@@ -417,9 +431,34 @@ module ActionAgent
     # sub-run is a real AgentRun with its own trace.
     # One dispatcher per run, so every tool call shares the MCP sessions the
     # first call opens. A run given a checkout sandbox (an evaluation or a
-    # runner run against it) reaches that runtime too.
+    # runner run against it) reaches that runtime too, and the sandbox's
+    # browser when it was running as the run was created.
     def mcp_dispatcher
-      @mcp_dispatcher ||= MCPToolDispatcher.new(@agent_record, extra_server_keys: [ @run.try(:sandbox_server_key) ].compact)
+      @mcp_dispatcher ||= MCPToolDispatcher.new(
+        @agent_record, extra_server_keys: [ @run.try(:sandbox_server_key), @run.try(:browser_server_key) ].compact
+      )
+    end
+
+    # How many rows of each credential the recording secrets are read from.
+    RECORDING_SECRET_LOOKUP_LIMIT = 50
+
+    def browser_recorder
+      @browser_recorder ||= MCPRecordingMiddleware.new(agent_run: @run, secrets: -> { recording_secrets })
+    end
+
+    # The credentials the run's owner holds, scrubbed from the browser
+    # actions the run records: provider keys, the GitHub token, and the
+    # runtime and browser tokens of the sandbox the run reaches.
+    def recording_secrets
+      sandbox_id = @run.try(:sandbox_id)
+      sandbox = sandbox_id && SandboxSession.for_owner(owner).find_by(session_id: sandbox_id)
+      [
+        *ProviderKey.for_owner(owner).limit(RECORDING_SECRET_LOOKUP_LIMIT).pluck(:credential, :api_key).flatten,
+        *GithubConnection.for_owner(owner).limit(RECORDING_SECRET_LOOKUP_LIMIT).pluck(:access_token),
+        sandbox&.runtime_mcp_token,
+        sandbox&.browser_token,
+        *owner_provider_options(requested_provider).values_at(:access_token, :api_key)
+      ].compact
     end
 
     # Splits the offered schemas the way `tool_schemas` assembles them, so the
@@ -516,6 +555,7 @@ module ActionAgent
       action = action_name
       run_trace_id = trace_id
       tool_definitions = tool_schemas
+      extra_options = generation_options
       service = self
 
       # A dashboard-authored agent has no Ruby class — it is rows: a tool
@@ -563,9 +603,9 @@ module ActionAgent
 
         if effective_provider == :mock
           # Test environment only (see #provider_available?).
-          generate_with :mock
+          generate_with :mock, **extra_options
         else
-          generate_with effective_provider, model: provider_model, **model_options
+          generate_with effective_provider, model: provider_model, **model_options, **extra_options
         end
 
         # Expose the agent's server-executable tools as public methods so the
@@ -646,12 +686,19 @@ module ActionAgent
     # rest. Without the first half a tool the agent declares is never offered to
     # the model, which then answers from memory instead of calling it. Memoized
     # because listing a server's tools is a request to that server.
+    #
+    # A run that reaches its sandbox's browser gets the browser's tools from
+    # the MCP half only: the toolbox's browser tools have the same names, and
+    # a provider refuses a tool list that names one twice.
     def tool_schema_halves
       @tool_schema_halves ||=
         if provider == :mock
           [ [], [] ]
         else
-          [ mcp_dispatcher.tool_definitions, AgentToolbox.definitions_for(@agent_record.tools) ]
+          [
+            mcp_dispatcher.tool_definitions,
+            AgentToolbox.definitions_for(@agent_record.tools, browser_attached: mcp_dispatcher.browser_attached?)
+          ]
         end
     end
 

@@ -653,6 +653,62 @@ module ActionAgent
       true
     end
 
+    # The modes #start_browser runs a browser in on this machine: headless
+    # always, and headed where there is a display to show a window on.
+    #
+    # @return [Array<Symbol>]
+    def browser_modes
+      display = RUBY_PLATFORM.include?("darwin") || ENV["DISPLAY"].present? || ENV["WAYLAND_DISPLAY"].present?
+      display ? %i[headless headed] : %i[headless]
+    end
+
+    # Starts the browser sidecar (BrowserSidecar) for +sandbox+, pointed at
+    # its app as sandbox.browser_launch says, and waits until it listens. It
+    # runs in a process group of its own, recorded in state.json beside the
+    # app's, so terminate stops it with the sandbox. Its configuration,
+    # tokens included, goes in on stdin. Any browser the sandbox already had
+    # is stopped first.
+    #
+    # @return [Hash] { mcp_url:, mcp_token: }
+    def start_browser(sandbox, mode: :headless)
+      ensure_enabled!
+      session_id = session_id!(sandbox.session_id)
+      workspace = workspace_for(session_id)
+      raise Error, "Sandbox #{session_id} has no local checkout: start the sandbox again" unless workspace.join("app").directory?
+      unless browser_modes.include?(mode.to_sym)
+        raise Error, "This machine has no display to show a browser window on; start the browser headless"
+      end
+
+      launch = sandbox.browser_launch
+      raise Error, "Sandbox #{session_id} was given no browser settings" unless launch.is_a?(Hash) && launch[:token].present?
+
+      refusal = BrowserSidecar.refusal
+      raise Error, refusal if refusal
+      raise Error, "The sandbox's earlier browser could not be stopped" unless stop_browser(sandbox)
+
+      run_browser(workspace, session_id, mode.to_s, launch)
+    end
+
+    # Stops +sandbox+'s browser sidecar and removes its directory. True, also
+    # when none was running; false when its process group is still alive and
+    # could not be stopped, or not told apart from an unrelated process, in
+    # which case state.json keeps it for terminate.
+    def stop_browser(sandbox)
+      session_id = session_id!(sandbox.session_id)
+      workspace = workspace_for(session_id)
+      state = read_state(workspace)
+      browser = state["browser"]
+      return true unless browser.is_a?(Hash)
+
+      pid = browser["pid"]
+      identity = signalable?(pid) ? group_identity(pid, session_id, state) : :stranger
+      stop_groups([ pid ]) if identity == :ours
+      return false if identity != :stranger && group_alive?(pid)
+
+      forget_browser(workspace, browser)
+      true
+    end
+
     private
 
     def boot_spec!(value)
@@ -804,7 +860,8 @@ module ActionAgent
       self.class.sanitized_environment.merge(databases).merge(plan.env).merge(
         # Merged after the file's env, so a checkout cannot move them.
         SandboxManifest::PATH_ENV => workspace.join("runtime.json").to_s,
-        SESSION_ID_ENV => workspace.basename.to_s
+        SESSION_ID_ENV => workspace.basename.to_s,
+        SandboxMail::DIRECTORY_ENV => SandboxMail::DIRECTORY
       )
     end
 
@@ -1939,6 +1996,132 @@ module ActionAgent
       status.exitstatus || (status.termsig ? 128 + status.termsig : 1)
     end
 
+    # --- Browser ------------------------------------------------------------
+
+    BROWSER_DIR = /\Abrowser-\h+\z/
+
+    # Spawns the sidecar in a directory of its own under the workspace, hands
+    # it its configuration and waits for the line it prints once it listens.
+    def run_browser(workspace, session_id, mode, launch)
+      dir = workspace.join("browser-#{SecureRandom.hex(4)}")
+      FileUtils.mkdir_p(dir, mode: 0o700)
+      secrets = [ launch[:token], launch.dig(:recording, :token) ].compact
+      env = self.class.sanitized_environment.merge(BrowserSidecar.environment).merge(SESSION_ID_ENV => session_id)
+      log = log_path(workspace, "browser")
+      FileUtils.mkdir_p(log.dirname)
+      stdin_read, stdin_write = IO.pipe
+      stdout_read, stdout_write = IO.pipe
+
+      begin
+        pid = spawn_group(env, *BrowserSidecar.command("serve"), chdir: dir, in: stdin_read, out: stdout_write, err: [ log.to_s, "a" ])
+      rescue SystemCallError => e
+        raise Error, "Could not start the browser sidecar (#{ActionAgent.node_command}): #{e.message}"
+      ensure
+        [ stdin_read, stdout_write ].each(&:close)
+      end
+      Process.detach(pid)
+      browser = { "pid" => pid, "dir" => dir.basename.to_s, "mode" => mode }
+      started = false
+
+      begin
+        terminating = nil
+        update_state(workspace, create: false) do |state|
+          state["browser"] = browser
+          record_process_start(state, pid)
+          terminating = state["terminating"]
+        end
+        raise Error, "The sandbox is being stopped, so its browser did not start" if terminating
+
+        begin
+          stdin_write.write(JSON.generate(browser_config(launch, mode, dir)))
+          stdin_write.close
+        rescue Errno::EPIPE
+          # It exited before reading its configuration; its log says why.
+        end
+        ready = await_browser_ready(stdout_read, log, secrets)
+        unless BrowserSidecar.acceptable_version?(ready["version"].to_s)
+          raise Error, "The browser sidecar is version #{ready["version"]}, and this dashboard needs #{ActionAgent::VERSION}; " \
+            "run #{BrowserSidecar::INSTALL_COMMAND}"
+        end
+
+        port = Integer(ready["port"])
+        update_state(workspace, create: false) { |state| state["browser"]["port"] = port if state["browser"].is_a?(Hash) }
+        started = true
+        { mcp_url: "http://127.0.0.1:#{port}/mcp", mcp_token: launch[:token] }
+      rescue Errno::ENOENT
+        raise Error, "Sandbox #{session_id} was stopped while its browser started"
+      ensure
+        [ stdin_write, stdout_read ].each { |io| io.close unless io.closed? }
+        unless started
+          stop_groups([ pid ], grace: 1)
+          forget_browser(workspace, browser)
+        end
+      end
+    end
+
+    def browser_config(launch, mode, dir)
+      recording = launch[:recording]
+      {
+        token: launch[:token],
+        app_url: launch[:app_url],
+        mode: mode,
+        capabilities: Array(launch[:capabilities]).map(&:to_s),
+        host: "127.0.0.1",
+        port: 0,
+        workdir: dir.to_s,
+        stop_at: launch[:stop_at] && (launch[:stop_at].to_f * 1000).floor,
+        recording: recording && recording.slice(:url, :token, :batch_events, :batch_bytes),
+        storage_state: launch[:storage_state]
+      }.compact
+    end
+
+    # The JSON line the sidecar prints once it listens. Raises with the tail
+    # of its log when it exits first or takes longer than
+    # ActionAgent.browser_start_timeout.
+    def await_browser_ready(io, log, secrets)
+      deadline = deadline_after(ActionAgent.browser_start_timeout)
+      line = String.new(encoding: Encoding::BINARY)
+      until line.include?("\n")
+        left = time_left(deadline)
+        unless left.nil? || left.positive?
+          raise Error, "The browser did not start within #{ActionAgent.browser_start_timeout}s#{browser_log_tail(log, secrets)}"
+        end
+        next unless io.wait_readable([ left || POLL_INTERVAL, POLL_INTERVAL ].min)
+
+        chunk = io.read_nonblock(4096, exception: false)
+        raise Error, "The browser sidecar exited before it started#{browser_log_tail(log, secrets)}" if chunk.nil?
+
+        line << chunk unless chunk == :wait_readable
+      end
+
+      ready = JSON.parse(line.lines.first)
+      raise Error, "The browser sidecar answered #{line.lines.first.strip.inspect}" unless ready.is_a?(Hash) && ready["ready"]
+
+      ready
+    rescue JSON::ParserError
+      raise Error, "The browser sidecar answered #{line.lines.first.to_s.strip.truncate(200).inspect}"
+    end
+
+    def browser_log_tail(log, secrets)
+      tail = log_tail(log, secrets)
+      tail.present? ? ":\n#{tail}" : ""
+    end
+
+    # Removes the browser's directory and its entry in state.json, if the
+    # entry is still +browser+'s.
+    def forget_browser(workspace, browser)
+      dir = browser["dir"].to_s
+      FileUtils.rm_rf(workspace.join(dir)) if BROWSER_DIR.match?(dir)
+      update_state(workspace, create: false) do |state|
+        next unless state["browser"].is_a?(Hash) && state["browser"]["pid"] == browser["pid"]
+
+        state.delete("browser")
+        state_hash(state, "process_starts").delete(browser["pid"].to_s)
+      end
+    rescue Errno::ENOENT
+      # Terminated meanwhile: the workspace, and its state, are gone.
+    end
+
     # --- Processes ----------------------------------------------------------
 
     # Every sandbox process leads its own process group, so stopping one
@@ -2131,7 +2314,8 @@ module ActionAgent
         {}
       end
       sessions = state["code_sessions"].is_a?(Hash) ? state["code_sessions"].values : []
-      recorded = [ state["pid"], state["step_pid"], *sessions ].uniq.select { |pid| signalable?(pid) }
+      browser = state["browser"]["pid"] if state["browser"].is_a?(Hash)
+      recorded = [ state["pid"], state["step_pid"], browser, *sessions ].uniq.select { |pid| signalable?(pid) }
       identities = recorded.index_with { |pid| group_identity(pid, session_id, state) }
       stop_groups(recorded.select { |pid| identities[pid] == :ours })
       stop_escaped(session_id)

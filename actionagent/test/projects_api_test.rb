@@ -473,7 +473,8 @@ class ProjectsApiTest < ActionDispatch::IntegrationTest
     get "#{BASE}/#{project.id}/secrets"
     listed = JSON.parse(response.body)["secrets"]
     assert_equal %w[PIN RAILS_MASTER_KEY STRIPE_SECRET_KEY], listed.map { |secret| secret["name"] }
-    assert_equal %w[name provider set_by source updated_at], listed.first.keys.sort
+    assert_equal %w[kind name provider set_by source updated_at], listed.first.keys.sort
+    assert_equal %w[env], listed.map { |secret| secret["kind"] }.uniq
     assert_no_secret_in(response.body)
     assert_not_includes response.body, "1234"
 
@@ -867,10 +868,10 @@ class ProjectsApiTest < ActionDispatch::IntegrationTest
     post "#{BASE}/#{project.id}/run_evaluation", as: :json
     run = ActionAgent::EvaluationRun.find(JSON.parse(response.body).dig("run", "id"))
     clear_enqueued_jobs
-    ActionAgent::ProjectEvaluationJob.perform_now(project.id, run.id)
+    ActionAgent::ProjectEvaluationJob.perform_now(project.id, run.id, "http://www.example.com/activeagents")
 
     assert run.reload.pending?, "still booting: checked again later"
-    assert_enqueued_with(job: ActionAgent::ProjectEvaluationJob, args: [ project.id, run.id ])
+    assert_enqueued_with(job: ActionAgent::ProjectEvaluationJob, args: [ project.id, run.id, "http://www.example.com/activeagents" ])
   end
 
   test "an installed repository targets the synced agent picked from its running sandbox" do

@@ -121,7 +121,7 @@ module ActionAgent
   #                           they are handed to, or delete a project that has
   #                           them
   #   :take_over_browser      drive a run's browser by hand
-  #   :manage_recordings      view or delete a session recording
+  #   :manage_recordings      delete a session recording
   #   :replace_scenarios      replace or merge an evaluation's scenarios
   PERMISSION_ACTIONS = %i[
     manage_credentials
@@ -238,6 +238,18 @@ module ActionAgent
     # @return [Hash, nil]
     attr_accessor :sandbox_limits
 
+    # Caps on the events a browser may post to a session recording, merged
+    # over RecordingEvent::DEFAULT_LIMITS. Keys:
+    #
+    #   batch_events      events in one batch
+    #   batch_bytes       bytes in one batch's request body
+    #   recording_events  events stored on one recording
+    #   recording_bytes   bytes of event JSON stored on one recording
+    #
+    # A batch over any of them is refused and counted on the recording.
+    # @return [Hash, nil]
+    attr_accessor :recording_limits
+
     # Storage service for screenshots/snapshots
     # @return [Object, nil] Object responding to #signed_url_for and #fetch_snapshot
     attr_accessor :storage_service
@@ -312,6 +324,9 @@ module ActionAgent
     #                        store (never an identical retry); HTTP 429
     #   :project           — creating a project; HTTP 402, and usage is
     #                        recorded under the same kind once it exists
+    #   :browser_minutes   — starting a sandbox's browser; HTTP 402
+    #   :exploration       — starting the explorer on a project; HTTP 402,
+    #                        and usage is recorded once for each start
     #
     # The owner of an ingest kind is the tenant the key resolved to, nil on a
     # single-tenant install.
@@ -382,6 +397,23 @@ module ActionAgent
     # come up before giving up, in seconds.
     # @return [Integer]
     attr_accessor :local_sandbox_boot_timeout
+
+    # A checkout of the browser sidecar (the repository's browser-sidecar/
+    # directory) for the :local backend to run instead of the package
+    # `bin/rails action_agent:browser:install` installs. For working on the
+    # sidecar itself: a checkout's version is not checked against the
+    # engine's. Unset, the installed package runs.
+    # @return [String, Pathname, nil]
+    attr_accessor :browser_sidecar_path
+
+    # The Node.js and npm executables the browser sidecar is installed and
+    # run with.
+    # @return [String]
+    attr_accessor :node_command, :npm_command
+
+    # How long the :local backend waits for a browser to start, in seconds.
+    # @return [Integer]
+    attr_accessor :browser_start_timeout
 
     # The Claude Code executable a sandbox backend runs headless sessions
     # with. The :local backend runs it on the dashboard's machine.
@@ -521,9 +553,17 @@ module ActionAgent
 
     # Called after the dashboard performs a metered action, as
     # (owner, kind) — the counterpart to quota_checker, for host apps that
-    # track usage against a plan. The kinds are :execution, for each agent
-    # run, and :evaluation_report, for each report the collector stores; an
-    # identical retry is not counted again. Unset means nothing is counted.
+    # track usage against a plan. The kinds:
+    #
+    #   :execution         — each agent run
+    #   :evaluation_report — each report the collector stores; an identical
+    #                        retry is not counted again
+    #   :browser_minutes   — each browser that stopped, with the minutes it
+    #                        ran, rounded up, as a third argument
+    #
+    # A recorder that takes a third argument receives the quantity, and nil
+    # for a kind that has none when the argument is required; one that takes
+    # two is called as (owner, kind). Unset means nothing is counted.
     # @return [Proc, nil]
     attr_accessor :usage_recorder
 
@@ -698,10 +738,13 @@ module ActionAgent
       Pathname.new(@local_sandbox_root.presence || Rails.root.join("tmp", "action_agent", "sandboxes"))
     end
 
-    # Tells the host app that +owner+ performed +kind+. Never raises: a
-    # bookkeeping failure must not fail the action that was already taken.
-    def record_usage(owner, kind)
-      usage_recorder&.call(owner, kind)
+    # Tells the host app that +owner+ performed +kind+, +quantity+ times when
+    # given (see usage_recorder). Never raises: a bookkeeping failure must not
+    # fail the action that was already taken.
+    def record_usage(owner, kind, quantity = nil)
+      return nil if usage_recorder.nil?
+
+      usage_recorder.call(*usage_arguments(usage_recorder, owner, kind, quantity))
     rescue StandardError => e
       Rails.logger.warn("[ActionAgent] usage recording failed: #{e.message}")
       nil
@@ -885,6 +928,7 @@ module ActionAgent
       @layout = nil
       @sandbox_service = :mock
       @sandbox_limits = nil
+      @recording_limits = nil
       @storage_service = nil
       @ingest_api_key = nil
       @base_controller_class = "ActionController::Base" # deprecated no-op
@@ -897,6 +941,10 @@ module ActionAgent
       @local_sandboxes_enabled = nil
       @local_sandbox_root = nil
       @local_sandbox_boot_timeout = 600
+      @browser_sidecar_path = nil
+      @node_command = "node"
+      @npm_command = "npm"
+      @browser_start_timeout = 60
       @claude_code_command = "claude"
       @claude_code_permission_mode = "acceptEdits"
       @claude_code_max_turns = nil
@@ -1011,6 +1059,20 @@ module ActionAgent
 
     def resolve_concerns(entries)
       Array(entries).map { |entry| entry.is_a?(Module) ? entry : entry.to_s.constantize }
+    end
+
+    # What +recorder+ is called with: the quantity when there is one and it
+    # takes a third argument, nil in its place when it requires one, and
+    # nothing more otherwise.
+    def usage_arguments(recorder, owner, kind, quantity)
+      parameters = (recorder.is_a?(Proc) || recorder.is_a?(Method) ? recorder : recorder.method(:call)).parameters
+      third =
+        if quantity.nil?
+          parameters.count { |type, _| type == :req } >= 3
+        else
+          parameters.count { |type, _| %i[req opt].include?(type) } >= 3 || parameters.any? { |type, _| type == :rest }
+        end
+      third ? [ owner, kind, quantity ] : [ owner, kind ]
     end
   end
 

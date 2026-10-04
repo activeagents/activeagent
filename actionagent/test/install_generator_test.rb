@@ -209,6 +209,59 @@ class ActionAgentInstallGeneratorTest < Rails::Generators::TestCase
     assert_operator versions.first, :>, migration_version("create_active_agent_dashboard_tables")
   end
 
+  # Run under a probe prefix so the dummy's own tables are left alone.
+  test "the recording events migration creates its table and recording columns under the configured prefix, and reverses" do
+    run_generator [ "--skip-routes" ]
+    connection = ActiveRecord::Base.connection
+    prefix = "recording_events_probe_"
+    connection.create_table("#{prefix}session_recordings", force: true) { |t| t.string :name }
+    ActionAgent.table_name_prefix = prefix
+    namespace = Module.new
+    namespace.module_eval(File.read(migration_file_name("db/migrate/create_active_agent_recording_events.rb")))
+    migration = namespace::CreateActiveAgentRecordingEvents.new
+
+    ActiveRecord::Migration.suppress_messages { migration.migrate(:up) }
+
+    assert connection.index_exists?("#{prefix}recording_events", [ :session_recording_id, :occurred_from, :batch_index ])
+    %i[agent_context_id source ingest_token_digest ingest_token_expires_at event_count event_bytes dropped_event_count].each do |column|
+      assert connection.column_exists?("#{prefix}session_recordings", column), column
+    end
+    assert connection.index_exists?("#{prefix}session_recordings", :ingest_token_digest, unique: true)
+
+    ActiveRecord::Migration.suppress_messages { migration.migrate(:down) }
+
+    assert_not connection.table_exists?("#{prefix}recording_events")
+    assert_not connection.column_exists?("#{prefix}session_recordings", :source)
+  ensure
+    ActionAgent.table_name_prefix = "active_agent_"
+    connection&.drop_table("#{prefix}recording_events", if_exists: true)
+    connection&.drop_table("#{prefix}session_recordings", if_exists: true)
+  end
+
+  test "the browser migration adds the browser columns to sandbox sessions under the configured prefix, and reverses" do
+    run_generator [ "--skip-routes" ]
+    connection = ActiveRecord::Base.connection
+    prefix = "browser_probe_"
+    connection.create_table("#{prefix}sandbox_sessions", force: true) { |t| t.string :session_id }
+    ActionAgent.table_name_prefix = prefix
+    namespace = Module.new
+    namespace.module_eval(File.read(migration_file_name("db/migrate/add_browser_to_active_agent_sandbox_sessions.rb")))
+    migration = namespace::AddBrowserToActiveAgentSandboxSessions.new
+    columns = %i[browser_mode browser_status browser_mcp_url browser_live_url browser_token browser_started_at]
+
+    ActiveRecord::Migration.suppress_messages { migration.migrate(:up) }
+
+    columns.each { |column| assert connection.column_exists?("#{prefix}sandbox_sessions", column), column }
+    assert_equal :text, connection.columns("#{prefix}sandbox_sessions").find { |column| column.name == "browser_token" }.type
+
+    ActiveRecord::Migration.suppress_messages { migration.migrate(:down) }
+
+    columns.each { |column| assert_not connection.column_exists?("#{prefix}sandbox_sessions", column), column }
+  ensure
+    ActionAgent.table_name_prefix = "active_agent_"
+    connection&.drop_table("#{prefix}sandbox_sessions", if_exists: true)
+  end
+
   test "files in the numbered template directory that break the naming convention are not emitted" do
     with_numbered_templates(
       "001_create_widgets.rb.erb" => numbered_template("CreateWidgets"),

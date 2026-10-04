@@ -886,17 +886,18 @@ module ActionAgent
 
       # Every credential the owner holds, masked out of each tool's output:
       # this key's token, provider keys, the GitHub token, each checkout
-      # sandbox's runtime token, and the values of projects' secrets with
-      # their encodings, which an app tool can echo into a recorded output.
-      # None of them belongs in these payloads; this keeps one that leaked
-      # into a recorded output or a trace from being handed on. A failed
-      # lookup masks nothing rather than failing the call.
+      # sandbox's runtime and browser tokens, and the values of projects'
+      # secrets with their encodings, which an app tool can echo into a
+      # recorded output. None of them belongs in these payloads; this keeps
+      # one that leaked into a recorded output or a trace from being handed
+      # on. A failed lookup masks nothing rather than failing the call.
       def dashboard_tool_secrets
         @dashboard_tool_secrets ||= [
           @api_key&.token,
           *owned(ProviderKey).limit(SECRET_LOOKUP_LIMIT).pluck(:credential, :api_key).flatten,
           *owned(GithubConnection).limit(SECRET_LOOKUP_LIMIT).pluck(:access_token),
           *owned(SandboxSession).where.not(runtime_mcp_token: nil).order(id: :desc).limit(SECRET_LOOKUP_LIMIT).pluck(:runtime_mcp_token),
+          *owned(SandboxSession).where.not(browser_token: nil).order(id: :desc).limit(SECRET_LOOKUP_LIMIT).pluck(:browser_token),
           *project_secret_values
         ].compact
       rescue StandardError => e
@@ -904,13 +905,14 @@ module ActionAgent
         @dashboard_tool_secrets = [ @api_key&.token ].compact
       end
 
-      # The owner's entered project secrets, with their encodings; a secret
-      # that uses the organization's key is masked as that provider key.
+      # The owner's entered project secrets, with their encodings and a
+      # sign-in secret's parts (ProjectSecret#scrub_parts); a secret that
+      # uses the organization's key is masked as that provider key.
       # Empty on an install that has not run the projects migration, so the
       # other credentials are still masked there.
       def project_secret_values
-        values = owned(ProjectSecret).where(source: "entered").order(id: :desc).limit(SECRET_LOOKUP_LIMIT).pluck(:value)
-        SecretScrubber.with_encodings(values)
+        secrets = owned(ProjectSecret).where(source: "entered").order(id: :desc).limit(SECRET_LOOKUP_LIMIT)
+        SecretScrubber.with_encodings(secrets.flat_map(&:scrub_parts))
       rescue StandardError => e
         Rails.logger.warn("[ActionAgent] MCP project secret lookup failed: #{e.class}")
         []
