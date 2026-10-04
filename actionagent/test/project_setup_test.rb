@@ -315,10 +315,13 @@ class ProjectSetupTest < ActionDispatch::IntegrationTest
 
   test "without a provider key the project says why, and asking for the assistant starts nothing" do
     ActionAgent.provider_credentials_resolver = nil
+    setup = nil
 
-    get "#{BASE}/#{@project.id}"
-    setup = JSON.parse(response.body).dig("project", "setup")
-    post "#{BASE}/#{@project.id}/setup", as: :json
+    ActionAgent::AgentExecutionService.stub(:available_providers, []) do
+      get "#{BASE}/#{@project.id}"
+      setup = JSON.parse(response.body).dig("project", "setup")
+      post "#{BASE}/#{@project.id}/setup", as: :json
+    end
 
     assert_equal false, setup["available"]
     assert_match(/No provider key the setup assistant can use/, setup["reason"])

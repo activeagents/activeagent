@@ -1118,7 +1118,11 @@ class ProjectsApiTest < ActionDispatch::IntegrationTest
     post BASE, params: { repository: "acme/shop", name: name,
                          secrets: secrets.map { |key, value| { name: key, value: value } } }, as: :json
     assert_response :created, response.body
-    ActionAgent::Project.find(JSON.parse(response.body).dig("project", "id"))
+    project = ActionAgent::Project.find(JSON.parse(response.body).dig("project", "id"))
+    # These tests cover the projects API; the setup assistant a failed boot
+    # starts on its own is covered by project_setup_test.rb.
+    project.update_setup_settings!("auto" => false)
+    project
   end
 
   def raw_value(secret)
