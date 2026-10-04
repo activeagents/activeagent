@@ -267,7 +267,9 @@ module ActionAgent
       @explorer_secrets ||= [ *@project.scrub_values, @sandbox.runtime_mcp_token, @sandbox.browser_token ].compact
     end
 
-    def dispatch_tool(name, kwargs)
+    # The optional third argument matches the dashboard input-request dispatch,
+    # which passes the tool call's id; the explorer has no use for it.
+    def dispatch_tool(name, kwargs, _tool_call_id = nil)
       name = name.to_s
       if @ended && name != "finish"
         @calls_after_end += 1
