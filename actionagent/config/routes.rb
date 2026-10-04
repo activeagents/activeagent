@@ -71,6 +71,15 @@ ActionAgent::Engine.routes.draw do
       end
     end
 
+    # What paused runs are waiting on a person for, and the answers that
+    # resume them.
+    resources :input_requests, only: [ :index ] do
+      member do
+        post :answer
+        post :decline
+      end
+    end
+
     # Sandboxes. The engine ships the in-memory and local backends; an
     # operator registers the rest (see ActionAgent.sandbox_backends).
     resources :sandboxes, param: :id, only: [ :index, :create, :show, :destroy ] do
@@ -90,6 +99,12 @@ ActionAgent::Engine.routes.draw do
         member do
           post :cancel
         end
+      end
+      # A pull request opened from the checkout's changes, its preview, and
+      # the patch to download instead.
+      resource :pull_request, only: [ :show, :create ], controller: "draft_pull_requests" do
+        post :preview
+        get :patch
       end
     end
 
@@ -111,6 +126,18 @@ ActionAgent::Engine.routes.draw do
       end
       put :secrets, to: "project_secrets#upsert"
       resources :secrets, controller: "project_secrets", only: [ :index, :update, :destroy ], param: :name
+      # The setup assistant, the requests for input waiting on the project's
+      # agents, and the models the App assistant may read.
+      post :setup, to: "project_setup#start"
+      patch :setup, to: "project_setup#update"
+      get :input_requests, to: "project_setup#input_requests"
+      get :app_models, to: "project_setup#app_models"
+      put :schema_tools, to: "project_setup#schema_tools"
+      # The pull request that installs the engine in the repository.
+      resource :install_pull_request, only: [ :show, :create ], controller: "project_install_pull_requests" do
+        post :preview
+        get :patch
+      end
     end
 
     # Tool inventory — auto-detected from the tool roster each generation
@@ -194,6 +221,24 @@ ActionAgent::Engine.routes.draw do
     resource :github_connection, only: [ :show, :update, :destroy ], controller: "github_connections" do
       get :repositories
       get :connect
+      get :callback
+    end
+
+    # The owner's GitHub App installations: install sends the admin to GitHub,
+    # which returns to callback; each installation's repositories are chosen
+    # with PATCH, and DELETE unlinks one (the App stays installed on GitHub).
+    resources :github_installations, only: [ :index, :update, :destroy ] do
+      collection do
+        get :install
+        get :callback
+      end
+      member do
+        get :repositories
+      end
+    end
+
+    # Creating the GitHub App from a manifest on a self-hosted dashboard.
+    resource :github_app_manifest, only: [ :create ] do
       get :callback
     end
 

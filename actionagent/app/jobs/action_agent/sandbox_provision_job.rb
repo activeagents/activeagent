@@ -35,7 +35,10 @@ module ActionAgent
       # Hand off to whichever backend this install registered — the engine
       # ships the in-memory one and :local, so a real container/job comes
       # from the host app's backend (see ActionAgent.sandbox_backends).
-      ensure_checkout_available!(sandbox) if sandbox.app_runtime?
+      if sandbox.app_runtime?
+        ensure_checkout_available!(sandbox)
+        mint_checkout_token!(sandbox)
+      end
 
       orchestrator = SandboxOrchestrator.new
       options = options.is_a?(Hash) ? options : {}
@@ -44,9 +47,9 @@ module ActionAgent
       project = sandbox.app_runtime? ? sandbox.project : nil
       result =
         if options["resume"].is_a?(Hash)
-          orchestrator.resume_boot(sandbox, from: options["resume"]["from"].presence, boot_config: project&.boot_spec)
+          orchestrator.resume_boot(sandbox, from: options["resume"]["from"].presence, boot_config: project&.boot_spec(sandbox))
         elsif project
-          orchestrator.create_sandbox(sandbox, boot_config: project.boot_spec)
+          orchestrator.create_sandbox(sandbox, boot_config: project.boot_spec(sandbox))
         elsif (spec = sandbox.app_runtime? && boot_spec(options["boot"]))
           orchestrator.create_sandbox(sandbox, boot_config: spec)
         else
@@ -65,7 +68,7 @@ module ActionAgent
         return
       end
 
-      project&.sandbox_ready!(sandbox)
+      project&.sandbox_ready!(sandbox, app_models: result[:app_models])
       # Broadcast status update
       broadcast_sandbox_update(sandbox)
     rescue StandardError => e
@@ -114,7 +117,12 @@ module ActionAgent
     # selection, between creating the session and this job running.
     # checkout_spec answers nil for the first and raises ArgumentError for
     # the second; both mean the same thing to the owner.
+    # A GitHub App installation can also have been unlinked, or found removed
+    # or suspended by an earlier mint.
     def ensure_checkout_available!(sandbox)
+      installation = sandbox.checkout_installation
+      raise reinstall_message(sandbox, installation.removed_at ? :removed : :suspended) if installation && !installation.usable?
+
       available = begin
         sandbox.checkout_spec.present?
       rescue ArgumentError
@@ -123,6 +131,30 @@ module ActionAgent
       return if available
 
       raise "#{sandbox.repository} is no longer available: reconnect GitHub or reselect it in Settings -> Integrations"
+    end
+
+    # The one mint of a provision (see SandboxSession#mint_checkout_spec!).
+    # The token stays on +sandbox+, the object the orchestrator hands the
+    # backend and #secrets_for reads, so the backend clones with exactly the
+    # value this job scrubs.
+    def mint_checkout_token!(sandbox)
+      sandbox.mint_checkout_spec!
+    rescue GithubClient::InstallationUnavailable => e
+      raise reinstall_message(sandbox, e.reason)
+    rescue GithubClient::Error => e
+      raise "Could not get a GitHub token to check out #{sandbox.repository}: #{e.message}"
+    end
+
+    def reinstall_message(sandbox, reason)
+      installation = sandbox.checkout_installation
+      on = installation ? " on #{installation.github_account_login}" : ""
+      if reason == :suspended
+        "The GitHub App installation#{on} is suspended, so #{sandbox.repository} cannot be checked out. " \
+          "Once it is unsuspended on GitHub, use Check again in Settings -> Integrations and start the sandbox again."
+      else
+        "The GitHub App installation#{on} was removed, so #{sandbox.repository} cannot be checked out. " \
+          "Reinstall the GitHub App in Settings -> Integrations and start the sandbox again."
+      end
     end
 
     # Marks the session ready with the backend's endpoint, under a row lock
@@ -177,6 +209,8 @@ module ActionAgent
 
     # What must never reach error_message: the checkout token, the Claude
     # Code credential this session boots with, and its project's secrets.
+    # Reads the checkout without minting, so a GitHub App checkout contributes
+    # the token this job minted.
     def secrets_for(sandbox)
       return [] if sandbox.nil?
 

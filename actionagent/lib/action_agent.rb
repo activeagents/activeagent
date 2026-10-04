@@ -61,6 +61,7 @@ require "solid_agent"
 require "action_agent/version"
 require "action_agent/engine"
 require "action_agent/compatibility"
+require "action_agent/secret_requests"
 
 # Dashboard engine for visualizing telemetry data and managing agents.
 #
@@ -112,8 +113,10 @@ module ActionAgent
   #   :manage_credentials     store, test or delete a provider credential, or
   #                           hand the organization's to a project's code
   #   :manage_github          connect, disconnect, or choose the repositories of
-  #                           the GitHub connection, or read a repository it has
-  #                           not selected
+  #                           the GitHub connection or a GitHub App
+  #                           installation; link or unlink an installation;
+  #                           create a GitHub App from a manifest; read a
+  #                           repository the connection has not selected
   #   :manage_api_keys        create or revoke a dashboard API key
   #   :publish_pull_request   open a pull request from a sandbox's changes
   #   :answer_input_request   answer or decline a run's request for input
@@ -333,14 +336,19 @@ module ActionAgent
     # request gets HTTP 403, and a denied GitHub connect or callback returns
     # to Settings.
     #
+    # For :answer_input_request the subject is the InputRequest, whose
+    # `requested_by_id` is the id of the user the paused run acts for.
+    #
     #   config.permission_checker = ->(user, action, subject) {
-    #     user.present? && (user.admin? || action == :answer_input_request)
+    #     user.present? && (user.admin? ||
+    #       action == :answer_input_request && subject.requested_by_id.in?([ nil, user.id ]))
     #   }
     #
     # Unset means everyone who can reach the dashboard may do everything,
     # which is what a single-user install wants. In multi-tenant mode it means
-    # every member of a tenant may do everything, and the engine logs a
-    # warning at boot (see {.warn_about_unchecked_permissions}).
+    # every member of a tenant may do everything except answer a request for
+    # input another member's run raised (InputRequest#answerable_by?), and the
+    # engine logs a warning at boot (see {.warn_about_unchecked_permissions}).
     # @return [Proc, nil]
     attr_accessor :permission_checker
 
@@ -539,6 +547,13 @@ module ActionAgent
     # @return [ActiveSupport::Duration, Proc, nil]
     attr_accessor :trace_retention
 
+    # How long a run's request for input waits for an answer. Past it, the
+    # request expires and its run fails, once an answer, the request list,
+    # the run's page or InputRequestExpiryJob reaches it. One day by default;
+    # nil lets a request wait until it is answered or its run is cancelled.
+    # @return [ActiveSupport::Duration, nil]
+    attr_accessor :input_request_ttl
+
     # Whether API keys and provider credentials are encrypted at rest with
     # Active Record Encryption. On by default, which requires the host app
     # to have run `rails db:encryption:init`. Turning it off stores those
@@ -559,6 +574,23 @@ module ActionAgent
     # public checkouts only.
     # @return [String]
     attr_accessor :github_oauth_scopes
+
+    # The GitHub App checkout sandboxes get repository access through
+    # (Settings -> Integrations -> Install the GitHub App). Each falls back to
+    # the matching GITHUB_APP_* variable (GITHUB_APP_ID, GITHUB_APP_PRIVATE_KEY,
+    # GITHUB_APP_SLUG, GITHUB_APP_CLIENT_ID, GITHUB_APP_CLIENT_SECRET), and the
+    # dashboard offers no installation until all five are present. Register
+    # the App with "Request user authorization (OAuth) during installation"
+    # and "Redirect on update" turned on and
+    # <mount>/api/github_installations/callback as its callback URL, or create
+    # it from Settings with the manifest flow.
+    #
+    # The private key is the PEM GitHub generated for the App. A key whose
+    # line breaks were written as "\n" (one line in an env file) is read with
+    # real line breaks.
+    # @return [String, nil]
+    attr_writer :github_app_id, :github_app_private_key, :github_app_slug,
+      :github_app_client_id, :github_app_client_secret
 
     # MCP servers the host app itself serves or connects, appended to the
     # built-in catalog (MCPCatalog) so the MCP Services view lists them and
@@ -639,6 +671,36 @@ module ActionAgent
     # @return [Boolean]
     def github_oauth_configured?
       github_client_id.present? && github_client_secret.present?
+    end
+
+    def github_app_id
+      (@github_app_id.presence || ENV["GITHUB_APP_ID"].presence)&.to_s
+    end
+
+    def github_app_private_key
+      key = @github_app_private_key.presence || ENV["GITHUB_APP_PRIVATE_KEY"].presence
+      return nil if key.nil?
+
+      key.include?("\n") ? key : key.gsub("\\n", "\n")
+    end
+
+    def github_app_slug
+      @github_app_slug.presence || ENV["GITHUB_APP_SLUG"].presence
+    end
+
+    def github_app_client_id
+      @github_app_client_id.presence || ENV["GITHUB_APP_CLIENT_ID"].presence
+    end
+
+    def github_app_client_secret
+      @github_app_client_secret.presence || ENV["GITHUB_APP_CLIENT_SECRET"].presence
+    end
+
+    # Whether the GitHub App installation flow can run on this install: every
+    # github_app_* setting is present.
+    # @return [Boolean]
+    def github_app_configured?
+      [ github_app_id, github_app_private_key, github_app_slug, github_app_client_id, github_app_client_secret ].all?(&:present?)
     end
 
     def multi_tenant?
@@ -889,9 +951,15 @@ module ActionAgent
       @table_name_prefix = "active_agent_"
       @agent_polymorphic_name = nil
       @encrypt_credentials = true
+      @input_request_ttl = 1.day
       @github_client_id = nil
       @github_client_secret = nil
       @github_oauth_scopes = "repo read:user"
+      @github_app_id = nil
+      @github_app_private_key = nil
+      @github_app_slug = nil
+      @github_app_client_id = nil
+      @github_app_client_secret = nil
       @trace_retention = nil
       @trace_owner_resolver = nil
       @usage_recorder = nil

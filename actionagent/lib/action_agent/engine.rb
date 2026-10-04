@@ -61,11 +61,24 @@ module ActionAgent
     # directory to the host app's asset paths is what lets a plain
     # `mount ActionAgent::Engine` work without the host running a
     # JavaScript build — or having a JavaScript build at all.
-    # Provider credentials and API keys are posted to the dashboard in the
-    # clear and encrypted at rest — filtering keeps them out of the request
-    # logs in between, where the gem would otherwise print them verbatim.
+    # Provider credentials, API keys and answers to a run's requests for
+    # input (a secret among them) are posted to the dashboard in the clear
+    # and encrypted at rest — filtering keeps them out of the request logs
+    # in between, where the gem would otherwise print them verbatim.
+    # `answer` and `value` match whole names only, at any depth, so a host
+    # param or model attribute such as `values` or `default_value` is not
+    # filtered with them.
     initializer "action_agent.filter_parameters" do |app|
-      app.config.filter_parameters += [ :credential, :api_key, :access_token ]
+      app.config.filter_parameters += [ :credential, :api_key, :access_token, /\A(?:answer|value)\z/i ]
+    end
+
+    # The project setup assistant's request_secret answers go to its
+    # handler. Registered on every reload, so the handler is always the
+    # current class's.
+    initializer "action_agent.secret_requests" do |app|
+      app.config.to_prepare do
+        ActionAgent::SecretRequests.register(ActionAgent::ProjectSetup::AGENT_CLASS_NAME, ActionAgent::ProjectSetup::SecretHandler.new)
+      end
     end
 
     # This engine's constants are spelled the way Zeitwerk's own inflector

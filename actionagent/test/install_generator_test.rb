@@ -178,6 +178,15 @@ class ActionAgentInstallGeneratorTest < Rails::Generators::TestCase
     assert_equal numbers.uniq.size, numbers.size, "two numbered templates share a number"
   end
 
+  test "every migration a fresh install emits is one a project's install pull request publishes, by name" do
+    run_generator [ "--skip-routes" ]
+
+    pattern = ActionAgent::ProjectInstallPullRequest.new(ActionAgent::Project.new(name: "Shop")).allowlist.grep(Regexp).sole
+    emitted = Dir[File.join(destination_root, "db/migrate/*.rb")].map { |path| "db/migrate/#{File.basename(path)}" }
+    assert_operator emitted.size, :>, NUMBERED.size
+    emitted.each { |path| assert_match pattern, path }
+  end
+
   test "numbered templates are emitted in number order, with their ERB rendered" do
     with_numbered_templates(
       "002_add_widget_color.rb.erb" => numbered_template("AddWidgetColor"),
@@ -236,6 +245,72 @@ class ActionAgentInstallGeneratorTest < Rails::Generators::TestCase
     assert_no_migration "db/migrate/create_widgets.rb"
   end
 
+  # Run under a probe prefix beside a bare agents table, so the dummy's own
+  # tables are left alone and the result can be compared with them.
+  test "the input requests migration builds the table and the agent column the dummy schema has" do
+    run_generator [ "--skip-routes" ]
+    assert_migration "db/migrate/create_active_agent_input_requests.rb"
+    connection = ActiveRecord::Base.connection
+    prefix = "input_requests_probe_"
+    connection.create_table("#{prefix}agents", force: true) { |t| t.string :name }
+    ActionAgent.table_name_prefix = prefix
+
+    run_migration("create_active_agent_input_requests", :CreateActiveAgentInputRequests)
+
+    shape = ->(table) { connection.columns(table).to_h { |column| [ column.name, [ column.sql_type, column.null, column.default ] ] } }
+    assert_equal shape.call("active_agent_input_requests"), shape.call("#{prefix}input_requests")
+    indexes = ->(table) { connection.indexes(table).map(&:columns).sort }
+    assert_equal indexes.call("active_agent_input_requests"), indexes.call("#{prefix}input_requests")
+    assert_equal shape.call("active_agent_agents")["approval_required_tools"], shape.call("#{prefix}agents")["approval_required_tools"]
+
+    run_migration("create_active_agent_input_requests", :CreateActiveAgentInputRequests, :down)
+    assert_not connection.table_exists?("#{prefix}input_requests")
+    assert_not connection.column_exists?("#{prefix}agents", :approval_required_tools), "rolling back removes the agent column"
+  ensure
+    ActionAgent.table_name_prefix = "active_agent_"
+    %w[input_requests agents].each { |name| connection&.drop_table("#{prefix}#{name}", if_exists: true) }
+  end
+
+  test "the GitHub App installations migration makes installation_id unique and links sandbox sessions to a row" do
+    run_generator [ "--skip-routes" ]
+    assert_migration "db/migrate/add_github_app_installations.rb"
+    prefix = "github_app_probe_"
+    connection = ActiveRecord::Base.connection
+    connection.create_table("#{prefix}sandbox_sessions", force: true) { |t| t.string :session_id }
+    ActionAgent.table_name_prefix = prefix
+
+    run_migration("add_github_app_installations", :AddGithubAppInstallations)
+
+    assert connection.index_exists?("#{prefix}github_installations", :installation_id, unique: true)
+    %i[github_account_id github_account_login github_account_type repository_selection permissions repositories
+       suspended_at removed_at user_id account_id].each do |column|
+      assert connection.column_exists?("#{prefix}github_installations", column), column
+    end
+    assert connection.column_exists?("#{prefix}sandbox_sessions", :github_installation_id)
+  ensure
+    ActionAgent.table_name_prefix = "active_agent_"
+    %w[github_installations sandbox_sessions].each { |name| connection&.drop_table("#{prefix}#{name}", if_exists: true) }
+  end
+
+  test "the draft pull requests migration creates the table a publish is recorded in" do
+    run_generator [ "--skip-routes" ]
+    assert_migration "db/migrate/create_active_agent_draft_pull_requests.rb"
+    prefix = "draft_pr_probe_"
+    connection = ActiveRecord::Base.connection
+    ActionAgent.table_name_prefix = prefix
+
+    run_migration("create_active_agent_draft_pull_requests", :CreateActiveAgentDraftPullRequests)
+
+    %i[sandbox_session_id repository base_branch branch base_commit head_commit title body files operation status error_code
+       error_message credential_kind number url compare_url state draft last_checked_at user_id account_id].each do |column|
+      assert connection.column_exists?("#{prefix}draft_pull_requests", column), column
+    end
+    assert connection.index_exists?("#{prefix}draft_pull_requests", :sandbox_session_id)
+  ensure
+    ActionAgent.table_name_prefix = "active_agent_"
+    connection&.drop_table("#{prefix}draft_pull_requests", if_exists: true)
+  end
+
   test "a missing numbered template directory emits nothing" do
     ActionAgent::InstallGenerator.numbered_migrations_path = File.join(destination_root, "no-such-directory")
 
@@ -271,10 +346,10 @@ class ActionAgentInstallGeneratorTest < Rails::Generators::TestCase
     File.basename(migration_file_name("db/migrate/#{name}.rb")).to_i
   end
 
-  def run_migration(name, class_name)
+  def run_migration(name, class_name, direction = :up)
     namespace = Module.new
     namespace.module_eval(File.read(migration_file_name("db/migrate/#{name}.rb")))
-    ActiveRecord::Migration.suppress_messages { namespace.const_get(class_name).new.migrate(:up) }
+    ActiveRecord::Migration.suppress_messages { namespace.const_get(class_name).new.migrate(direction) }
   end
 
   BARE_TABLES = %w[agents agent_versions agent_runs evaluation_runs].freeze

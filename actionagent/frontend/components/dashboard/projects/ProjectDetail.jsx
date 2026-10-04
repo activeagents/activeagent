@@ -1,8 +1,12 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Badge, Button, Card, MicroLabel, MONO, SegmentedControl } from '../primitives';
+import ProjectAssistantReads from './ProjectAssistantReads';
 import ProjectBootProgress from './ProjectBootProgress';
 import ProjectEnvironment from './ProjectEnvironment';
+import ProjectInputRequests from './ProjectInputRequests';
+import ProjectInstallPullRequest from './ProjectInstallPullRequest';
 import ProjectSecretsForm from './ProjectSecretsForm';
+import ProjectSetupCard from './ProjectSetupCard';
 import { useActionCable } from '../../../hooks/useActionCable';
 import { navigateTo } from '../../../utils/dashboardPath';
 import { apiErrorMessage } from '../../../utils/codeSessions.mjs';
@@ -15,6 +19,7 @@ import {
   secretsFormProblem,
   secretsPayload,
 } from '../../../utils/projects.mjs';
+import { setupInProgress } from '../../../utils/projectSetup.mjs';
 
 const STATE_TONES = { ready: 'success', booting: 'info', failed: 'error', expired: 'muted', none: 'muted' };
 const INSTALL_LABELS = {
@@ -27,10 +32,12 @@ async function readJson(res) {
   return res.json().catch(() => ({}));
 }
 
-// A project's page: its boot (steps, elapsed time, log tail), the agent it
-// evaluates and Run evaluation, and its Environment tab. The boot is
-// followed through the sandbox's Action Cable stream and polled every
-// BOOT_POLL_INTERVAL_MS while it boots, so it updates without the cable.
+// A project's page: its boot (steps, elapsed time, log tail), what its
+// agents are waiting on, the setup assistant, the agent it evaluates and Run
+// evaluation, what the App assistant may read, the install pull request, and
+// its Environment tab. The boot is followed through the sandbox's Action
+// Cable stream and polled every BOOT_POLL_INTERVAL_MS while it boots or the
+// setup assistant works, so it updates without the cable.
 export default function ProjectDetail({ projectId, onBack, onDeleted }) {
   const [project, setProject] = useState(null);
   const [boot, setBoot] = useState(null); // { boot, log_tail, error, confirmation }
@@ -38,7 +45,7 @@ export default function ProjectDetail({ projectId, onBack, onDeleted }) {
   const [tab, setTab] = useState('overview');
   const [error, setError] = useState(null);
   const [environmentError, setEnvironmentError] = useState(null);
-  const [confirmation, setConfirmation] = useState(null); // { question, action }
+  const [confirmation, setConfirmation] = useState(null); // { question, retry }
   const [busy, setBusy] = useState(false);
   const [run, setRun] = useState(null);
   const [syncedAgents, setSyncedAgents] = useState(null);
@@ -65,11 +72,12 @@ export default function ProjectDetail({ projectId, onBack, onDeleted }) {
   }, [loadBoot, loadSecrets]);
 
   const booting = isBooting(project);
+  const watching = booting || setupInProgress(project);
   useEffect(() => {
-    if (!booting) return undefined;
+    if (!watching) return undefined;
     const timer = setTimeout(() => loadBoot().catch((e) => setError(e.message)), BOOT_POLL_INTERVAL_MS);
     return () => clearTimeout(timer);
-  }, [booting, boot, loadBoot]);
+  }, [watching, boot, loadBoot]);
 
   const sessionId = project?.sandbox?.session_id;
   useActionCable('SandboxChannel', { session_id: sessionId }, (message) => {
@@ -78,7 +86,8 @@ export default function ProjectDetail({ projectId, onBack, onDeleted }) {
 
   // POSTs `path`; a 409 that asks for confirmation is held until the person
   // confirms, then the same request is sent again with confirm: true.
-  const post = async (path, { confirm = false } = {}) => {
+  // `onDone` gets the response of the request that went through.
+  const post = async (path, { confirm = false, onDone } = {}) => {
     setBusy(true);
     setError(null);
     try {
@@ -89,13 +98,14 @@ export default function ProjectDetail({ projectId, onBack, onDeleted }) {
       });
       const data = await readJson(res);
       if (res.status === 409 && data.code === 'confirmation_required') {
-        setConfirmation({ question: data.confirmation, path });
+        setConfirmation({ question: data.confirmation, retry: () => post(path, { confirm: true, onDone }) });
         return null;
       }
       if (!res.ok) throw new Error(apiErrorMessage(data, `The request failed (HTTP ${res.status}).`));
       setConfirmation(null);
       if (data.project) setProject(data.project);
       await loadBoot();
+      onDone?.(data);
       return data;
     } catch (e) {
       setError(e.message);
@@ -105,9 +115,30 @@ export default function ProjectDetail({ projectId, onBack, onDeleted }) {
     }
   };
 
-  const runEvaluation = async (options) => {
-    const data = await post(`/api/projects/${projectId}/run_evaluation`, options);
-    if (data?.run) setRun(data.run);
+  const runEvaluation = () => post(`/api/projects/${projectId}/run_evaluation`, {
+    onDone: (data) => { if (data.run) setRun(data.run); },
+  });
+
+  // A view that boots the sandbox asks for the same confirmation; `retry`
+  // sends its request again once it is given.
+  const askConfirmation = (question, retry) => setConfirmation({ question, retry });
+
+  const setupRequest = async (method, body) => {
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/projects/${projectId}/setup`, {
+        method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}),
+      });
+      const data = await readJson(res);
+      if (!res.ok) throw new Error(apiErrorMessage(data, `The setup assistant request failed (HTTP ${res.status}).`));
+      if (data.project) setProject(data.project);
+      await loadBoot();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusy(false);
+    }
   };
 
   const loadSyncedAgents = async () => {
@@ -232,8 +263,7 @@ export default function ProjectDetail({ projectId, onBack, onDeleted }) {
         <Card testId="local-boot-confirmation" style={{ borderColor: 'var(--color-warning)' }}>
           <p style={{ margin: 0, fontSize: 14, color: 'var(--color-text-primary)' }}>{confirmation.question}</p>
           <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-            <Button variant="primary" onClick={() => (confirmation.path.endsWith('run_evaluation')
-              ? runEvaluation({ confirm: true }) : post(confirmation.path, { confirm: true }))} disabled={busy}>
+            <Button variant="primary" onClick={() => { const { retry } = confirmation; setConfirmation(null); retry?.(); }} disabled={busy}>
               Run it on this machine
             </Button>
             <Button onClick={() => setConfirmation(null)}>Cancel</Button>
@@ -253,7 +283,22 @@ export default function ProjectDetail({ projectId, onBack, onDeleted }) {
 
       {tab === 'overview' && (
         <>
-          <ProjectBootProgress boot={boot?.boot} logTail={boot?.log_tail} error={boot?.error} sandboxState={project.sandbox_state} />
+          <ProjectBootProgress boot={boot?.boot} logTail={boot?.log_tail} error={boot?.error} sandboxState={project.sandbox_state}
+            waiting={project.pending_input_requests} />
+
+          <ProjectInputRequests
+            projectId={projectId}
+            setupAgentId={project.setup?.agent_id}
+            version={`${project.pending_input_requests}:${project.setup?.last_run?.id}:${project.setup?.last_run?.status}`}
+            onSettled={() => loadBoot().catch(() => {})}
+          />
+
+          <ProjectSetupCard
+            project={project}
+            busy={busy}
+            onAsk={() => setupRequest('POST')}
+            onToggleAuto={(auto) => setupRequest('PATCH', { auto })}
+          />
 
           <Card>
             <MicroLabel>Agent under evaluation</MicroLabel>
@@ -295,6 +340,20 @@ export default function ProjectDetail({ projectId, onBack, onDeleted }) {
               </div>
             )}
           </Card>
+
+          {target?.kind === 'app_assistant' && (
+            <ProjectAssistantReads
+              project={project}
+              onSaved={(next) => { if (next) setProject(next); loadBoot().catch(() => {}); }}
+              onConfirmationRequired={askConfirmation}
+            />
+          )}
+
+          <ProjectInstallPullRequest
+            project={project}
+            onProjectChanged={(next) => setProject((current) => (current && next.install_state !== current.install_state ? next : current))}
+            onConfirmationRequired={askConfirmation}
+          />
 
           <div>
             <Button variant="danger" size="sm" onClick={destroy}>Delete project</Button>

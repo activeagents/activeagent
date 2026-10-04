@@ -149,7 +149,9 @@ component:
 
 Forms and choices are live: submitting a form or clicking a choice posts the
 answer back into the conversation as the next user message, so a model can
-ask for input and continue.
+ask for input and continue. To stop inside a tool call instead, and continue
+the same run with the answer, give the agent the `ask` tools (see
+[Input requests](#input-requests)).
 
 ![Generative UI: stats, a chart and a table rendered from a render_ui tool call](/dashboard/runner-generative-ui.png)
 
@@ -200,6 +202,116 @@ Time-series charts on the console's metrics page use the optional
 [groupdate](https://github.com/ankane/groupdate) gem when present and
 degrade gracefully without it; the React metrics page reads buckets the
 API already aggregated and needs nothing extra.
+
+## Input requests
+
+A dashboard agent can stop partway through a run to ask a person something,
+then continue the same run with the answer. This is the framework's
+[input requests](/framework/input_requests) feature, stored and answered by the
+engine. It differs from a Generative UI form or choice in four ways:
+
+- **The run stops inside a tool call.** The answer becomes that call's result
+  in the same run and trace, and the model continues from the turn that made
+  the call. A Generative UI answer starts a new run, and the model reads it as
+  the next user message.
+- **An approval can come before a side effect.** A Generative UI form can only
+  ask after the model has acted or stopped.
+- **A request is a stored record** with an owner, a status and an expiry. It
+  can be answered through the API or the MCP facade, and the paused run
+  survives a worker restart.
+- **A secret answer never reaches the model.** It goes to the tool without
+  passing through the conversation or telemetry.
+
+**Asking.** Enable the `ask` tools on the agent's Tools tab:
+
+| Tool | Request it raises | What the model reads |
+|---|---|---|
+| `ask_user(question:, options:)` | `text`, or `choice` when `options` are given | `{ "answer": ... }` |
+| `request_approval(action:)` | `confirm`, describing the action | `{ "approved": true }`, or an error when declined |
+
+`request_secret` raises a `secret` request. It is offered only to agents the
+engine defines itself, never through an agent's tools list, and the value goes
+to the engine's handler for that agent. The model reads `{ "provided": true,
+"name": ... }`.
+
+**Approvals.** An agent's `approval_required_tools` names the tools whose calls
+wait for a person: toolbox tools, schema tools and its MCP servers' tools. A
+call to a listed tool raises a `confirm` request that carries the call's
+arguments, before the tool runs. Approved, the tool runs once. Declined, it
+never runs, and the model reads an error. The list is part of the agent's
+versioned configuration, and changing it makes the agent's evaluations stale,
+because a replay that calls a listed tool pauses. An agent run from its host class uses the framework's
+own approval declarations instead.
+
+**While a run waits.** Its status is `awaiting_input`, with one request per
+paused tool call. The requests of one pause share the checkpoint the run
+resumes from, encrypted at rest like each `answer` when `encrypt_credentials`
+is on. Once every request of the pause is answered or declined,
+`ActionAgent::AgentResumeJob` continues the run:
+
+- It runs under the same trace id, and the resumed segment's spans join the
+  run's trace.
+- Its tokens and duration add to the run's.
+- The conversation keeps the run's user message once.
+
+The job's only argument is a request id. It reads and decrypts the answers
+itself, and clears a secret answer once the resume has run.
+Cancelling the run cancels its pending requests. `config.input_request_ttl`
+(one day by default, `nil` for no limit) sets how long a request waits. Past
+it, the request expires, the rest of its pause is cancelled, and the run
+fails. That happens when an answer arrives, when the request list or the
+run's page is read, or when `ActionAgent::InputRequestExpiryJob` runs. The job
+is not scheduled by default:
+
+```yaml
+# config/recurring.yml
+input_request_expiry:
+  class: ActionAgent::InputRequestExpiryJob
+  schedule: every 15 minutes
+```
+
+| Endpoint | What it does |
+|---|---|
+| `GET /api/input_requests` | The caller's pending requests, newest first. `status` (a status, or `all`), `agent_id` and `run_id` filter them. Each entry has the id, kind, prompt, options, tool name, a `confirm` request's arguments, the agent, the run id, the run's actor, `created_at` and `expires_at`, and never the answer or the checkpoint |
+| `POST /api/input_requests/:id/answer` | Answers with `answer`. A `confirm` request is approved by `true` or by no answer, and declined by `false` |
+| `POST /api/input_requests/:id/decline` | Declines: the paused tool does not run |
+
+`GET /api/runs/:id` lists the run's pending requests in the same shape. An
+answer or a decline returns:
+
+- **404** for a request of a run the caller cannot see. A request is found
+  through its run, so the list and `GET /api/runs/:id` show the same requests.
+- **403** when:
+  - `permission_checker` denies `:answer_input_request`. The checker receives
+    the request: its `subject` is the run, and its `requested_by_id` is the
+    run's actor when that is a user.
+  - no checker is set, the install is multi-tenant, and the signed-in user is
+    not the actor the request records, because the run acts as that actor.
+  - no user is signed in, in multi-tenant mode.
+  - `execution_enabled` is off, because settling a pause resumes the run. A
+    resume job that finds execution turned off fails the run.
+- **409** when the request is no longer pending or has expired. The body's
+  `status` says which, and an expired request fails its run.
+- **422** for a blank answer, a `choice` answer that is not one of the
+  options, a `secret` answer shorter than 8 characters, or a `confirm` answer
+  other than `true` or `false`. A secret is scrubbed from the run's records
+  wherever it appears inside a value, so a shorter one would also mask
+  unrelated text.
+
+**Callers that wait for a result.**
+
+- `POST /api/agents/:id/test` returns the paused run.
+- An MCP `run_<slug>` call returns the run id, the `awaiting_input` status and
+  the request ids.
+- `call_agent` returns `{ "error": "input_required", "questions": [...] }` to
+  the calling model and cancels the called agent's run.
+- An evaluation replay records "paused for input" as the scenario's error and
+  cancels the run.
+
+Pausing works on Anthropic and on the OpenAI Chat Completions-based providers.
+An `openai` agent uses the Responses API unless its credentials set
+`api_version: :chat`, and there a tool that asks fails the run with
+`ActiveAgent::InputRequest::UnsupportedProviderError`.
 
 ## Ask ActiveAgents
 
@@ -613,6 +725,8 @@ calls.
 | `evaluation_runs_compare` | Two runs of one evaluation, result by result: fixed, regressed, still failing, added, removed. Defaults to the latest run against the one before it |
 | `traces_search` | Summary rows of traces, newest first, filtered by `agent` (class name or dashboard slug), `status` (`error` or `ok`), `service`, `since_minutes`, `min_tokens` and `min_duration_ms`; at most 100 |
 | `traces_get` | One trace by id, OpenTelemetry trace id or its first 8 characters: spans, tool calls with their arguments and results, tokens, estimated cost and failed spans |
+| `input_requests_list` | The pending [input requests](#input-requests) of the key's runs, newest first, in the API's shape; `run_id` filters to one run |
+| `input_requests_answer` | Answers a `text` or `choice` request as the key's caller, under the same permission check as the API. A `confirm` or `secret` request is refused with an error that points to the dashboard |
 
 A typical loop: `evaluations_run`, poll `evaluation_runs_get` until the run is
 `complete`, read the fix items and a failing result's trace with
@@ -642,10 +756,100 @@ false` to leave the facade serving agents and schema tools only.
 
 ## GitHub connections and checkout sandboxes
 
-Settings -> **Integrations** connects the owner's GitHub account over OAuth.
-The owner then chooses which repositories the workspace may use. Register a
-[GitHub OAuth app](https://github.com/settings/developers) whose callback URL
-is `<mount>/api/github_connection/callback` (for example
+Settings -> **Integrations** gives checkout sandboxes access to GitHub
+repositories in one of two ways, and an install can offer both:
+
+- **A GitHub App installation.** An admin installs the dashboard's GitHub
+  App on the repositories they choose. Each checkout then gets its own token,
+  valid for an hour and limited to that one repository and to reading its
+  contents. Nothing stores the token.
+- **An OAuth connection.** One person connects their GitHub account, and
+  checkouts use that person's token, which carries the `repo` scope and does
+  not expire.
+
+In both, the owner then chooses which repositories the workspace may use, and
+the selection only keeps repositories GitHub itself lists. When a repository
+is selected both ways, its checkouts go through the installation.
+
+### A GitHub App
+
+Settings -> Integrations -> **Create GitHub App** registers the App for you
+on a single-tenant dashboard. It posts a manifest to GitHub (under your
+account, or under an organization you name), and GitHub returns to the
+dashboard, which shows the new App's id, slug, client id, client secret and
+private key once, with the lines to add to your configuration. The dashboard
+stores none of them. A multi-tenant platform registers its App per
+environment instead, and the button is not offered. The manifest goes to
+GitHub as a form post from the browser, so a host app whose content security
+policy sets `form-action` must allow `https://github.com`.
+
+To register it by hand, create a [GitHub App](https://github.com/settings/apps/new)
+with:
+
+- callback URL `<mount>/api/github_installations/callback` (for example
+  `https://example.com/activeagents/api/github_installations/callback`)
+- **Request user authorization (OAuth) during installation** turned on
+- **Redirect on update** turned on, so GitHub also returns after an
+  installation that already exists is reconfigured
+- repository permissions Contents (read and write), Pull requests (read and
+  write) and Metadata (read), and the organization permission Members (read)
+- no webhook, and no Workflows, Administration or Secrets permission
+
+Then configure it, and restart the dashboard:
+
+```ruby
+ActionAgent.configure do |config|
+  config.github_app_id = Rails.application.credentials.dig(:github_app, :id)
+  config.github_app_slug = Rails.application.credentials.dig(:github_app, :slug)
+  config.github_app_client_id = Rails.application.credentials.dig(:github_app, :client_id)
+  config.github_app_client_secret = Rails.application.credentials.dig(:github_app, :client_secret)
+  config.github_app_private_key = Rails.application.credentials.dig(:github_app, :private_key)
+end
+```
+
+Unset, each setting falls back to `GITHUB_APP_ID`, `GITHUB_APP_SLUG`,
+`GITHUB_APP_CLIENT_ID`, `GITHUB_APP_CLIENT_SECRET` and
+`GITHUB_APP_PRIVATE_KEY`. A private key written on one line with `\n` for
+its line breaks is read correctly. The dashboard offers the App once all five
+are set (`ActionAgent.github_app_configured?`).
+
+**Install the GitHub App** sends the admin to GitHub to pick the account and
+repositories. GitHub then returns to the callback, and the dashboard links the
+installation to the owner only when:
+
+- the return carries a state that this browser session issued to the
+  signed-in user, and a code from the App's user authorization (a return
+  missing either, such as an install started on GitHub itself or a return
+  from reconfiguring an installation that already existed, is sent through
+  the App's user authorization first), and
+- the installation appears in `GET /user/installations` for the authorizing
+  GitHub user, and that user is the user account it is installed on, or an
+  active admin of its organization.
+
+The authorizing user's token is used for those checks and then dropped. An
+installation is linked to one owner at most, and one owner may link several
+(a personal account and an organization, say). When a member asks an
+organization owner to approve the install, nothing is linked: once an owner
+of the organization approves it on GitHub, that owner links it from Settings.
+**Unlink** removes the installation from the dashboard; the App stays
+installed on GitHub. To link it again, choose **Install the GitHub App**,
+pick the account the App is installed on, and save its configuration on
+GitHub, which returns to the dashboard when the App has **Redirect on
+update** turned on. If GitHub does not return, uninstall the App from that
+account on GitHub and install it again from Settings.
+
+When GitHub refuses a token because the installation was removed or
+suspended, the dashboard marks the installation, and starting a sandbox from
+it asks for a reinstall. **Check again** on a marked installation asks
+GitHub once more, and the mark clears as soon as GitHub mints a token for it,
+as it does again once a suspended installation is unsuspended. An App
+uninstalled from an account comes back as a new installation when it is
+installed again; unlink the old one.
+
+### An OAuth connection
+
+Register a [GitHub OAuth app](https://github.com/settings/developers) whose
+callback URL is `<mount>/api/github_connection/callback` (for example
 `https://example.com/activeagents/api/github_connection/callback`), then
 configure it:
 
@@ -660,15 +864,20 @@ end
 
 Unset, both settings fall back to `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET`.
 The token is encrypted at rest like a provider key and is never returned to
-the browser. The selection only keeps repositories GitHub lists for that
-token.
+the browser.
+
+### Starting a sandbox
 
 **Start sandbox** on a selected repository creates an `app_runtime` sandbox
 session. A sandbox backend (see `ActionAgent.sandbox_backends`) does the
 following for that session:
 
 1. Reads `sandbox_session.checkout_spec`, which holds `repository`, `ref`,
-   `clone_url`, `username` and `token`, and clones it.
+   `clone_url`, `username` and `token`, and clones it. For a checkout through
+   a GitHub App installation, `SandboxProvisionJob` mints the token once,
+   just before it calls `create_sandbox`, and only the session object passed
+   to `create_sandbox` carries it. A backend reads the spec from that object;
+   a copy of the session loaded from the database carries no token.
 2. Boots the app. If the app mounts this engine, its MCP facade serves the
    app's agents and schema tools. A backend that takes a
    [boot spec](#bootstrapping-a-checkout-without-the-engine) can also install
@@ -682,6 +891,109 @@ runs and evaluations of that agent call the checkout's own tools. The lookup
 is scoped to the agent's owner, so one tenant cannot name another tenant's
 sandbox.
 
+### Opening a draft pull request
+
+A ready checkout sandbox has a **Pull request** card. **Open draft PR** reads
+what the checkout changed since it was cloned and shows:
+
+- every changed file, ticked when it may be published, and the reason when it
+  may not
+- the exact diff of the ticked files
+- the new branch's name, and the pull request's title and description
+
+These are never published, and the dialog names the file and the reason:
+
+- anything under `.github/` (the App asks for no Workflows permission)
+- symlinks, and submodules or nested repositories
+- a file over 1 MB
+- a file holding one of the sandbox's secrets (a stored checkout token, the
+  Claude Code and Codex credentials it runs with, its runtime's MCP token, the
+  OAuth connection's token) or anything shaped like a GitHub token. The value
+  is never shown.
+
+One publish carries at most 300 files and 10 MB of the ticked files. A
+preview reads at most 300 files and 20 MB (counting each file now and in the
+checkout commit), in path order. A file after that is listed as not read and
+cannot be ticked: **Only read paths matching** (`app/**, lib/*.rb`) reads
+the preview again with fewer files. A publish and a patch read only the files
+they were asked for.
+
+Files the repository ignores are not listed at all. A file is published as
+the bytes in the checkout: git's clean conversions do not run, so a
+repository whose `.gitattributes` sets `eol=crlf` or
+`working-tree-encoding`, or a filter such as Git LFS, gets the working-tree
+bytes rather than what `git add` would store. **Open draft PR** in the dialog
+sends each ticked file with the digest it was previewed at, and a file that
+changed since is refused, and the dialog reads the sandbox again. The publish
+then runs in `ActionAgent::DraftPullRequestJob`, from the dashboard's own
+process:
+
+1. It gets a token for the one repository: an installation token limited to
+   Contents and Pull requests write, minted now, or the OAuth connection's
+   token.
+2. It writes a blob per file, a tree on top of the checkout commit's tree,
+   and a commit whose parent is the checkout commit. The commit names no
+   author, so GitHub records it as the token's identity, and signs it for an
+   App.
+3. It creates the branch. A name that already exists on GitHub is refused,
+   and no branch is ever overwritten.
+4. It opens a draft pull request against the branch the sandbox checked out,
+   or the default branch when it checked out a tag or a commit.
+
+No git process ever holds that token. The sandbox backend only lists and
+reads files (`changed_files` and `read_file`, below), and several things can
+rewrite a checkout's `.git/config`, which decides where git sends a request
+and which programs it starts.
+
+**Update draft PR** publishes the ticked files as a new commit on the pull
+request's branch, as a fast-forward that is never forced, with the commit
+message the dialog asks for. The pull request's title and description stay
+as they are. The new commit's tree is the checkout commit's with the ticked
+files on top, so the pull request's diff on GitHub is the diff the dialog
+showed: a file the branch holds that the update leaves out returns to its
+content in the checkout commit, and the dialog names those files. A branch
+with commits the dashboard did not publish is not updated, and neither is a
+branch with no pull request.
+
+GitHub opens no draft pull request in a private repository of an account on
+GitHub Free. The branch is kept, the card links it on GitHub to compare, and
+**Open as a regular pull request** opens a regular one. The dashboard never
+does that on its own. When opening the pull request fails for another
+reason, the branch is kept the same way, and **Open the draft PR again**
+tries once more.
+
+A publish still queued or running 15 minutes after it last moved (its worker
+died, or none picked it up) is marked failed as stalled, and the sandbox can
+publish again.
+
+A publish goes ahead only when:
+
+- `ActionAgent.permission_checker` allows `:publish_pull_request`, asked when
+  the user publishes and again when the job runs
+- the sandbox is ready or running, since the publish reads its live checkout
+- something can write to the repository: the installation the sandbox
+  checked out through, while GitHub serves it with write permissions, or
+  the OAuth connection. The OAuth connection publishes only for the user who
+  connected it (a connection made before the dashboard recorded that user
+  must be connected again), and only with the `repo` scope, or `public_repo`
+  for a public repository. Its commit and pull request then appear as that
+  user.
+
+Where nothing can write, or GitHub refuses the write (403 or 404),
+**Download patch** opens the same dialog to choose filtered and scanned files
+for a patch for `git am` or `git apply`, built without any GitHub token. The
+card reads the pull request's state (open, closed, merged, draft) again at
+most once a minute. No agent tool, toolbox tool or MCP tool publishes. Run
+`rails g action_agent:install` and `rails db:migrate` for the
+`draft_pull_requests` table.
+
+| Endpoint | Does |
+|---|---|
+| `POST <mount>/api/sandboxes/:id/pull_request/preview` | the changed files, each with its refusal or its diff and digest; `allowlist:` limits what may be published to matching paths (`"app/**"`) |
+| `POST <mount>/api/sandboxes/:id/pull_request` | queues a publish of `files: [{ path:, digest: }]` with `title:`, `body:` and `branch:`; `update: true` publishes `files:` onto the last pull request's branch with `message:` as the commit message; `open: true` opens a draft pull request for a branch published without one, and `regular: true` a regular one. A second request while a publish is queued or running answers 409 |
+| `GET <mount>/api/sandboxes/:id/pull_request` | the latest pull request, and whether publishing is available and why not |
+| `GET <mount>/api/sandboxes/:id/pull_request/patch` | the patch of `paths[]`, or of every publishable file when one read covers them all |
+
 ### What a sandbox backend implements
 
 A backend registered in `ActionAgent.sandbox_backends` is a plain class.
@@ -693,8 +1005,8 @@ defines, and `orchestrator.supports?(:verb)` answers whether it defines one:
 | `create_sandbox(session)` | yes | `{ container_name:, url:, mcp_url:, mcp_token: }`. A backend that also takes `boot_config:` is handed a [boot spec](#boot-specs) as a plain Hash, and boots the checkout by it instead of by the checkout's `.activeagents/sandbox.yml` |
 | `status(handle)`, `terminate(handle)`, `list_sandboxes`, `cleanup_expired` | yes | a status hash, true, an array of status hashes, a count |
 | `run_code_session(session, code_session, &on_event)`, `cancel_code_session(session, code_session)` | no | `{ exit_status:, diff: }`, true |
-| `changed_files(session)` | no | `{ base_commit:, files: [{ path:, status:, mode: }] }`: what the checkout changed since it was cloned, read without running the checkout's git hooks, filters or configuration |
-| `read_file(session, path)` | no | the file's current bytes, or nil; a symlink reads as its target. `path` is always relative and inside the checkout |
+| `changed_files(session)` | no | `{ base_commit:, files: [{ path:, status:, mode:, base_mode:, size: }] }`: what the checkout changed since it was cloned, without the files the repository ignores, read without running the checkout's git hooks, filters or configuration (or a submodule's). `base_mode` and `size` are optional |
+| `read_file(session, path, base: false)` | no | the file's current bytes, or with `base: true` its bytes in the commit the checkout was cloned at; nil when nothing is there. A symlink reads as its target. `path` is always relative and inside the checkout, and `base:` is passed only when true. A backend whose `read_file` takes no `base:` cannot read the checkout commit, so it offers no publishing |
 | `start_browser(session, mode:)` | no | `{ mcp_url:, mcp_token: }` for a browser of the sandbox's own; `mode` is `:headless` or `:headed` |
 | `stop_browser(session)` | no | true, also when none was running |
 | `resume_boot(session, from:)` | no | what `create_sandbox` returns, after re-running a failed boot it kept from the step named `from` (nil for the step that failed). A backend that also takes `boot_config:` is handed the spec to continue with |
@@ -704,10 +1016,12 @@ defines, and `orchestrator.supports?(:verb)` answers whether it defines one:
 `session` is the `ActionAgent::SandboxSession`, and `handle` is the
 `container_name` that `create_sandbox` returned. Calling a verb the backend
 does not define raises `SandboxOrchestrator::UnsupportedBackendError`. The
-engine's `:local` backend defines `resume_boot`, `boot_status` and
-`boot_log`, and takes `boot_config:`. The `:mock` backend takes
-`boot_config:` and records it without the secrets' values. Neither defines
-the other optional verbs from `changed_files` down.
+engine's `:local` backend defines `changed_files`, `read_file`,
+`resume_boot`, `boot_status` and `boot_log`, and takes `boot_config:`. It
+reads the checkout commit object by object and refuses any object that does
+not hash to its id, since the checkout's object store is the sandbox's to
+write. The `:mock` backend takes `boot_config:` and records it without the
+secrets' values, and defines none of the optional verbs.
 
 ### Running against a sandbox without editing the agent
 
@@ -1075,8 +1389,17 @@ The manifest tells the backend where the booted app's MCP facade answers and
 which bearer token opens it:
 
 ```json
-{ "mcp_path": "/activeagents/mcp", "mcp_token": "aa_..." }
+{ "mcp_path": "/activeagents/mcp", "mcp_token": "aa_...",
+  "models": [{ "name": "Reservation", "table": "reservations",
+               "columns": [{ "name": "status", "type": "string" }] }] }
 ```
+
+`models` lists the app's own models under `app/models` that have a table,
+with their columns but `id` and those that look like they hold a secret
+(`password`, `digest`, `token`, `secret`, `api_key`, `otp`, `encrypted`,
+`ssn`). A project offers them for [choosing what the App assistant may
+read](#choosing-what-the-app-assistant-may-read). A backend reports them as
+`app_models` beside the MCP endpoint; a manifest without the key lists none.
 
 The engine ships `bin/rails action_agent:sandbox:manifest`, so every app that
 mounts it has the task. The task finds the engine's mount in the app's routes
@@ -1215,11 +1538,13 @@ the one above. `#to_h` is plain JSON, so a backend that boots somewhere else
 
 - A step with `unless_locked` is skipped when the checkout's lock, as checked
   out, locks that gem. One with `if_task` is skipped when the app defines no
-  such Rake task.
+  such Rake task. One with `"always": true` runs whether the spec applies or
+  not, so it cannot also have `unless_locked`.
 - With `"apply": "without_engine"` (what `bootstrap: "auto"` sends), a
   checkout that bundles the engine, names a `manifest` in its `sandbox.yml`,
   or has no `Gemfile.lock` boots as it would without a spec, except that the
-  spec's `secrets` are added to its `sandbox.yml` env. A backend whose
+  spec's `env` and `secrets` are added to its `sandbox.yml` env and its
+  `always` steps run after that file's `setup`. A backend whose
   `create_sandbox` takes no `boot_config:` is not handed such a spec, and
   boots as it always has. One with `"apply": "always"` is refused for that
   backend instead.
@@ -1232,6 +1557,20 @@ the one above. `#to_h` is plain JSON, so a backend that boots somewhere else
   that changes how Ruby, Bundler, Node or git load code: `RUBYOPT`,
   `RUBYLIB`, `LD_PRELOAD`, `DYLD_*`, `BUNDLE_*`, `GIT_*`, `PATH` and
   `NODE_OPTIONS`.
+- `SandboxBootSpec.bootstrap(steps: [...])` appends steps after
+  `db_prepare`. `SandboxBootSpec.installed` is the bootstrap without the
+  steps that install the engine (`bundle_config`, `add_framework`,
+  `add_engine`, `install_framework`, `install_engine`), applied always: a
+  project boots its install pull request's branch with it.
+- `SandboxBootSpec.schema_tools_steps(choices)` are `always` steps,
+  `schema_tools` and, when the commands outgrow one step, `schema_tools_2`
+  and on. They first remove every `app/agent_tools` file headed by
+  `ActiveAgent::SchemaTools::MANAGED_MARKER`, then run `bin/rails generate
+  active_agent:schema_tools <Model> --force --managed --filterable …
+  --returns …` for each choice whose file is not there. A file without the
+  marker is the repository's own and is left as it is. They refuse a name
+  that is not a model or column name, a column that looks like a secret, and
+  choices that need more than 10 steps.
 
 ### Following a boot
 
@@ -1572,7 +1911,11 @@ while it boots or serves, the current one resumed from the step that failed
 when its failed boot was kept, or a new one. A project boots from a
 `without_engine` bootstrap spec with `keep_on_failure`, carrying its secrets:
 a repository that lacks the engine is bootstrapped, and one that bundles it
-boots as its `sandbox.yml` says, with the secrets added to its env.
+boots as its `sandbox.yml` says, with the secrets added to its env. While the
+project's [install pull request](#the-install-pull-request) is open, a boot
+checks out its branch and runs `SandboxBootSpec.installed` instead, which
+installs nothing. Every boot also writes the schema tools chosen for the
+App assistant, including a boot from the repository's own `sandbox.yml`.
 
 On `:local`, the first boot of each project answers `409` with
 `"This runs <owner/repo>'s code on this machine as <user>."`. The same
@@ -1605,6 +1948,137 @@ instructions.
 its sandbox. A sandbox that has expired is booted again first, and the run
 stays pending until it serves. A boot that fails, or that is still booting
 after an hour, fails the run with the reason.
+
+### The setup assistant
+
+When a project's boot fails, the setup assistant tries to get it booting. It
+is a dashboard agent the engine defines for each project, and each run of it
+has exactly four tools, whatever its agent record names:
+
+| Tool | What it does |
+|---|---|
+| `read_step_log` | Without `step`, lists the failed boot's steps, the step that failed and the steps it can resume from. With `step`, returns a page of that step's log (at most 32 KB), scrubbed of the project's secrets |
+| `set_env` | Sets a variable whose value is not secret, as a project secret with the source `setup_assistant`. It refuses the names a project secret refuses, and a variable a person set |
+| `request_secret` | Asks a person for a secret, stored as the variable's project secret. The model never sees the value |
+| `retry_boot` | Boots again with the project's variables as they are now: resumes the kept boot from the step that failed (or from `from`), or boots a new sandbox. Once per run |
+
+It has no shell, reads no files and starts no code session, so a log the
+repository wrote can steer it no further than those tools. Only runs the
+project started count: the same agent run from the agents API gets none of
+them. Runs have no actor, so they use the organization's provider
+credentials rather than anyone's personal key.
+
+- A failed boot starts a run on its own, at most three times in a row before
+  a boot succeeds. `PATCH /api/projects/:id/setup` with `auto: false` turns
+  that off. `POST /api/projects/:id/setup` starts a run on demand, and needs
+  `:manage_project_secrets`, since its tools set the project's environment.
+- No run starts, by hand or on its own, while the last one is pending,
+  running, or waiting for an answer that has not expired. Asking answers
+  `409`.
+- A run needs agent execution on and a provider the owner has credentials
+  for. Without one, the project's `setup` summary says why, and the
+  Environment tab stays the way to set what the boot needs.
+- Each run is an execution: `ActionAgent.quota_checker` is asked about
+  `:execution` first, and it is recorded as one.
+- A `request_secret` question names who asks, the repository and the
+  variable, and says the value is handed to that repository's code.
+  Answering it needs `:manage_project_secrets` on top of what answering any
+  request needs. The answer reaches the resumed boot as a project secret, and
+  never the transcript, telemetry or a job argument.
+- Values `set_env` stores are not secret: a boot passes them as `env`, and
+  they are neither masked in logs nor refused in a published file. The
+  secrets API lists them with their value, so a person can check what the
+  assistant set, and refuses the source `setup_assistant` from anyone else
+  (`422`).
+
+### Requests for input on the Project page
+
+The Project page lists the requests for input waiting on runs of the
+project's setup assistant and of the agent it evaluates, and answers them in
+place through the [input requests API](#input-requests). The boot status
+reads "Waiting for you: N" while any wait.
+`GET /api/projects/:id/input_requests` lists them as `GET /api/input_requests`
+does, and the project summary counts them in `pending_input_requests`.
+
+### Choosing what the App assistant may read
+
+A project evaluated with the App assistant chooses which of the app's models
+the assistant may read, and which columns of each it may filter on and read
+back. Each boot's [manifest](#the-manifest-task) lists the models.
+
+| Endpoint | What it does |
+|---|---|
+| `GET /api/projects/:id/app_models` | The models and columns the last boot listed, with the choices so far. `409` before a boot listed any |
+| `PUT /api/projects/:id/schema_tools` | Stores `schema_tools: [{ model:, filterable: [], returns: [] }]`, each a model and columns the boot listed. With `apply: true`, the running sandbox is replaced by a new boot now |
+
+Every boot after that writes `app/agent_tools/<model>_tools.rb` with
+`active_agent:schema_tools` (see [Boot specs](#boot-specs)), declaring only
+the chosen columns, so the choices survive a sandbox's expiry. That holds
+once the repository bundles the engine too, when it boots from its own
+`sandbox.yml`. A model taken off the list loses the file a boot wrote for it.
+The App assistant's sandbox server has no tool allowlist, so its tools are
+whatever the facade serves, the new schema tools among them. The
+generator's `--filterable` and `--returns` options write a declared list
+rather than the commented suggestions.
+
+Each file the dashboard writes starts with a comment naming
+`ActiveAgent::SchemaTools::MANAGED_MARKER`. Boots rewrite and remove only
+files that carry it: a tools file the repository wrote itself is left as it
+is, even for a chosen model. Deleting the comment keeps a published file's
+edits from being overwritten.
+
+### The install pull request
+
+A project whose sandbox installed the engine can publish that install as a
+draft pull request, through the same publisher as
+[Opening a draft pull request](#opening-a-draft-pull-request): from the
+dashboard's own process, with a token minted when it publishes, after the
+dialog shows the exact diff.
+
+| Endpoint | What it does |
+|---|---|
+| `GET /api/projects/:id/install_pull_request` | The pull request, its state read from GitHub at most once a minute, and the allowlist |
+| `POST /api/projects/:id/install_pull_request/preview` | Every file the sandbox changed or the project generates, each with its refusal or its diff |
+| `POST /api/projects/:id/install_pull_request` | `{ title, body, branch, files }` opens it. `{ update: true, files, message }` adds a commit to its branch. `{ open: true }` or `{ regular: true }` opens a pull request for a branch published without one |
+| `GET /api/projects/:id/install_pull_request/patch` | The chosen files as a patch |
+
+Publishing needs `:publish_pull_request` and a live sandbox. A request made
+while none serves boots one and answers `202`. Only these paths are
+published:
+
+- `Gemfile` and `Gemfile.lock`
+- `config/initializers/action_agent.rb` and `config/routes.rb`
+- `config/active_agent.yml` and `app/agents/application_agent.rb`, when the
+  bootstrap generated them (the repository locked no `activeagent`)
+- the migrations `action_agent:install` emits, matched by their whole name
+  after the timestamp (`add_agent_releases`, `create_active_agent_projects`,
+  …)
+- `db/schema.rb` or `db/structure.sql`
+- `app/agent_tools/<model>_tools.rb` for every model the App assistant was
+  given, so that a file a boot removed is removed on the branch too
+- `.activeagents/sandbox.yml`: the checkout's own, if it has one, with the
+  setup commands that booted the project and its secrets' names under
+  `secrets:`, never their values. Values the setup assistant set stay with
+  the project, which passes them to every boot
+- `.activeagents/evals/<project>.yml`: the project evaluation's enabled
+  scenarios, as a suite `ActiveAgent::Evals::Suite.load` reads
+
+The last two are generated by the dashboard. Anything else the sandbox
+changed, anything under `.github/`, and any file holding one of the
+project's secrets or a GitHub token is refused.
+
+A publish has to take every one of the `Gemfile`, `Gemfile.lock`, the
+initializer, `config/routes.rb`, the schema and the engine migrations that
+the sandbox changed: boots of the branch install nothing, so they need them
+all. Leaving one out answers `422` with the code `incomplete_install`. The
+patch download is limited to the same paths.
+
+Once the pull request exists, each boot checks out its branch and installs
+nothing. **Update draft PR** publishes from the sandbox running then: a
+sandbox of the branch adds its commit on top of the branch as it checked it
+out. When GitHub reports the pull request merged, the project counts as
+installed, and later boots check out its own branch, which bundles the
+engine now. A closed pull request leaves the project bootstrapping again.
 
 ## Authentication
 
@@ -1677,11 +2151,11 @@ end
 | Action | Asked by |
 |---|---|
 | `:manage_credentials` | storing, testing and deleting a provider credential (`POST /api/provider_keys`, `POST /api/provider_keys/test`, `DELETE /api/provider_keys/:provider`), and having a project's secret use the organization's provider key (asked about that `ProviderKey`) |
-| `:manage_github` | connecting GitHub, choosing its repositories, and disconnecting it (`GET /api/github_connection/connect` and `/callback`, `PATCH` and `DELETE /api/github_connection`), and reading a repository the connection has not selected or creating a project from one (`GET /api/projects/preflight`, `GET /api/projects/discover_secrets`, `POST /api/projects`) |
+| `:manage_github` | connecting GitHub, choosing its repositories, and disconnecting it (`GET /api/github_connection/connect` and `/callback`, `PATCH` and `DELETE /api/github_connection`); installing and linking the GitHub App, listing and choosing an installation's repositories, and unlinking it (`GET /api/github_installations/install` and `/callback`, `GET /api/github_installations/:id/repositories`, `PATCH` and `DELETE /api/github_installations/:id`); creating the App from a manifest (`POST /api/github_app_manifest`, `GET /api/github_app_manifest/callback`); and reading a repository the connection has not selected or creating a project from one (`GET /api/projects/preflight`, `GET /api/projects/discover_secrets`, `POST /api/projects`) |
 | `:manage_api_keys` | creating and revoking dashboard API keys (`POST /api/api_keys`, `DELETE /api/api_keys/:id`) |
-| `:publish_pull_request` | reserved: opening a pull request from a sandbox |
-| `:answer_input_request` | reserved: answering a run's request for input |
-| `:manage_project_secrets` | setting, replacing and removing a project's secrets (`POST /api/projects` with `secrets`, `PUT /api/projects/:id/secrets`, `PUT` and `DELETE /api/projects/:id/secrets/:name`), changing the ref they are handed to (`PATCH /api/projects/:id` with `default_ref`) and deleting a project that has them (`DELETE /api/projects/:id`). Always asked about a `ProjectSecret` |
+| `:publish_pull_request` | opening and updating a pull request from a sandbox (`POST /api/sandboxes/:id/pull_request`) or a project's install pull request (`POST /api/projects/:id/install_pull_request`), asked again when the publish runs |
+| `:answer_input_request` | answering or declining a paused run's request for input (`POST /api/input_requests/:id/answer` and `/decline`, and the MCP `input_requests_answer` tool) |
+| `:manage_project_secrets` | setting, replacing and removing a project's secrets (`POST /api/projects` with `secrets`, `PUT /api/projects/:id/secrets`, `PUT` and `DELETE /api/projects/:id/secrets/:name`), changing the ref they are handed to (`PATCH /api/projects/:id` with `default_ref`), deleting a project that has them (`DELETE /api/projects/:id`), starting the setup assistant or switching its automatic runs (`POST` and `PATCH /api/projects/:id/setup`), and answering its `request_secret`. Always asked about a `ProjectSecret` |
 | `:take_over_browser` | reserved: driving a run's browser by hand |
 | `:manage_recordings` | reserved: viewing and deleting session recordings |
 | `:replace_scenarios` | reserved: replacing an evaluation's scenarios |
@@ -1690,13 +2164,16 @@ The list is `ActionAgent::PERMISSION_ACTIONS`. `ActionAgent.permitted?(user,
 action, subject)` asks the checker the same way the endpoints do, and raises
 `ArgumentError` for an action outside the list. Reading a setting is not a
 privileged action, so the `GET` endpoints that list keys or the connection
-are not checked. The connect and callback navigations return a refusal to
-Settings (`?github=forbidden`) rather than as JSON.
+are not checked. Listing an installation's repositories is: the installation
+can reach repositories a member cannot see on GitHub. The connect, install and callback navigations return a
+refusal to Settings (`?github=forbidden` or `?github_app=forbidden`) rather
+than as JSON.
 
 Unset, anyone who passes authentication may perform every action, which
 suits a single-user install. In multi-tenant mode that is every member of
 every tenant, so the engine logs a warning at boot when `multi_tenant` is on
-and no checker is set. With a checker set:
+and no checker is set. The one exception is a run's request for input that
+records the run's actor: in multi-tenant mode only that actor may answer it. With a checker set:
 
 - An exception raised by the checker denies the action, and is logged.
 - In multi-tenant mode, a request with no signed-in user is denied without

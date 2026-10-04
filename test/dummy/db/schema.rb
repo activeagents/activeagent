@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 19) do
+ActiveRecord::Schema[8.0].define(version: 23) do
   create_table "active_agent_agent_contexts", force: :cascade do |t|
     t.string "action_name", null: false
     t.string "agent_name", null: false
@@ -156,6 +156,7 @@ ActiveRecord::Schema[8.0].define(version: 19) do
     t.json "action_prompts", default: [], null: false
     t.string "agent_class_name"
     t.json "appearance", default: {}
+    t.json "approval_required_tools"
     t.datetime "created_at", null: false
     t.text "description"
     t.datetime "first_observed_at"
@@ -221,6 +222,37 @@ ActiveRecord::Schema[8.0].define(version: 19) do
     t.index [ "account_id" ], name: "index_active_agent_code_sessions_on_account_id"
     t.index [ "sandbox_session_id" ], name: "index_active_agent_code_sessions_on_sandbox_session_id"
     t.index [ "user_id" ], name: "index_active_agent_code_sessions_on_user_id"
+  end
+
+  create_table "active_agent_draft_pull_requests", force: :cascade do |t|
+    t.bigint "account_id"
+    t.string "base_branch"
+    t.string "base_commit", null: false
+    t.text "body"
+    t.string "branch", null: false
+    t.text "commit_message"
+    t.string "compare_url"
+    t.datetime "created_at", null: false
+    t.string "credential_kind"
+    t.boolean "draft"
+    t.string "error_code"
+    t.text "error_message"
+    t.json "files"
+    t.string "head_commit"
+    t.datetime "last_checked_at"
+    t.integer "number"
+    t.string "operation", default: "create", null: false
+    t.string "repository", null: false
+    t.bigint "sandbox_session_id", null: false
+    t.string "state"
+    t.string "status", default: "queued", null: false
+    t.string "title", null: false
+    t.datetime "updated_at", null: false
+    t.string "url"
+    t.bigint "user_id"
+    t.index [ "account_id" ], name: "index_active_agent_draft_pull_requests_on_account"
+    t.index [ "sandbox_session_id" ], name: "index_active_agent_draft_pull_requests_on_sandbox_session"
+    t.index [ "user_id" ], name: "index_active_agent_draft_pull_requests_on_user"
   end
 
   create_table "active_agent_evaluation_runs", force: :cascade do |t|
@@ -310,6 +342,54 @@ ActiveRecord::Schema[8.0].define(version: 19) do
     t.bigint "user_id"
     t.index [ "account_id" ], name: "index_active_agent_github_connections_on_account_id"
     t.index [ "user_id" ], name: "index_active_agent_github_connections_on_user_id"
+  end
+
+  create_table "active_agent_github_installations", force: :cascade do |t|
+    t.bigint "account_id"
+    t.datetime "created_at", null: false
+    t.bigint "github_account_id", null: false
+    t.string "github_account_login", null: false
+    t.string "github_account_type", null: false
+    t.bigint "installation_id", null: false
+    t.json "permissions"
+    t.datetime "removed_at"
+    t.json "repositories"
+    t.string "repository_selection"
+    t.datetime "suspended_at"
+    t.datetime "updated_at", null: false
+    t.bigint "user_id"
+    t.index [ "account_id" ], name: "index_active_agent_github_installations_on_account"
+    t.index [ "installation_id" ], name: "index_active_agent_github_installations_on_installation", unique: true
+    t.index [ "user_id" ], name: "index_active_agent_github_installations_on_user"
+  end
+
+  create_table "active_agent_input_requests", force: :cascade do |t|
+    t.bigint "account_id"
+    t.text "answer"
+    t.json "answer_schema"
+    t.datetime "answered_at"
+    t.bigint "answered_by_id"
+    t.json "arguments"
+    t.text "checkpoint"
+    t.datetime "created_at", null: false
+    t.datetime "expires_at"
+    t.string "kind", null: false
+    t.json "options"
+    t.string "pause_key", null: false
+    t.text "prompt", null: false
+    t.bigint "requested_by_id"
+    t.integer "status", default: 0, null: false
+    t.bigint "subject_id", null: false
+    t.string "subject_type", null: false
+    t.string "tool_call_id"
+    t.string "tool_name"
+    t.datetime "updated_at", null: false
+    t.bigint "user_id"
+    t.index [ "account_id" ], name: "index_active_agent_input_requests_on_account_id"
+    t.index [ "pause_key" ], name: "index_active_agent_input_requests_on_pause_key"
+    t.index [ "status", "expires_at" ], name: "index_active_agent_input_requests_on_status_and_expires_at"
+    t.index [ "subject_type", "subject_id" ], name: "idx_on_subject_type_subject_id_d502213c76"
+    t.index [ "user_id" ], name: "index_active_agent_input_requests_on_user_id"
   end
 
   create_table "active_agent_project_secrets", force: :cascade do |t|
@@ -415,6 +495,7 @@ ActiveRecord::Schema[8.0].define(version: 19) do
     t.datetime "created_at", null: false
     t.text "error_message"
     t.datetime "expires_at"
+    t.bigint "github_installation_id"
     t.datetime "last_activity_at"
     t.integer "max_runs", default: 10
     t.json "mcp_servers", default: []
@@ -433,6 +514,7 @@ ActiveRecord::Schema[8.0].define(version: 19) do
     t.integer "total_tokens", default: 0
     t.datetime "updated_at", null: false
     t.bigint "user_id"
+    t.index [ "github_installation_id" ], name: "index_active_agent_sandbox_sessions_on_github_installation"
     t.index [ "project_id" ], name: "index_active_agent_sandbox_sessions_on_project_id"
     t.index [ "session_id" ], name: "index_active_agent_sandbox_sessions_on_session_id", unique: true
     t.index [ "user_id" ], name: "index_active_agent_sandbox_sessions_on_user_id"

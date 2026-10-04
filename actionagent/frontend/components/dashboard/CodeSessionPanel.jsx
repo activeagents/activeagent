@@ -283,7 +283,7 @@ export default function CodeSessionPanel({ sandbox, claudeCode, codex, onRecheck
     <div className={`mt-2 p-3 rounded-lg border space-y-3 ${border}`}>
       <div className="flex items-center justify-between">
         <p className={`text-sm font-medium ${strong}`}>Code sessions</p>
-        <p className={`text-xs ${muted}`}>Edits this checkout; nothing is committed or pushed.</p>
+        <p className={`text-xs ${muted}`}>A session edits this checkout and never commits or pushes. Publishing is a separate step, below.</p>
       </div>
 
       <div className="space-y-2">

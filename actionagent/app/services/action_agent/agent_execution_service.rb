@@ -45,8 +45,14 @@ module ActionAgent
     HISTORY_TURN_LIMIT = 40
     HISTORY_CHAR_BUDGET = 60_000
 
-    def self.call(agent_record, run)
-      new(agent_record, run).call
+    # +resume+ continues a run that paused for input (AgentResumeJob):
+    #
+    #   checkpoint  the checkpoint the pause stored
+    #   answers     an answer per paused tool call id; false declines
+    #   secrets     the pause's `:secret` answers, scrubbed from everything
+    #               this execution records
+    def self.call(agent_record, run, resume: nil)
+      new(agent_record, run, resume: resume).call
     end
 
     # Returns the providers in Agent::PROVIDERS a run on +owner+'s behalf has
@@ -64,12 +70,19 @@ module ActionAgent
 
     # +owner+ is whose provider credentials the run uses: the agent record's
     # owner unless given.
-    def initialize(agent_record, run, owner: nil)
+    def initialize(agent_record, run, owner: nil, resume: nil)
       @agent_record = agent_record
       @run = run
       @owner = owner
+      @resume = resume
+      @secrets = Array(resume&.dig(:secrets)).map(&:to_s)
       @tool_invocations = []
-      @event_sequence = 0
+      @event_sequence = resume ? recorded_event_count : 0
+    end
+
+    # Whether this execution continues a run that paused for input.
+    def resuming?
+      !@resume.nil?
     end
 
     # Returns the providers in Agent::PROVIDERS the owner's credentials, or
@@ -90,6 +103,7 @@ module ActionAgent
     # Emits a progress event on the run (streamed to the UI by pollers).
     # Never lets telemetry break execution.
     def emit_event(**kwargs)
+      kwargs[:detail] = scrub_secrets(kwargs[:detail]) if kwargs.key?(:detail)
       @run.append_event(**kwargs)
     rescue StandardError => e
       Rails.logger.warn("[AgentExecutionService] event emit failed: #{e.message}")
@@ -115,7 +129,9 @@ module ActionAgent
       @agent_record.ensure_executable!
       mcp_dispatcher.ensure_extra_servers_live!
       root_span = @root_span = build_root_span
-      record_prompt_span(root_span)
+      # A resumed segment sends the conversation its pause stored; the prompt
+      # span of the run's first segment already shows it.
+      record_prompt_span(root_span) unless resuming?
       llm_span = root_span.add_span(
         "llm.generate",
         span_type: :llm,
@@ -141,13 +157,17 @@ module ActionAgent
           duration_ms: ((Process.clock_gettime(Process::CLOCK_MONOTONIC) - llm_started) * 1000).round,
           detail: "#{input} in / #{output} out tokens#{thinking.positive? ? " / #{thinking} thinking" : ""}"
         )
+        paused = response.respond_to?(:awaiting_input?) && response.awaiting_input?
         tool_calls = record_tool_spans(root_span, response)
-        persist_tool_messages(response)
+        # A paused turn's calls have no results yet; the segment that
+        # finishes the run persists the whole exchange once.
+        persist_tool_messages(response) unless paused
         sync_context_instructions
+        root_span.set_attribute("agent.awaiting_input", true) if paused
         root_span.finish
 
-        {
-          output: response.message&.content,
+        result = {
+          output: paused ? nil : response.message&.content,
           metadata: {
             provider: provider.to_s,
             model: model,
@@ -156,7 +176,7 @@ module ActionAgent
             requested_provider: @agent_record.provider,
             trace_id: root_span.trace_id,
             context_id: conversation_context&.id,
-            tool_calls: tool_calls
+            tool_calls: earlier_tool_calls + tool_calls
           },
           usage: {
             input_tokens: input,
@@ -164,6 +184,8 @@ module ActionAgent
             total_tokens: usage&.total_tokens || input + output + thinking
           }
         }
+        result.merge!(input_requests: response.input_requests, checkpoint: response.checkpoint) if paused
+        result
       rescue StandardError => e
         llm_span.record_error(e)
         llm_span.finish
@@ -238,12 +260,13 @@ module ActionAgent
     # rows, keyed by tool_call_id, and this is a no-op.
     def persist_tool_invocations(context, response)
       return unless context.respond_to?(:add_tool_message)
-      return if @tool_invocations.empty?
+      return if response.try(:awaiting_input?)
+      return if completed_tool_invocations.empty?
       return if Array(response.respond_to?(:messages) ? response.messages : nil).any? do |message|
         message.respond_to?(:role) && message.role.to_s == "tool"
       end
 
-      @tool_invocations.each do |invocation|
+      completed_tool_invocations.each do |invocation|
         context.add_tool_message(
           tool_call_id: nil,
           tool_name: invocation[:name],
@@ -275,12 +298,19 @@ module ActionAgent
       @run_params ||= (@run.input_params || {}).with_indifferent_access
     end
 
+    # A resumed run keeps the provider and model it paused on: its checkpoint
+    # holds that provider's native messages, even if the agent was edited
+    # since.
     def requested_provider
-      @requested_provider ||= (run_params[:provider_override].presence || @agent_record.provider).to_s
+      @requested_provider ||= (paused_metadata["provider"].presence || run_params[:provider_override].presence || @agent_record.provider).to_s
     end
 
     def requested_model
-      @requested_model ||= run_params[:model_override].presence || @agent_record.model
+      @requested_model ||= paused_metadata["model"].presence || run_params[:model_override].presence || @agent_record.model
+    end
+
+    def paused_metadata
+      resuming? ? @run.output_metadata.to_h : {}
     end
 
     # Returns the provider used for this execution, or raises when its
@@ -316,6 +346,11 @@ module ActionAgent
     # Each call is wrapped in a live :tool span (real start/end around the
     # execution) and recorded in @tool_invocations so tool names, arguments
     # and durations reach Traces and the persisted conversation.
+    #
+    # A call that asks a person returns an ActiveAgent::InputRequest, which
+    # pauses the run: the input tools, and any tool on the agent's
+    # approval_required_tools until its call is approved. The span and the
+    # run's events mark such a call as awaiting rather than done.
     def execute_tool(name, **kwargs)
       forged = kwargs.slice(*ACTOR_KEYWORDS)
       if forged.any?
@@ -327,11 +362,12 @@ module ActionAgent
       # path the model passed — spans/events/persisted args stay unambiguous.
       kwargs[:url] = AgentToolbox.resolve_browse_url(kwargs[:url]) if name.to_s == "browse_page" && kwargs[:url]
 
+      tool_call_id = ActiveAgent::InputRequest.current_tool_call_id
       span = @root_span&.add_span("tool.#{name}", span_type: :tool)
       span&.set_attribute("tool.name", name.to_s)
       # tool.input.args is the key the Traces UI and TraceInteractionSerializer
       # read — the call's in: side.
-      span&.set_attribute("tool.input.args", kwargs.to_json.byteslice(0, 500).to_s.scrub) if kwargs.present?
+      span&.set_attribute("tool.input.args", scrub_secrets(kwargs.to_json).byteslice(0, 500).to_s.scrub) if kwargs.present?
       started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
 
       event_kind = name.to_s == "call_agent" ? "agent" : "tool"
@@ -340,39 +376,20 @@ module ActionAgent
       emit_event(eid: event_id, kind: event_kind, label: event_label, status: "started", detail: kwargs.to_json)
 
       result = begin
-        case name.to_s
-        when "save_memory"
-          entry = agent_memory.remember(
-            kwargs[:content].to_s,
-            source_agent: agent_class_name,
-            category: kwargs[:category]
-          )
-          { saved: true, id: entry.id, content: entry.content }
-        when "recall_memory"
-          entries = agent_memory.recall(limit: kwargs[:limit], category: kwargs[:category])
-          {
-            count: entries.size,
-            entries: entries.map do |entry|
-              {
-                content: entry.content,
-                category: entry.category,
-                source_agent: entry.source_agent,
-                created_at: entry.created_at&.iso8601
-              }.compact
-            end
-          }
-        when "call_agent"
-          call_agent(slug: kwargs[:slug], message: kwargs[:message])
-        else
-          # A tool one of the agent's own MCP servers serves is called there;
-          # AgentToolbox answers the rest.
-          # `actor:` comes from the run, never from kwargs (see
-          # ACTOR_KEYWORDS): it is who the run is for, not what it is about.
-          mcp_dispatcher.call(name, kwargs) || AgentToolbox.call(name, actor: actor, **kwargs)
-        end
+        approval_request(name, kwargs, tool_call_id) || dispatch_tool(name, kwargs, tool_call_id)
       rescue StandardError => e
-        Rails.logger.warn("[AgentExecutionService] Tool #{name} failed: #{e.class} - #{e.message}")
-        { error: "#{name} failed: #{e.message}" }
+        message = scrub_secrets(e.message)
+        Rails.logger.warn("[AgentExecutionService] Tool #{name} failed: #{e.class} - #{message}")
+        { error: "#{name} failed: #{message}" }
+      end
+      result = scrub_secrets(result)
+
+      if result.is_a?(ActiveAgent::InputRequest)
+        span&.set_attribute("tool.awaiting_input", true)
+        span&.finish
+        emit_event(eid: event_id, kind: event_kind, label: event_label, status: "awaiting", detail: result.prompt)
+        @tool_invocations << { name: name.to_s, arguments: kwargs, tool_call_id: tool_call_id, awaiting_input: true }
+        return result
       end
 
       duration_ms = ((Process.clock_gettime(Process::CLOCK_MONOTONIC) - started) * 1000).round(2)
@@ -397,6 +414,7 @@ module ActionAgent
       @tool_invocations << {
         name: name.to_s,
         arguments: kwargs,
+        tool_call_id: tool_call_id,
         result: result,
         duration_ms: duration_ms,
         error: errored
@@ -406,6 +424,155 @@ module ActionAgent
     end
 
     private
+
+    # Routes one tool call to its implementation. A run with an engine
+    # toolset reaches that toolset and request_secret, and nothing else.
+    def dispatch_tool(name, kwargs, tool_call_id)
+      if engine_toolset
+        return request_secret(tool_call_id, kwargs) if name.to_s == "request_secret"
+
+        return engine_toolset.call(name.to_s, kwargs)
+      end
+
+      case name.to_s
+      when "ask_user" then ask_user(tool_call_id, kwargs)
+      when "request_approval" then request_approval(tool_call_id, kwargs)
+      when "request_secret" then request_secret(tool_call_id, kwargs)
+      when "save_memory"
+        entry = agent_memory.remember(
+          kwargs[:content].to_s,
+          source_agent: agent_class_name,
+          category: kwargs[:category]
+        )
+        { saved: true, id: entry.id, content: entry.content }
+      when "recall_memory"
+        entries = agent_memory.recall(limit: kwargs[:limit], category: kwargs[:category])
+        {
+          count: entries.size,
+          entries: entries.map do |entry|
+            {
+              content: entry.content,
+              category: entry.category,
+              source_agent: entry.source_agent,
+              created_at: entry.created_at&.iso8601
+            }.compact
+          end
+        }
+      when "call_agent"
+        call_agent(slug: kwargs[:slug], message: kwargs[:message])
+      else
+        # A tool one of the agent's own MCP servers serves is called there;
+        # AgentToolbox answers the rest.
+        # `actor:` comes from the run, never from kwargs (see
+        # ACTOR_KEYWORDS): it is who the run is for, not what it is about.
+        mcp_dispatcher.call(name, kwargs) || AgentToolbox.call(name, actor: actor, **kwargs)
+      end
+    end
+
+    # A confirm request for a call to a tool on the agent's approval list,
+    # until a person approved that call. A declined call is never dispatched
+    # again, so it does not reach this. The input tools ask on their own and
+    # are never gated.
+    def approval_request(name, kwargs, tool_call_id)
+      return nil if AgentToolbox::INPUT_FUNCTIONS.include?(name.to_s)
+      return nil unless @agent_record.approval_required_tools.include?(name.to_s)
+      return nil if ActiveAgent::InputRequest.answer_for(tool_call_id) == true
+
+      ActiveAgent::InputRequest.confirm("Allow #{name} to run?", metadata: { arguments: kwargs })
+    end
+
+    # Asks a question, or, with options, for one of them. Dispatched again
+    # with the answer, it returns that answer as the call's result.
+    def ask_user(tool_call_id, kwargs)
+      answer = ActiveAgent::InputRequest.answer_for(tool_call_id)
+      return { answer: answer } unless answer.nil?
+
+      question = kwargs[:question].to_s
+      options = Array(kwargs[:options]).map(&:to_s).reject(&:blank?)
+      return ActiveAgent::InputRequest.text(question) if options.empty?
+
+      ActiveAgent::InputRequest.choice(question, options: options)
+    end
+
+    # Asks a person to approve the action the model describes.
+    def request_approval(tool_call_id, kwargs)
+      return { approved: true } if ActiveAgent::InputRequest.answer_for(tool_call_id) == true
+
+      ActiveAgent::InputRequest.confirm(kwargs[:action].to_s, metadata: { arguments: kwargs })
+    end
+
+    # Asks a person for a secret and, dispatched again with it, hands the
+    # value to the agent's registered handler (SecretRequests). The model
+    # reads only that it was provided.
+    def request_secret(tool_call_id, kwargs)
+      handler = SecretRequests.handler_for(@agent_record)
+      return { error: "request_secret is not available to this agent" } unless handler
+
+      name = kwargs[:name].to_s
+      value = ActiveAgent::InputRequest.answer_for(tool_call_id)
+      if value.nil?
+        refusal = SecretRequests.refusal(@agent_record, run: @run, name: name)
+        return { error: refusal } if refusal
+
+        return ActiveAgent::InputRequest.secret(
+          SecretRequests.prompt(@agent_record, run: @run, name: name, prompt: kwargs[:prompt].presence || "Provide #{name}")
+        )
+      end
+
+      arguments = { run: @run, name: name, value: value.to_s }
+      arguments[:tool_call_id] = tool_call_id if takes_keyword?(handler, :tool_call_id)
+      handler.call(**arguments)
+      { provided: true, name: name }
+    end
+
+    # Whether +callable+ (a block, or an object's #call) takes +keyword+.
+    def takes_keyword?(callable, keyword)
+      parameters = callable.is_a?(Proc) ? callable.parameters : callable.method(:call).parameters
+      parameters.any? { |type, name| type == :keyrest || (%i[key keyreq].include?(type) && name == keyword) }
+    end
+
+    # The names of the tools the run's earlier segments called, for a resumed
+    # run's metadata; empty for a run's first segment.
+    def earlier_tool_calls
+      return [] unless resuming?
+
+      Array(@run.output_metadata.to_h["tool_calls"])
+    end
+
+    # How many progress events the run already holds, so a resumed segment's
+    # event ids do not repeat its earlier segments'.
+    def recorded_event_count
+      Array(@run.logs).count { |entry| entry.is_a?(Hash) && entry.key?("eid") }
+    end
+
+    # Returns +value+ with every secret answer this execution was given
+    # replaced by ActiveAgent::InputRequest::FILTERED.
+    def scrub_secrets(value)
+      @secrets.empty? ? value : ActiveAgent::InputRequest.scrub(value, @secrets)
+    end
+
+    # Returns a flattened span with the secrets scrubbed from its attribute
+    # values, status message and events. Its ids, name and every key are kept
+    # whole, so a secret can never break the span's links to its parent.
+    def scrub_span(span)
+      return span if @secrets.empty?
+
+      span.merge(
+        "attributes" => scrub_values(span["attributes"]),
+        "status_message" => scrub_secrets(span["status_message"]),
+        "events" => scrub_values(span["events"])
+      )
+    end
+
+    # Returns +value+ with the secrets scrubbed from the values at any depth
+    # of a Hash or Array, and every Hash key as it is.
+    def scrub_values(value)
+      case value
+      when Hash then value.transform_values { |item| scrub_values(item) }
+      when Array then value.map { |item| scrub_values(item) }
+      else scrub_secrets(value)
+      end
+    end
 
     # Maximum agent-to-agent delegation depth for the call_agent tool. A
     # thread-local counter guards it because the sub-agent runs synchronously
@@ -456,6 +623,8 @@ module ActionAgent
       Thread.current[:agent_call_depth] = depth + 1
       begin
         sub_run = target.test_execute(message.to_s)
+        return delegated_input_required(target, sub_run) if sub_run.awaiting_input?
+
         {
           agent: target.slug,
           run_id: sub_run.id,
@@ -465,6 +634,24 @@ module ActionAgent
       ensure
         Thread.current[:agent_call_depth] = depth
       end
+    end
+
+    # A called agent that paused to ask a person cannot be resumed from here:
+    # nothing holds its checkpoint once this call returns. Its requests are
+    # cancelled, and its questions go back to the calling model, in the
+    # shape a framework delegation that paused returns.
+    def delegated_input_required(target, sub_run)
+      questions = sub_run.input_requests.pending.order(:id).pluck(:prompt)
+      sub_run.cancel!("Paused for input, which an agent called with call_agent cannot do")
+
+      {
+        error: "input_required",
+        agent: target.slug,
+        run_id: sub_run.id,
+        questions: questions,
+        message: "#{target.slug} stopped to ask the user for input, which an agent called with call_agent cannot do. " \
+                 "Answer with the information you already have, or ask the user yourself."
+      }
     end
 
     # Keeps the persisted context's instructions current so the Interactions
@@ -532,6 +719,7 @@ module ActionAgent
       if (host_class = resolved_host_class)
         return run_host_class(host_class, actor: actor, action: action, run_trace_id: run_trace_id)
       end
+      resume = @resume
 
       agent_class = Class.new(ActiveAgent::Base) do
         # SolidAgent persists contexts under self.class.name; anonymous
@@ -593,7 +781,8 @@ module ActionAgent
             load_context(contextable: agent_record)
           end
 
-          options = { messages: service.prompt_messages }
+          # A resume replaces the conversation with its checkpoint's.
+          options = { messages: resume ? [] : service.prompt_messages }
           options[:instructions] = instructions if instructions.present?
           options[:tools] = tool_definitions if tool_definitions.present?
           prompt(**options)
@@ -608,12 +797,24 @@ module ActionAgent
         # run detail API finds the run's slice of the conversation), with
         # the attachment manifest alongside.
         define_method(:persist_prompt_to_context) do
+          return if resuming?
+
           text = service.user_text
           return unless context && text.present?
 
           add_user_message(text, attachments: service.attachment_manifest)
         end
         private :persist_prompt_to_context
+
+        # A paused generation has no reply yet, and its tool-call turn holds
+        # calls without results. The segment that finishes the run records
+        # the reply and the whole tool exchange.
+        define_method(:persist_generation_to_context) do
+          return if generation_response.try(:awaiting_input?)
+
+          super()
+        end
+        private :persist_generation_to_context
 
         # solid_agent persists the tool exchange from the response's
         # tool-role messages. The Responses API carries function calls as
@@ -631,7 +832,14 @@ module ActionAgent
       # `as` carries the caller onto the agent instance, so an agent's own
       # before_action callbacks (ActiveAgent::Authorization) authorize
       # against the same person the tools are scoped to.
-      agent_class.as(actor).public_send(action).generate_now
+      perform(agent_class.as(actor).public_send(action))
+    end
+
+    # Generates, or continues the paused generation this execution resumes.
+    def perform(generation)
+      return generation.generate_now unless resuming?
+
+      generation.resume_now(checkpoint: @resume[:checkpoint], answers: @resume[:answers])
     end
 
     # Function-calling schemas for the agent's enabled tools that have
@@ -650,9 +858,25 @@ module ActionAgent
       @tool_schema_halves ||=
         if provider == :mock
           [ [], [] ]
+        elsif engine_toolset
+          [ [], engine_toolset.definitions ]
         else
-          [ mcp_dispatcher.tool_definitions, AgentToolbox.definitions_for(@agent_record.tools) ]
+          [ mcp_dispatcher.tool_definitions, AgentToolbox.definitions_for(@agent_record.tools) + secret_request_definitions ]
         end
+    end
+
+    # The tools of a run the engine started for an agent it defines (see
+    # ProjectSetup.toolset_for). They replace whatever tools and MCP servers
+    # the agent record names. Nil for any other run.
+    def engine_toolset
+      return @engine_toolset if defined?(@engine_toolset)
+
+      @engine_toolset = ProjectSetup.toolset_for(@agent_record, @run)
+    end
+
+    # request_secret, for an agent the engine registered a handler for.
+    def secret_request_definitions
+      SecretRequests.handler_for(@agent_record) ? [ AgentToolbox::REQUEST_SECRET_DEFINITION ] : []
     end
 
     # Persists the tool interaction stream to the solid_agent conversation
@@ -673,8 +897,8 @@ module ActionAgent
         next if tool_call_id.present? && context.messages.exists?(role: "tool", tool_call_id: tool_call_id)
 
         # Provider tool messages often carry no name (Ollama's don't); fall
-        # back to the service's own invocation record, matched by order.
-        invocation = @tool_invocations[index]
+        # back to the service's own invocation record.
+        invocation = tool_invocation_for(tool_call_id, index)
         name = (message.name if message.respond_to?(:name)).presence || invocation&.dig(:name)
 
         context.add_tool_message(
@@ -689,11 +913,31 @@ module ActionAgent
       Rails.logger.error("[AgentExecutionService] Failed to persist tool messages: #{e.message}")
     end
 
+    # The calls this execution ran to a result: not the ones that asked a
+    # person and left the run paused.
+    def completed_tool_invocations
+      @tool_invocations.reject { |invocation| invocation[:awaiting_input] }
+    end
+
+    # The invocation record for a response's tool message: by tool call id
+    # when both carry one, else by position among the tool messages. A
+    # resumed segment's response also holds the tool messages of earlier
+    # segments, which have no record here, so it matches by id only.
+    def tool_invocation_for(tool_call_id, index)
+      invocations = completed_tool_invocations
+      if tool_call_id.present?
+        match = invocations.find { |invocation| invocation[:tool_call_id].to_s == tool_call_id.to_s }
+        return match if match
+      end
+
+      invocations[index] unless resuming?
+    end
+
     # Tool names for run metadata. Spans are recorded live in execute_tool;
     # the response-message scan only covers calls the provider executed
     # without routing through the service (none today, but cheap insurance).
     def record_tool_spans(root_span, response)
-      return @tool_invocations.map { |invocation| invocation[:name] } if @tool_invocations.any?
+      return completed_tool_invocations.map { |invocation| invocation[:name] } if @tool_invocations.any?
 
       messages = response.respond_to?(:messages) ? Array(response.messages) : []
       tool_messages = messages.select { |message| message.respond_to?(:role) && message.role.to_s == "tool" }
@@ -732,7 +976,7 @@ module ActionAgent
     def run_host_class(klass, actor:, action:, run_trace_id:)
       generation = klass.as(actor).public_send(action, **host_action_arguments(klass, action))
       generation.prompt_options[:trace_id] = run_trace_id if generation.respond_to?(:prompt_options)
-      generation.generate_now
+      perform(generation)
     end
 
     # A code agent's action takes named arguments (`ask(question:)`), so the
@@ -971,7 +1215,7 @@ module ActionAgent
         environment: Rails.env,
         timestamp: Time.current.iso8601(6),
         resource_attributes: { "platform.agent_id" => @agent_record.id, "platform.run_id" => @run.id },
-        spans: flatten_spans(root_span)
+        spans: flatten_spans(root_span).map { |span| scrub_span(span) }
       }.as_json
 
       sdk_info = {
@@ -983,7 +1227,13 @@ module ActionAgent
 
       trace_model = ActionAgent.trace_model
       tenant = ActionAgent.tenant_for(owner)
-      return if trace_model.for_account(tenant).exists?(trace_id: root_span.trace_id)
+      existing = trace_model.for_account(tenant).find_by(trace_id: root_span.trace_id)
+      # A resumed segment shares its run's trace id, and its spans join the
+      # trace the run's earlier segments recorded.
+      if existing
+        existing.append_segment!(payload["spans"]) if resuming? && existing.respond_to?(:append_segment!)
+        return
+      end
 
       trace_model.create_from_payload(payload, sdk_info, account: tenant, agent: @agent_record)
     rescue StandardError => e

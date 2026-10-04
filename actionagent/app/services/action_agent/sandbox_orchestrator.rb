@@ -208,6 +208,24 @@ module ActionAgent
       accepts_keyword?(adapter_method(:create), :boot_config)
     end
 
+    # Whether the backend can list a checkout's changes and read each file
+    # now and in the commit the checkout was cloned at: #changed_files, and
+    # #read_file with +base+.
+    def reads_checkouts?
+      supports?(:changed_files) && reads_checkout_commit?
+    end
+
+    # Whether the backend's read_file takes +base:+. A backend written before
+    # +base:+ existed defines read_file(session, path) and cannot be asked
+    # for the commit cloned at.
+    def reads_checkout_commit?
+      return false unless supports?(:read_file)
+
+      @backend.method(adapter_method(:read_file)).parameters.any? do |type, name|
+        type == :keyrest || type == :rest || (type.in?(%i[key keyreq]) && name == :base)
+      end
+    end
+
     # Existing backends predate runner selection and support Claude only.
     # A backend must explicitly advertise Codex before accepting its keys.
     def supports_code_runner?(runner)
@@ -247,27 +265,49 @@ module ActionAgent
     #   files: one Hash per changed path, each
     #     path:   relative to the checkout root
     #     status: "added", "modified" or "deleted"
-    #     mode:   "100644", "100755" or "120000" (a symlink); nil when deleted
+    #     mode:   "100644", "100755", "120000" (a symlink) or "160000" (a
+    #             submodule, or a nested repository); nil when deleted
+    #     base_mode: the mode in the commit cloned at, where the backend
+    #             knows it (optional); nil when added
+    #     size:   the bytes in the working tree, where the backend knows them
+    #             (optional); nil when deleted
+    #   Files the repository ignores are not listed.
     # @raise [UnsupportedBackendError] when the backend does not implement it
     def changed_files(sandbox_session)
       @backend.public_send(adapter_method(:changed_files), sandbox_session)
     end
 
-    # The current content of +path+ in +sandbox_session+'s checkout. A
-    # symlink is read as its target path, never followed.
+    # The current content of +path+ in +sandbox_session+'s checkout, or with
+    # +base+ its content in the commit the checkout was cloned at. A symlink
+    # is read as its target path, never followed.
+    #
+    # A backend implements this as read_file(sandbox_session, path, base:),
+    # and is passed +base+ only when it is true.
     #
     # @param path [String] relative to the checkout root
     # @return [String, nil] the bytes, binary-encoded; nil when nothing is
     #   there
     # @raise [ArgumentError] when +path+ is absolute or climbs out of the
     #   checkout, before the backend is asked
-    # @raise [UnsupportedBackendError] when the backend does not implement it
-    def read_file(sandbox_session, path)
+    # @raise [UnsupportedBackendError] when the backend does not implement
+    #   it, or is asked for +base+ and its read_file takes no +base:+ (see
+    #   #reads_checkout_commit?)
+    def read_file(sandbox_session, path, base: false)
       unless checkout_relative?(path)
         raise ArgumentError, "#{path.inspect} is not a path inside the checkout"
       end
 
-      @backend.public_send(adapter_method(:read_file), sandbox_session, path)
+      method = adapter_method(:read_file)
+      if base
+        unless reads_checkout_commit?
+          raise UnsupportedBackendError, "The #{backend_name} sandbox backend's read_file takes no base:, " \
+            "so it cannot read the commit a checkout was cloned at"
+        end
+
+        @backend.public_send(method, sandbox_session, path, base: true)
+      else
+        @backend.public_send(method, sandbox_session, path)
+      end
     end
 
     # Starts a browser for +sandbox_session+, one per sandbox, and returns how
@@ -394,7 +434,10 @@ module ActionAgent
         # boots the app, and reports where its MCP facade answers (and the
         # bearer token it expects) so agents can use the checkout's tools.
         mcp_url: result[:mcp_url],
-        mcp_token: result[:mcp_token]
+        mcp_token: result[:mcp_token],
+        # The models its manifest lists (SandboxManifest.app_models), when the
+        # backend reports them.
+        app_models: result[:app_models]
       }
     end
 

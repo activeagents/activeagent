@@ -86,7 +86,8 @@ ActionAgent.configure do |config|
   #
   # Who may perform the dashboard's privileged actions: storing provider
   # credentials (:manage_credentials), connecting GitHub (:manage_github),
-  # creating and revoking API keys (:manage_api_keys), and the rest of
+  # creating and revoking API keys (:manage_api_keys), answering a paused
+  # run's request for input (:answer_input_request), and the rest of
   # ActionAgent::PERMISSION_ACTIONS. Called with the signed-in user, the
   # action and the record it applies to; true allows, false denies with a
   # 403. Unset, anyone who passes authentication may do all of them. With
@@ -100,6 +101,17 @@ ActionAgent.configure do |config|
   # config.permission_checker = ->(user, action, subject) {
   #   user.present? && user.admin?
   # }
+
+  # ==========================================================================
+  # Input requests
+  # ==========================================================================
+  #
+  # How long a paused run's request for input waits for an answer. A later
+  # answer is refused with a 409, and the run fails. Schedule
+  # ActionAgent::InputRequestExpiryJob to fail the runs whose requests
+  # nobody answers or looks at.
+  #
+  # config.input_request_ttl = 1.day
 
   # ==========================================================================
   # Host integration
@@ -126,6 +138,32 @@ ActionAgent.configure do |config|
   # to remove it everywhere.
   #
   # config.assistant_enabled = true
+
+  # ==========================================================================
+  # GitHub
+  # ==========================================================================
+  #
+  # Checkout sandboxes clone repositories chosen in Settings -> Integrations.
+  # Through a GitHub App, each checkout gets a one-hour token limited to its
+  # one repository. Settings -> Integrations -> Create GitHub App registers
+  # one for you and shows these values once; otherwise register the App with
+  # "Request user authorization (OAuth) during installation" and "Redirect on
+  # update" turned on and the callback URL
+  # <mount>/api/github_installations/callback. Each setting falls back to its
+  # GITHUB_APP_* environment variable.
+  #
+  # config.github_app_id = Rails.application.credentials.dig(:github_app, :id)
+  # config.github_app_slug = Rails.application.credentials.dig(:github_app, :slug)
+  # config.github_app_client_id = Rails.application.credentials.dig(:github_app, :client_id)
+  # config.github_app_client_secret = Rails.application.credentials.dig(:github_app, :client_secret)
+  # config.github_app_private_key = Rails.application.credentials.dig(:github_app, :private_key)
+  #
+  # Or an OAuth App, connected per owner with the callback URL
+  # <mount>/api/github_connection/callback (GITHUB_CLIENT_ID and
+  # GITHUB_CLIENT_SECRET when unset).
+  #
+  # config.github_client_id = Rails.application.credentials.dig(:github, :client_id)
+  # config.github_client_secret = Rails.application.credentials.dig(:github, :client_secret)
 
   # ==========================================================================
   # Sandboxes

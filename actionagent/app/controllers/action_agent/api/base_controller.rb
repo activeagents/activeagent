@@ -78,6 +78,12 @@ module ActionAgent
         ActionAgent.agents_for(current_owner)
       end
 
+      # The requests for input the caller can see: those of the runs of
+      # owner_agents, the runs `GET /api/runs/:id` shows.
+      def owner_input_requests
+        InputRequest.where(subject_type: AgentRun.polymorphic_name, subject_id: AgentRun.where(agent: owner_agents).select(:id))
+      end
+
       # Reported traces visible to the caller. Scoped to the tenant in a
       # multi-tenant install; every trace otherwise.
       def owned_traces

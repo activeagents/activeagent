@@ -3,11 +3,17 @@ import { Badge, Button, MONO, Panel } from '../primitives';
 import { secretWarnings } from '../../../utils/projects.mjs';
 
 const formatWhen = (iso) => (iso ? new Date(iso).toLocaleString() : '—');
+const SOURCE_LABELS = {
+  entered: () => 'entered',
+  organization_key: (secret) => `organization's ${secret.provider} key`,
+  setup_assistant: () => 'set by the setup assistant, not secret',
+};
 
 // A project's Environment tab: each secret's name, source, who set it and
-// when, from GET /api/projects/:id/secrets. Values are never shown; Replace
-// takes a new one. Replacing and deleting need :manage_project_secrets, and
-// the API's refusal comes back through `error`.
+// when, from GET /api/projects/:id/secrets. A secret's value is never shown,
+// and Replace takes a new one. A value the setup assistant set is not
+// secret, so it is shown for a person to check. Replacing and deleting need
+// :manage_project_secrets, and the API's refusal comes back through `error`.
 //
 // onReplace(name, value) and onDelete(name) return promises.
 export default function ProjectEnvironment({ secrets, onReplace, onDelete, error }) {
@@ -42,7 +48,7 @@ export default function ProjectEnvironment({ secrets, onReplace, onDelete, error
             <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
               <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 600, color: 'var(--color-text-primary)' }}>{secret.name}</span>
               <Badge tone={secret.source === 'organization_key' ? 'info' : 'muted'}>
-                {secret.source === 'organization_key' ? `organization's ${secret.provider} key` : 'entered'}
+                {SOURCE_LABELS[secret.source]?.(secret) || 'entered'}
               </Badge>
               <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>
                 {secret.set_by?.name ? `set by ${secret.set_by.name}` : 'set'} · {formatWhen(secret.updated_at)}
@@ -54,6 +60,11 @@ export default function ProjectEnvironment({ secrets, onReplace, onDelete, error
                 <Button size="sm" variant="danger" onClick={() => run(() => onDelete(secret.name))} disabled={busy}>Delete</Button>
               </span>
             </div>
+            {secret.source === 'setup_assistant' && typeof secret.value === 'string' && (
+              <div style={{ marginTop: 4, fontFamily: MONO, fontSize: 12, color: 'var(--color-text-secondary)', wordBreak: 'break-all' }}>
+                {secret.name}={secret.value}
+              </div>
+            )}
             {replacing === secret.name && (
               <form
                 style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}
