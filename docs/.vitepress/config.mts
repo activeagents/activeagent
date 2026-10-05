@@ -163,6 +163,11 @@ export default defineConfig({
           { text: 'SolidAgent Examples', link: '/solid_agent/examples' },
         ]
       },
+      { text: 'Demos',
+        items: [
+          { text: 'Conference Ticket Handoff', link: '/demos/sfruby-conf-ticket-handoff' },
+        ]
+      },
       { text: 'Contributing',
         items: [
           { text: 'Documentation', link: '/contributing/documentation' },
