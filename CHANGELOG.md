@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Hand a browser run to a person** (`actionagent`). Agents with the
+  `playwright_mcp` tools gain `request_handoff`: the agent calls it when a
+  page asks for something only its owner may give (payment details, a login
+  code), the run's session recording stores the page URL and the non-secret
+  values already entered, and Session Replay's **Take Over Session** opens
+  that page for the person. Browser tool calls in such runs are recorded, so
+  the run plays back in Session Replay.
+- **Conference Ticket Agent template** (`actionagent`). Registers on an
+  event's ticket page and stops before paying, built for the SF Ruby
+  Conference demo. The Playwright demo template now names the published
+  `@playwright/mcp` package.
 - **Support MCP across providers** (`activeagent`). Anthropic and OpenAI
   Responses handle remote servers natively; ActiveAgent bridges other providers
   and all local `command:` servers. `mcp_strategy:` selects automatic, client,

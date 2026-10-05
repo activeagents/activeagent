@@ -50,6 +50,28 @@ module ActionAgent
       # Stateful: navigate changes what snapshot/click see, so these bypass
       # the toolbox result cache.
       "playwright_mcp" => [
+        # Not a browser action: the point where the agent stops and a person
+        # continues on the page it reached. AgentExecutionService answers it
+        # against the run's session recording (see #request_handoff there),
+        # which is why it has no FUNCTIONS entry.
+        {
+          name: "request_handoff",
+          description: "Hand the browser session to a person and stop. Call this the moment the page asks for something only its owner may give: payment details, a password, a one-time code, a consent. Pass the URL of the page you stopped on and the non-secret values you already entered, so the person can check them. After calling it, take no further browser actions; report where you stopped and what the person does next.",
+          parameters: {
+            type: "object",
+            properties: {
+              reason: { type: "string", description: "What the page is asking for, e.g. \"payment details\" or \"a login code sent by email\"" },
+              url: { type: "string", description: "The URL of the page the person continues on" },
+              form_values: {
+                type: "object",
+                description: "Values already entered, field label to value. Never a card number, password or code.",
+                additionalProperties: { type: "string" }
+              },
+              instructions: { type: "string", description: "One or two sentences on what the person should do next" }
+            },
+            required: [ "reason", "url" ]
+          }
+        },
         {
           name: "browser_navigate",
           description: "Open a URL in the managed browser. Returns a text snapshot of the page with element refs.",
