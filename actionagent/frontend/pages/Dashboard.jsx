@@ -19,6 +19,7 @@ import SessionReplayView from '../components/dashboard/SessionReplayView';
 import OrganizationView from '../components/dashboard/OrganizationView';
 import SettingsView from '../components/dashboard/SettingsView';
 import DashboardAssistant from '../components/dashboard/DashboardAssistant';
+import ProjectsView from '../components/dashboard/ProjectsView';
 import { ThemeProvider, useTheme } from '../contexts/ThemeContext';
 import { TimeWindowProvider } from '../contexts/TimeWindowContext';
 import { useInputRequests } from '../hooks/useInputRequests';
@@ -58,6 +59,9 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
   // The Interactions badge: refetched whenever the view changes as well as on
   // the hook's own interval.
   const { requests: pendingInput } = useInputRequests({ refreshKey: currentView });
+  // Counts in-app navigations, so a view that reads its own sub-path
+  // (ProjectsView) re-reads it when the sidebar opens it again.
+  const [visit, setVisit] = useState(0);
 
   // Parse the URL into a view. Runs on mount and on popstate, so browser
   // back/forward and in-app pushState navigation (e.g. a Traces agent card
@@ -251,6 +255,7 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
 
   const navigateTo = (view, agent = null) => {
     if (!isDashboardViewEnabled(view, features)) return;
+    setVisit((count) => count + 1);
     if (view === 'builder') setBuilderDraft(null);
     if (agent?.id && AGENT_DETAIL_VIEWS.includes(view) && agent.instructions === undefined) {
       loadAgent(agent.id, view);
@@ -359,6 +364,7 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
       />
     ),
     evaluations: () => <EvaluationsView />,
+    projects: () => <ProjectsView visit={visit} />,
     replay: () => (
       <SessionReplayView
         onHandoff={(handoffData) => {

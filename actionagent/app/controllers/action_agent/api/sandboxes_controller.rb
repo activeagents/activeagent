@@ -213,6 +213,9 @@ module ActionAgent
       def boot
         orchestrator = SandboxOrchestrator.new
         status = @sandbox.app_runtime? && orchestrator.supports?(:boot_status) ? orchestrator.boot_status(@sandbox) : nil
+        # A project's checkout booted with its secrets, which the backend may
+        # not know to mask.
+        status = SecretScrubber.scrub(status, @sandbox.project_scrub_values) if status
         render json: {
           boot: status,
           resumable: !!(status&.dig(:kept) && @sandbox.failed? && !@sandbox.past_expiry? && orchestrator.supports?(:resume_boot)),
@@ -233,11 +236,12 @@ module ActionAgent
         step = params[:step]
         return render json: { error: "step is required" }, status: :bad_request unless step.is_a?(String) && step.present?
 
+        project_secrets = @sandbox.project_scrub_values
         page = orchestrator.boot_log(@sandbox, step: step, offset: clamped_param(:offset, default: 0, min: 0, max: 2**62),
-          limit: clamped_param(:limit, default: BOOT_LOG_PAGE_BYTES, min: 1, max: BOOT_LOG_MAX_PAGE_BYTES))
+          limit: clamped_param(:limit, default: BOOT_LOG_PAGE_BYTES, min: 1, max: BOOT_LOG_MAX_PAGE_BYTES), secrets: project_secrets)
         return render json: { error: "No log for step #{step}" }, status: :not_found if page.nil?
 
-        render json: page
+        render json: project_secrets.any? ? page.merge(text: SecretScrubber.scrub(page[:text], project_secrets)) : page
       end
 
       # POST /api/sandboxes/:session_id/resume_boot

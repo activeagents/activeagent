@@ -69,6 +69,8 @@ export const DASHBOARD_ROUTES = [
   },
   { view: 'evaluations', match: prefix('/evaluations'), path: '/evaluations' },
   { view: 'analytics', match: prefix('/analytics'), path: '/analytics' },
+  // ProjectsView reads /projects/new and /projects/:id itself.
+  { view: 'projects', match: prefix('/projects'), path: '/projects' },
   { view: 'builder', match: prefix('/agents/new'), path: '/agents/new' },
   {
     view: 'history',
@@ -109,6 +111,7 @@ export const DASHBOARD_NAV = [
       { view: 'list', label: 'Agents', icon: 'agents', badge: 'agentCount' },
       { view: 'builder', label: 'New Agent', icon: 'newAgent' },
       { view: 'sandbox', label: 'Run Agents', icon: 'demo' },
+      { view: 'projects', label: 'Projects', glyph: '</>' },
     ],
   },
   {
