@@ -18,7 +18,9 @@ module ActionAgent
     # harness that has read or browsed the app can seed the suite it then
     # runs. Both ask ActionAgent.permitted? for :replace_scenarios as the
     # key's user, and neither removes, disables or reorders a scenario it
-    # was not given.
+    # was not given. `explorations_submit` stores candidate scenarios for a
+    # person to review on the dashboard instead (Exploration), which needs
+    # only the key: accepting them there is what asks :replace_scenarios.
     #
     # Names are a noun family followed by a verb (`evaluations_list`,
     # `traces_get`). Host schema tools are always `find_`, `count_` or `get_`
@@ -34,8 +36,8 @@ module ActionAgent
       include EvaluationRunStarting
 
       NAMES = %w[
-        evaluations_list evaluations_get evaluations_create scenarios_merge evaluations_run evaluation_runs_get
-        evaluation_runs_compare traces_search traces_get input_requests_list input_requests_answer
+        evaluations_list evaluations_get evaluations_create scenarios_merge explorations_submit evaluations_run
+        evaluation_runs_get evaluation_runs_compare traces_search traces_get input_requests_list input_requests_answer
       ].freeze
 
       # The kinds input_requests_answer answers. An approval and a secret are
@@ -73,6 +75,11 @@ module ActionAgent
           description: "A ready checkout sandbox's session id: every replay reaches that checkout's app tools, " \
                        "without the agent being edited"
         }
+      }.freeze
+
+      # An expectation list of an explorations_submit candidate.
+      EXPLORATION_EXPECTATION_LIST = {
+        type: "array", maxItems: Exploration::MAX_ITEMS, items: { type: "string", maxLength: Exploration::MAX_LABEL }
       }.freeze
 
       # The scenarios evaluations_create and scenarios_merge accept, in the
@@ -186,6 +193,59 @@ module ActionAgent
             type: "object",
             properties: { evaluation_id: { type: "integer", description: "The evaluation's id" } }.merge(SCENARIO_PROPERTIES),
             required: [ "evaluation_id" ]
+          }
+        },
+        {
+          name: "explorations_submit",
+          description: "Submit candidate scenarios you found by reading or browsing a project's app, for a person to " \
+                       "review on the dashboard. Each is checked against the tools of the agent the project evaluates: " \
+                       "the result gives each candidate's verdict (answerable, needs_tool with the missing tools, or " \
+                       "unverified when the tools could not be read) so you can revise, and the review link. Nothing " \
+                       "reaches the evaluation until a person accepts it. Pass exploration_id to add to an exploration " \
+                       "you submitted earlier.",
+          inputSchema: {
+            type: "object",
+            properties: {
+              project_id: { type: "integer", description: "The project whose app you explored" },
+              evaluation_id: { type: "integer", description: "An evaluation to propose scenarios for, without a project" },
+              exploration_id: {
+                type: "integer",
+                description: "An exploration submitted from outside the dashboard for this key's owner, to add these candidates to"
+              },
+              candidates: {
+                type: "array",
+                description: "At most #{Exploration::MAX_CANDIDATES} per exploration, and " \
+                             "#{Exploration::MAX_BYTES / 1.megabyte} MiB of JSON per call and per exploration",
+                items: {
+                  type: "object",
+                  properties: {
+                    prompt: {
+                      type: "string", maxLength: Exploration::MAX_STRING,
+                      description: "A question a user of the app would ask its agent"
+                    },
+                    group: { type: "string", description: "The scenario group it belongs to" },
+                    rubric: {
+                      type: "string", maxLength: Exploration::MAX_STRING,
+                      description: "What a good answer does; the judge grades the answer against it. Not click steps"
+                    },
+                    tools: { **EXPLORATION_EXPECTATION_LIST, description: "Tools a good answer calls" },
+                    contains: { **EXPLORATION_EXPECTATION_LIST, description: "Patterns the answer must contain" },
+                    not_contains: { **EXPLORATION_EXPECTATION_LIST, description: "Patterns the answer must not contain" },
+                    provenance: {
+                      type: "object",
+                      description: "How you found it, shown to the reviewer and never to the judge",
+                      properties: {
+                        urls: { type: "array", items: { type: "string" } },
+                        steps: { type: "array", items: { type: "string" } },
+                        screenshots: { type: "array", items: { type: "string" } }
+                      }
+                    }
+                  },
+                  required: [ "prompt" ]
+                }
+              }
+            },
+            required: [ "candidates" ]
           }
         },
         {
@@ -316,6 +376,7 @@ module ActionAgent
         when "evaluations_get" then evaluations_get_tool
         when "evaluations_create" then evaluations_create_tool
         when "scenarios_merge" then scenarios_merge_tool
+        when "explorations_submit" then explorations_submit_tool
         when "evaluations_run" then evaluations_run_tool
         when "evaluation_runs_get" then evaluation_runs_get_tool
         when "evaluation_runs_compare" then evaluation_runs_compare_tool
@@ -431,6 +492,47 @@ module ActionAgent
         }
       rescue Evaluation::ScenarioLimitExceeded, ActiveRecord::RecordInvalid => e
         raise ToolError, e.message
+      end
+
+      # Candidates are stored as Exploration#add_candidates! stores them:
+      # scrubbed, bounded and checked against the target agent's tools.
+      def explorations_submit_tool
+        list = tool_argument(:candidates)
+        raise ToolError, "candidates must be an array of candidate objects" unless list.is_a?(Array)
+
+        list = list.map { |entry| entry.respond_to?(:to_unsafe_h) ? entry.to_unsafe_h : entry }
+        exploration = tool_exploration
+        stored = exploration.persisted? ? exploration.add_candidates!(list) : exploration.save_with_candidates!(list)
+
+        {
+          exploration: exploration.summary,
+          candidates: stored.map { |candidate| candidate.slice("id", "prompt", "verdict", "missing_tools", "state") },
+          review_url: "#{request.base_url}#{request.script_name}/explorations/#{exploration.id}"
+        }
+      rescue Exploration::InvalidCandidate, Exploration::CandidateLimitExceeded => e
+        raise ToolError, e.message
+      end
+
+      # The external exploration exploration_id names, or a new one for the
+      # project or evaluation the call names.
+      def tool_exploration
+        if (id = tool_argument(:exploration_id)).present?
+          return owned(Exploration).find_by(id: id.to_s, source: "external") ||
+              raise(ToolError, "No exploration #{id.to_s.truncate(32)} submitted from outside the dashboard was found")
+        end
+
+        attributes = { source: "external", status: "review", started_at: Time.current, finished_at: Time.current }
+        if (project_id = tool_argument(:project_id)).present?
+          project = owned(Project).find_by(id: project_id.to_s) or
+            raise ToolError, "No project #{project_id.to_s.truncate(32)} was found"
+          Exploration.build_for(project: project, **attributes)
+        elsif tool_argument(:evaluation_id).present?
+          evaluation = find_tool_evaluation!
+          refuse_unexecutable_suite!(evaluation)
+          Exploration.build_for(evaluation: evaluation, user: current_user, account: current_account, **attributes)
+        else
+          raise MCPController::McpError.new("Give project_id, evaluation_id or exploration_id", MCPController::JSONRPC_INVALID_PARAMS)
+        end
       end
 
       def build_tool_evaluation(agent, name, attributes)

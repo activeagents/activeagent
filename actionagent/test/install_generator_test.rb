@@ -178,6 +178,20 @@ class ActionAgentInstallGeneratorTest < Rails::Generators::TestCase
     assert_equal numbers.uniq.size, numbers.size, "two numbered templates share a number"
   end
 
+  test "a fresh install emits the explorations table after the projects it refers to" do
+    run_generator [ "--skip-routes" ]
+
+    assert_migration "db/migrate/create_active_agent_explorations.rb" do |content|
+      assert_match(/class CreateActiveAgentExplorations < ActiveRecord::Migration\[\d+\.\d+\]/, content)
+      assert_match(/create_table "\#\{prefix\}explorations"/, content)
+      %w[project_id evaluation_id agent_run_id sandbox_session_id session_recording_id account_id user_id].each do |column|
+        assert_match(/t\.bigint :#{column}/, content)
+      end
+      %w[budget usage candidates].each { |column| assert_match(/t\.column :#{column}, json_type, \*\*json_default/, content) }
+    end
+    assert_operator migration_version("create_active_agent_explorations"), :>, migration_version("create_active_agent_projects")
+  end
+
   test "numbered templates are emitted in number order, with their ERB rendered" do
     with_numbered_templates(
       "002_add_widget_color.rb.erb" => numbered_template("AddWidgetColor"),

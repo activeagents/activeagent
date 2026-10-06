@@ -133,6 +133,16 @@ ActionAgent::Engine.routes.draw do
       resources :secrets, controller: "project_secrets", only: [ :index, :update, :destroy ], param: :name
     end
 
+    # Explorations: candidate scenarios found by walking a project's app,
+    # reviewed and accepted into its evaluation (see Exploration).
+    resources :explorations, only: [ :index, :show, :create ] do
+      member do
+        post :accept
+        post :stop
+        patch "candidates/:candidate_id", action: :update_candidate, as: :candidate
+      end
+    end
+
     # Tool inventory — auto-detected from the tool roster each generation
     # request offered, telemetry tool spans, and solid_agent records.
     resources :tools, only: [ :index ]
