@@ -99,6 +99,68 @@ module ActionAgent
             },
             required: [ "ref" ]
           }
+        },
+        {
+          name: "browser_type",
+          description: "Type text into an editable element from the latest snapshot: a text box, a search field. Set submit to press Enter afterwards.",
+          parameters: {
+            type: "object",
+            properties: {
+              ref: { type: "string", description: "Element ref from the snapshot" },
+              element: { type: "string", description: "Human-readable description of the element" },
+              text: { type: "string", description: "The text to type" },
+              submit: { type: "boolean", description: "Press Enter after typing" }
+            },
+            required: [ "ref", "text" ]
+          }
+        },
+        {
+          name: "browser_fill_form",
+          description: "Fill several form fields in one step. Each field names its ref from the latest snapshot, a label, its type and the value to enter; a checkbox takes true or false, a combobox the option's text.",
+          parameters: {
+            type: "object",
+            properties: {
+              fields: {
+                type: "array",
+                description: "The fields to fill",
+                items: {
+                  type: "object",
+                  properties: {
+                    ref: { type: "string", description: "Element ref from the snapshot" },
+                    name: { type: "string", description: "The field's label, e.g. Email" },
+                    type: { type: "string", enum: %w[textbox checkbox radio combobox slider], description: "The field's type" },
+                    value: { type: "string", description: "What to enter" }
+                  },
+                  required: [ "ref", "name", "type", "value" ]
+                }
+              }
+            },
+            required: [ "fields" ]
+          }
+        },
+        {
+          name: "browser_select_option",
+          description: "Choose an option in a dropdown from the latest snapshot.",
+          parameters: {
+            type: "object",
+            properties: {
+              ref: { type: "string", description: "Element ref from the snapshot" },
+              element: { type: "string", description: "Human-readable description of the element" },
+              values: { type: "array", items: { type: "string" }, description: "The option values or texts to select" }
+            },
+            required: [ "ref", "values" ]
+          }
+        },
+        {
+          name: "browser_press_key",
+          description: "Press a key in the browser, such as Enter, Escape, Tab or ArrowDown.",
+          parameters: {
+            type: "object",
+            properties: {
+              key: { type: "string", description: "The key to press" }
+            },
+            required: [ "key" ]
+          }
         }
       ],
       # Subject-bound like memory: routed by AgentExecutionService (needs the
@@ -210,13 +272,20 @@ module ActionAgent
       "browser_navigate" => :browser_navigate,
       "browser_snapshot" => :browser_snapshot,
       "browser_click" => :browser_click,
+      "browser_type" => :browser_type,
+      "browser_fill_form" => :browser_fill_form,
+      "browser_select_option" => :browser_select_option,
+      "browser_press_key" => :browser_press_key,
       "render_ui" => :render_ui
     }.freeze
 
     # Stateful tools whose results must never be replayed from cache — and
     # render_ui, whose result is the call itself, so there is nothing to
     # replay.
-    UNCACHED_FUNCTIONS = %w[browser_navigate browser_snapshot browser_click render_ui].freeze
+    UNCACHED_FUNCTIONS = %w[
+      browser_navigate browser_snapshot browser_click browser_type browser_fill_form
+      browser_select_option browser_press_key render_ui
+    ].freeze
 
     # Hosts browse_page may fetch — the platform's own trusted docs.
     BROWSE_ALLOWED_HOSTS = %w[docs.activeagents.ai].freeze
@@ -376,8 +445,48 @@ module ActionAgent
         playwright_mcp("browser_snapshot", {})
       end
 
-      def browser_click(ref:, element: nil)
-        playwright_mcp("browser_click", { ref: ref, element: element || ref })
+      def browser_click(ref: nil, target: nil, element: nil, button: nil)
+        playwright_mcp("browser_click", browser_target(ref || target, element).merge({ button: button }.compact))
+      end
+
+      def browser_type(text:, ref: nil, target: nil, element: nil, submit: nil, slowly: nil)
+        arguments = browser_target(ref || target, element).merge({ text: text.to_s, submit: submit, slowly: slowly }.compact)
+        playwright_mcp("browser_type", arguments)
+      end
+
+      def browser_fill_form(fields:)
+        normalized = Array(fields).map do |field|
+          field = field.to_h.transform_keys(&:to_s)
+          {
+            target: (field["target"] || field["ref"]).to_s,
+            name: field["name"].to_s,
+            type: field["type"].presence || "textbox",
+            value: field["value"].to_s
+          }
+        end
+        raise ArgumentError, "every field needs a ref" if normalized.any? { |field| field[:target].blank? }
+
+        playwright_mcp("browser_fill_form", { fields: normalized })
+      end
+
+      def browser_select_option(values:, ref: nil, target: nil, element: nil)
+        playwright_mcp("browser_select_option", browser_target(ref || target, element).merge(values: Array(values).map(&:to_s)))
+      end
+
+      def browser_press_key(key:)
+        playwright_mcp("browser_press_key", { key: key.to_s })
+      end
+
+      # Playwright MCP addresses an element by +target+ — a ref from the
+      # latest snapshot, or a selector — and names it in +element+ for the
+      # permission prompt it may show. Earlier releases of the server called
+      # the ref +ref+, and that is still what the tool schemas ask the model
+      # for, so both spellings are accepted here and sent as the server now
+      # expects.
+      def browser_target(target, element)
+        raise ArgumentError, "an element ref from the snapshot is required" if target.blank?
+
+        { target: target.to_s, element: (element.presence || target).to_s }
       end
 
       SNAPSHOT_LINK = /\[Snapshot\]\(([^)]+)\)/

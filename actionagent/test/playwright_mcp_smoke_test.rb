@@ -76,6 +76,13 @@ class PlaywrightMCPSmokeTest < ActiveSupport::TestCase
     assert_match(/Register/, snapshot)
     assert_match(/Card number/, snapshot)
     assert_match(/Both days/, snapshot)
+
+    # The toolbox addresses elements by the ref the snapshot gave them, as
+    # the server now expects (`target`).
+    ref = snapshot[/button "Register" \[ref=(e\d+)\]/, 1]
+    assert ref, "expected the Register button to carry a ref in: #{snapshot}"
+    clicked = @client.call_tool("browser_click", { "target" => ref, "element" => "Register" })
+    assert_not clicked[:is_error], clicked[:text]
   end
 
   private

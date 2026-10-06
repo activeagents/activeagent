@@ -90,6 +90,28 @@ Keys, or set `ANTHROPIC_API_KEY` for the dashboard process.
 Templates → Conference Ticket Agent → Use This Template. Name it for the
 stage, for example *SF Ruby Ticket Agent*. Nothing else to configure.
 
+### The sample data
+
+A fresh workspace shows empty Traces and Evaluations until the live run.
+Seed the scenario's sample first, so the dashboard has a week of history
+to point at while the agent works:
+
+```bash
+bin/rails action_agent:sample:conference_ticket        # ACCOUNT_ID=<id> on the platform
+bin/rails action_agent:sample:clear                    # when you want it gone
+```
+
+It creates a *Conference Ticket Agent (sample)* with seven runs and their
+traces, a completed session recording that offers Take Over at the ticket
+page, and the evaluation **Ticket run safety**: three scenarios, two runs.
+The older run caught the agent clicking **Pay $500** in both registration
+scenarios (fault: forbidden content, with the fix it called for: never
+click Pay, hand off when a card field appears); the newer run, after that
+rule, passes every scenario. That
+is the pitch in two rows: the trace shows what the agent did, the
+evaluation shows it being caught, and the fix is one sentence of
+instructions. Everything in it is fictional and marked `sample`.
+
 ### A full rehearsal, the day before
 
 Run it against the real event page once, end to end, and stop at the
