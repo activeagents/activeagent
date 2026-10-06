@@ -107,9 +107,15 @@ module ActionAgent
   # What ActionAgent.claude_code_auth may be set to.
   CLAUDE_CODE_AUTH_MODES = %i[api_key local_login].freeze
 
+  # What ActionAgent.provider_key_scope may be set to.
+  PROVIDER_KEY_SCOPES = %i[organization personal_override].freeze
+
   # The privileged actions ActionAgent.permission_checker is asked about:
   #
-  #   :manage_credentials     store, test or delete a provider credential
+  #   :manage_credentials     store, test or delete an organization provider
+  #                           credential, or store or test a member's personal
+  #                           Ollama host (the subject is that personal key);
+  #                           a member's other personal keys need none
   #   :manage_github          connect, disconnect, or choose the repositories of
   #                           the GitHub connection
   #   :manage_api_keys        create or revoke a dashboard API key
@@ -342,12 +348,77 @@ module ActionAgent
     # (owner, provider_name) and returns a Hash merged into the agent's
     # generation options (e.g. { access_token: "sk-..." } or
     # { host: "http://localhost:11434" }), or nil to fall back to the
-    # host app's config/active_agent.yml.
+    # dashboard's stored organization key and then the host app's
+    # config/active_agent.yml.
+    #
+    # A resolver that declares an +actor:+ keyword (or accepts any keyword
+    # with **) is also told who is acting: the user who started the run, the
+    # signed-in user for the dashboard assistant and the model pickers, nil
+    # for the evaluation judge and a run nobody started:
+    #
+    #   config.provider_credentials_resolver = ->(owner, provider, actor: nil) {
+    #     owner.provider_key_for(provider)&.generation_options
+    #   }
+    #
+    # A personal key (see provider_key_scope) is tried before the resolver,
+    # so a resolver that reads the dashboard's provider_keys table by
+    # provider alone has to keep to organization rows
+    # (ActionAgent::ProviderKey.for_owner does).
     #
     # Unset means config/active_agent.yml is the only source, which is what
-    # a self-hosted install wants.
+    # a self-hosted install wants. See {.provider_credentials} for how an
+    # exception is treated.
     # @return [Proc, nil]
     attr_accessor :provider_credentials_resolver
+
+    # Whether a member's own provider key may stand in for the
+    # organization's. One of PROVIDER_KEY_SCOPES:
+    #
+    #   :organization       (default) runs use the organization's key, the
+    #                       host resolver's, or config/active_agent.yml
+    #   :personal_override  a member may also save a personal key per
+    #                       provider in Settings, and the runs that member
+    #                       starts, the dashboard assistant and the model
+    #                       pickers use it before the organization's
+    #
+    # A personal key sends the organization's agent traffic to the member's
+    # own provider account, so an install opts in. Without an account_class
+    # there are no personal keys and the setting has no effect. The
+    # evaluation judge, sandboxes, and Claude Code and Codex connections
+    # always use organization keys. A personal Ollama host decides where the
+    # server sends requests, so storing one asks permission_checker for
+    # :manage_credentials.
+    # @return [Symbol]
+    attr_reader :provider_key_scope
+
+    def provider_key_scope=(value)
+      scope = value.nil? ? :organization : value.to_sym
+      unless PROVIDER_KEY_SCOPES.include?(scope)
+        raise ArgumentError, "provider_key_scope must be one of #{PROVIDER_KEY_SCOPES.join(', ')}, got #{value.inspect}"
+      end
+
+      @provider_key_scope = scope
+    end
+
+    # Lists the members of an owner for the Organization view's Team Members
+    # table, answering GET <mount>/api/members. Receives (owner) and returns
+    # an Array of Hashes with :id, :name, :email and :role; any other key is
+    # dropped before it reaches the browser.
+    #
+    #   config.members_resolver = ->(account) {
+    #     account.memberships.includes(:user).map { |m| { id: m.user.id, name: m.user.name, email: m.user.email, role: m.role } }
+    #   }
+    #
+    # Unset, or when it raises (logged), the table lists the signed-in user
+    # alone.
+    # @return [Proc, nil]
+    attr_accessor :members_resolver
+
+    # Where the Organization view's "+ Invite Member" button links: the
+    # host app's own invitation page. Unset, the button is not shown; the
+    # engine has no invitations of its own.
+    # @return [String, nil]
+    attr_accessor :member_invite_url
 
     # Sandbox backends contributed by the host app, as
     # { "cloud_run" => "CloudRunService" }. The engine ships only :mock;
@@ -761,17 +832,55 @@ module ActionAgent
       true
     end
 
-    # Provider options for +owner+, or {} when the host app has none and
-    # config/active_agent.yml should be used as-is.
+    # Provider options the host's provider_credentials_resolver returns for
+    # +owner+, or {} when it is unset or has none. +actor+ is passed only to
+    # a resolver that declares an actor: keyword or accepts **; any other is
+    # called with (owner, provider).
+    #
+    # A resolver that raises is logged and yields {} on a single-tenant
+    # install. On a multi-tenant install it raises
+    # ActionAgent::ProviderCredentials::Unresolved instead, so the run
+    # fails rather than generating on the platform's own credentials.
+    #
+    # Callers resolving what a generation runs on use
+    # ActionAgent::ProviderCredentials.resolve, which also tries the
+    # dashboard's stored keys.
     #
     # @return [Hash]
-    def provider_credentials(owner, provider)
+    def provider_credentials(owner, provider, actor: nil)
       return {} if provider_credentials_resolver.nil?
 
-      provider_credentials_resolver.call(owner, provider) || {}
+      resolver = provider_credentials_resolver
+      result = if resolver_accepts_actor?(resolver)
+        resolver.call(owner, provider, actor: actor)
+      else
+        resolver.call(owner, provider)
+      end
+      result || {}
     rescue StandardError => e
+      if multi_tenant?
+        raise ActionAgent::ProviderCredentials::Unresolved,
+              "The provider_credentials_resolver failed for #{provider} (#{e.class})"
+      end
+
       Rails.logger.warn("[ActionAgent] provider credential lookup failed: #{e.message}")
       {}
+    end
+
+    # The members ActionAgent.members_resolver lists for +owner+, each
+    # reduced to id, name, email and role. Nil when no resolver is set or it
+    # raised (logged), so the caller can list the signed-in user instead.
+    #
+    # @return [Array<Hash>, nil]
+    def members_for(owner)
+      return nil if members_resolver.nil?
+
+      Array(members_resolver.call(owner)).map do |member|
+        member.to_h.symbolize_keys.slice(:id, :name, :email, :role)
+      end
+    rescue StandardError => e
+      Rails.logger.warn("[ActionAgent] members_resolver failed: #{e.class}: #{e.message}")
+      nil
     end
 
     # Returns the trace model class to use.
@@ -864,6 +973,9 @@ module ActionAgent
       @quota_checker = nil
       @permission_checker = nil
       @provider_credentials_resolver = nil
+      @provider_key_scope = :organization
+      @members_resolver = nil
+      @member_invite_url = nil
       @sandbox_backends = {}
       @local_sandboxes_enabled = nil
       @local_sandbox_root = nil
@@ -978,6 +1090,11 @@ module ActionAgent
     end
 
     private
+
+    def resolver_accepts_actor?(resolver)
+      parameters = resolver.respond_to?(:parameters) ? resolver.parameters : resolver.method(:call).parameters
+      parameters.any? { |type, name| type == :keyrest || (%i[key keyreq].include?(type) && name == :actor) }
+    end
 
     def resolve_concerns(entries)
       Array(entries).map { |entry| entry.is_a?(Module) ? entry : entry.to_s.constantize }

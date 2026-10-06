@@ -13,12 +13,12 @@ module ActionAgent
       rescue_from DashboardAssistantService::SetupRequired, with: :setup_required
 
       def show
-        render json: DashboardAssistantService.new(owner: current_owner).configuration
+        render json: DashboardAssistantService.new(owner: current_owner, actor: current_user).configuration
       end
 
       def create
         input = params.to_unsafe_h.symbolize_keys.slice(:message, :history, :provider, :model, :allow_provider_processing)
-        assistant = DashboardAssistantService.new(owner: current_owner, **input)
+        assistant = DashboardAssistantService.new(owner: current_owner, actor: current_user, **input)
         assistant.validate!
         record_execution_usage
         render json: assistant.call

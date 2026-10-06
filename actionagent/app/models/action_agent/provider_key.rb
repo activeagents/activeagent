@@ -18,6 +18,19 @@ module ActionAgent
   # need it — a checkout sandbox runs Claude Code sessions with it — through
   # #runtime_environment. For Claude Code that is an Anthropic API key only
   # (see CLAUDE_CODE_CREDENTIAL).
+  #
+  # A key is an organization key or a personal key, as its scope_key says:
+  #
+  #   "organization"  the key the owner shares with everyone acting for it
+  #   "user:<id>"     one member's own key for an account, used for that
+  #                   member's runs when ActionAgent.provider_key_scope is
+  #                   :personal_override
+  #
+  # Personal keys exist only on an install that owns keys per account. They
+  # are left out of .for_owner and the dashboard API's `owned`, so a caller
+  # that looks a key up by owner and provider reads the organization's.
+  # .personal_for is the one way to reach them, and
+  # ActionAgent::ProviderCredentials decides when to.
   class ProviderKey < ApplicationRecord
     # Providers that authenticate with an API key.
     KEY_PROVIDERS = %w[openai anthropic openrouter].freeze
@@ -43,6 +56,10 @@ module ActionAgent
     # a stored one is never handed out (see #needs_replacing?).
     SUBSCRIPTION_TOKEN_PREFIX = "sk-ant-oat"
 
+    ORGANIZATION_SCOPE = "organization"
+    PERSONAL_SCOPE_PREFIX = "user:"
+    SCOPE_KEY = /\A(?:organization|user:\d+)\z/
+
     include Ownable
     owned_by :account, :user
 
@@ -54,8 +71,13 @@ module ActionAgent
     before_validation :normalize_host_credential, if: :host_based?
 
     validates :provider, presence: true, inclusion: { in: PROVIDERS }
-    # One credential per provider per owner; which column that means
-    # depends on the configured mode, so it is checked at validation time.
+    validates :scope_key, format: { with: SCOPE_KEY }
+    validate :personal_key_allowed, if: :personal?
+    # One organization credential per provider per owner, and one personal
+    # credential per member, owner and provider. The unique index on
+    # (account_id, scope_key, provider) holds the same rule for an
+    # account-owned install; which owner column applies depends on the
+    # configured mode, so it is also checked at validation time.
     validate :provider_unique_within_owner
     validates :credential, presence: true, length: { maximum: 500 }
     validates :credential, format: { with: %r{\Ahttps?://\S+\z}, message: "must be an http(s):// URL" },
@@ -82,6 +104,58 @@ module ActionAgent
         key.needs_replacing? && key.destroy!
       end
     end
+
+    # The organization rows: .for_owner and the dashboard API's `owned` read
+    # only these.
+    def self.owned_rows
+      where(scope_key: ORGANIZATION_SCOPE)
+    end
+
+    # +actor+'s personal keys for +owner+'s account. None when +actor+ is not
+    # a saved instance of ActionAgent.user_class, when +owner+ does not
+    # resolve to an account, or when keys are not owned per account (a
+    # single-user install, or one that owns keys per user), where no
+    # personal key can exist.
+    #
+    # @return [ActiveRecord::Relation]
+    def self.personal_for(owner, actor)
+      return none unless owner_association == :account
+
+      user_class = owner_class_for(:user)
+      return none unless user_class && actor.is_a?(user_class) && actor.id.present?
+
+      account = resolve_owner(owner)
+      return none if account.nil?
+
+      unscoped_by_owner.where(account_id: account.id, scope_key: personal_scope_key(actor))
+    end
+
+    # Every key +owner+'s account holds, organization and personal. Only for
+    # masking secrets out of output: a credential is read through .for_owner
+    # or .personal_for.
+    #
+    # @return [ActiveRecord::Relation]
+    def self.every_scope_for(owner)
+      return for_owner(owner) unless owner_association == :account
+
+      account = resolve_owner(owner)
+      account ? unscoped_by_owner.where(account_id: account.id) : none
+    end
+
+    # Whether this install keeps personal keys: ActionAgent.provider_key_scope
+    # is :personal_override and keys are owned per account.
+    def self.personal_keys_enabled?
+      ActionAgent.provider_key_scope == :personal_override && owner_association == :account
+    end
+
+    def self.personal_scope_key(actor)
+      "#{PERSONAL_SCOPE_PREFIX}#{actor.id}"
+    end
+
+    def self.unscoped_by_owner
+      unscope(where: :scope_key)
+    end
+    private_class_method :unscoped_by_owner
 
     def self.kind_of_provider(provider)
       if HOST_PROVIDERS.include?(provider) then "host"
@@ -110,6 +184,10 @@ module ActionAgent
 
     def host_based?
       HOST_PROVIDERS.include?(provider)
+    end
+
+    def personal?
+      scope_key.to_s.start_with?(PERSONAL_SCOPE_PREFIX)
     end
 
     def connection?
@@ -187,10 +265,20 @@ module ActionAgent
       self.api_key = api_key.presence&.strip
     end
 
+    # A personal key needs an account to belong to, and is never a connection
+    # credential: those are handed to sandboxes, which every member shares.
+    def personal_key_allowed
+      if self.class.owner_association != :account || account_id.nil?
+        errors.add(:scope_key, "can name a member only when keys are owned per account")
+      elsif connection?
+        errors.add(:provider, "cannot be a personal key: #{provider} is connected for the whole organization")
+      end
+    end
+
     def provider_unique_within_owner
       return if provider.blank?
 
-      siblings = self.class.for_owner(owner)
+      siblings = personal? ? self.class.where(account_id: account_id, scope_key: scope_key) : self.class.for_owner(owner)
       siblings = siblings.where.not(id: id) if persisted?
       errors.add(:provider, "has already been taken") if siblings.exists?(provider: provider)
     end

@@ -236,6 +236,67 @@ class ActionAgentInstallGeneratorTest < Rails::Generators::TestCase
     assert_no_migration "db/migrate/create_widgets.rb"
   end
 
+  test "the provider key scope migration ships on a fresh install and on an upgrade" do
+    run_generator [ "--skip-routes" ]
+    assert_migration "db/migrate/add_provider_key_scope.rb" do |content|
+      assert_match(/class AddProviderKeyScope < ActiveRecord::Migration\[\d+\.\d+\]/, content)
+    end
+    assert_operator migration_version("add_provider_key_scope"), :>, migration_version("create_active_agent_dashboard_tables")
+
+    prepare_destination
+    migrate = File.join(destination_root, "db/migrate")
+    FileUtils.mkdir_p(migrate)
+    (EARLIER_MIGRATIONS + %w[add_provider_key_api_key create_active_agent_github_connections create_active_agent_code_sessions
+                             add_code_session_runner ensure_agent_release_columns add_evaluation_report_identity])
+      .each_with_index { |name, index| File.write(File.join(migrate, format("20250101%06d_%s.rb", index, name)), "# installed\n") }
+    run_generator [ "--skip-routes" ]
+
+    assert_equal 1, Dir.glob("*_add_provider_key_scope.rb", base: migrate).size
+  end
+
+  test "the provider key scope migration scopes existing keys to the organization and indexes the scope" do
+    run_generator [ "--skip-routes" ]
+    with_provider_keys_table("scope_probe_") do |connection, table|
+      connection.execute("INSERT INTO #{table} (provider, credential, account_id) VALUES ('openai', 'x', 1), ('openai', 'y', 2)")
+
+      run_migration("add_provider_key_scope", :AddProviderKeyScope)
+      run_migration("add_provider_key_scope", :AddProviderKeyScope)
+
+      assert_equal %w[organization organization], connection.select_values("SELECT scope_key FROM #{table}")
+      assert connection.column_exists?(table, :set_by_id)
+      assert connection.index_exists?(table, %i[account_id scope_key provider], unique: true)
+    end
+  end
+
+  test "the provider key scope migration stops on duplicate keys and names them" do
+    run_generator [ "--skip-routes" ]
+    with_provider_keys_table("scope_duplicate_probe_") do |connection, table|
+      connection.execute("INSERT INTO #{table} (id, provider, credential, account_id) VALUES " \
+                         "(11, 'openai', 'x', 7), (12, 'openai', 'y', 7), (13, 'anthropic', 'z', 7), (14, 'openai', 'w', 8)")
+
+      error = assert_raises(ActiveRecord::MigrationError) { run_migration("add_provider_key_scope", :AddProviderKeyScope) }
+
+      assert_match(/account_id 7, provider openai, scope organization: ids 11, 12/, error.message)
+      assert_no_match(/anthropic|account_id 8/, error.message)
+      assert_not connection.column_exists?(table, :scope_key), "nothing changes until the duplicates are resolved"
+    end
+  end
+
+  test "rolling the provider key scope migration back is refused while personal keys exist" do
+    run_generator [ "--skip-routes" ]
+    with_provider_keys_table("scope_rollback_probe_") do |connection, table|
+      run_migration("add_provider_key_scope", :AddProviderKeyScope)
+      connection.execute("INSERT INTO #{table} (id, provider, credential, account_id, scope_key) VALUES (21, 'openai', 'x', 1, 'user:5')")
+
+      error = assert_raises(ActiveRecord::IrreversibleMigration) { run_migration("add_provider_key_scope", :AddProviderKeyScope, :down) }
+      assert_match(/personal keys \(ids 21\)/, error.message)
+
+      connection.execute("DELETE FROM #{table}")
+      run_migration("add_provider_key_scope", :AddProviderKeyScope, :down)
+      assert_not connection.column_exists?(table, :scope_key)
+    end
+  end
+
   test "a missing numbered template directory emits nothing" do
     ActionAgent::InstallGenerator.numbered_migrations_path = File.join(destination_root, "no-such-directory")
 
@@ -271,10 +332,30 @@ class ActionAgentInstallGeneratorTest < Rails::Generators::TestCase
     File.basename(migration_file_name("db/migrate/#{name}.rb")).to_i
   end
 
-  def run_migration(name, class_name)
+  def run_migration(name, class_name, direction = :up)
     namespace = Module.new
     namespace.module_eval(File.read(migration_file_name("db/migrate/#{name}.rb")))
-    ActiveRecord::Migration.suppress_messages { namespace.const_get(class_name).new.migrate(:up) }
+    ActiveRecord::Migration.suppress_messages { namespace.const_get(class_name).new.migrate(direction) }
+  end
+
+  # Creates a provider_keys table as the dashboard tables shipped it, before
+  # keys had a scope, under +prefix+, and makes it the configured prefix for
+  # the block.
+  def with_provider_keys_table(prefix)
+    connection = ActiveRecord::Base.connection
+    table = "#{prefix}provider_keys"
+    connection.create_table(table, force: true) do |t|
+      t.string :provider, null: false
+      t.string :credential, null: false
+      t.bigint :account_id
+      t.bigint :user_id
+      t.timestamps default: -> { "CURRENT_TIMESTAMP" }
+    end
+    ActionAgent.table_name_prefix = prefix
+    yield connection, table
+  ensure
+    ActionAgent.table_name_prefix = "active_agent_"
+    connection.drop_table(table, if_exists: true)
   end
 
   BARE_TABLES = %w[agents agent_versions agent_runs evaluation_runs].freeze

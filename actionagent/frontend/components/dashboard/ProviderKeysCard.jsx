@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useTheme } from '../../contexts/ThemeContext';
 import { clearProviderModels } from '../../utils/providerModels';
+import { effectiveSourceLabel, keyAuditLine, providerKeysPath, providerRowActions } from '../../utils/providerKeys.mjs';
 
 const PROVIDER_META = {
   openai: { label: 'OpenAI', icon: '🤖', placeholder: 'sk-…' },
@@ -19,7 +20,9 @@ const PROVIDER_META = {
 //   removed, to reload the card's providerKeys.
 // onError: shows a failure message to the user; called with null to clear
 //   it when a save or a test starts.
-export function useProviderKeyEditor({ onKeysChanged, onError }) {
+// scope: 'organization' or 'personal', sent with every request; omitted, the
+//   API's default, the organization's keys.
+export function useProviderKeyEditor({ onKeysChanged, onError, scope }) {
   const [editingProvider, setEditingProvider] = useState(null);
   const [providerInput, setProviderInput] = useState('');
   const [providerApiKeyInput, setProviderApiKeyInput] = useState('');
@@ -35,6 +38,7 @@ export function useProviderKeyEditor({ onKeysChanged, onError }) {
     onError(null);
     try {
       const body = { provider, credential: providerInput.trim() };
+      if (scope) body.scope = scope;
       // Host-based providers: a typed key replaces the stored one, an empty
       // field keeps it, and "clear" removes it explicitly.
       if (hostBased && (providerApiKeyInput.trim() || clearApiKey)) {
@@ -73,6 +77,7 @@ export function useProviderKeyEditor({ onKeysChanged, onError }) {
     onError(null);
     try {
       const body = { provider };
+      if (scope) body.scope = scope;
       if (editing) {
         if (providerInput.trim()) body.credential = providerInput.trim();
         if (providerApiKeyInput.trim()) body.api_key = providerApiKeyInput.trim();
@@ -93,9 +98,12 @@ export function useProviderKeyEditor({ onKeysChanged, onError }) {
   };
 
   const removeProviderKey = async (provider) => {
-    if (!window.confirm('Remove this provider credential? Runs will fall back to the platform default credentials, or fail until a key is configured.')) return;
+    const question = scope === 'personal'
+      ? "Remove your key? Your runs will use the organization's key, or the platform default."
+      : 'Remove this provider credential? Runs will fall back to the platform default credentials, or fail until a key is configured.';
+    if (!window.confirm(question)) return;
     try {
-      const res = await fetch(`/api/provider_keys/${provider}`, { method: 'DELETE' });
+      const res = await fetch(providerKeysPath(`/api/provider_keys/${provider}`, scope), { method: 'DELETE' });
       if (!res.ok) throw new Error('delete failed');
       setTestResults((prev) => ({ ...prev, [provider]: null }));
       clearProviderModels();
@@ -121,14 +129,37 @@ export function useProviderKeyEditor({ onKeysChanged, onError }) {
   };
 }
 
+// Heading and description per scope. No scope is the Settings card of an
+// install without personal keys, whose wording the hosted platform's browser
+// tests read.
+const CARD_COPY = {
+  default: {
+    title: 'Provider API Keys',
+    description: 'Configure your own LLM provider credentials. Agent runs and evaluations on this account use these instead of the platform defaults. Keys are encrypted at rest.',
+  },
+  organization: {
+    title: 'Provider Keys',
+    description: 'Shared by everyone in this organization. Agent runs and evaluations use these instead of the platform defaults. Keys are encrypted at rest.',
+  },
+  personal: {
+    title: 'Your Provider Keys',
+    description: "Your own credentials, used by the runs you start. Where you have none, the organization's key applies. Keys are encrypted at rest.",
+  },
+};
+
 // The 'Provider API Keys' card: one row per LLM provider credential the
 // owner can configure, update, remove and, for a host-based provider
 // (Ollama), test.
 //
 // providerKeys: the rows GET /api/provider_keys returns; connection rows
-//   (Claude Code, Codex) are left to their own cards.
-// editor: what useProviderKeyEditor returns.
-export default function ProviderKeysCard({ providerKeys, editor }) {
+//   (Claude Code, Codex) are left to their own cards. In the personal scope
+//   a row whose `editable` is false offers only Remove (providerRowActions).
+// editor: what useProviderKeyEditor returns, for the same scope.
+// scope: 'organization' (the Organization page: who set each key and when)
+//   or 'personal' (Settings with personal keys on: a badge for the source
+//   the caller's runs use). Omitted, the Settings card as it has always been.
+// editable: false shows the keys without the buttons that change them.
+export default function ProviderKeysCard({ providerKeys, editor, scope, editable = true }) {
   const { darkMode } = useTheme();
   const {
     editingProvider, setEditingProvider, providerInput, setProviderInput,
@@ -141,20 +172,27 @@ export default function ProviderKeysCard({ providerKeys, editor }) {
     borderColor: darkMode ? '#2a2a2a' : '#e5e7eb',
   };
 
+  const copy = CARD_COPY[scope] || CARD_COPY.default;
+
   return (
     <div className="border rounded-lg p-6" style={cardStyle}>
       <h3 className={`text-lg font-semibold mb-4 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-        Provider API Keys
+        {copy.title}
       </h3>
       <p className={`text-sm mb-4 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-        Configure your own LLM provider credentials. Agent runs and evaluations on this
-        account use these instead of the platform defaults. Keys are encrypted at rest.
+        {copy.description}
       </p>
+      {!editable && (
+        <p className={`text-sm mb-4 ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+          You can see these keys but not change them.
+        </p>
+      )}
       <div className="space-y-4">
-        {providerKeys.filter(({ kind }) => kind !== 'connection').map(({
-          provider, host_based: hostBased, configured, hint,
-          api_key_configured: apiKeyConfigured, api_key_hint: apiKeyHint, platform_default: platformDefault,
-        }) => {
+        {providerKeys.filter(({ kind }) => kind !== 'connection').map((row) => {
+          const {
+            provider, host_based: hostBased, configured, hint,
+            api_key_configured: apiKeyConfigured, api_key_hint: apiKeyHint, platform_default: platformDefault,
+          } = row;
           const meta = PROVIDER_META[provider] || { label: provider, icon: '🔑', placeholder: '' };
           const editing = editingProvider === provider;
           const testResult = testResults[provider];
@@ -163,6 +201,9 @@ export default function ProviderKeysCard({ providerKeys, editor }) {
           const statusText = configured
             ? (hostBased ? `${hint}${apiKeyConfigured ? ` · key ${apiKeyHint}` : ''}` : `Configured (${hint})`)
             : (hostBased && platformDefault ? `Platform default: ${platformDefault}` : 'Not configured');
+          const sourceBadge = scope === 'personal' ? effectiveSourceLabel(row.effective_source) : null;
+          const { canChange, canRemove, note } = providerRowActions({ editable, scope, row });
+          const audit = scope === 'organization' && configured ? keyAuditLine(row) : null;
           return (
             <div key={provider} className="p-4 rounded-lg" style={{ backgroundColor: darkMode ? '#252525' : '#f9fafb' }}>
               <div className="flex items-center justify-between">
@@ -173,10 +214,22 @@ export default function ProviderKeysCard({ providerKeys, editor }) {
                     <p className={`text-sm ${configured ? (darkMode ? 'text-green-400' : 'text-green-600') : (darkMode ? 'text-gray-400' : 'text-gray-500')}`}>
                       {statusText}
                     </p>
+                    {audit && (
+                      <p className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-400'}`} data-testid="provider-key-audit">{audit}</p>
+                    )}
                   </div>
+                  {sourceBadge && (
+                    <span
+                      className={`px-2 py-0.5 rounded text-xs ${darkMode ? 'bg-gray-700 text-gray-200' : 'bg-gray-200 text-gray-700'}`}
+                      data-testid="provider-key-source"
+                    >
+                      {sourceBadge}
+                    </span>
+                  )}
                 </div>
+                {(canChange || canRemove) && (
                 <div className="flex items-center space-x-2">
-                  {hostBased && !editing && testable && (
+                  {canChange && hostBased && !editing && testable && (
                     <button
                       onClick={() => testProviderHost(provider)}
                       disabled={testing}
@@ -185,7 +238,7 @@ export default function ProviderKeysCard({ providerKeys, editor }) {
                       {testing ? 'Testing…' : 'Test connection'}
                     </button>
                   )}
-                  {configured && !editing && (
+                  {canRemove && !editing && (
                     <button
                       onClick={() => removeProviderKey(provider)}
                       className={`px-3 py-1 text-sm rounded ${darkMode ? 'text-red-300 hover:bg-red-900/40' : 'text-red-600 hover:bg-red-50'}`}
@@ -193,6 +246,7 @@ export default function ProviderKeysCard({ providerKeys, editor }) {
                       Remove
                     </button>
                   )}
+                  {canChange && (
                   <button
                     onClick={() => {
                       setEditingProvider(editing ? null : provider);
@@ -205,8 +259,15 @@ export default function ProviderKeysCard({ providerKeys, editor }) {
                   >
                     {editing ? 'Cancel' : configured ? 'Update' : 'Configure'}
                   </button>
+                  )}
                 </div>
+                )}
               </div>
+              {note && (
+                <p className={`mt-2 text-xs ${darkMode ? 'text-gray-500' : 'text-gray-400'}`} data-testid="provider-key-locked">
+                  {note}
+                </p>
+              )}
               {editing && (
                 <div className="mt-3 space-y-2">
                   <div className="flex items-center space-x-2">
