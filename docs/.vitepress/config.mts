@@ -161,6 +161,7 @@ export default defineConfig({
         items: [
           // { text: 'Browser Use', link: '/examples/browser-use-agent' },
           { text: 'Data Extraction', link: '/examples/data_extraction_agent' },
+          { text: 'MemCode Memory', link: '/examples/memcode-memory-agent' },
           // { text: 'Translation', link: '/examples/translation-agent' },
           { text: 'SolidAgent Examples', link: '/solid_agent/examples' },
         ]
