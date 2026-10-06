@@ -32,6 +32,8 @@ module ActiveAgent
       # @return [Object] the sub-agent's result, or a structured error the
       #   calling model can act on
       # @raise [BudgetExceededError] when the budget policy is +:raise+
+      # @raise [InputRequiredError] when the sub-agent pauses for input and
+      #   the budget policy is +:raise+
       # @raise [InvalidResultError] when the returns policy is +:raise+
       def call(**arguments)
         if (violation = budget_violation)
@@ -123,6 +125,9 @@ module ActiveAgent
         definition.backend.apply(agent)
         apply_returns_format(agent)
         inherit_trace_id(agent)
+        # A pause becomes this call's result (see #input_required), and its
+        # checkpoint is dropped, so nothing outside the call may act on it.
+        agent.silence_input_requests!
 
         agent.process_prompt
       end
@@ -193,6 +198,8 @@ module ActiveAgent
       # @param payload [Hash] instrumentation payload
       # @return [Object]
       def result(response, payload)
+        return input_required(response, payload) if response.try(:awaiting_input?)
+
         message = response.message
         return nil if message.nil?
 
@@ -248,6 +255,30 @@ module ActiveAgent
           used: duration.round(3),
           message: "The #{definition.tool_name} delegation timed out after #{budget.timeout}s. " \
                    "Answer with the information you already have, or call it with a smaller request."
+        }
+      end
+
+      # A delegated agent cannot pause for the user: nothing holds its
+      # checkpoint once the tool call returns. Its questions go back to the
+      # calling model instead.
+      #
+      # @param response [ActiveAgent::Providers::Common::PromptResponse] a paused response
+      # @param payload [Hash] instrumentation payload
+      # @return [Hash]
+      # @raise [InputRequiredError] when the budget policy is +:raise+
+      def input_required(response, payload)
+        payload[:status] = :input_required
+
+        if budget.policy == :raise
+          raise InputRequiredError, "#{definition.agent_class}##{definition.action} stopped to ask the user for input " \
+                                    "(#{response.input_requests.map(&:tool_name).join(", ")}), which a delegated agent cannot do"
+        end
+
+        {
+          error: "input_required",
+          questions: response.input_requests.map(&:prompt),
+          message: "The #{definition.tool_name} delegation stopped to ask the user for input, which a delegated agent cannot do. " \
+                   "Answer with the information you already have, or ask the user yourself."
         }
       end
 

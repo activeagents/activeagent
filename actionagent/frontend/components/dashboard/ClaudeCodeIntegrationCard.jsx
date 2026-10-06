@@ -150,6 +150,7 @@ export default function ClaudeCodeIntegrationCard({ onChange }) {
           <div className="flex items-center space-x-2">
             <input
               type="password"
+              data-aa-secret=""
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && save()}

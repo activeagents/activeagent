@@ -15,19 +15,23 @@ module ActionAgent
       before_action :require_owner!
       before_action :require_github_oauth!, only: [ :connect, :callback ]
       before_action :set_connection, only: [ :repositories, :update, :destroy ]
+      before_action :authorize_github!, only: [ :connect, :callback, :update, :destroy ]
 
       # Later handlers win, so the subclass is registered last.
       rescue_from GithubClient::Error, with: :github_unavailable
       rescue_from GithubClient::Unauthorized, with: :github_unauthorized
 
-      # GET /api/github_connection
+      # GET /api/github_connection — the OAuth connection, and the GitHub App
+      # path beside it under +app+: whether an App is configured, whether one
+      # can be created from a manifest here, and the owner's installations.
       def show
         connection = owned(GithubConnection).first
 
         render json: {
           configured: ActionAgent.github_oauth_configured?,
           connected: connection.present?,
-          connection: connection&.as_summary
+          connection: connection&.as_summary,
+          app: github_app_status
         }
       end
 
@@ -100,6 +104,9 @@ module ActionAgent
         # A different GitHub account starts with nothing selected: the old
         # selection was checked against the other account's access.
         connection.repositories = [] if connection.persisted? && connection.github_user_id != user["id"]
+        # The user who authorized, also where the account owns the
+        # connection: only they may publish pull requests with its token.
+        connection.user_id = current_user.id if ActionAgent.user_class.present? && current_user.respond_to?(:id)
         connection.update!(
           access_token: grant[:access_token],
           scopes: grant[:scope],
@@ -120,6 +127,23 @@ module ActionAgent
         @connection = owned(GithubConnection).first!
       end
 
+      # Asks about the owner's connection, or about an unsaved one when
+      # #connect or #callback is about to create it.
+      def authorize_github!
+        subject = @connection || owned(GithubConnection).first || owned(GithubConnection).new
+        authorize_action!(:manage_github, subject)
+      end
+
+      # #connect and #callback are browser navigations, so a refusal returns
+      # to Settings like their other outcomes. The callback's state is
+      # discarded with it.
+      def permission_denied(action)
+        return super unless action_name.in?(%w[connect callback])
+
+        session.delete(STATE_SESSION_KEY)
+        redirect_to_settings(github: "forbidden")
+      end
+
       def require_github_oauth!
         return if ActionAgent.github_oauth_configured?
 
@@ -128,6 +152,20 @@ module ActionAgent
 
       def callback_url
         "#{request.base_url}#{request.script_name}/api/github_connection/callback"
+      end
+
+      def github_app_status
+        configured = ActionAgent.github_app_configured?
+
+        {
+          configured: configured,
+          slug: configured ? ActionAgent.github_app_slug : nil,
+          callback_url: "#{request.base_url}#{request.script_name}/api/github_installations/callback",
+          manifest_available: !ActionAgent.multi_tenant?,
+          # Listed only while an App is configured: without one nothing can
+          # mint an installation's tokens, so its repositories cannot be used.
+          installations: configured ? owned(GithubInstallation).order(:id).map(&:as_summary) : []
+        }
       end
 
       def redirect_to_settings(**query)

@@ -83,13 +83,22 @@ module ActionAgent
       # its tenant through `ActionAgent.tenant_for`, so a host that resolves
       # tenants reads that tenant's rows; without a tenant resolver the user
       # is nobody's account and reads nothing.
+      #
+      # Only the rows .owned_rows admits are returned.
       def for_owner(owner)
-        return all if owner_association.nil?
+        return owned_rows if owner_association.nil?
 
         owner = resolve_owner(owner)
         return none if owner.nil?
 
-        where("#{owner_association}_id": owner.id)
+        owned_rows.where("#{owner_association}_id": owner.id)
+      end
+
+      # The rows an owner's scope reads: every row, unless the model holds
+      # rows its owner does not share, which it leaves out here. .for_owner
+      # and the dashboard API's `owned` both apply it.
+      def owned_rows
+        all
       end
 
       # +owner+ as an instance of the configured owner class: itself when it

@@ -98,6 +98,31 @@ class AgentSyncTest < ActiveSupport::TestCase
     bob&.destroy
   end
 
+  test "an install with no owner model syncs agents without one" do
+    assert_nil ActionAgent::Agent.owner_association
+
+    result = ActionAgent::AgentSync.call([ InvoiceAgent ], owner: nil)
+
+    assert result.success?, result.errors
+    agent = result.agents.sole
+    assert_nil agent.user_id
+    assert_nil agent.account_id
+    assert_equal agent, ActionAgent.agents_for(nil).find_by(slug: "agent-sync-test-invoice-agent")
+  end
+
+  test "an install with an owner model still refuses to sync agents to nobody" do
+    previous = ActionAgent.user_class
+    ActionAgent.user_class = "User"
+
+    result = ActionAgent::AgentSync.call([ InvoiceAgent ], owner: nil)
+
+    assert_not result.success?
+    assert_match "An owner is required", result.errors
+    assert_not ActionAgent::Agent.exists?
+  ensure
+    ActionAgent.user_class = previous
+  end
+
   private
 
   # Agent has no owner presence validation; the engine scopes by whatever the

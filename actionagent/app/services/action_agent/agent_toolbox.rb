@@ -50,6 +50,28 @@ module ActionAgent
       # Stateful: navigate changes what snapshot/click see, so these bypass
       # the toolbox result cache.
       "playwright_mcp" => [
+        # Not a browser action: the point where the agent stops and a person
+        # continues on the page it reached. AgentExecutionService answers it
+        # against the run's session recording (see #request_handoff there),
+        # which is why it has no FUNCTIONS entry.
+        {
+          name: "request_handoff",
+          description: "Hand the browser session to a person and stop. Call this the moment the page asks for something only its owner may give: payment details, a password, a one-time code, a consent. Pass the URL of the page you stopped on and the non-secret values you already entered, so the person can check them. After calling it, take no further browser actions; report where you stopped and what the person does next.",
+          parameters: {
+            type: "object",
+            properties: {
+              reason: { type: "string", description: "What the page is asking for, e.g. \"payment details\" or \"a login code sent by email\"" },
+              url: { type: "string", description: "The URL of the page the person continues on" },
+              form_values: {
+                type: "object",
+                description: "Values already entered, field label to value. Never a card number, password or code.",
+                additionalProperties: { type: "string" }
+              },
+              instructions: { type: "string", description: "One or two sentences on what the person should do next" }
+            },
+            required: [ "reason", "url" ]
+          }
+        },
         {
           name: "browser_navigate",
           description: "Open a URL in the managed browser. Returns a text snapshot of the page with element refs.",
@@ -76,6 +98,68 @@ module ActionAgent
               element: { type: "string", description: "Human-readable description of the element" }
             },
             required: [ "ref" ]
+          }
+        },
+        {
+          name: "browser_type",
+          description: "Type text into an editable element from the latest snapshot: a text box, a search field. Set submit to press Enter afterwards.",
+          parameters: {
+            type: "object",
+            properties: {
+              ref: { type: "string", description: "Element ref from the snapshot" },
+              element: { type: "string", description: "Human-readable description of the element" },
+              text: { type: "string", description: "The text to type" },
+              submit: { type: "boolean", description: "Press Enter after typing" }
+            },
+            required: [ "ref", "text" ]
+          }
+        },
+        {
+          name: "browser_fill_form",
+          description: "Fill several form fields in one step. Each field names its ref from the latest snapshot, a label, its type and the value to enter; a checkbox takes true or false, a combobox the option's text.",
+          parameters: {
+            type: "object",
+            properties: {
+              fields: {
+                type: "array",
+                description: "The fields to fill",
+                items: {
+                  type: "object",
+                  properties: {
+                    ref: { type: "string", description: "Element ref from the snapshot" },
+                    name: { type: "string", description: "The field's label, e.g. Email" },
+                    type: { type: "string", enum: %w[textbox checkbox radio combobox slider], description: "The field's type" },
+                    value: { type: "string", description: "What to enter" }
+                  },
+                  required: [ "ref", "name", "type", "value" ]
+                }
+              }
+            },
+            required: [ "fields" ]
+          }
+        },
+        {
+          name: "browser_select_option",
+          description: "Choose an option in a dropdown from the latest snapshot.",
+          parameters: {
+            type: "object",
+            properties: {
+              ref: { type: "string", description: "Element ref from the snapshot" },
+              element: { type: "string", description: "Human-readable description of the element" },
+              values: { type: "array", items: { type: "string" }, description: "The option values or texts to select" }
+            },
+            required: [ "ref", "values" ]
+          }
+        },
+        {
+          name: "browser_press_key",
+          description: "Press a key in the browser, such as Enter, Escape, Tab or ArrowDown.",
+          parameters: {
+            type: "object",
+            properties: {
+              key: { type: "string", description: "The key to press" }
+            },
+            required: [ "key" ]
           }
         }
       ],
@@ -148,6 +232,36 @@ module ActionAgent
           }
         }
       ],
+      # Asking a person mid-run. Each call pauses the run until the answer
+      # arrives (ActionAgent::InputRequest), so AgentExecutionService routes
+      # them, and they are NOT in FUNCTIONS below.
+      "ask" => [
+        {
+          name: "ask_user",
+          description: "Ask the user a question and wait for the answer before continuing. Pass options to have them " \
+            "pick one of a fixed set of answers. Use when you need information only the user has.",
+          parameters: {
+            type: "object",
+            properties: {
+              question: { type: "string", description: "The question, as the user should read it" },
+              options: { type: "array", items: { type: "string" }, description: "Answers to choose from; omit for a free-text answer" }
+            },
+            required: [ "question" ]
+          }
+        },
+        {
+          name: "request_approval",
+          description: "Ask the user to approve an action before you take it, and wait for their decision. Call it before " \
+            "any step with side effects the user has not already agreed to. Returns approved: true, or an error when declined.",
+          parameters: {
+            type: "object",
+            properties: {
+              action: { type: "string", description: "What you want to do, in one sentence the user can approve or decline" }
+            },
+            required: [ "action" ]
+          }
+        }
+      ],
       # Memory tools mirror solid_agent's HasMemory contract. They are NOT in
       # FUNCTIONS below — execution is subject-bound, so AgentExecutionService
       # routes them to the run's AgentMemory instead of this module.
@@ -179,6 +293,28 @@ module ActionAgent
       ]
     }.freeze
 
+    # Asks the user for a secret, such as an API key, delivered to the agent's
+    # server-side handler (ActionAgent::SecretRequests) and never to the
+    # model. Offered only to an agent with a registered handler, never
+    # through an agent's tools list, so it is not in DEFINITIONS.
+    REQUEST_SECRET_DEFINITION = {
+      name: "request_secret",
+      description: "Ask the user for a secret value, such as an API key or a password. The value is handed to the " \
+        "system without you ever seeing it; you receive only confirmation that it was provided.",
+      parameters: {
+        type: "object",
+        properties: {
+          name: { type: "string", description: "The secret's name, e.g. STRIPE_API_KEY" },
+          prompt: { type: "string", description: "What to tell the user about the value you need" }
+        },
+        required: [ "name", "prompt" ]
+      }
+    }.freeze
+
+    # The tools that pause a run to ask a person, routed by
+    # AgentExecutionService.
+    INPUT_FUNCTIONS = %w[ask_user request_approval request_secret].freeze
+
     # Function name => implementation method, for routing tool calls.
     FUNCTIONS = {
       "fetch_url" => :fetch_url,
@@ -188,24 +324,51 @@ module ActionAgent
       "browser_navigate" => :browser_navigate,
       "browser_snapshot" => :browser_snapshot,
       "browser_click" => :browser_click,
+      "browser_type" => :browser_type,
+      "browser_fill_form" => :browser_fill_form,
+      "browser_select_option" => :browser_select_option,
+      "browser_press_key" => :browser_press_key,
       "render_ui" => :render_ui
     }.freeze
 
     # Stateful tools whose results must never be replayed from cache — and
     # render_ui, whose result is the call itself, so there is nothing to
-    # replay.
-    UNCACHED_FUNCTIONS = %w[browser_navigate browser_snapshot browser_click render_ui].freeze
+    # replay, and the tools whose result is a person's answer.
+    UNCACHED_FUNCTIONS = (%w[
+      browser_navigate browser_snapshot browser_click browser_type browser_fill_form
+      browser_select_option browser_press_key render_ui
+    ] + INPUT_FUNCTIONS).freeze
+
+    # The group whose tools drive the process-wide browser
+    # (PlaywrightMCPClient), and those tools. A run against a sandbox with a
+    # running browser gets that browser's tools instead, and a multi-tenant
+    # install never offers or calls these: every tenant's runs would share
+    # one browser.
+    SHARED_BROWSER_GROUP = "playwright_mcp"
+    SHARED_BROWSER_FUNCTIONS = DEFINITIONS.fetch(SHARED_BROWSER_GROUP).map { |definition| definition[:name] }.freeze
 
     # Hosts browse_page may fetch — the platform's own trusted docs.
     BROWSE_ALLOWED_HOSTS = %w[docs.activeagents.ai].freeze
 
     class << self
       # Tool definitions for the subset of an agent's enabled tools that have
-      # server-side implementations.
-      def definitions_for(tool_names)
-        Array(tool_names).flat_map do |name|
-          DEFINITIONS[name.to_s] || schema_tool_definitions(name.to_s)
-        end
+      # server-side implementations. The shared browser's are left out when
+      # +browser_attached+ (the run reaches its sandbox's browser, which
+      # serves tools of the same names) or when shared_browser? is false.
+      # Never request_secret, whatever the list names.
+      def definitions_for(tool_names, browser_attached: false)
+        names = Array(tool_names).map(&:to_s)
+        names -= [ SHARED_BROWSER_GROUP ] if browser_attached || !shared_browser?
+
+        names.flat_map do |name|
+          DEFINITIONS[name] || schema_tool_definitions(name)
+        end.reject { |definition| definition[:name].to_s == REQUEST_SECRET_DEFINITION[:name] }
+      end
+
+      # Whether runs may use the process-wide browser: never in a
+      # multi-tenant install.
+      def shared_browser?
+        !ActionAgent.multi_tenant?
       end
 
       def function?(name)
@@ -230,6 +393,9 @@ module ActionAgent
       # instead of re-running the side effect.
       def call(name, **kwargs)
         return { error: "Unknown tool: #{name}" } unless function?(name)
+        if SHARED_BROWSER_FUNCTIONS.include?(name.to_s) && !shared_browser?
+          return { error: "#{name} needs a browser: start the browser of the sandbox this agent runs against" }
+        end
 
         # Who the call is for is never one of the call's arguments: it comes
         # off here, before a tool sees them. That keeps a built-in from
@@ -354,8 +520,48 @@ module ActionAgent
         playwright_mcp("browser_snapshot", {})
       end
 
-      def browser_click(ref:, element: nil)
-        playwright_mcp("browser_click", { ref: ref, element: element || ref })
+      def browser_click(ref: nil, target: nil, element: nil, button: nil)
+        playwright_mcp("browser_click", browser_target(ref || target, element).merge({ button: button }.compact))
+      end
+
+      def browser_type(text:, ref: nil, target: nil, element: nil, submit: nil, slowly: nil)
+        arguments = browser_target(ref || target, element).merge({ text: text.to_s, submit: submit, slowly: slowly }.compact)
+        playwright_mcp("browser_type", arguments)
+      end
+
+      def browser_fill_form(fields:)
+        normalized = Array(fields).map do |field|
+          field = field.to_h.transform_keys(&:to_s)
+          {
+            target: (field["target"] || field["ref"]).to_s,
+            name: field["name"].to_s,
+            type: field["type"].presence || "textbox",
+            value: field["value"].to_s
+          }
+        end
+        raise ArgumentError, "every field needs a ref" if normalized.any? { |field| field[:target].blank? }
+
+        playwright_mcp("browser_fill_form", { fields: normalized })
+      end
+
+      def browser_select_option(values:, ref: nil, target: nil, element: nil)
+        playwright_mcp("browser_select_option", browser_target(ref || target, element).merge(values: Array(values).map(&:to_s)))
+      end
+
+      def browser_press_key(key:)
+        playwright_mcp("browser_press_key", { key: key.to_s })
+      end
+
+      # Playwright MCP addresses an element by +target+ — a ref from the
+      # latest snapshot, or a selector — and names it in +element+ for the
+      # permission prompt it may show. Earlier releases of the server called
+      # the ref +ref+, and that is still what the tool schemas ask the model
+      # for, so both spellings are accepted here and sent as the server now
+      # expects.
+      def browser_target(target, element)
+        raise ArgumentError, "an element ref from the snapshot is required" if target.blank?
+
+        { target: target.to_s, element: (element.presence || target).to_s }
       end
 
       SNAPSHOT_LINK = /\[Snapshot\]\(([^)]+)\)/

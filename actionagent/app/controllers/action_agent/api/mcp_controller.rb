@@ -116,12 +116,18 @@ module ActionAgent
         @owner
       end
 
-      # The key's user when it records one. Otherwise the owner, unless the
+      # The key's creator when it records one. Otherwise the owner, unless the
       # owner is an account: a tenant is never a user.
       def current_user
-        return @api_key.user if @api_key.respond_to?(:user) && @api_key.user
+        return key_creator if key_creator
 
         ActionAgent.multi_tenant? ? nil : @owner
+      end
+
+      def key_creator
+        return @key_creator if defined?(@key_creator)
+
+        @key_creator = @api_key&.creator
       end
 
       # The agents this key can reach. A key belongs to whoever owns it, and
@@ -133,9 +139,9 @@ module ActionAgent
 
       # The caller an MCP-invoked run executes on behalf of.
       #
-      # The key's owner is the identity that authenticated this request, so
-      # it is the default; a host issuing keys per end user overrides it
-      # with ActionAgent.agent_actor_resolver, which is handed this
+      # The default is the user who created the key when the key records
+      # one, else the key's owner. A host issuing keys per end user overrides
+      # it with ActionAgent.agent_actor_resolver, which is handed this
       # controller and can read the request however it likes.
       #
       # The agent's own callbacks decide what the actor may do — that is the
@@ -147,7 +153,7 @@ module ActionAgent
           if (resolver = ActionAgent.agent_actor_resolver)
             resolver.arity.zero? ? resolver.call : resolver.call(self)
           else
-            @api_key.respond_to?(:user) && @api_key.user ? @api_key.user : @owner
+            key_creator || @owner
           end
       end
 
@@ -178,11 +184,17 @@ module ActionAgent
                "resource returns the agent's live scorecard."
         return text unless ActionAgent.mcp_dashboard_tools?
 
-        "#{text} The evaluations_, evaluation_runs_ and traces_ tools work on this account's evaluations and " \
-          "telemetry: edit the agent in your own checkout, start a run with evaluations_run (pass sandbox_id to run " \
-          "against a checkout sandbox), poll evaluation_runs_get for its status, results and fix items, compare runs " \
-          "with evaluation_runs_compare, and read a failing result's trace with traces_get (traces_search finds " \
-          "recent failures)."
+        "#{text} The evaluations_, scenarios_, explorations_, evaluation_runs_ and traces_ tools work on this " \
+          "account's evaluations and telemetry: create an evaluation with evaluations_create and add scenarios to it " \
+          "with scenarios_merge, which never removes or disables a scenario it was not given (neither tool runs " \
+          "anything), or submit the questions you found by exploring a project's app with explorations_submit, for a " \
+          "person to review and accept on the dashboard (it returns each candidate's verdict), edit the agent " \
+          "in your own checkout, start a run with evaluations_run (pass sandbox_id to run against a checkout " \
+          "sandbox), poll evaluation_runs_get for its status, results and fix items, compare runs with " \
+          "evaluation_runs_compare, and read a failing result's trace with traces_get (traces_search finds recent " \
+          "failures). A run_<slug> call that pauses to ask for input returns its input request ids: " \
+          "input_requests_list shows what paused runs are waiting on, and input_requests_answer answers a text or " \
+          "choice request."
       end
 
       MESSAGE_INPUT_SCHEMA = {
@@ -261,7 +273,9 @@ module ActionAgent
         run = agent.test_execute(message, action: action, actor: agent_actor)
         ActionAgent.record_usage(@owner, :execution)
 
-        if run.failed?
+        if run.awaiting_input?
+          awaiting_input_result(run)
+        elsif run.failed?
           # A refusal is not a result. An agent that declined on this
           # caller's behalf answers as a JSON-RPC error, so the client sees
           # "not allowed" rather than an empty, confident answer — the
@@ -281,6 +295,24 @@ module ActionAgent
             }
           }
         end
+      end
+
+      # A run that paused to ask a person: its id, status and pending
+      # requests, which the dashboard, or input_requests_answer for a text or
+      # choice request, answers.
+      def awaiting_input_result(run)
+        requests = run.pending_input_requests.to_a
+        lines = requests.map { |request| "- input request #{request.id} (#{request.kind}): #{request.prompt}" }
+
+        {
+          content: [ { type: "text", text: "The agent paused to ask for input:\n#{lines.join("\n")}" } ],
+          structuredContent: {
+            run_id: run.id,
+            trace_id: run.trace_id,
+            status: run.status,
+            input_request_ids: requests.map(&:id)
+          }
+        }
       end
 
       # Calls a schema tool directly, as this key's caller. No generation runs,

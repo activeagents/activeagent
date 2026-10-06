@@ -17,16 +17,19 @@ module ActionAgent
   #   archived   — the evaluation is archived (Evaluation#archive!)
   #   none       — no complete run
   #
-  # Only edits the model can see count as a new version: the instructions,
-  # the action prompts, the tools, the MCP servers, the model config and
-  # the response format. A dashboard edit to the agent's appearance cuts an
-  # AgentVersion like any other edit, but the run before it scored the same
-  # agent and stays current.
+  # Only edits that change how a run goes count as a new version: what the
+  # model is given (the instructions, the action prompts, the tools, the MCP
+  # servers, the model config and the response format), and the tools whose
+  # calls wait for a person's approval, which pause a replay. A dashboard
+  # edit to the agent's appearance cuts an AgentVersion like any other edit,
+  # but the run before it scored the same agent and stays current.
   class EvaluationStanding
     STANDINGS = %w[current stale unrecorded archived none].freeze
     VERSION_STATES = %w[current earlier unrecorded].freeze
     # The configuration snapshot keys the model is given.
     MODEL_FACING = %w[instructions action_prompts tools mcp_servers model_config response_format].freeze
+    # The configuration snapshot keys that change how a run goes.
+    SCORED = (MODEL_FACING + %w[approval_required_tools]).freeze
 
     # Gives every evaluation its standing with one query per table rather
     # than one per evaluation: the agents' latest versions and whether each
@@ -95,7 +98,7 @@ module ActionAgent
 
       latest = latest_version
       return "current" if latest.nil? || latest.id == version.id
-      return "current" if model_facing(version) == model_facing(latest)
+      return "current" if scored_configuration(version) == scored_configuration(latest)
 
       "earlier"
     end
@@ -137,9 +140,13 @@ module ActionAgent
       @has_releases = evaluation.agent&.agent_versions&.releases&.exists? || false
     end
 
-    def model_facing(version)
+    # A snapshot taken before an agent had an approval list reads as an empty
+    # one, so the list's arrival alone cuts no new version.
+    def scored_configuration(version)
       snapshot = version.configuration_snapshot.to_h.stringify_keys
-      MODEL_FACING.to_h { |key| [ key, snapshot[key] ] }
+      configuration = SCORED.to_h { |key| [ key, snapshot[key] ] }
+      configuration["approval_required_tools"] = Array(configuration["approval_required_tools"])
+      configuration
     end
   end
 end

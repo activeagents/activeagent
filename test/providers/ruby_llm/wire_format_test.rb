@@ -60,6 +60,21 @@ class RubyLLMWireFormatTest < ActiveSupport::TestCase
     assert_equal '{"city":"Boston"}', replayed.dig("tool_calls", 0, "function", "arguments")
   end
 
+  test "sends OpenAI one tool message per call when a turn makes several" do
+    bodies = stub_responses(OPENAI_ENDPOINT,
+      openai_response(tool_calls: [
+        { id: "call_1", type: "function", function: { name: "get_weather", arguments: '{"city":"Boston"}' } },
+        { id: "call_2", type: "function", function: { name: "get_weather", arguments: '{"city":"Denver"}' } }
+      ]),
+      openai_response(content: "72F in Boston and in Denver."))
+
+    weather_provider(model: "gpt-4o-mini").prompt
+
+    tool_messages = bodies.last["messages"].select { |message| message["role"] == "tool" }
+    assert_equal [ [ "call_1", '{"temp":72}' ], [ "call_2", '{"temp":72}' ] ],
+                 tool_messages.map { |message| [ message["tool_call_id"], message["content"] ] }
+  end
+
   test "sends Anthropic the input of the tool call it made, as an object" do
     bodies = stub_responses(ANTHROPIC_ENDPOINT,
       anthropic_response(content: [ { type: "tool_use", id: "toolu_1", name: "get_weather", input: { city: "Boston" } } ],

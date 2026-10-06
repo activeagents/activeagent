@@ -5,16 +5,14 @@ require_relative "../../../lib/active_agent/providers/anthropic_provider"
 
 module Providers
   module Anthropic
-    # The json_object emulation prefills an assistant turn with
-    # "Here is the JSON requested:\n{" and expects the model to continue from
-    # there, then re-attaches the "{". That re-attachment assumed the JSON lived
-    # in the *first* content block.
+    # On a model that accepts a prefill, with thinking off, the json_object
+    # emulation prefills an assistant turn with "Here is the JSON requested:\n{"
+    # and expects the model to continue from there. Reconstruction removes that
+    # turn from the request and re-attaches the "{" to the last block that
+    # carries `text`, skipping blocks that carry none, such as `thinking`.
     #
-    # It does not when thinking is enabled: the response opens with a `thinking`
-    # block. A thinking block carries `thinking`, not `text`, so the lookup came
-    # back nil and the "{" was silently never prepended — leaving a bare
-    # continuation that cannot be parsed. It only appears to work against
-    # providers that answer with a complete object instead of continuing.
+    # Every other request is sent without the lead-in. JsonObjectEmulationTest
+    # covers both kinds of request end to end.
     class JsonObjectReconstructionTest < ActiveSupport::TestCase
       LEAD_IN = ActiveAgent::Providers::AnthropicProvider::JSON_RESPONSE_FORMAT_LEAD_IN
 

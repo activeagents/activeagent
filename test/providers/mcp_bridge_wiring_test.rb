@@ -27,12 +27,29 @@ class MCPBridgeWiringTest < ActiveSupport::TestCase
   COMMAND_SERVER = [ { name: "local", command: "mcp-server", args: [ "--stdio" ] } ].freeze
   BOTH_SERVERS   = (URL_SERVER + COMMAND_SERVER).freeze
   MESSAGES       = [ { role: "user", content: "Fetch https://example.com" } ].freeze
+  ARCHIVE_TOOL   = { name: "archive", description: "Archive a file", parameters: { type: "object", properties: {} } }.freeze
 
-  # Only the tool list is needed here — the call path is covered by
-  # MCPBridgeTest.
+  ANTHROPIC_ENDPOINT = "https://api.anthropic.com/v1/messages"
+  DEEPSEEK_ENDPOINT  = "https://api.deepseek.com/chat/completions"
+
+  # Offers one tool, and answers a call to it with `answer`: a tool result, or
+  # an error to raise, as the real client raises on a JSON-RPC error. How the
+  # bridge reads each answer is covered by MCPBridgeTest; here it is followed
+  # into the request the provider sends next.
   class FakeClient
+    def initialize(answer: { "content" => [ { "type" => "text", "text" => "<html></html>" } ] })
+      @answer = answer
+    end
+
     def tools
       [ MCP::Client::Tool.new(name: "get_page", description: "Fetch a page", input_schema: nil) ]
+    end
+
+    # @return [Hash] the JSON-RPC envelope, which is what the real client returns
+    def call_tool(name:, arguments:)
+      raise @answer if @answer.is_a?(Exception)
+
+      { "jsonrpc" => "2.0", "id" => 1, "result" => @answer }
     end
   end
 
@@ -114,6 +131,121 @@ class MCPBridgeWiringTest < ActiveSupport::TestCase
     end
 
     assert_includes error.message, "none"
+  end
+
+  test "serves a String-keyed declaration natively where the provider can" do
+    declared = [ { "name" => "firecrawl", "url" => "https://mcp.example.com/mcp" } ]
+
+    context = provider(AnthropicProvider, mcps: declared).send(:prompt_context)
+
+    assert_equal URL_SERVER, context[:mcps]
+    assert_nil context[:tools], "a natively served server must not add tool schemas"
+  end
+
+  test "refuses an mcp_strategy it does not know" do
+    error = assert_raises(ArgumentError) do
+      provider(AnthropicProvider, mcps: URL_SERVER, mcp_strategy: :native).send(:prompt_context)
+    end
+
+    assert_includes error.message, ":auto, :client, :server"
+    assert_includes error.message, ":native"
+  end
+
+  # The approval gate sits in the provider's tool loop, which never sees the
+  # calls of a server the provider runs itself.
+  test "Anthropic and OpenAI Responses run a remote server client-side when its calls need approval" do
+    [ AnthropicProvider, ResponsesProvider ].each do |klass|
+      [ "always", { never: { tool_names: [ "get_page" ] } }, { always: [ "get_page" ] } ].each do |policy|
+        with_bridge do
+          context = provider(klass, mcps: [ URL_SERVER.first.merge(require_approval: policy) ]).send(:prompt_context)
+
+          assert_not context.key?(:mcps), "#{klass.service_name} must not serve a server with require_approval #{policy.inspect}"
+          assert_equal [ "get_page" ], context[:tools].pluck(:name)
+        end
+      end
+    end
+  end
+
+  test "require_approval: never keeps a remote server native" do
+    [ AnthropicProvider, ResponsesProvider ].each do |klass|
+      declaration = URL_SERVER.first.merge(require_approval: "never")
+      context     = provider(klass, mcps: [ declaration ]).send(:prompt_context)
+
+      assert_equal [ declaration ], context[:mcps]
+    end
+  end
+
+  test "a remote server is run client-side when requires_approval: names one of its allowed_tools" do
+    declaration = URL_SERVER.first.merge(allowed_tools: [ "get_page" ])
+
+    with_bridge do
+      context = provider(AnthropicProvider, mcps: [ declaration ], requires_approval: [ :get_page ]).send(:prompt_context)
+
+      assert_not context.key?(:mcps)
+      assert_not context.key?(:requires_approval), "the approval list instructs us; no provider accepts it"
+    end
+  end
+
+  test "a remote server without allowed_tools is run client-side when requires_approval: names a tool no declared tool has" do
+    [ AnthropicProvider, ResponsesProvider ].each do |klass|
+      with_bridge do
+        context = provider(klass, mcps: URL_SERVER, tools: [ ARCHIVE_TOOL ], requires_approval: %i[archive delete]).send(:prompt_context)
+
+        assert_not context.key?(:mcps), "#{klass.service_name} could run delete where nobody is asked to approve it"
+      end
+    end
+  end
+
+  test "a remote server stays native when requires_approval: names only declared tools, in either tool format" do
+    chat_format = { type: "function", function: { name: "archive", description: "Archive a file", parameters: {} } }
+
+    [ ARCHIVE_TOOL, chat_format ].each do |tool|
+      ActiveAgent::Providers::MCPBridge.stub(:new, ->(*) { flunk "a server that offers no named tool is not bridged" }) do
+        context = provider(AnthropicProvider, mcps: URL_SERVER, tools: [ tool ], requires_approval: [ :archive ]).send(:prompt_context)
+
+        assert_equal URL_SERVER, context[:mcps]
+      end
+    end
+  end
+
+  test "a remote server whose allowed_tools leave out every named tool stays native" do
+    declaration = URL_SERVER.first.merge(allowed_tools: [ "get_page" ])
+
+    ActiveAgent::Providers::MCPBridge.stub(:new, ->(*) { flunk "a server that cannot offer delete is not bridged" }) do
+      context = provider(ResponsesProvider, mcps: [ declaration ], requires_approval: [ :delete ]).send(:prompt_context)
+
+      assert_equal [ declaration ], context[:mcps]
+    end
+  end
+
+  test "a require_approval map that covers no tool keeps a remote server native" do
+    declaration = URL_SERVER.first.merge(require_approval: { always: [] })
+
+    assert_equal [ declaration ], provider(AnthropicProvider, mcps: [ declaration ]).send(:prompt_context)[:mcps]
+  end
+
+  test "mcp_strategy: :server refuses a remote server that may offer a tool requires_approval: names" do
+    [ AnthropicProvider, ResponsesProvider ].each do |klass|
+      error = assert_raises(ArgumentError) do
+        provider(klass, mcps: URL_SERVER, requires_approval: [ :delete ], mcp_strategy: :server).send(:prompt_context)
+      end
+      assert_includes error.message, "`requires_approval:` names delete"
+      assert_includes error.message, "List the tools it may offer in `allowed_tools:`"
+
+      declaration = URL_SERVER.first.merge(allowed_tools: %w[get_page delete])
+      error = assert_raises(ArgumentError) do
+        provider(klass, mcps: [ declaration ], requires_approval: [ :delete ], mcp_strategy: :server).send(:prompt_context)
+      end
+      assert_includes error.message, "Remove delete from its `allowed_tools:`"
+    end
+  end
+
+  test "mcp_strategy: :server refuses a server whose calls need approval" do
+    error = assert_raises(ArgumentError) do
+      provider(ResponsesProvider, mcps: [ URL_SERVER.first.merge(require_approval: "always") ], mcp_strategy: :server).send(:prompt_context)
+    end
+
+    assert_includes error.message, "need approval"
   end
 
   test "keeps the agent's own tools alongside the bridge's" do
@@ -235,10 +367,59 @@ class MCPBridgeWiringTest < ActiveSupport::TestCase
     end
   end
 
+  # A call that fails on a bridged server has to reach the model as a failure,
+  # or it reads the error as the tool's answer. Anthropic's tool result has a
+  # flag for that, which stays false for a tool the agent declares itself.
+  test "Anthropic flags a call that failed on a bridged server, and only that call" do
+    failure = { "content" => [ { "type" => "text", "text" => "Rate limit exceeded" } ], "isError" => true }
+    local   = { name: "local_tool", description: "Local", parameters: { type: "object", properties: {} } }
+
+    with_bridge(FakeClient.new(answer: failure)) do
+      bodies = stub_responses(
+        ANTHROPIC_ENDPOINT,
+        anthropic_response(stop_reason: "tool_use", content: [
+          { type: "tool_use", id: "toolu_1", name: "get_page", input: { url: "https://example.com" } },
+          { type: "tool_use", id: "toolu_2", name: "local_tool", input: {} }
+        ]),
+        anthropic_response(content: [ { type: "text", text: "The page could not be fetched." } ])
+      )
+
+      provider(AnthropicProvider, model: "claude-haiku-4-5", mcps: COMMAND_SERVER, tools: [ local ],
+               tools_function: ->(*, **) { { ok: true } }).prompt
+
+      results = bodies.last["messages"].last["content"]
+
+      assert_equal [ true, false ], results.pluck("is_error")
+      assert_equal [ '{"error":"Rate limit exceeded"}', '{"ok":true}' ], results.pluck("content")
+    end
+  end
+
+  # An OpenAI-compatible tool message has no error flag, so its content is all
+  # the model has to go on.
+  test "DeepSeek sends a call that failed on a bridged server as an error" do
+    failure = MCP::Client::ServerError.new("Invalid params: url must be a string", code: -32_602)
+
+    with_bridge(FakeClient.new(answer: failure)) do
+      bodies = stub_responses(
+        DEEPSEEK_ENDPOINT,
+        openai_response(tool_calls: [
+          { id: "call_1", type: "function", function: { name: "get_page", arguments: '{"url":1}' } }
+        ]),
+        openai_response(content: "The page could not be fetched.")
+      )
+
+      provider(DeepSeekProvider, mcps: URL_SERVER).prompt
+
+      tool_message = bodies.last["messages"].find { |message| message["role"] == "tool" }
+
+      assert_equal '{"error":"Invalid params: url must be a string"}', tool_message["content"]
+    end
+  end
+
   private
 
-  # Builds a provider whose `mcps:` partitioning is then exercised directly. No
-  # request is ever sent, so the placeholder key is never used.
+  # Builds a provider. A request it sends can only reach a WebMock stub, so the
+  # placeholder key is never checked.
   def provider(klass, **kwargs)
     klass.new({ service: klass.service_name, api_key: "test", messages: MESSAGES }.merge(kwargs))
   end
@@ -246,9 +427,7 @@ class MCPBridgeWiringTest < ActiveSupport::TestCase
   # Replaces the bridge the provider builds with one whose `connect` is stubbed,
   # so no transport is opened. The stand-in is yielded, so a test can watch what
   # a generation does to it.
-  def with_bridge(&test)
-    client = FakeClient.new
-
+  def with_bridge(client = FakeClient.new, &test)
     bridge = ActiveAgent::Providers::MCPBridge.new(URL_SERVER)
     bridge.define_singleton_method(:connect) do |declaration|
       server = ActiveAgent::Providers::MCPBridge::Server.new(name: declaration[:name], declaration:, client:)
@@ -280,5 +459,37 @@ class MCPBridgeWiringTest < ActiveSupport::TestCase
   # `finish_reason`, `model` and `id` straight off it.
   def response_double
     ActiveAgent::Providers::Common::PromptResponse.new(raw_response: {})
+  end
+
+  # Answers successive requests to `endpoint` with `responses`, in order, and
+  # returns the list the parsed request bodies are collected into.
+  def stub_responses(endpoint, *responses)
+    bodies = []
+    queue  = responses.dup
+
+    stub_request(:post, endpoint).to_return do |request|
+      bodies << JSON.parse(request.body)
+      { status: 200, headers: { "Content-Type" => "application/json" }, body: queue.shift.to_json }
+    end
+
+    bodies
+  end
+
+  def anthropic_response(content:, stop_reason: "end_turn")
+    {
+      id: "msg_bridge", type: "message", role: "assistant", model: "claude-haiku-4-5",
+      content:, stop_reason:, stop_sequence: nil, usage: { input_tokens: 12, output_tokens: 4 }
+    }
+  end
+
+  def openai_response(content: nil, tool_calls: nil)
+    message = { role: "assistant", content: }
+    message[:tool_calls] = tool_calls if tool_calls
+
+    {
+      id: "chatcmpl-bridge", object: "chat.completion", created: 0, model: "deepseek-flash",
+      choices: [ { index: 0, message:, finish_reason: tool_calls ? "tool_calls" : "stop" } ],
+      usage: { prompt_tokens: 12, completion_tokens: 4, total_tokens: 16 }
+    }
   end
 end

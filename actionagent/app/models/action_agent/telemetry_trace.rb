@@ -213,24 +213,7 @@ module ActionAgent
       root_span = spans.find { |s| s["parent_span_id"].nil? } || spans.first || {}
 
       total_duration = root_span["duration_ms"]
-
-      # Instrumentation mirrors LLM token usage onto the root span for
-      # display, so summing every span double-counts. When child spans
-      # carry token data, they are the source of truth; the root span only
-      # counts for single-span traces.
-      counted_spans = spans.reject { |s| s["parent_span_id"].nil? }
-      counted_spans = spans if counted_spans.none? { |s| span_token_sum(s).positive? }
-
-      total_input = 0
-      total_output = 0
-      total_thinking = 0
-
-      counted_spans.each do |span|
-        tokens = span["tokens"] || {}
-        total_input += (tokens["input"] || 0)
-        total_output += (tokens["output"] || 0)
-        total_thinking += (tokens["thinking"] || 0)
-      end
+      total_input, total_output, total_thinking = token_totals(spans)
 
       # Extract agent info from root span attributes
       attributes = root_span["attributes"] || {}
@@ -282,6 +265,57 @@ module ActionAgent
       end
     end
 
+
+    # The input, output and thinking tokens +spans+ add up to.
+    #
+    # Instrumentation mirrors LLM token usage onto the root span for display,
+    # so summing every span double-counts. When child spans carry token data,
+    # they are the source of truth; the root span only counts for
+    # single-span traces.
+    #
+    # @return [Array(Integer, Integer, Integer)]
+    # @api private
+    def self.token_totals(spans)
+      counted = spans.reject { |s| s["parent_span_id"].nil? }
+      counted = spans if counted.none? { |s| span_token_sum(s).positive? }
+
+      counted.each_with_object([ 0, 0, 0 ]) do |span, totals|
+        tokens = span["tokens"] || {}
+        totals[0] += (tokens["input"] || 0)
+        totals[1] += (tokens["output"] || 0)
+        totals[2] += (tokens["thinking"] || 0)
+      end
+    end
+
+    # Adds a later execution segment of the same run to this trace: a run that
+    # paused for input records its resumed segment under the same trace id.
+    # The segment's root span becomes a child of this trace's root, and the
+    # totals, status and error cover both.
+    #
+    # @param segment [Array<Hash>] the segment's flattened spans
+    # @return [self]
+    def append_segment!(segment)
+      parent_id = root_span&.dig("span_id")
+      segment = Array(segment).map do |span|
+        span = span.to_h.stringify_keys
+        span["parent_span_id"].nil? && parent_id ? span.merge("parent_span_id" => parent_id) : span
+      end
+      combined = Array(spans) + segment
+      input, output, thinking = self.class.token_totals(combined)
+      segment_root = segment.find { |span| span["parent_span_id"] == parent_id }
+      error_span = segment.find { |span| span["status"] == STATUS_ERROR }
+
+      update!(
+        spans: combined,
+        total_input_tokens: input,
+        total_output_tokens: output,
+        total_thinking_tokens: thinking,
+        total_duration_ms: total_duration_ms.to_f + segment_root&.dig("duration_ms").to_f,
+        status: error_span ? STATUS_ERROR : status,
+        error_message: error_message.presence || error_span&.dig("attributes", "error.message")
+      )
+      self
+    end
 
     # Sums a span's token counts (used to decide which spans carry the
     # authoritative token data during ingestion).

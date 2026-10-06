@@ -1,6 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useTheme } from '../../contexts/ThemeContext';
 import { startCheckout } from '../../utils/checkout';
+import ProviderKeysCard, { useProviderKeyEditor } from './ProviderKeysCard';
+import { fetchTelemetryKey } from '../../utils/telemetryKey.mjs';
 
 const formatNumber = (num) => {
   if (num == null) return '0';
@@ -14,15 +16,45 @@ export default function OrganizationView({ account, user, subscription, agentCou
   const [usage, setUsage] = useState(null);
   const [keyCopied, setKeyCopied] = useState(false);
   const [showKey, setShowKey] = useState(false);
+  // Read when first shown or copied (utils/telemetryKey.mjs).
+  const [telemetryKey, setTelemetryKey] = useState({ status: 'idle', value: null, error: null });
   const [isUpgrading, setIsUpgrading] = useState(false);
   const [upgradeError, setUpgradeError] = useState(null);
+  // GET /api/members: whoever the host's members resolver lists, or the
+  // signed-in user alone.
+  const [members, setMembers] = useState(null);
+  const [providerKeys, setProviderKeys] = useState([]);
+  const [canManageKeys, setCanManageKeys] = useState(false);
+  const [keysError, setKeysError] = useState(null);
+  const inviteUrl = window.ACTIVE_AGENT_DASHBOARD?.meta?.memberInviteUrl;
 
   useEffect(() => {
     fetch('/api/usage')
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => setUsage(data?.usage || null))
       .catch(() => setUsage(null));
+    fetch('/api/members')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => setMembers(data?.members || []))
+      .catch(() => setMembers([]));
   }, []);
+
+  const loadProviderKeys = useCallback(async () => {
+    try {
+      const res = await fetch('/api/provider_keys?scope=organization');
+      if (!res.ok) throw new Error('load failed');
+      const data = await res.json();
+      setProviderKeys(data.provider_keys || []);
+      setCanManageKeys(Boolean(data.can_manage_organization_keys));
+      setKeysError(null);
+    } catch (e) {
+      setKeysError("Could not load the organization's provider keys.");
+    }
+  }, []);
+
+  useEffect(() => { loadProviderKeys(); }, [loadProviderKeys]);
+
+  const providerKeyEditor = useProviderKeyEditor({ onKeysChanged: loadProviderKeys, onError: setKeysError, scope: 'organization' });
 
   const handleUpgrade = async () => {
     setIsUpgrading(true);
@@ -35,13 +67,42 @@ export default function OrganizationView({ account, user, subscription, agentCou
     }
   };
 
-  const copyKey = () => {
-    if (!account?.telemetry_api_key) return;
-    navigator.clipboard.writeText(account.telemetry_api_key).then(() => {
+  // Returns the key, reading it the first time, or null when there is none
+  // or it could not be read.
+  const loadKey = async () => {
+    if (telemetryKey.status === 'ready') return telemetryKey.value;
+    setTelemetryKey({ status: 'loading', value: null, error: null });
+    try {
+      const value = await fetchTelemetryKey();
+      setTelemetryKey({ status: 'ready', value, error: null });
+      return value;
+    } catch (error) {
+      setTelemetryKey({ status: 'error', value: null, error: error.message });
+      return null;
+    }
+  };
+
+  const toggleKey = async () => {
+    if (showKey) {
+      setShowKey(false);
+    } else if (await loadKey()) {
+      setShowKey(true);
+    }
+  };
+
+  const copyKey = async () => {
+    const value = await loadKey();
+    if (!value) return;
+    try {
+      await navigator.clipboard.writeText(value);
       setKeyCopied(true);
       setTimeout(() => setKeyCopied(false), 2000);
-    });
+    } catch {
+      // Clipboard unavailable (an insecure context, say); Show reveals the key to copy by hand.
+    }
   };
+
+  const keyMissing = telemetryKey.status === 'ready' && !telemetryKey.value;
 
   const cardStyle = {
     backgroundColor: darkMode ? '#1f1f1f' : '#ffffff',
@@ -172,9 +233,11 @@ export default function OrganizationView({ account, user, subscription, agentCou
           <h3 className={`text-lg font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
             Team Members
           </h3>
-          <button className="px-4 py-2 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors">
-            + Invite Member
-          </button>
+          {inviteUrl && (
+            <a href={inviteUrl} className="px-4 py-2 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors">
+              + Invite Member
+            </a>
+          )}
         </div>
         <div className="overflow-hidden">
           <table className="min-w-full">
@@ -186,45 +249,58 @@ export default function OrganizationView({ account, user, subscription, agentCou
                 <th className={`text-left py-3 px-4 text-sm font-medium ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                   Role
                 </th>
-                <th className={`text-left py-3 px-4 text-sm font-medium ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                  Status
-                </th>
               </tr>
             </thead>
             <tbody>
-              <tr>
-                <td className="py-3 px-4">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center">
-                      <span className="text-red-600 font-medium text-sm">
-                        {user?.name?.charAt(0).toUpperCase() || 'U'}
+              {(members || []).map((member) => (
+                <tr key={member.id ?? member.email}>
+                  <td className="py-3 px-4">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center">
+                        <span className="text-red-600 font-medium text-sm">
+                          {(member.name || member.email || '?').charAt(0).toUpperCase()}
+                        </span>
+                      </div>
+                      <div>
+                        <p className={`font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                          {member.name || member.email}
+                          {member.id != null && member.id === user?.id && (
+                            <span className={`ml-2 text-xs ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>(you)</span>
+                          )}
+                        </p>
+                        {member.name && member.email && (
+                          <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>{member.email}</p>
+                        )}
+                      </div>
+                    </div>
+                  </td>
+                  <td className="py-3 px-4">
+                    {member.role ? (
+                      <span className="px-2 py-1 bg-purple-100 text-purple-700 rounded text-sm">
+                        {String(member.role).charAt(0).toUpperCase() + String(member.role).slice(1)}
                       </span>
-                    </div>
-                    <div>
-                      <p className={`font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                        {user?.name || 'You'}
-                      </p>
-                      <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                        {user?.email}
-                      </p>
-                    </div>
-                  </div>
-                </td>
-                <td className="py-3 px-4">
-                  <span className="px-2 py-1 bg-purple-100 text-purple-700 rounded text-sm">
-                    Owner
-                  </span>
-                </td>
-                <td className="py-3 px-4">
-                  <span className="flex items-center text-green-600">
-                    <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
-                    Active
-                  </span>
-                </td>
-              </tr>
+                    ) : (
+                      <span className={darkMode ? 'text-gray-500' : 'text-gray-400'}>—</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
+      </div>
+
+      {/* Provider Keys */}
+      <div className="space-y-2">
+        {keysError && (
+          <p className="text-sm text-red-500" role="alert">{keysError}</p>
+        )}
+        <ProviderKeysCard
+          providerKeys={providerKeys}
+          editor={providerKeyEditor}
+          scope="organization"
+          editable={canManageKeys}
+        />
       </div>
 
       {/* Usage Stats */}
@@ -278,30 +354,35 @@ export default function OrganizationView({ account, user, subscription, agentCou
           <div className="min-w-0 flex-1">
             <p className={`text-xs uppercase tracking-wide mb-1 ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>API Key</p>
             <code
+              data-testid="telemetry-key"
+              data-aa-secret=""
               className={`block truncate text-sm font-mono px-3 py-2 rounded-lg border ${
                 darkMode ? 'bg-gray-900 border-gray-700 text-gray-300' : 'bg-gray-50 border-gray-200 text-gray-700'
               }`}
             >
-              {account?.telemetry_api_key
-                ? (showKey ? account.telemetry_api_key : '•'.repeat(24))
-                : 'Not available'}
+              {keyMissing ? 'Not available' : (showKey ? telemetryKey.value : '•'.repeat(24))}
             </code>
           </div>
           <div className="flex gap-2 flex-shrink-0 self-end">
             <button
-              onClick={() => setShowKey(!showKey)}
-              className="px-3 py-2 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+              onClick={toggleKey}
+              disabled={keyMissing || telemetryKey.status === 'loading'}
+              className="px-3 py-2 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {showKey ? 'Hide' : 'Show'}
             </button>
             <button
               onClick={copyKey}
-              className="px-3 py-2 text-sm bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
+              disabled={keyMissing || telemetryKey.status === 'loading'}
+              className="px-3 py-2 text-sm bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {keyCopied ? 'Copied!' : 'Copy'}
             </button>
           </div>
         </div>
+        {telemetryKey.error && (
+          <p role="alert" className="mt-2 text-sm text-red-500">{telemetryKey.error}</p>
+        )}
       </div>
     </div>
   );

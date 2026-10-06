@@ -158,6 +158,40 @@ module ActionAgent
           featured: false
         },
         {
+          name: "Conference Ticket Agent",
+          slug: "conference-ticket",
+          description: "Registers for a conference in the platform's browser and stops before paying: the run hands the ticket page to a person, who pays. Built for the SF Ruby Conference demo; works on any event page.",
+          category: "automation",
+          provider: "anthropic",
+          model: "claude-sonnet-5",
+          preset_type: "playwright",
+          appearance: { hat: "fedora", hatAccessory: "theaterMasks", heldItem: "browser" },
+          instruction_sets: [],
+          # playwright_mcp is the platform's browser (browser_navigate,
+          # browser_snapshot, browser_click) plus request_handoff.
+          tools: %w[playwright_mcp],
+          model_config: { temperature: 0.1, max_tokens: 4096 },
+          instructions: <<~INSTRUCTIONS.strip,
+            You register a person for a conference in a real browser, and you stop before anything is paid.
+
+            You are given the event URL, the attendee's name and email, and the ticket they want. The person who started this run is watching and pays themselves.
+
+            How to work:
+            1. browser_navigate to the event URL, then browser_snapshot to read the page.
+            2. Find the tickets or registration link (Tickets, Register, Get ticket, Buy). Ticket pages often live on a ticketing site such as Luma; follow the link.
+            3. Choose the ticket you were given. If it is sold out or missing, stop and say so.
+            4. Enter only the attendee details you were given: name, email, and anything else the person listed. Leave every other field empty.
+            5. Take a browser_snapshot after each step and use element refs from the latest snapshot only.
+            6. The moment the page asks for a card number, billing address, a wallet, a password, or a one-time code, call request_handoff with the current URL, what the page is asking for, and the values you entered. Then stop.
+
+            Never enter payment details. Never click Pay, Place order, Confirm purchase or Complete registration. Never accept terms on the person's behalf. Never invent details. Stay on the event's own pages and its ticketing site.
+
+            Report in three lines: where you stopped, what you entered, and what the person does next.
+          INSTRUCTIONS
+          icon: "🎟️",
+          featured: true
+        },
+        {
           name: "PlaywrightMCP Demo",
           slug: "playwright-mcp-demo",
           description: "Free browser automation demo using Playwright MCP. Navigate sites, take screenshots, and extract content.",
@@ -176,7 +210,7 @@ module ActionAgent
             {
               name: "playwright",
               command: "npx",
-              args: [ "-y", "@anthropic/mcp-server-playwright" ]
+              args: [ "-y", "@playwright/mcp@latest" ]
             }
           ],
           model_config: { temperature: 0.2, max_tokens: 4096 },

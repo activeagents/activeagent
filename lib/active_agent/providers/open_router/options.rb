@@ -46,7 +46,10 @@ module ActiveAgent
         # site_url from Rails routes/ActionMailer default_url_options.
         #
         # @param kwargs [Hash] configuration options
-        # @option kwargs [String] :api_key OpenRouter API key
+        # @option kwargs [String] :api_key OpenRouter API key. When neither it nor
+        #   :access_token is given, falls back to OPENROUTER_API_KEY,
+        #   OPEN_ROUTER_API_KEY, OPENROUTER_ACCESS_TOKEN, then OPEN_ROUTER_ACCESS_TOKEN.
+        # @option kwargs [String] :access_token alias for :api_key
         # @option kwargs [String] :app_name application name for rankings
         # @option kwargs [String] :site_url site URL for rankings
         # @return [Options]
@@ -85,7 +88,8 @@ module ActiveAgent
         private
 
         def resolve_api_key(kwargs)
-          kwargs["api_key"] ||
+          kwargs[:api_key] ||
+            kwargs[:access_token] ||
             ENV["OPENROUTER_API_KEY"] ||
             ENV["OPEN_ROUTER_API_KEY"] ||
             ENV["OPENROUTER_ACCESS_TOKEN"] ||

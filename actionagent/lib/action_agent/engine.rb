@@ -42,6 +42,12 @@ module ActionAgent
     config.action_agent = ActiveSupport::OrderedOptions.new
     config.app_middleware.insert_before Rails::Rack::Logger, ActionAgent::AssistantRequestFilter
 
+    # After, not in, an initializer: the host configures multi_tenant and
+    # permission_checker in its own initializers, which run after the engine's.
+    config.after_initialize do
+      ActionAgent.warn_about_unchecked_permissions
+    end
+
     # Whether a request is a browser asking for a page, as opposed to an API
     # or MCP client: the routes use it to tell the dashboard's client-side
     # deep links apart from protocol traffic on the same path.
@@ -55,11 +61,47 @@ module ActionAgent
     # directory to the host app's asset paths is what lets a plain
     # `mount ActionAgent::Engine` work without the host running a
     # JavaScript build — or having a JavaScript build at all.
-    # Provider credentials and API keys are posted to the dashboard in the
-    # clear and encrypted at rest — filtering keeps them out of the request
-    # logs in between, where the gem would otherwise print them verbatim.
+    # Provider credentials, API keys and answers to a run's requests for
+    # input (a secret among them) are posted to the dashboard in the clear
+    # and encrypted at rest — filtering keeps them out of the request logs
+    # in between, where the gem would otherwise print them verbatim.
+    # `answer` and `value` match whole names only, at any depth, so a host
+    # param or model attribute such as `values` or `default_value` is not
+    # filtered with them.
     initializer "action_agent.filter_parameters" do |app|
-      app.config.filter_parameters += [ :credential, :api_key, :access_token ]
+      # The last filters: RecordingEventIngest::BATCH_KEY, a batch that carries
+      # page content and console output, and an input request's answer. Each
+      # matches its key exactly, so a host parameter that merely contains those
+      # words is still logged.
+      app.config.filter_parameters += [ :credential, :api_key, :access_token, :password, /\Arecording_events\z/, /\A(?:answer|value)\z/i ]
+    end
+
+    # The project setup assistant's request_secret answers go to its
+    # handler. Registered on every reload, so the handler is always the
+    # current class's.
+    initializer "action_agent.secret_requests" do |app|
+      app.config.to_prepare do
+        ActionAgent::SecretRequests.register(ActionAgent::ProjectSetup::AGENT_CLASS_NAME, ActionAgent::ProjectSetup::SecretHandler.new)
+      end
+    end
+
+    # In a sandbox app (a checkout the dashboard booted, which bundles this
+    # engine), its backend sets ActionAgent::SandboxMail::DIRECTORY_ENV, and
+    # mail is written to files in that directory instead of being sent, so
+    # an agent exploring the app can read a sign-up's verification link.
+    # Registered as a load hook after the app's own configuration has been
+    # applied, so it wins over the environment file's delivery method. Set
+    # only in the sandbox's environment, it never reaches the checkout.
+    initializer "action_agent.sandbox_mail" do |app|
+      directory = ENV["ACTION_AGENT_SANDBOX_MAIL_DIR"].presence
+      next unless directory
+
+      location = File.expand_path(directory, app.root.to_s)
+      ActiveSupport.on_load(:action_mailer) do
+        self.delivery_method = :file
+        self.file_settings = { location: location }
+        self.perform_deliveries = true
+      end
     end
 
     # This engine's constants are spelled the way Zeitwerk's own inflector
@@ -207,8 +249,12 @@ module ActionAgent
       # i.e. the dashboard's only page 500s on every sprockets-rails host.
       # Propshaft serves everything on the load path and has no precompile
       # list, so the respond_to? check is what distinguishes them.
+      # action_agent_replay.js is the session player's own bundle, loaded
+      # only by SessionPlayerController's frame. action_agent_recorder.js is
+      # imported by the dashboard while the Run Agent workbench is open, from
+      # the URL the dashboard page names (DashboardController).
       if app.config.assets.respond_to?(:precompile)
-        app.config.assets.precompile |= %w[action_agent.js action_agent.css]
+        app.config.assets.precompile |= %w[action_agent.js action_agent.css action_agent_replay.js action_agent_recorder.js]
       end
     end
   end

@@ -27,6 +27,15 @@ module ActionAgent
   # agent's owner's sessions, since the run may start well after it was
   # asked for; one that is no longer live fails the run rather than
   # replaying without the tools it was meant to test.
+  #
+  # A selection with `browser` true (a run of a project's evaluation, see
+  # ProjectEvaluationJob) also gives every replay that sandbox's browser:
+  # one already running, or one started headless with the project's saved
+  # sign-in before the first replay, on a backend that runs browsers.
+  # `mount_url`, the dashboard's absolute mount URL, is where a browser
+  # started here posts its recording. Each replay's browser opens at the
+  # project's start URL. A browser that cannot start fails the run before
+  # any replay, and one started here is stopped once the run ends.
   class ScenarioEvaluationRunner < EvaluationRunnerService
     Evals = ActiveAgent::Evals
 
@@ -39,6 +48,22 @@ module ActionAgent
     # UI can show it pending while the job waits); absent, one is created here.
     def self.call(evaluation, selection: {}, run: nil)
       new(evaluation, selection: selection, run: run).call
+    end
+
+    # The caller a replay of +owner+'s agent runs on behalf of, which is also
+    # who its provider credentials are resolved for: +owner+, when the
+    # install owns agents per user. A run with no caller reads, through any
+    # host scope, as "no access" — every tool answers empty and the suite
+    # grades an agent that never saw a row — so the person the evaluation
+    # belongs to is the right default, as the key's owner is over MCP. An
+    # account is who is billed, not who is allowed (see Api::BaseController
+    # #agent_actor), so a multi-tenant install replays unattributed unless a
+    # host adapter (ActionAgent.scenario_evaluation_adapter_resolver) runs
+    # the suite itself.
+    def self.replay_actor_for(owner)
+      return nil if ActionAgent.multi_tenant? || ActionAgent.user_class.blank?
+
+      owner
     end
 
     def initialize(evaluation, selection: {}, run: nil)
@@ -59,6 +84,8 @@ module ActionAgent
           completed_at: Time.current)
         return run
       end
+
+      ensure_browser_live!
 
       records = scenarios.index_by(&:key)
       tasks = scenarios.map { |scenario| Evals::Scenario.from_hash(scenario.as_json_summary) }
@@ -111,6 +138,8 @@ module ActionAgent
     rescue StandardError => e
       run&.update!(status: :failed, error_message: e.message, completed_at: Time.current)
       raise
+    ensure
+      stop_started_browser
     end
 
     private
@@ -162,7 +191,8 @@ module ActionAgent
         "scenario_keys" => scenarios.map(&:key),
         "group" => @selection[:group].presence,
         "models" => specs.map(&:to_h),
-        "sandbox" => sandbox_summary
+        "sandbox" => sandbox_summary,
+        "browser" => browser_requested? ? { "server_key" => "#{SandboxSession::BROWSER_SERVER_PREFIX}#{@selection[:sandbox_id]}" } : nil
       }.compact
     end
 
@@ -200,6 +230,66 @@ module ActionAgent
       raise ArgumentError, "Sandbox #{@selection[:sandbox_id]} is no longer running; start it again, or run without it"
     end
 
+    # --- browser ----------------------------------------------------------
+
+    # Whether the replays reach the sandbox's browser: asked for, and
+    # running or startable on the sandbox's backend.
+    def browser_requested?
+      return @browser_requested if defined?(@browser_requested)
+
+      @browser_requested = sandbox_server_key.present? && ActiveModel::Type::Boolean.new.cast(@selection[:browser]) == true &&
+        sandbox_session.present? && (sandbox_session.browser_running? || SandboxBrowser.orchestrator!.supports?(:start_browser))
+    rescue SandboxBrowser::Error
+      @browser_requested = false
+    end
+
+    # The project the selected sandbox was booted for, or nil.
+    def sandbox_project
+      return @sandbox_project if defined?(@sandbox_project)
+
+      @sandbox_project = sandbox_session&.project_id && Project.find_by(id: sandbox_session.project_id)
+    end
+
+    def ensure_browser_live!
+      return unless browser_requested?
+
+      sandbox = sandbox_session
+      unless sandbox.browser_running?
+        denial = ActionAgent.quota_denial(sandbox.metering_owner, :browser_minutes)
+        raise ArgumentError, "The sandbox's browser could not start: the plan allows no more browser minutes" if denial.present?
+
+        _, @started_browser = SandboxBrowser.ensure_running!(sandbox,
+          recording_url: SandboxBrowser.recording_url_for(@selection[:mount_url]), storage_state: sandbox_project&.saved_storage_state)
+      end
+      @sandbox_session = sandbox.reload
+    rescue SandboxBrowser::Error => e
+      raise ArgumentError, "The sandbox's browser could not start: #{e.message}"
+    end
+
+    # Stops the browser ensure_browser_live! started, which completes its
+    # recording and stops its minutes. One that was already running is left
+    # running.
+    def stop_started_browser
+      return unless @started_browser
+
+      @started_browser = false
+      sandbox = sandbox_session.reload
+      SandboxBrowser.stop(sandbox) if SandboxBrowser::STARTED.include?(sandbox.browser_status)
+    rescue SandboxBrowser::Error, ActiveRecord::RecordNotFound => e
+      Rails.logger.warn("[ActionAgent] evaluation #{@evaluation.id}: could not stop the browser it started: #{e.message}")
+    end
+
+    # Opens the project's start URL in the sandbox's browser, so each replay
+    # starts on the same page. A browser that does not answer is left to the
+    # replay, which fails when it cannot reach it.
+    def open_start_url
+      return unless browser_requested?
+
+      SandboxBrowserDriver.new(sandbox_session).open(sandbox_project&.start_url.presence || "/")
+    rescue SandboxBrowserDriver::Error => e
+      Rails.logger.warn("[ActionAgent] evaluation #{@evaluation.id}: could not open the start URL: #{e.message}")
+    end
+
     # --- replay -----------------------------------------------------------
 
     def replay(scenario, spec)
@@ -207,6 +297,7 @@ module ActionAgent
       # (the order SandboxesController#compare uses), so it is counted even
       # when the run fails.
       ActionAgent.record_usage(owner, :execution)
+      open_start_url
 
       agent_run = @evaluation.agent.test_execute(
         scenario.prompt,
@@ -215,6 +306,9 @@ module ActionAgent
         actor: replay_actor,
         runtime_sandbox: sandbox_server_key
       )
+      # A replay has nobody to answer, so a paused run ends here as an error.
+      paused = agent_run.awaiting_input?
+      agent_run.cancel!("Paused for input during an evaluation replay") if paused
 
       Evals::Replay.new(
         answer: agent_run.output,
@@ -222,11 +316,17 @@ module ActionAgent
         duration_ms: agent_run.calculated_duration_ms,
         input_tokens: agent_run.input_tokens,
         output_tokens: agent_run.output_tokens,
-        error: agent_run.failed? ? agent_run.error_message.presence || "run failed" : nil,
+        error: replay_error(agent_run, paused),
         cost: ModelPricing.estimate(model: spec.model, provider: spec.provider, input_tokens: agent_run.input_tokens,
                                     output_tokens: agent_run.output_tokens),
         metadata: { "agent_run_id" => agent_run.id }
       )
+    end
+
+    def replay_error(agent_run, paused)
+      return "paused for input" if paused
+
+      agent_run.failed? ? agent_run.error_message.presence || "run failed" : nil
     end
 
     # The caller a replay runs on behalf of: the evaluation's owner, when the
@@ -239,9 +339,7 @@ module ActionAgent
     # host adapter (ActionAgent.scenario_evaluation_adapter_resolver) runs
     # the suite itself.
     def replay_actor
-      return nil if ActionAgent.multi_tenant? || ActionAgent.user_class.blank?
-
-      owner
+      self.class.replay_actor_for(owner)
     end
 
     # Each tool call the run made, rebuilt from the run's progress events
@@ -334,23 +432,28 @@ module ActionAgent
     # report "none of the available tools covers this task" while naming a list
     # the agent's MCP tools were missing from.
     def tool_roster
-      @tool_roster ||= begin
-        definitions = mcp_dispatcher.tool_definitions +
-          AgentToolbox.definitions_for(@evaluation.agent.tools)
-
-        definitions.to_h { |definition| [ definition[:name].to_s, definition[:description].to_s ] }
-      end
+      runtime_tools.tools
     end
 
-    # Discovery failures from the roster above, keyed by server. Reading them
-    # requires tool_definitions to have run, which tool_roster does.
+    # Discovery failures from the roster above, keyed by server.
     def mcp_discovery_errors
-      tool_roster
-      mcp_dispatcher.discovery_errors
+      runtime_tools.discovery_errors
     end
 
+    # The sandbox's browser is on the roster while it runs, as each replay
+    # (Agent#test_execute) reaches it then.
     def mcp_dispatcher
-      @mcp_dispatcher ||= MCPToolDispatcher.new(@evaluation.agent, extra_server_keys: [ sandbox_server_key ].compact)
+      runtime_tools.dispatcher
+    end
+
+    def runtime_tools
+      @runtime_tools ||= RuntimeToolRoster.new(
+        @evaluation.agent, extra_server_keys: [ sandbox_server_key, sandbox_browser_key ].compact
+      )
+    end
+
+    def sandbox_browser_key
+      sandbox_session.browser_server_key if sandbox_session&.browser_running?
     end
 
     # A run whose every declared MCP server failed discovery scored an agent
