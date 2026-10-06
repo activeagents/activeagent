@@ -79,6 +79,11 @@ ActionAgent::Engine.routes.draw do
       end
       member do
         post :run
+        # A checkout's boot: its steps, a step's log, and continuing a
+        # failed boot the backend kept.
+        get :boot
+        get :boot_log
+        post :resume_boot
       end
       # Claude Code sessions in an app_runtime sandbox's checkout.
       resources :code_sessions, only: [ :index, :create, :show ] do

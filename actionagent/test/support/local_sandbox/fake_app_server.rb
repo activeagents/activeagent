@@ -12,6 +12,9 @@
 # stubborn  serves, but ignores SIGTERM: only SIGKILL stops it.
 # hang      never listens, so the boot times out.
 #
+# Anything but the MCP path answers 404, and GET / answers
+# $FAKE_APP_ROOT_STATUS when that is set.
+#
 # Either way it first starts a `sleep` in its own process group, so a test can
 # show that stopping the sandbox stops the whole group, and writes its pids and
 # its environment to record_path (tmp/server.json in the checkout by default).
@@ -39,7 +42,9 @@ manifest = JSON.parse(File.read(ENV.fetch("ACTION_AGENT_SANDBOX_MANIFEST")))
 server = TCPServer.new("127.0.0.1", Integer(ENV.fetch("PORT")))
 puts "fake app server: listening on 127.0.0.1:#{ENV.fetch("PORT")}"
 
-REASONS = { 200 => "OK", 401 => "Unauthorized", 404 => "Not Found", 405 => "Method Not Allowed" }.freeze
+REASONS = {
+  200 => "OK", 401 => "Unauthorized", 404 => "Not Found", 405 => "Method Not Allowed", 500 => "Internal Server Error"
+}.freeze
 
 def respond(client, status, body, headers = {})
   head = [
@@ -75,7 +80,8 @@ loop do
     body = client.read(headers["content-length"].to_i)
 
     if path != manifest["mcp_path"]
-      respond(client, 404, "{}")
+      root = ENV["FAKE_APP_ROOT_STATUS"]
+      root && verb == "GET" && path == "/" ? respond(client, Integer(root), "{}") : respond(client, 404, "{}")
     elsif verb == "GET"
       respond(client, 405, JSON.generate("error" => "POST JSON-RPC here"), "Allow" => "POST")
     elsif headers["authorization"] != "Bearer #{manifest["mcp_token"]}"

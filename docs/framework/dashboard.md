@@ -764,7 +764,9 @@ following for that session:
    to `create_sandbox` carries it. A backend reads the spec from that object;
    a copy of the session loaded from the database carries no token.
 2. Boots the app. If the app mounts this engine, its MCP facade serves the
-   app's agents and schema tools.
+   app's agents and schema tools. A backend that takes a
+   [boot spec](#bootstrapping-a-checkout-without-the-engine) can also install
+   the engine into a Rails app that does not bundle it.
 3. Returns `mcp_url:` (and, when the facade needs one, `mcp_token:`, a
    dashboard API key of the booted app) from `create_sandbox`.
 
@@ -782,20 +784,24 @@ defines, and `orchestrator.supports?(:verb)` answers whether it defines one:
 
 | Method | Required | Returns |
 |---|---|---|
-| `create_sandbox(session)` | yes | `{ container_name:, url:, mcp_url:, mcp_token: }` |
+| `create_sandbox(session)` | yes | `{ container_name:, url:, mcp_url:, mcp_token: }`. A backend that also takes `boot_config:` is handed a [boot spec](#boot-specs) as a plain Hash, and boots the checkout by it instead of by the checkout's `.activeagents/sandbox.yml` |
 | `status(handle)`, `terminate(handle)`, `list_sandboxes`, `cleanup_expired` | yes | a status hash, true, an array of status hashes, a count |
 | `run_code_session(session, code_session, &on_event)`, `cancel_code_session(session, code_session)` | no | `{ exit_status:, diff: }`, true |
 | `changed_files(session)` | no | `{ base_commit:, files: [{ path:, status:, mode: }] }`: what the checkout changed since it was cloned, read without running the checkout's git hooks, filters or configuration |
 | `read_file(session, path)` | no | the file's current bytes, or nil; a symlink reads as its target. `path` is always relative and inside the checkout |
 | `start_browser(session, mode:)` | no | `{ mcp_url:, mcp_token: }` for a browser of the sandbox's own; `mode` is `:headless` or `:headed` |
 | `stop_browser(session)` | no | true, also when none was running |
-| `resume_boot(session, from:)` | no | what `create_sandbox` returns, after re-running a failed boot from the step named `from` |
+| `resume_boot(session, from:)` | no | what `create_sandbox` returns, after re-running a failed boot it kept from the step named `from` (nil for the step that failed). A backend that also takes `boot_config:` is handed the spec to continue with |
+| `boot_status(session)` | no | `{ mode:, kind:, failed_step:, kept:, resumable_steps:, steps: [{ name:, status:, started_at:, finished_at:, duration_ms:, detail: }] }`, or nil when it holds nothing for the session. `resumable_steps`, the names `resume_boot` accepts as `from`, is optional |
+| `boot_log(session, step:, offset:, limit:, secrets:)` | no | `{ step:, offset:, next_offset:, size:, eof:, text: }`, one page of a step's log scrubbed of the session's secrets and of `secrets`, or nil when the step has no log |
 
 `session` is the `ActionAgent::SandboxSession`, and `handle` is the
 `container_name` that `create_sandbox` returned. Calling a verb the backend
 does not define raises `SandboxOrchestrator::UnsupportedBackendError`. The
-engine's `:mock` and `:local` backends define none of the optional verbs from
-`changed_files` down.
+engine's `:local` backend defines `resume_boot`, `boot_status` and
+`boot_log`, and takes `boot_config:`. The `:mock` backend takes
+`boot_config:` and records it without the secrets' values. Neither defines
+the other optional verbs from `changed_files` down.
 
 ### Running against a sandbox without editing the agent
 
@@ -933,7 +939,7 @@ config.local_sandboxes_enabled = true
 | `sandbox_service` | `:mock` | The backend: `:mock` (in memory, runs nothing), `:local`, or one registered in `sandbox_backends`. `SANDBOX_BACKEND` overrides it |
 | `local_sandboxes_enabled` | unset: on in development and test, off elsewhere | Whether `:local` may run at all |
 | `local_sandbox_root` | `Rails.root.join("tmp/action_agent/sandboxes")` | Where each sandbox's workspace lives |
-| `local_sandbox_boot_timeout` | `600` (seconds) | The limit on checkout, setup, manifest and server start together |
+| `local_sandbox_boot_timeout` | `600` (seconds) | The limit on checkout, setup, manifest and server start together, for a checkout booted by its `.activeagents/sandbox.yml`. A [boot spec](#boot-specs) sets its own limit, and a bootstrap never gets less than this one |
 | `claude_code_command` | `"claude"` | The Claude Code executable |
 | `claude_code_permission_mode` | `"acceptEdits"` | `--permission-mode` for every session |
 | `claude_code_max_turns` | `nil` (Claude Code's own default) | `--max-turns` for every session |
@@ -949,9 +955,9 @@ only by the dashboard's user:
 app/            the checkout
 db/             the sandbox's SQLite databases, when the checkout uses SQLite (see below)
 runtime.json    the manifest the checkout wrote (made owner-only, 0600)
-state.json      { pid, port, started_at, step_pid, code_sessions: { "<id>" => pid } }
+state.json      { pid, port, started_at, step_pid, code_sessions: { "<id>" => pid }, boot: { steps, failed_step, kept, ... } }
 state.lock      what changes to state.json are serialized on
-logs/           checkout, setup, manifest, server and claude-<id> logs
+logs/           checkout, setup, manifest, server and claude-<id> logs; with a boot spec, preflight and one log per step
 claude/         CLAUDE_CONFIG_DIR for Claude Code sessions (unused with claude_code_auth = :local_login)
 ```
 
@@ -979,7 +985,9 @@ checkout can take minutes) and does the following, in order:
    must refuse a JSON-RPC `ping` without it (`401`) and accept one with it.
 
 While a step runs, its pid is in `state.json` as `step_pid`, so a terminate
-after the dashboard itself died mid-boot still stops it.
+after the dashboard itself died mid-boot still stops it. `state.json` also
+records each step as it goes (`GET /api/sandboxes/:session_id/boot` reads
+it back; see [Following a boot](#following-a-boot)).
 
 Steps 1 to 6 share `local_sandbox_boot_timeout`. If a step fails, runs out of
 time, or the server exits, everything the backend started is stopped. The
@@ -1174,10 +1182,188 @@ that boots again doesn't add a key. If the engine is not mounted, the task
 exits non-zero with
 `action_agent:sandbox:manifest: ActionAgent::Engine is not mounted in this app's routes`.
 
-In an app whose API keys belong to an account or user, that key has no owner
-and reaches no agents over MCP. In that case, and for an app that isn't Rails,
-`manifest` can be any command that writes the JSON. `mcp_path` must start with
-`/`, and `mcp_token` is a string or `null`.
+The task also mirrors the app's agent classes into the checkout's dashboard
+with `ActionAgent::AgentSync`, so the facade serves a `run_<slug>` tool for
+each. It syncs every `ActiveAgent::Base` subclass defined under `app/agents`,
+except `ApplicationAgent` and abstract classes, and a re-run updates them in
+place. A class that cannot be synced (one with no provider or model, say) is
+reported on stderr, and the rest are synced.
+
+The key and the synced agents each take an owner of the class their model is
+owned through. API keys are owned through `account_class` when it is set and
+`user_class` otherwise, and agents the other way round, so an app that
+configures both gives the key an account and the agents a user. For each of
+the two:
+
+- With no owner class, it has no owner, and the key reaches every agent.
+- With exactly one record of its owner class, it belongs to that record. A key
+  minted earlier without an owner takes it.
+- With none or several, the sandbox cannot tell whose it would be. A key has
+  no owner and reaches no agents over MCP. No agents are synced, and the task
+  says so on stderr.
+
+The facade serves the key the agents `ActionAgent.agents_for` gives its
+owner, as the dashboard does. When keys and agents are owned through
+different classes, that takes the host's `agent_scope_resolver`.
+
+When the sandbox cannot give the agents an owner, and for an app that isn't
+Rails, `manifest` can be any command that writes the JSON. `mcp_path` must
+start with `/`, and `mcp_token` is a string or `null`.
+
+### Bootstrapping a checkout without the engine
+
+A Rails app that doesn't bundle `actionagent` can still boot in a sandbox:
+the backend installs the engine into the checkout first. This needs a
+backend that takes a [boot spec](#boot-specs), as `:local` does.
+`POST /api/sandboxes` with `sandbox_type: "app_runtime"` takes three options
+for it:
+
+| Option | Default | What it does |
+|---|---|---|
+| `bootstrap` | `"auto"` | `"auto"` bootstraps the checkout when its `Gemfile.lock` locks no `actionagent` and its `.activeagents/sandbox.yml`, if it has one, names no `manifest`. Any other checkout boots as its `sandbox.yml` says. `"always"` bootstraps the checkout whatever its lock says, and is refused with `422` when the backend cannot take a spec. `"never"` boots it as its `sandbox.yml` says. `true` and `false` mean `"always"` and `"never"` |
+| `start_url` | `"/"` | A path on the app that must not answer `5xx` once the MCP facade answers |
+| `keep_on_failure` | `false` | Keep a failed boot's workspace and databases, so it can be [resumed](#keeping-a-failed-boot) |
+
+Before any of the checkout's commands runs, a preflight reads its
+`Gemfile.lock` and refuses a checkout, naming the requirement, when:
+
+- there is no `Gemfile.lock` at its root;
+- it locks Ruby older than 3.2 (the lock's `RUBY VERSION`, or
+  `.ruby-version` when the lock pins none);
+- it locks no `railties`, or `railties` older than 7.2;
+- there is no `config/application.rb` at its root.
+
+Then it runs these steps in the checkout, each with a log and a timeout of
+its own:
+
+| Step | Command | Timeout | Runs when |
+|---|---|---|---|
+| `bundle_config` | `bundle config set --local frozen false` | 60 s | always |
+| `bundle_install` | `bundle install` | 900 s | always |
+| `add_framework` | `bundle add activeagent --git … --ref …` (or `--path …`) `--skip-install` | 300 s | the engine comes from git or a path, and the lock has no `activeagent` |
+| `add_engine` | `bundle add actionagent --version "~> <ActionAgent::VERSION>"`, or the same `--git`/`--ref` or `--path` | 900 s | the lock has no `actionagent` |
+| `install_framework` | `bin/rails generate active_agent:install --skip` | 300 s | the lock has no `activeagent` |
+| `install_engine` | `bin/rails generate action_agent:install --skip` | 300 s | the lock has no `actionagent` |
+| `javascript_build`, `css_build`, `tailwindcss_build` | `bin/rails javascript:build`, `css:build`, `tailwindcss:build` | 600 s each | the app defines the task (from `bin/rails -T -A`, listed once per boot) |
+| `db_prepare` | `bin/rails db:prepare` | 900 s | always |
+| `manifest` | `bin/rails action_agent:sandbox:manifest` | 300 s | always |
+| `start` | `bin/rails server -b 127.0.0.1 -p $PORT` | 300 s | always |
+
+"The lock" is the checkout's `Gemfile.lock` as it was checked out.
+
+- The engine installed is the dashboard's own. From rubygems.org that is
+  `~> <ActionAgent::VERSION>`, which brings `activeagent` with it. When the
+  dashboard bundles the engine from git or a path, it is the same git
+  revision or path, read from the dashboard's `Gemfile.lock`. A path only
+  works on `:local`. A git URL with credentials in it is refused rather than
+  written into the checkout's Gemfile: an explicit bootstrap fails, and
+  `"auto"` boots without one.
+- With `--skip`, the generators keep every file that already exists. A
+  checkout that already has `config/active_agent.yml` or
+  `app/agents/application_agent.rb` keeps them byte for byte.
+- The whole boot, checkout included, has 1800 seconds, or
+  `local_sandbox_boot_timeout` on `:local` when that is longer. Each step's
+  own timeout bounds it within that, and a step that runs out names itself
+  and the limit.
+- Once the MCP facade answers, `GET <start_url>` on the sandbox's own server
+  must answer something other than a `5xx`. A redirect to sign in, or a
+  `404`, passes. A `5xx` fails the `start` step with the status and the end
+  of the server's log.
+- The sandbox's own settings (its port, databases, manifest path and session
+  id) are environment variables, so nothing sandbox-only is written into the
+  checkout. After a bootstrap, `git status` shows only what `bundle add`, the
+  generators and `db:prepare` wrote. `bundle config set --local` writes
+  `.bundle/config`, which Rails' default `.gitignore` ignores.
+
+### Boot specs
+
+What a bootstrap runs is a boot spec, `ActionAgent::SandboxBootSpec`: data
+the engine builds and hands the backend as
+`create_sandbox(session, boot_config:)`. `SandboxBootSpec.bootstrap` builds
+the one above. `#to_h` is plain JSON, so a backend that boots somewhere else
+(a container's own boot script) reads the same thing:
+
+```json
+{
+  "kind": "bootstrap",
+  "apply": "always",
+  "preflight": true,
+  "steps": [
+    { "name": "bundle_config", "command": "bundle config set --local frozen false", "timeout": 60 },
+    { "name": "add_engine", "command": "bundle add actionagent --version \"~> 1.9.0\"", "timeout": 900, "unless_locked": "actionagent" },
+    { "name": "css_build", "command": "bin/rails css:build", "timeout": 600, "if_task": "css:build" }
+  ],
+  "env": {},
+  "secrets": {},
+  "manifest": { "command": "bin/rails action_agent:sandbox:manifest", "timeout": 300 },
+  "start": { "command": "bin/rails server -b 127.0.0.1 -p $PORT", "timeout": 300 },
+  "start_url": "/",
+  "keep_on_failure": false,
+  "timeout": 1800,
+  "engine": {
+    "activeagent": { "source": "rubygems", "version": "1.9.0" },
+    "actionagent": { "source": "rubygems", "version": "1.9.0" }
+  }
+}
+```
+
+- A step with `unless_locked` is skipped when the checkout's lock, as checked
+  out, locks that gem. One with `if_task` is skipped when the app defines no
+  such Rake task.
+- With `"apply": "without_engine"` (what `bootstrap: "auto"` sends), a
+  checkout that bundles the engine, names a `manifest` in its `sandbox.yml`,
+  or has no `Gemfile.lock` boots exactly as it would without a spec. A
+  backend whose `create_sandbox` takes no `boot_config:` is not handed such a
+  spec, and boots as it always has. One with `"apply": "always"` is refused
+  for that backend instead.
+- `secrets` are environment for the steps, manifest and server, like `env`,
+  and are scrubbed from every log and message the backend produces. They
+  travel in memory only. The backend records the spec without their values
+  (`secret_names` lists the names), and they never reach a job argument, the
+  checkout's git fetch or a Claude Code session. A secret may not set `PORT`,
+  `DATABASE_URL`, `*_DATABASE_URL` or `ACTION_AGENT_SANDBOX_*`, nor anything
+  that changes how Ruby, Bundler, Node or git load code: `RUBYOPT`,
+  `RUBYLIB`, `LD_PRELOAD`, `DYLD_*`, `BUNDLE_*`, `GIT_*`, `PATH` and
+  `NODE_OPTIONS`.
+
+### Following a boot
+
+| Endpoint | Returns |
+|---|---|
+| `GET /api/sandboxes/:session_id/boot` | `{ boot, resumable, logs }`. `boot` is the backend's `boot_status`: each step with its `status` (`pending`, `running`, `succeeded`, `failed` or `skipped`), times and a scrubbed `detail`. It is null for a backend that reports no steps. `resumable` says whether `POST …/resume_boot` would be accepted, and `logs` whether step logs can be read |
+| `GET /api/sandboxes/:session_id/boot_log?step=NAME&offset=N&limit=N` | One page of that step's log as `{ step, offset, next_offset, size, eof, text }`, 64 KB by default and 1 MB at most. Read on from `next_offset` until `eof`. A page ends at a line break, and its text is scrubbed of the checkout token and the Claude Code credential |
+| `POST /api/sandboxes/:session_id/resume_boot` | See [Keeping a failed boot](#keeping-a-failed-boot) |
+
+On `:local`, each step's output is scrubbed a line at a time on its way to
+its log. The server outlives the job that started it, so its output goes to
+`logs/server.log` as the server prints it, and is scrubbed when read.
+
+### Keeping a failed boot
+
+With `keep_on_failure`, a boot spec that fails stops everything it started
+but keeps the workspace and the sandbox's databases. `state.json` names the
+step that failed (`failed_step`). The sandbox fails as usual, with the step
+and its log tail in its error.
+
+`POST /api/sandboxes/:session_id/resume_boot`, optionally with
+`{ "from": "<step>" }`, continues the boot from the step that failed, or
+from the one named. It runs on the same checkout and databases: nothing is
+cloned again, and no earlier step runs again. The sandbox is `provisioning`
+again and is polled as after a create, and a resume that fails is kept
+again. A resume is refused with `422` unless the sandbox is a failed checkout
+that has not expired, kept its boot, and has a backend that implements
+`resume_boot`. A `from` that is not among the boot's `resumable_steps` is
+refused with `422` too, and the sandbox keeps the error its boot failed
+with. On `:local` those are the spec's steps, its manifest and its start.
+The checkout and the preflight never run again. A resume needs execution to
+be enabled and answers to the execution quota, but is not counted as another
+execution. The backend keeps the spec without its secrets' values, so
+`SandboxOrchestrator#resume_boot` takes the spec again (`boot_config:`) for a
+boot that had secrets.
+
+A stop (`DELETE`) removes a kept workspace like any other, and the reaper
+releases one once its sandbox has expired (see
+[Stopping and reaping](#stopping-and-reaping)).
 
 ### Stopping and reaping
 
@@ -1207,8 +1393,11 @@ terminate failed: those that still hold a handle and, for a backend that
 derives a sandbox's handle from its session (`:local` does), expired
 `app_runtime` sessions with no handle that changed within the last day (at
 most 100 per run). A checkout whose boot never recorded a handle may still
-have processes, and nothing else records that a terminate of it failed. Run
-it from cron, or as a Solid Queue recurring task:
+have processes, and nothing else records that a terminate of it failed. For
+such a backend it also terminates failed `app_runtime` sessions whose expiry
+passed within the last day, releasing a boot kept with `keep_on_failure`;
+they stay failed, so their error can still be read. Run it from cron, or as
+a Solid Queue recurring task:
 
 ```yaml
 # config/recurring.yml

@@ -153,6 +153,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   conversation (`agent_context_id`) and records its `source`. Deleting a
   recording asks the permission checker about `:manage_recordings`. Adds
   migration `create_active_agent_recording_events`.
+  documented on the orchestrator and in the dashboard guide; the `:mock`
+  backend implements none of them. `read_file` refuses a path outside the
+  checkout before the backend sees it.
+- **Boot a checkout that does not bundle the engine** (`actionagent`). An
+  `app_runtime` sandbox of a Rails app whose `Gemfile.lock` locks no
+  `actionagent` now installs it first: the dashboard's own engine version (or
+  the same git revision or path), the generators with `--skip`, asset builds
+  the app defines, `db:prepare`, then the manifest. `POST /api/sandboxes`
+  takes `bootstrap` (`auto` by default, `always` or `never`), `start_url` and
+  `keep_on_failure`. Before any of a bootstrapped checkout's commands runs, a
+  preflight refuses one without a root `config/application.rb`, or locking
+  Ruby older than 3.2 or railties older than 7.2. With `"auto"` a checkout
+  without a `Gemfile.lock` boots as before, and with `"always"` the preflight
+  refuses it. Each step has a log and a timeout of its own (1800 seconds for
+  the whole bootstrap, or `local_sandbox_boot_timeout` on `:local` when that
+  is longer), and `GET /api/sandboxes/:id/boot` and `…/boot_log` read them
+  back, scrubbed.
+  With `keep_on_failure`, `POST /api/sandboxes/:id/resume_boot` continues a
+  failed boot from the step that failed, on the same checkout and databases.
+  Once the MCP facade answers, `start_url` must not answer `5xx`. The boot is
+  a plain-JSON spec (`ActionAgent::SandboxBootSpec`) the orchestrator hands a
+  backend whose `create_sandbox` takes `boot_config:`; any other backend boots
+  as before. The `:local` backend implements `resume_boot`, `boot_status` and
+  `boot_log`, and the reaper releases a kept boot once its sandbox expires.
+- **Sync a checkout's agents in the sandbox manifest** (`actionagent`).
+  `bin/rails action_agent:sandbox:manifest` also mirrors the app's
+  `app/agents` classes with `AgentSync`, so a sandbox's MCP facade serves
+  their `run_<slug>` tools. The manifest's API key and the synced agents each
+  belong to the only record of the class their model is owned through, when
+  there is exactly one (the only account for the key and the only user for the
+  agents, in an app that configures both), and to nobody in an app with no
+  owner model, where `AgentSync` now accepts a nil owner.
 
 ### Changed
 
