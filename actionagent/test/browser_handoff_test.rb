@@ -74,6 +74,34 @@ class BrowserHandoffTest < ActionDispatch::IntegrationTest
     assert_equal "https://example.com/tickets", recording.recording_actions.first.metadata["url"]
   end
 
+  test "typing and form filling reach the browser by target and are recorded" do
+    agent, run = build_run
+    service = service_for(agent, run)
+
+    service.execute_tool("browser_type", ref: "e41", element: "Name", text: "Ada Lovelace")
+    service.execute_tool("browser_fill_form", fields: [ { "ref" => "e42", "name" => "Email", "type" => "textbox", "value" => "ada@example.com" } ])
+    service.execute_tool("browser_click", ref: "e48", element: "Continue")
+
+    assert_equal [ "browser_type", { target: "e41", element: "Name", text: "Ada Lovelace" } ], @browser.calls[0]
+    assert_equal [ "browser_fill_form", { fields: [ { target: "e42", name: "Email", type: "textbox", value: "ada@example.com" } ] } ], @browser.calls[1]
+    assert_equal [ "browser_click", { target: "e48", element: "Continue" } ], @browser.calls[2]
+
+    recording = ActionAgent::SessionRecording.find_by!(agent_run: run)
+    actions = recording.recording_actions.order(:sequence)
+    assert_equal %w[type form_fill click], actions.pluck(:action_type)
+    assert_equal "e41", actions.first.selector
+    assert_equal "e48", actions.last.selector
+  end
+
+  test "a browser action without an element ref is refused, not sent" do
+    agent, run = build_run
+
+    result = service_for(agent, run).execute_tool("browser_click", element: "Continue")
+
+    assert_match(/ref/, result[:error])
+    assert_empty @browser.calls
+  end
+
   test "an agent without the browser tools is not recorded" do
     agent, run = build_run(tools: %w[memory])
 

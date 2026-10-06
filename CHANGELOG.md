@@ -20,6 +20,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   event's ticket page and stops before paying, built for the SF Ruby
   Conference demo. The Playwright demo template now names the published
   `@playwright/mcp` package.
+- **Conference-ticket sample data** (`actionagent`). `bin/rails
+  action_agent:sample:conference_ticket` seeds a workspace with fictional
+  but complete data for the scenario: the agent, a week of runs with their
+  telemetry traces (browser tool spans, model calls, the handoff), a
+  completed session recording that offers Take Over at the ticket page, and
+  an evaluation whose two runs show a caught regression — the agent once
+  clicked Pay — and the fix. Every record carries a `sample` marker;
+  `action_agent:sample:clear` removes it all. `ACCOUNT_ID` names the
+  workspace on a multi-tenant install.
+- **Typing and forms in the browser tools** (`actionagent`). The
+  `playwright_mcp` tools gain `browser_type`, `browser_fill_form`,
+  `browser_select_option` and `browser_press_key`, and address elements the
+  way current Playwright MCP releases expect (`target`), accepting the `ref`
+  the schemas ask the model for.
 - **Support MCP across providers** (`activeagent`). Anthropic and OpenAI
   Responses handle remote servers natively; ActiveAgent bridges other providers
   and all local `command:` servers. `mcp_strategy:` selects automatic, client,
