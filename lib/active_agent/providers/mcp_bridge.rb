@@ -2,6 +2,7 @@
 
 require "digest"
 require "json"
+require "timeout"
 require "uri"
 require "active_support/core_ext/hash/keys"
 require "active_support/core_ext/object/deep_dup"
@@ -37,6 +38,14 @@ module ActiveAgent
       # which it meant, so this is refused rather than resolved by guessing.
       class DuplicateToolError < StandardError; end
 
+      # Raised when a `command:` server does not answer within its
+      # `read_timeout:`. The server has been stopped by the time this reaches
+      # the caller.
+      #
+      # A `Timeout::Error`, as `Net::ReadTimeout` is, so a policy written for
+      # timeouts in general covers this one too.
+      class TimeoutError < ::Timeout::Error; end
+
       # Schema handed to a tool that declares none. Providers expect an object
       # schema, and MCP permits omitting it.
       #
@@ -50,11 +59,34 @@ module ActiveAgent
       # A stdio read blocks forever without one, so a server that accepts a
       # request and never replies holds the generation open until the worker is
       # restarted. Generous, since a tool call can legitimately be slow; set
-      # `read_timeout:` on a declaration to override it.
+      # `read_timeout:` on a declaration to override it. What it bounds depends
+      # on the transport; see {#transport_for}.
       DEFAULT_READ_TIMEOUT = 30
 
       # A declared server, paired with the client connected to it.
       Server = Struct.new(:name, :declaration, :client, keyword_init: true)
+
+      # The result of a tool call that failed on the server: a result the tool
+      # marked `isError`, or a JSON-RPC error the server answered with.
+      #
+      # A provider sends a tool's result to the model as JSON, and this one
+      # serializes as `{"error": message}`, which reads as a failure on an API
+      # that has no error flag. A provider whose API has one also sets it, as
+      # Anthropic does with `is_error`.
+      #
+      # @!attribute [r] message
+      #   @return [String] the error, as the model reads it
+      ErrorResult = Data.define(:message) do
+        # @return [Hash{String => String}]
+        def as_json(*) = { "error" => message }
+
+        # The `json` gem on its own encodes an object as its `to_s`, so this
+        # routes through {#as_json} whether or not ActiveSupport's encoder is
+        # loaded.
+        #
+        # @return [String]
+        def to_json(*args) = as_json.to_json(*args)
+      end
 
       # @param servers [Array<Hash>, Hash, nil] common-format `mcps:`
       #   declarations. A single Hash is accepted as a one-server list, because
@@ -95,17 +127,7 @@ module ActiveAgent
         @tools       = nil
         @ownership   = {}
 
-        servers.each do |server|
-          transport = server.client.transport if server.client.respond_to?(:transport)
-          next unless transport.respond_to?(:close)
-
-          begin
-            transport.close
-          rescue StandardError
-            # Best effort — see above. A server that will not shut down cleanly
-            # is not worth failing a finished generation over.
-          end
-        end
+        servers.each { |server| close_transport(server) }
 
         nil
       end
@@ -165,7 +187,8 @@ module ActiveAgent
       #
       # @param name [String, Symbol] tool name
       # @param kwargs [Hash] tool arguments
-      # @return [String, Hash] the tool's result
+      # @return [String, Hash, ErrorResult] the tool's result, or an
+      #   {ErrorResult} when the call failed
       # @raise [ArgumentError] when no server provides the tool
       def call(name, **kwargs)
         self.class.load_mcp!
@@ -178,7 +201,13 @@ module ActiveAgent
 
         server = ensure_connected(declaration)
 
-        flatten_result(server.client.call_tool(name: name.to_s, arguments: kwargs))
+        begin
+          flatten_result(call_tool_on(server, name.to_s, kwargs))
+        rescue MCP::Client::ServerError => e
+          # The client raises on a JSON-RPC error envelope. The message goes back to the model as the tool's
+          # answer, since it can often recover from a bad argument, where a raise would end the generation.
+          error_message(e.message)
+        end
       end
 
       # Loads the `mcp` gem, explaining the dependency if it is absent.
@@ -285,48 +314,171 @@ module ActiveAgent
         server = Server.new(name: declaration[:name], declaration:, client:)
         @servers << server
 
-        client.connect
+        # A `command:` server's handshake opens with a `server/discover` probe that the gem bounds on its own, and
+        # a server that ignores the probe spends that bound before the client falls back to `initialize`. The
+        # deadline allows for it, so the server still has its whole read timeout to answer `initialize`.
+        probe = MCP::Client::Stdio.const_defined?(:DEFAULT_DISCOVER_PROBE_TIMEOUT) ? MCP::Client::Stdio::DEFAULT_DISCOVER_PROBE_TIMEOUT : 0
+        answer_within_read_timeout(server, "the handshake", allowance: probe) { client.connect }
+
         server
       end
 
+      # Builds the transport for one declared server.
+      #
+      # `read_timeout:` is validated for either transport, then applied in the
+      # way each one allows:
+      #
+      # - `url:` — set as the read timeout of the server's Faraday connection.
+      #   Faraday's default adapter, Net::HTTP, applies it to each wait for
+      #   data rather than to the whole response, so a streamed answer stays
+      #   open while it keeps sending events. The gem sets a read timeout of its
+      #   own on the standalone listening stream and on a resumed stream, which
+      #   takes precedence there.
+      # - `command:` — not handed to the transport, whose own read timeout
+      #   restarts with every frame it reads, so a server that keeps sending
+      #   notifications never reaches it. Without one, the gem keeps its own
+      #   short bound on the `server/discover` probe. The bridge bounds the whole
+      #   answer itself; see {#answer_within_read_timeout}.
+      #
       # @param declaration [Hash]
       # @return [Object] an MCP transport
+      # @raise [ArgumentError] when the declaration names neither a `url:` nor
+      #   a `command:`, or declares a `read_timeout:` that is not a positive,
+      #   finite number
       def transport_for(declaration)
+        read_timeout = read_timeout_for(declaration)
+
         if declaration[:url]
           MCP::Client::HTTP.new(
             url:     declaration[:url],
             headers: headers_for(declaration),
             **{ max_reconnection_wait: declaration[:max_reconnection_wait] }.compact
-          )
+          ) { |faraday| faraday.options.read_timeout = read_timeout }
         elsif declaration[:command]
           MCP::Client::Stdio.new(
-            command:      declaration[:command],
-            args:         Array(declaration[:args]),
-            env:          declaration[:env],
-            read_timeout: read_timeout_for(declaration)
+            command: declaration[:command],
+            args:    Array(declaration[:args]),
+            env:     spawn_env_for(declaration)
           )
         else
+          # The keys only: a declaration's values carry credentials, and this message reaches logs.
           fail ArgumentError,
-               "An entry in `mcps:` needs either a `url:` or a `command:` to connect to, " \
-               "got #{declaration.inspect}."
+               "An entry in `mcps:` needs either a `url:` or a `command:` to connect to; " \
+               "#{declaration[:name].inspect} declares only #{declaration.keys.inspect}."
         end
+      end
+
+      # The environment a stdio server's process is spawned with. Spawning requires String keys and values,
+      # while a declaration's keys are symbolized on the way in and its values may be numbers or symbols.
+      # A nil value is kept, which unsets the variable.
+      #
+      # @param declaration [Hash]
+      # @return [Hash{String => String, nil}, nil]
+      def spawn_env_for(declaration)
+        declaration[:env]&.to_h { |key, value| [ key.to_s, value&.to_s ] }
       end
 
       # The bounded wait for a server to answer.
       #
       # @param declaration [Hash]
       # @return [Numeric]
-      # @raise [ArgumentError] when a declared timeout is not a positive number
+      # @raise [ArgumentError] when a declared timeout is not a positive, finite
+      #   number
       def read_timeout_for(declaration)
         timeout = declaration[:read_timeout]
         return DEFAULT_READ_TIMEOUT if timeout.nil?
 
-        unless timeout.is_a?(Numeric) && timeout.positive?
+        unless timeout.is_a?(Numeric) && timeout.positive? && timeout.finite?
           fail ArgumentError,
                "`read_timeout:` on an MCP server must be a positive number of seconds, got #{timeout.inspect}."
         end
 
         timeout
+      end
+
+      # Calls a tool on its server, within the server's `read_timeout:`.
+      #
+      # @param server [Server]
+      # @param name [String] tool name
+      # @param arguments [Hash] tool arguments
+      # @return [Object] the client's response
+      def call_tool_on(server, name, arguments)
+        answer_within_read_timeout(server, "tools/call for #{name.inspect}") do
+          server.client.call_tool(name:, arguments:)
+        end
+      end
+
+      # Runs one exchange with a server — the handshake, the tool listing or a
+      # tool call — within the server's `read_timeout:`, and returns the
+      # block's result.
+      #
+      # A `url:` server's exchange runs as it is, bounded by its transport; see
+      # {#transport_for}. A `command:` server's runs on a thread of its own,
+      # which this one waits on for at most the timeout, so the bound covers the
+      # whole answer: notifications and pings the server sends meanwhile do not
+      # extend it. A server that misses it is released, which ends the exchange
+      # too, since closing the transport fails the read the thread is blocked in.
+      #
+      # The deadline is kept by waiting rather than with `Timeout.timeout`,
+      # which raises into the running thread at whatever point it has reached,
+      # part-way through writing a request to the server included.
+      #
+      # @param server [Server]
+      # @param request [String] the exchange, as the error names it
+      # @param allowance [Numeric] seconds granted on top of the read timeout
+      # @return [Object] the block's result
+      # @raise [TimeoutError] when a `command:` server does not answer in time
+      def answer_within_read_timeout(server, request, allowance: 0, &exchange)
+        return exchange.call if server.declaration[:url]
+
+        seconds = read_timeout_for(server.declaration) + allowance
+        outcome = Thread::Queue.new
+        worker  = Thread.new do
+          outcome << [ :answered, exchange.call ]
+        rescue Exception => e
+          # Every exception is handed to the waiting thread, which re-raises it, so one that is not a
+          # StandardError still reaches the caller at once rather than surfacing as a timeout.
+          outcome << [ :failed, e ]
+        end
+
+        status, result = outcome.pop(timeout: seconds)
+        raise result if status == :failed
+        return result if status == :answered
+
+        fail TimeoutError,
+             "The MCP server #{server.name.to_s.inspect} did not answer #{request} within #{seconds} seconds, so it " \
+             "was stopped. Increase `read_timeout:` on its `mcps:` entry if it needs longer."
+      ensure
+        # With no outcome, the exchange was abandoned part-way — the deadline passed, or this thread was
+        # interrupted while it waited — and the connection cannot be trusted with another request.
+        release(server) if worker && status.nil?
+      end
+
+      # Gives up on a server whose exchange was abandoned. Its connection is
+      # forgotten, so the next use opens a new one, and its transport is closed,
+      # which stops a `command:` server's process.
+      #
+      # @param server [Server]
+      # @return [void]
+      def release(server)
+        @connections.delete(server.declaration)
+        close_transport(server)
+      end
+
+      # Closes a server's transport, which for a `command:` server stops its
+      # process. Never raises, for the reasons {#close} gives.
+      #
+      # @param server [Server]
+      # @return [void]
+      def close_transport(server)
+        transport = server.client.transport if server.client.respond_to?(:transport)
+        transport.close if transport.respond_to?(:close)
+
+        nil
+      rescue StandardError
+        # Best effort. A server that will not shut down cleanly is not worth an
+        # error that would replace the one its caller is already handling.
+        nil
       end
 
       # @return [Hash] a fresh copy of {EMPTY_SCHEMA}, safe for a caller to mutate
@@ -347,8 +499,9 @@ module ActiveAgent
       def server_tools(server)
         allowed = Array(server.declaration[:allowed_tools]).map { |tool| tool_name(tool) }
         allowed = nil if allowed.empty?
+        listed  = answer_within_read_timeout(server, "tools/list") { server.client.tools }
 
-        server.client.tools.filter_map do |tool|
+        listed.filter_map do |tool|
           name = tool.name.to_s
           next if allowed && !allowed.include?(name)
 
@@ -363,6 +516,8 @@ module ActiveAgent
       # Reduces an MCP tool result to something a provider can hand back to the
       # model. Structured content is preferred when the server sends it, since
       # it is the machine-readable form; otherwise the text blocks are joined.
+      # A result the tool marked `isError` becomes an {ErrorResult} carrying
+      # its text, which is where MCP describes a tool's failure.
       #
       # `MCP::Client#call_tool` returns the whole JSON-RPC envelope, so the tool
       # result sits one level down. That is unwrapped first — keyed off the
@@ -370,7 +525,7 @@ module ActiveAgent
       # is free to use as a field name.
       #
       # @param result [Object]
-      # @return [String, Hash]
+      # @return [String, Hash, ErrorResult]
       def flatten_result(result)
         result = result.to_h if result.respond_to?(:to_h) && !result.is_a?(Hash)
         return result unless result.is_a?(Hash)
@@ -382,31 +537,40 @@ module ActiveAgent
           result = result[:result] || result["result"] || {}
         end
 
+        return error_message(text_content(result)) if result[:isError] || result["isError"]
+
         structured = result[:structuredContent] || result["structuredContent"]
         return structured if structured
 
-        blocks = result[:content] || result["content"]
-        return "" if blocks.nil?
+        text_content(result)
+      end
 
-        Array(blocks).filter_map do |block|
+      # Joins the text blocks of a tool result. Blocks without text, such as
+      # images, are left out.
+      #
+      # @param result [Hash]
+      # @return [String]
+      def text_content(result)
+        Array(result[:content] || result["content"]).filter_map do |block|
           block = block.to_h if block.respond_to?(:to_h) && !block.is_a?(Hash)
 
           block[:text] || block["text"] if block.is_a?(Hash)
         end.join("\n")
       end
 
-      # Renders a JSON-RPC error for the model. It is returned as tool content
-      # rather than raised: the model can often recover from a bad argument,
-      # and a raise here would surface as a failed generation instead.
+      # Wraps the error a failed call reports in an {ErrorResult} for the
+      # model, with a placeholder when the server gave no message. It is
+      # returned as the tool's result rather than raised: the model can often
+      # recover from a bad argument, and a raise here would surface as a failed
+      # generation instead.
       #
-      # @param error [Hash, String, nil]
-      # @return [String]
+      # @param error [Hash, String, nil] a JSON-RPC error object, or the text
+      #   describing the failure
+      # @return [ErrorResult]
       def error_message(error)
-        case error
-        when Hash then (error[:message] || error["message"] || error.inspect).to_s
-        when nil  then "The MCP server returned an empty error."
-        else error.to_s
-        end
+        message = error.is_a?(Hash) ? (error[:message] || error["message"] || error.inspect) : error
+
+        ErrorResult.new(message: message.to_s.presence || "The MCP server returned an empty error.")
       end
 
       # @param servers [Array<Hash>, Hash, nil]
