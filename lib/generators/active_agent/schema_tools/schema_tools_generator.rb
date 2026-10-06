@@ -11,16 +11,25 @@ module ActiveAgent
     # a judgement about exposure, not a fact about the table (#440). Every
     # column the model has is listed, commented out, minus the ones that look
     # like secrets, so the allowlist is a review step rather than a blank page.
+    #
+    # --filterable and --returns write that review's outcome instead: the
+    # columns named are declared, and only those. --managed heads the file
+    # with ActiveAgent::SchemaTools::MANAGED_MARKER, which a dashboard
+    # project's boots look for before they rewrite or remove it.
     class SchemaToolsGenerator < ::Rails::Generators::NamedBase
       source_root File.expand_path("templates", __dir__)
 
-      # Columns never suggested, whatever the model: reading one back would
-      # hand a model a credential, and filtering on one leaks it a character
-      # at a time through the row counts.
-      SECRET_COLUMNS = /password|digest|token|secret|api_key|otp|encrypted|ssn/i
+      # Columns never suggested or written, whatever the model.
+      SECRET_COLUMNS = ActiveAgent::SchemaTools::SECRET_COLUMNS
 
       class_option :policy, type: :boolean, default: nil,
         desc: "Scope every read through <Model>Policy::Scope (default: when that policy exists)"
+      class_option :filterable, type: :array, default: nil,
+        desc: "Columns an agent may filter on, declared rather than suggested"
+      class_option :returns, type: :array, default: nil,
+        desc: "Columns an agent may read back, declared rather than suggested"
+      class_option :managed, type: :boolean, default: false,
+        desc: "Head the file with ActiveAgent::SchemaTools::MANAGED_MARKER, for a dashboard project that rewrites it"
 
       check_class_collision suffix: "Tools"
 
@@ -66,6 +75,32 @@ module ActiveAgent
 
       def suggested_columns
         columns.reject { |name, _type| name == "id" || name.match?(SECRET_COLUMNS) }
+      end
+
+      # The columns --filterable or --returns (+option+) declares, after +id+:
+      # nil when the option is not given. A column that looks like a secret,
+      # or that the model's table does not have when it can be read, is
+      # left out with a note.
+      def declared_columns(option)
+        names = options[option]
+        return nil if names.nil?
+
+        known = columns.map(&:first)
+        names.map(&:to_s).uniq.reject { |name| name == "id" }.select do |name|
+          if name.match?(SECRET_COLUMNS)
+            say_status :skip, "#{name}: looks like a secret, so it is not declared", :yellow
+            false
+          elsif known.any? && !known.include?(name)
+            say_status :skip, "#{name}: #{class_name} has no such column", :yellow
+            false
+          else
+            true
+          end
+        end
+      end
+
+      def column_list(names)
+        [ "id", *names ].map { |name| ":#{name}" }.join(", ")
       end
 
       def secret_columns

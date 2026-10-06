@@ -205,6 +205,28 @@ class AgentToolRosterTest < ActionDispatch::IntegrationTest
     assert_nil tool_named(body, "save_memory")
   end
 
+  test "each row names the tool names the approval list takes for it" do
+    agent = create_agent(agent_class_name: "RefundsAgent", tools: [ "memory", "find_posts" ], mcp_servers: [ "playwright" ])
+    create_trace(
+      agent_class: "RefundsAgent",
+      declared: [ { "name" => "refund_invoice", "description" => "Refund an invoice in full." } ],
+      calls: [ { name: "refund_invoice" } ]
+    )
+
+    body = roster_for(agent)
+
+    assert_equal %w[save_memory recall_memory], tool_named(body, "memory")["approval_names"]
+    assert_equal %w[fetch_url], tool_named(body, "fetch")["approval_names"]
+    assert_equal %w[find_posts], tool_named(body, "find_posts")["approval_names"]
+    navigate = service_named(body, "playwright")["tools"].find { |tool| tool["name"] == "browser_navigate" }
+    assert_equal %w[browser_navigate], navigate["approval_names"]
+    # The input tools ask on their own, a capability with no functions has
+    # nothing to hold, and the class runs a tool it declares in code.
+    assert_empty tool_named(body, "ask")["approval_names"]
+    assert_empty tool_named(body, "terminal")["approval_names"]
+    assert_empty tool_named(body, "refund_invoice")["approval_names"]
+  end
+
   test "every catalog service is listed, and the ones the agent names are enabled" do
     agent = create_agent(mcp_servers: [ "playwright" ])
 

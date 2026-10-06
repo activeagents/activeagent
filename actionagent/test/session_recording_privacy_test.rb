@@ -137,4 +137,28 @@ class SessionRecordingOwnershipTest < ActionDispatch::IntegrationTest
     assert_not_includes listed_ids, theirs.id
     assert_not_includes listed_ids("/activeagents/api/session_recordings/recent"), theirs.id
   end
+
+  # The replay page opens the first listed recording, so the list offers only
+  # what show will open, whatever the recording's name.
+  test "a lander_demo recording the caller does not own is neither listed nor readable" do
+    theirs = ActionAgent::SessionRecording.new(name: "lander_demo", status: :completed)
+    theirs.owner = @other
+    theirs.save!
+    unowned = ActionAgent::SessionRecording.create!(name: "lander_demo", status: :completed)
+
+    [ theirs, unowned ].each do |recording|
+      assert_not_includes listed_ids, recording.id
+
+      get "/activeagents/api/session_recordings/#{recording.id}"
+      assert_response :not_found
+    end
+  end
+
+  test "a lander_demo recording the caller owns is listed" do
+    mine = ActionAgent::SessionRecording.new(name: "lander_demo", status: :completed)
+    mine.owner = @user
+    mine.save!
+
+    assert_includes listed_ids, mine.id
+  end
 end

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import AgentAvatar from '../AgentAvatar';
 import { useActionCable } from '../../hooks/useActionCable';
 import { startCheckout } from '../../utils/checkout';
+import { liveUpdate } from '../../utils/liveUpdates.mjs';
 
 const PROVIDERS = [
   { id: 'anthropic', name: 'Anthropic', model: 'claude-haiku-4-5', color: 'bg-orange-500' },
@@ -83,89 +84,25 @@ export default function SandboxRunner({ initialType = 'playwright_mcp', onClose 
   const [comparisonResults, setComparisonResults] = useState({});
   const [runningProviders, setRunningProviders] = useState([]);
 
-  // ActionCable message handler
-  const handleCableMessage = useCallback((data) => {
-    console.log('[SandboxRunner] Received ActionCable message:', data);
-
-    switch (data.type) {
-      case 'run_started':
-        // Update comparison results to show this provider is running
-        if (comparisonMode) {
-          setComparisonResults(prev => ({
-            ...prev,
-            [data.provider]: {
-              status: 'running',
-              started_at: data.started_at,
-              provider: data.provider
-            }
-          }));
-        } else {
-          setCurrentRun(prev => ({
-            ...prev,
-            status: 'running',
-            provider: data.provider
-          }));
-        }
-        break;
-
-      case 'run_complete':
-        if (comparisonMode) {
-          setComparisonResults(prev => ({
-            ...prev,
-            [data.provider]: { ...data.run, provider: data.provider }
-          }));
-          setRunningProviders(prev => prev.filter(p => p !== data.provider));
-
-          // Update session from broadcast
-          if (data.sandbox) {
-            setSession(data.sandbox);
-            setRuns(data.sandbox.runs || []);
-          }
-        } else {
-          setCurrentRun(data.run);
-          setIsRunning(false);
-          if (data.sandbox) {
-            setSession(data.sandbox);
-            setRuns(data.sandbox.runs || []);
-          }
-        }
-
-        // Check if all providers are done
-        setRunningProviders(prev => {
-          const remaining = prev.filter(p => p !== data.provider);
-          if (remaining.length === 0) {
-            setIsRunning(false);
-          }
-          return remaining;
-        });
-        break;
-
-      case 'run_error':
-        if (comparisonMode) {
-          setComparisonResults(prev => ({
-            ...prev,
-            [data.provider]: {
-              status: 'failed',
-              error: data.error,
-              provider: data.provider
-            }
-          }));
-          setRunningProviders(prev => prev.filter(p => p !== data.provider));
-        } else {
-          setCurrentRun(prev => ({
-            ...prev,
-            status: 'failed',
-            error: data.error
-          }));
-          setIsRunning(false);
-        }
-
-        if (data.sandbox) {
-          setSession(data.sandbox);
-        }
-        break;
+  // Reads the session back over the API: its status and every run so far.
+  const refreshSession = useCallback(async (sessionId) => {
+    try {
+      const response = await fetch(`/api/sandboxes/${sessionId}`);
+      if (!response.ok) return;
+      const data = await response.json();
+      setSession(data.sandbox);
+      setRuns(data.sandbox.runs || []);
+    } catch (err) {
+      console.error('Could not refresh the sandbox session:', err);
     }
-  }, [comparisonMode]);
+  }, []);
+
+  // A cable message says only that the session or one of its runs changed,
+  // so the session is read back. The run polls below settle the run itself.
+  const handleCableMessage = useCallback((data) => {
+    if (!liveUpdate(data) || !session?.session_id) return;
+    refreshSession(session.session_id);
+  }, [refreshSession, session?.session_id]);
 
   // Subscribe to ActionCable when session is available
   useActionCable(

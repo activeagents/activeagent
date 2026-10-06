@@ -21,6 +21,11 @@ class GithubConnectionTest < ActionDispatch::IntegrationTest
   def teardown
     ActionAgent.github_client_id = nil
     ActionAgent.github_client_secret = nil
+    ActionAgent.multi_tenant = false
+    ActionAgent.user_class = nil
+    ActionAgent.account_class = nil
+    ActionAgent.current_user_resolver = nil
+    ActionAgent.current_account_resolver = nil
   end
 
   test "status reports whether OAuth is configured and never renders the token" do
@@ -77,6 +82,27 @@ class GithubConnectionTest < ActionDispatch::IntegrationTest
     # The state was consumed: replaying the callback is refused.
     get "/activeagents/api/github_connection/callback", params: { code: "abc", state: state }
     assert_redirected_to "/activeagents/settings?github=invalid_state&tab=integrations"
+  end
+
+  test "the callback records the user who authorized, also when the account owns the connection" do
+    ActionAgent.user_class = "User"
+    ActionAgent.account_class = "User" # the dummy app has no Account
+    ActionAgent.multi_tenant = true
+    account = User.create!(email: "account@example.com", name: "Account", age: 30)
+    member = User.create!(email: "member@example.com", name: "Member", age: 30)
+    ActionAgent.current_account_resolver = ->(_controller) { account }
+    ActionAgent.current_user_resolver = ->(_controller) { member }
+
+    get "/activeagents/api/github_connection/connect"
+    state = Rack::Utils.parse_query(URI.parse(response.location).query)["state"]
+    stub_request(:post, GithubConnectionTest.token_url)
+      .to_return(status: 200, body: { access_token: "gho_secret", scope: "repo" }.to_json, headers: { "Content-Type" => "application/json" })
+    stub_request(:get, "https://api.github.com/user").to_return(status: 200, body: { id: 42, login: "octocat" }.to_json)
+    get "/activeagents/api/github_connection/callback", params: { code: "abc", state: state }
+
+    assert_redirected_to "/activeagents/settings?github=connected&tab=integrations"
+    connection = ActionAgent::GithubConnection.sole
+    assert_equal [ account.id, member.id ], [ connection.account_id, connection.user_id ]
   end
 
   test "a callback with a forged state is refused without calling GitHub" do

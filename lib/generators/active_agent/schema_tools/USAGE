@@ -20,3 +20,14 @@ Examples:
 
     scopes reads through ReservationPolicy::Scope even if it cannot be
     found from here.
+
+    `bin/rails generate active_agent:schema_tools Reservation --filterable status --returns status starts_at`
+
+    declares exactly those columns (after `id`) instead of suggesting them.
+    A column that looks like a secret, or that the model does not have, is
+    left out.
+
+    `bin/rails generate active_agent:schema_tools Reservation --managed --returns status`
+
+    heads the file with a comment saying the ActiveAgent dashboard manages
+    it: a project's boots rewrite or remove only files that carry it.

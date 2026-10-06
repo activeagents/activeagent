@@ -22,6 +22,10 @@ class ActionAgentInstallGeneratorTest < Rails::Generators::TestCase
     create_active_agent_evaluation_scenarios
   ].freeze
 
+  # The numbered migration templates the engine ships, as
+  # [template path, migration name] pairs.
+  NUMBERED = ActionAgent::InstallGenerator.numbered_migrations.freeze
+
   test "a fresh install creates evaluation runs with the report identity and emits the upgrade after them" do
     run_generator [ "--skip-routes" ]
 
@@ -66,7 +70,7 @@ class ActionAgentInstallGeneratorTest < Rails::Generators::TestCase
     assert_migration "db/migrate/create_active_agent_github_connections.rb"
     assert_migration "db/migrate/create_active_agent_code_sessions.rb"
     assert_migration "db/migrate/add_code_session_runner.rb"
-    assert_equal EARLIER_MIGRATIONS.size + 6, Dir[File.join(destination_root, "db/migrate/*.rb")].size
+    assert_equal EARLIER_MIGRATIONS.size + 6 + NUMBERED.size, Dir[File.join(destination_root, "db/migrate/*.rb")].size
   end
 
   test "a fresh install emits the Claude Code sessions table with the dashboard's" do
@@ -97,7 +101,7 @@ class ActionAgentInstallGeneratorTest < Rails::Generators::TestCase
     assert_migration "db/migrate/create_active_agent_code_sessions.rb"
     emitted = Dir.children(migrate).reject { |file| file.start_with?("202501010000") }
     assert_migration "db/migrate/add_code_session_runner.rb"
-    assert_equal 2, emitted.size, "only the missing migrations are emitted: #{emitted.inspect}"
+    assert_equal 2 + NUMBERED.size, emitted.size, "only the missing migrations are emitted: #{emitted.inspect}"
     assert_equal 1, Dir.glob(File.join(migrate, "*_create_active_agent_github_connections.rb")).size
   end
 
@@ -161,16 +165,339 @@ class ActionAgentInstallGeneratorTest < Rails::Generators::TestCase
     end
   end
 
+  test "a fresh install emits every shipped numbered template after the dashboard tables" do
+    run_generator [ "--skip-routes" ]
+
+    NUMBERED.each do |_template, name|
+      assert_migration "db/migrate/#{name}.rb"
+      assert_operator migration_version(name), :>, migration_version("add_code_session_runner"),
+        "#{name} must run after every migration emitted before the numbered templates"
+    end
+    assert_equal NUMBERED.map(&:last).uniq.size, NUMBERED.size, "two numbered templates share a migration name"
+    numbers = NUMBERED.map { |template, _name| File.basename(template)[0, 3] }
+    assert_equal numbers.uniq.size, numbers.size, "two numbered templates share a number"
+  end
+
+  test "a fresh install emits the explorations table after the projects it refers to" do
+    run_generator [ "--skip-routes" ]
+
+    assert_migration "db/migrate/create_active_agent_explorations.rb" do |content|
+      assert_match(/class CreateActiveAgentExplorations < ActiveRecord::Migration\[\d+\.\d+\]/, content)
+      assert_match(/create_table "\#\{prefix\}explorations"/, content)
+      %w[project_id evaluation_id agent_run_id sandbox_session_id session_recording_id account_id user_id].each do |column|
+        assert_match(/t\.bigint :#{column}/, content)
+      end
+      %w[budget usage candidates].each { |column| assert_match(/t\.column :#{column}, json_type, \*\*json_default/, content) }
+    end
+    assert_operator migration_version("create_active_agent_explorations"), :>, migration_version("create_active_agent_projects")
+  end
+
+  test "every migration a fresh install emits is one a project's install pull request publishes, by name" do
+    run_generator [ "--skip-routes" ]
+
+    pattern = ActionAgent::ProjectInstallPullRequest.new(ActionAgent::Project.new(name: "Shop")).allowlist.grep(Regexp).sole
+    emitted = Dir[File.join(destination_root, "db/migrate/*.rb")].map { |path| "db/migrate/#{File.basename(path)}" }
+    assert_operator emitted.size, :>, NUMBERED.size
+    emitted.each { |path| assert_match pattern, path }
+  end
+
+  test "numbered templates are emitted in number order, with their ERB rendered" do
+    with_numbered_templates(
+      "002_add_widget_color.rb.erb" => numbered_template("AddWidgetColor"),
+      "001_create_widgets.rb.erb" => numbered_template("CreateWidgets"),
+      "010_add_widget_size.rb.erb" => numbered_template("AddWidgetSize")
+    ) do
+      run_generator [ "--skip-routes" ]
+    end
+
+    assert_migration "db/migrate/create_widgets.rb" do |content|
+      assert_match(/class CreateWidgets < ActiveRecord::Migration\[\d+\.\d+\]/, content)
+    end
+    versions = %w[create_widgets add_widget_color add_widget_size].map { |name| migration_version(name) }
+    assert_equal versions.sort, versions, "emitted in NNN order"
+    assert_operator versions.first, :>, migration_version("create_active_agent_dashboard_tables")
+  end
+
+  # Run under a probe prefix so the dummy's own tables are left alone.
+  test "the recording events migration creates its table and recording columns under the configured prefix, and reverses" do
+    run_generator [ "--skip-routes" ]
+    connection = ActiveRecord::Base.connection
+    prefix = "recording_events_probe_"
+    connection.create_table("#{prefix}session_recordings", force: true) { |t| t.string :name }
+    ActionAgent.table_name_prefix = prefix
+    namespace = Module.new
+    namespace.module_eval(File.read(migration_file_name("db/migrate/create_active_agent_recording_events.rb")))
+    migration = namespace::CreateActiveAgentRecordingEvents.new
+
+    ActiveRecord::Migration.suppress_messages { migration.migrate(:up) }
+
+    assert connection.index_exists?("#{prefix}recording_events", [ :session_recording_id, :occurred_from, :batch_index ])
+    %i[agent_context_id source ingest_token_digest ingest_token_expires_at event_count event_bytes dropped_event_count].each do |column|
+      assert connection.column_exists?("#{prefix}session_recordings", column), column
+    end
+    assert connection.index_exists?("#{prefix}session_recordings", :ingest_token_digest, unique: true)
+
+    ActiveRecord::Migration.suppress_messages { migration.migrate(:down) }
+
+    assert_not connection.table_exists?("#{prefix}recording_events")
+    assert_not connection.column_exists?("#{prefix}session_recordings", :source)
+  ensure
+    ActionAgent.table_name_prefix = "active_agent_"
+    connection&.drop_table("#{prefix}recording_events", if_exists: true)
+    connection&.drop_table("#{prefix}session_recordings", if_exists: true)
+  end
+
+  test "the browser migration adds the browser columns to sandbox sessions under the configured prefix, and reverses" do
+    run_generator [ "--skip-routes" ]
+    connection = ActiveRecord::Base.connection
+    prefix = "browser_probe_"
+    connection.create_table("#{prefix}sandbox_sessions", force: true) { |t| t.string :session_id }
+    ActionAgent.table_name_prefix = prefix
+    namespace = Module.new
+    namespace.module_eval(File.read(migration_file_name("db/migrate/add_browser_to_active_agent_sandbox_sessions.rb")))
+    migration = namespace::AddBrowserToActiveAgentSandboxSessions.new
+    columns = %i[browser_mode browser_status browser_mcp_url browser_live_url browser_token browser_started_at]
+
+    ActiveRecord::Migration.suppress_messages { migration.migrate(:up) }
+
+    columns.each { |column| assert connection.column_exists?("#{prefix}sandbox_sessions", column), column }
+    assert_equal :text, connection.columns("#{prefix}sandbox_sessions").find { |column| column.name == "browser_token" }.type
+
+    ActiveRecord::Migration.suppress_messages { migration.migrate(:down) }
+
+    columns.each { |column| assert_not connection.column_exists?("#{prefix}sandbox_sessions", column), column }
+  ensure
+    ActionAgent.table_name_prefix = "active_agent_"
+    connection&.drop_table("#{prefix}sandbox_sessions", if_exists: true)
+  end
+
+  test "files in the numbered template directory that break the naming convention are not emitted" do
+    with_numbered_templates(
+      "001_create_widgets.rb.erb" => numbered_template("CreateWidgets"),
+      "7_misnumbered.rb.erb" => numbered_template("Misnumbered"),
+      "002_Capitalized.rb.erb" => numbered_template("Capitalized"),
+      "003_no_extension.rb" => numbered_template("NoExtension"),
+      "README.md" => "notes\n"
+    ) do
+      run_generator [ "--skip-routes" ]
+    end
+
+    assert_migration "db/migrate/create_widgets.rb"
+    emitted = Dir.children(File.join(destination_root, "db/migrate")).map { |file| file.sub(/\A\d+_/, "") }
+    assert_empty emitted & %w[misnumbered.rb Capitalized.rb capitalized.rb no_extension.rb README.md]
+  end
+
+  test "a numbered migration the app already has is not emitted again" do
+    migrate = File.join(destination_root, "db/migrate")
+    FileUtils.mkdir_p(migrate)
+    File.write(File.join(migrate, "20250101000000_create_widgets.rb"), "# already installed\n")
+
+    with_numbered_templates(
+      "001_create_widgets.rb.erb" => numbered_template("CreateWidgets"),
+      "002_add_widget_color.rb.erb" => numbered_template("AddWidgetColor")
+    ) do
+      run_generator [ "--skip-routes" ]
+      run_generator [ "--skip-routes" ]
+    end
+
+    assert_equal [ "20250101000000_create_widgets.rb" ], Dir.glob("*_create_widgets.rb", base: migrate)
+    assert_equal 1, Dir.glob("*_add_widget_color.rb", base: migrate).size
+  end
+
+  test "a traces-only install emits no numbered template" do
+    with_numbered_templates("001_create_widgets.rb.erb" => numbered_template("CreateWidgets")) do
+      run_generator [ "--skip-routes", "--traces-only" ]
+    end
+
+    assert_no_migration "db/migrate/create_widgets.rb"
+  end
+
+  test "the provider key scope migration ships on a fresh install and on an upgrade" do
+    run_generator [ "--skip-routes" ]
+    assert_migration "db/migrate/add_provider_key_scope.rb" do |content|
+      assert_match(/class AddProviderKeyScope < ActiveRecord::Migration\[\d+\.\d+\]/, content)
+    end
+    assert_operator migration_version("add_provider_key_scope"), :>, migration_version("create_active_agent_dashboard_tables")
+
+    prepare_destination
+    migrate = File.join(destination_root, "db/migrate")
+    FileUtils.mkdir_p(migrate)
+    (EARLIER_MIGRATIONS + %w[add_provider_key_api_key create_active_agent_github_connections create_active_agent_code_sessions
+                             add_code_session_runner ensure_agent_release_columns add_evaluation_report_identity])
+      .each_with_index { |name, index| File.write(File.join(migrate, format("20250101%06d_%s.rb", index, name)), "# installed\n") }
+    run_generator [ "--skip-routes" ]
+
+    assert_equal 1, Dir.glob("*_add_provider_key_scope.rb", base: migrate).size
+  end
+
+  test "the provider key scope migration scopes existing keys to the organization and indexes the scope" do
+    run_generator [ "--skip-routes" ]
+    with_provider_keys_table("scope_probe_") do |connection, table|
+      connection.execute("INSERT INTO #{table} (provider, credential, account_id) VALUES ('openai', 'x', 1), ('openai', 'y', 2)")
+
+      run_migration("add_provider_key_scope", :AddProviderKeyScope)
+      run_migration("add_provider_key_scope", :AddProviderKeyScope)
+
+      assert_equal %w[organization organization], connection.select_values("SELECT scope_key FROM #{table}")
+      assert connection.column_exists?(table, :set_by_id)
+      assert connection.index_exists?(table, %i[account_id scope_key provider], unique: true)
+    end
+  end
+
+  test "the provider key scope migration stops on duplicate keys and names them" do
+    run_generator [ "--skip-routes" ]
+    with_provider_keys_table("scope_duplicate_probe_") do |connection, table|
+      connection.execute("INSERT INTO #{table} (id, provider, credential, account_id) VALUES " \
+                         "(11, 'openai', 'x', 7), (12, 'openai', 'y', 7), (13, 'anthropic', 'z', 7), (14, 'openai', 'w', 8)")
+
+      error = assert_raises(ActiveRecord::MigrationError) { run_migration("add_provider_key_scope", :AddProviderKeyScope) }
+
+      assert_match(/account_id 7, provider openai, scope organization: ids 11, 12/, error.message)
+      assert_no_match(/anthropic|account_id 8/, error.message)
+      assert_not connection.column_exists?(table, :scope_key), "nothing changes until the duplicates are resolved"
+    end
+  end
+
+  test "rolling the provider key scope migration back is refused while personal keys exist" do
+    run_generator [ "--skip-routes" ]
+    with_provider_keys_table("scope_rollback_probe_") do |connection, table|
+      run_migration("add_provider_key_scope", :AddProviderKeyScope)
+      connection.execute("INSERT INTO #{table} (id, provider, credential, account_id, scope_key) VALUES (21, 'openai', 'x', 1, 'user:5')")
+
+      error = assert_raises(ActiveRecord::IrreversibleMigration) { run_migration("add_provider_key_scope", :AddProviderKeyScope, :down) }
+      assert_match(/personal keys \(ids 21\)/, error.message)
+
+      connection.execute("DELETE FROM #{table}")
+      run_migration("add_provider_key_scope", :AddProviderKeyScope, :down)
+      assert_not connection.column_exists?(table, :scope_key)
+    end
+  end
+
+  test "the GitHub App installations migration makes installation_id unique and links sandbox sessions to a row" do
+    run_generator [ "--skip-routes" ]
+    assert_migration "db/migrate/add_github_app_installations.rb"
+    prefix = "github_app_probe_"
+    connection = ActiveRecord::Base.connection
+    connection.create_table("#{prefix}sandbox_sessions", force: true) { |t| t.string :session_id }
+    ActionAgent.table_name_prefix = prefix
+
+    run_migration("add_github_app_installations", :AddGithubAppInstallations)
+
+    assert connection.index_exists?("#{prefix}github_installations", :installation_id, unique: true)
+    %i[github_account_id github_account_login github_account_type repository_selection permissions repositories
+       suspended_at removed_at user_id account_id].each do |column|
+      assert connection.column_exists?("#{prefix}github_installations", column), column
+    end
+    assert connection.column_exists?("#{prefix}sandbox_sessions", :github_installation_id)
+  ensure
+    ActionAgent.table_name_prefix = "active_agent_"
+    %w[github_installations sandbox_sessions].each { |name| connection&.drop_table("#{prefix}#{name}", if_exists: true) }
+  end
+
+  # Run under a probe prefix beside a bare agents table, so the dummy's own
+  # tables are left alone and the result can be compared with them.
+  test "the input requests migration builds the table and the agent column the dummy schema has" do
+    run_generator [ "--skip-routes" ]
+    assert_migration "db/migrate/create_active_agent_input_requests.rb"
+    connection = ActiveRecord::Base.connection
+    prefix = "input_requests_probe_"
+    connection.create_table("#{prefix}agents", force: true) { |t| t.string :name }
+    ActionAgent.table_name_prefix = prefix
+
+    run_migration("create_active_agent_input_requests", :CreateActiveAgentInputRequests)
+
+    shape = ->(table) { connection.columns(table).to_h { |column| [ column.name, [ column.sql_type, column.null, column.default ] ] } }
+    assert_equal shape.call("active_agent_input_requests"), shape.call("#{prefix}input_requests")
+    indexes = ->(table) { connection.indexes(table).map(&:columns).sort }
+    assert_equal indexes.call("active_agent_input_requests"), indexes.call("#{prefix}input_requests")
+    assert_equal shape.call("active_agent_agents")["approval_required_tools"], shape.call("#{prefix}agents")["approval_required_tools"]
+
+    run_migration("create_active_agent_input_requests", :CreateActiveAgentInputRequests, :down)
+    assert_not connection.table_exists?("#{prefix}input_requests")
+    assert_not connection.column_exists?("#{prefix}agents", :approval_required_tools), "rolling back removes the agent column"
+  ensure
+    ActionAgent.table_name_prefix = "active_agent_"
+    %w[input_requests agents].each { |name| connection&.drop_table("#{prefix}#{name}", if_exists: true) }
+  end
+
+  test "the draft pull requests migration creates the table a publish is recorded in" do
+    run_generator [ "--skip-routes" ]
+    assert_migration "db/migrate/create_active_agent_draft_pull_requests.rb"
+    prefix = "draft_pr_probe_"
+    connection = ActiveRecord::Base.connection
+    ActionAgent.table_name_prefix = prefix
+
+    run_migration("create_active_agent_draft_pull_requests", :CreateActiveAgentDraftPullRequests)
+
+    %i[sandbox_session_id repository base_branch branch base_commit head_commit title body files operation status error_code
+       error_message credential_kind number url compare_url state draft last_checked_at user_id account_id].each do |column|
+      assert connection.column_exists?("#{prefix}draft_pull_requests", column), column
+    end
+    assert connection.index_exists?("#{prefix}draft_pull_requests", :sandbox_session_id)
+  ensure
+    ActionAgent.table_name_prefix = "active_agent_"
+    connection&.drop_table("#{prefix}draft_pull_requests", if_exists: true)
+  end
+
+  test "a missing numbered template directory emits nothing" do
+    ActionAgent::InstallGenerator.numbered_migrations_path = File.join(destination_root, "no-such-directory")
+
+    assert_equal [], ActionAgent::InstallGenerator.numbered_migrations
+  ensure
+    ActionAgent::InstallGenerator.numbered_migrations_path = nil
+  end
+
   private
+
+  # Points the generator at a directory holding +files+ (name => content)
+  # for the block.
+  def with_numbered_templates(files)
+    Dir.mktmpdir("numbered-migrations") do |dir|
+      files.each { |name, content| File.write(File.join(dir, name), content) }
+      ActionAgent::InstallGenerator.numbered_migrations_path = dir
+      yield
+    ensure
+      ActionAgent::InstallGenerator.numbered_migrations_path = nil
+    end
+  end
+
+  def numbered_template(class_name)
+    <<~ERB
+      class #{class_name} < ActiveRecord::Migration<%= migration_version %>
+        def change
+        end
+      end
+    ERB
+  end
 
   def migration_version(name)
     File.basename(migration_file_name("db/migrate/#{name}.rb")).to_i
   end
 
-  def run_migration(name, class_name)
+  def run_migration(name, class_name, direction = :up)
     namespace = Module.new
     namespace.module_eval(File.read(migration_file_name("db/migrate/#{name}.rb")))
-    ActiveRecord::Migration.suppress_messages { namespace.const_get(class_name).new.migrate(:up) }
+    ActiveRecord::Migration.suppress_messages { namespace.const_get(class_name).new.migrate(direction) }
+  end
+
+  # Creates a provider_keys table as the dashboard tables shipped it, before
+  # keys had a scope, under +prefix+, and makes it the configured prefix for
+  # the block.
+  def with_provider_keys_table(prefix)
+    connection = ActiveRecord::Base.connection
+    table = "#{prefix}provider_keys"
+    connection.create_table(table, force: true) do |t|
+      t.string :provider, null: false
+      t.string :credential, null: false
+      t.bigint :account_id
+      t.bigint :user_id
+      t.timestamps default: -> { "CURRENT_TIMESTAMP" }
+    end
+    ActionAgent.table_name_prefix = prefix
+    yield connection, table
+  ensure
+    ActionAgent.table_name_prefix = "active_agent_"
+    connection.drop_table(table, if_exists: true)
   end
 
   BARE_TABLES = %w[agents agent_versions agent_runs evaluation_runs].freeze

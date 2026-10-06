@@ -47,8 +47,22 @@ module ActionAgent
       # Claude Code sessions inside an app_runtime checkout. Optional: a
       # backend without them simply cannot run sessions (see #supports?).
       code_session: %i[run_code_session],
-      cancel_code_session: %i[cancel_code_session]
+      cancel_code_session: %i[cancel_code_session],
+      # Optional too, each documented on the orchestrator method of the same
+      # name. A backend implements a verb by defining a public method with
+      # that name and signature.
+      changed_files: %i[changed_files],
+      read_file: %i[read_file],
+      start_browser: %i[start_browser],
+      stop_browser: %i[stop_browser],
+      resume_boot: %i[resume_boot],
+      boot_status: %i[boot_status],
+      boot_log: %i[boot_log]
     }.freeze
+
+    # What #start_browser may be asked for: a browser with no window, or one
+    # a person can watch where the backend can show one.
+    BROWSER_MODES = %i[headless headed].freeze
 
     class UnsupportedBackendError < StandardError; end
 
@@ -89,34 +103,31 @@ module ActionAgent
     #
     # @param sandbox_session [SandboxSession] The session to create a sandbox for
     # @param instance_tier [String, Symbol, SandboxInstanceTier] Optional instance tier
+    # @param boot_config [SandboxBootSpec, Hash, nil] how to boot the checkout
+    #   instead of its own .activeagents/sandbox.yml, handed to the backend as
+    #   SandboxBootSpec#to_h. A backend whose create method takes no
+    #   boot_config: keyword boots as it always has; one that must apply
+    #   (apply "always") is refused there instead.
     # @return [Hash] Sandbox details including ID/name and URL
-    def create_sandbox(sandbox_session, instance_tier: nil)
+    # @raise [UnsupportedBackendError] for a spec that must apply and a backend
+    #   that cannot take one
+    # @raise [SandboxBootSpec::Invalid] for a malformed spec
+    def create_sandbox(sandbox_session, instance_tier: nil, boot_config: nil)
       # Resolve tier
       tier = resolve_tier(instance_tier)
+      spec = SandboxBootSpec.wrap(boot_config)
 
       method = adapter_method(:create)
-      result = if accepts_instance_tier?(method)
-        @backend.public_send(method, sandbox_session, instance_tier: tier)
-      else
-        @backend.public_send(method, sandbox_session)
+      options = {}
+      options[:instance_tier] = tier if accepts_instance_tier?(method)
+      if spec && accepts_keyword?(method, :boot_config)
+        options[:boot_config] = spec.to_h
+      elsif spec && !spec.without_engine_only?
+        raise UnsupportedBackendError, "The #{backend_name} sandbox backend cannot boot a checkout from a boot spec"
       end
+      result = @backend.public_send(method, sandbox_session, **options)
 
-      # Normalize response format across backends
-      {
-        sandbox_id: result[:container_name] || result[:pod_name] || result[:job_name],
-        url: result[:url],
-        ip: result[:container_ip] || result[:pod_ip],
-        backend: @backend_name,
-        instance_tier: result[:instance_tier] || tier&.id,
-        resources: result[:resources],
-        hourly_cost: result[:hourly_cost] || tier&.hourly_cost&.to_f,
-        created_at: result[:created_at] || Time.current,
-        # An app_runtime sandbox's backend clones sandbox_session.checkout_spec,
-        # boots the app, and reports where its MCP facade answers (and the
-        # bearer token it expects) so agents can use the checkout's tools.
-        mcp_url: result[:mcp_url],
-        mcp_token: result[:mcp_token]
-      }
+      normalize_created(result, tier)
     end
 
     # List available instance tiers
@@ -191,6 +202,30 @@ module ActionAgent
       ADAPTER_METHODS.fetch(verb).any? { |m| @backend.respond_to?(m) }
     end
 
+    # Whether the backend's create method takes a boot spec (see
+    # #create_sandbox's boot_config:).
+    def accepts_boot_config?
+      accepts_keyword?(adapter_method(:create), :boot_config)
+    end
+
+    # Whether the backend can list a checkout's changes and read each file
+    # now and in the commit the checkout was cloned at: #changed_files, and
+    # #read_file with +base+.
+    def reads_checkouts?
+      supports?(:changed_files) && reads_checkout_commit?
+    end
+
+    # Whether the backend's read_file takes +base:+. A backend written before
+    # +base:+ existed defines read_file(session, path) and cannot be asked
+    # for the commit cloned at.
+    def reads_checkout_commit?
+      return false unless supports?(:read_file)
+
+      @backend.method(adapter_method(:read_file)).parameters.any? do |type, name|
+        type == :keyrest || type == :rest || (type.in?(%i[key keyreq]) && name == :base)
+      end
+    end
+
     # Existing backends predate runner selection and support Claude only.
     # A backend must explicitly advertise Codex before accepting its keys.
     def supports_code_runner?(runner)
@@ -219,6 +254,156 @@ module ActionAgent
     # Stops a running Claude Code session.
     def cancel_code_session(sandbox_session, code_session)
       @backend.public_send(adapter_method(:cancel_code_session), sandbox_session, code_session)
+    end
+
+    # The files +sandbox_session+'s checkout has changed since it was cloned,
+    # read without running anything the checkout controls (no git hooks,
+    # filters or configuration from the checkout).
+    #
+    # @return [Hash] { base_commit:, files: }
+    #   base_commit: the commit the checkout was cloned at
+    #   files: one Hash per changed path, each
+    #     path:   relative to the checkout root
+    #     status: "added", "modified" or "deleted"
+    #     mode:   "100644", "100755", "120000" (a symlink) or "160000" (a
+    #             submodule, or a nested repository); nil when deleted
+    #     base_mode: the mode in the commit cloned at, where the backend
+    #             knows it (optional); nil when added
+    #     size:   the bytes in the working tree, where the backend knows them
+    #             (optional); nil when deleted
+    #   Files the repository ignores are not listed.
+    # @raise [UnsupportedBackendError] when the backend does not implement it
+    def changed_files(sandbox_session)
+      @backend.public_send(adapter_method(:changed_files), sandbox_session)
+    end
+
+    # The current content of +path+ in +sandbox_session+'s checkout, or with
+    # +base+ its content in the commit the checkout was cloned at. A symlink
+    # is read as its target path, never followed.
+    #
+    # A backend implements this as read_file(sandbox_session, path, base:),
+    # and is passed +base+ only when it is true.
+    #
+    # @param path [String] relative to the checkout root
+    # @return [String, nil] the bytes, binary-encoded; nil when nothing is
+    #   there
+    # @raise [ArgumentError] when +path+ is absolute or climbs out of the
+    #   checkout, before the backend is asked
+    # @raise [UnsupportedBackendError] when the backend does not implement
+    #   it, or is asked for +base+ and its read_file takes no +base:+ (see
+    #   #reads_checkout_commit?)
+    def read_file(sandbox_session, path, base: false)
+      unless checkout_relative?(path)
+        raise ArgumentError, "#{path.inspect} is not a path inside the checkout"
+      end
+
+      method = adapter_method(:read_file)
+      if base
+        unless reads_checkout_commit?
+          raise UnsupportedBackendError, "The #{backend_name} sandbox backend's read_file takes no base:, " \
+            "so it cannot read the commit a checkout was cloned at"
+        end
+
+        @backend.public_send(method, sandbox_session, path, base: true)
+      else
+        @backend.public_send(method, sandbox_session, path)
+      end
+    end
+
+    # Starts a browser for +sandbox_session+, one per sandbox, and returns how
+    # an agent reaches it over MCP. The backend reads the rest of what it
+    # needs from sandbox_session.browser_launch (see SandboxSession): the
+    # token the browser's MCP endpoint is to expect, the app it may open,
+    # optional tool groups, when to stop, and where to post its recording.
+    #
+    # @param mode [Symbol] one of BROWSER_MODES
+    # @return [Hash] at least { mcp_url:, mcp_token: }: where the browser's
+    #   MCP server answers, and the bearer token it expects (nil for none);
+    #   optionally live_url:, where a person can watch it
+    # @raise [ArgumentError] for a mode outside BROWSER_MODES
+    # @raise [UnsupportedBackendError] when the backend does not implement it,
+    #   or cannot run a browser in +mode+ (see #browser_modes)
+    def start_browser(sandbox_session, mode: :headless)
+      raise ArgumentError, "Unknown browser mode #{mode.inspect}" unless BROWSER_MODES.include?(mode)
+
+      method = adapter_method(:start_browser)
+      unless browser_modes.include?(mode)
+        raise UnsupportedBackendError, "The #{backend_name} sandbox backend cannot show a browser window; start the browser headless"
+      end
+
+      @backend.public_send(method, sandbox_session, mode: mode)
+    end
+
+    # The BROWSER_MODES the backend can start a browser in: what its own
+    # #browser_modes answers, or every mode for a backend that does not say.
+    # Empty when it cannot start a browser at all.
+    #
+    # @return [Array<Symbol>]
+    def browser_modes
+      return [] unless supports?(:start_browser)
+      return BROWSER_MODES.dup unless @backend.respond_to?(:browser_modes)
+
+      BROWSER_MODES & Array(@backend.browser_modes).map(&:to_sym)
+    end
+
+    # Stops +sandbox_session+'s browser. True, also when none was running.
+    #
+    # @raise [UnsupportedBackendError] when the backend does not implement it
+    def stop_browser(sandbox_session)
+      @backend.public_send(adapter_method(:stop_browser), sandbox_session)
+    end
+
+    # Continues a boot of +sandbox_session+ that failed and kept its
+    # workspace, re-running from the step named +from+ (nil for the step that
+    # failed) with the session's current settings.
+    #
+    # @param boot_config [SandboxBootSpec, Hash, nil] the spec to continue
+    #   with, for updated env or secrets; nil for the one the boot started
+    #   with. Passed only to a backend whose method takes the keyword.
+    # @return [Hash] what #create_sandbox returns
+    # @raise [UnsupportedBackendError] when the backend does not implement it
+    def resume_boot(sandbox_session, from:, boot_config: nil)
+      method = adapter_method(:resume_boot)
+      spec = SandboxBootSpec.wrap(boot_config)
+      options = { from: from }
+      options[:boot_config] = spec.to_h if spec && accepts_keyword?(method, :boot_config)
+      normalize_created(@backend.public_send(method, sandbox_session, **options), nil)
+    end
+
+    # How +sandbox_session+'s boot went, step by step, while the backend
+    # still holds it.
+    #
+    # @return [Hash, nil] nil when the backend holds nothing for the session;
+    #   otherwise
+    #     mode:        "config" (the checkout's sandbox.yml) or "spec"
+    #     kind:        the spec's kind, "bootstrap" or "custom"
+    #     failed_step: the name of the step that failed, or nil
+    #     kept:        whether a failed boot's workspace was kept for
+    #                  #resume_boot
+    #     resumable_steps: optional, the step names #resume_boot accepts as
+    #                  `from`
+    #     steps:       [{ name:, status:, started_at:, finished_at:,
+    #                  duration_ms:, detail: }], status one of "pending",
+    #                  "running", "succeeded", "failed" or "skipped"
+    # @raise [UnsupportedBackendError] when the backend does not implement it
+    def boot_status(sandbox_session)
+      @backend.public_send(adapter_method(:boot_status), sandbox_session)
+    end
+
+    # One page of a boot step's log, scrubbed of the session's secrets and
+    # of +secrets+. Pages end at a line break where they can, so a value is
+    # never split between two of them.
+    #
+    # @param step [String] a step name #boot_status lists
+    # @param offset [Integer] the byte offset to read from
+    # @param limit [Integer] the most bytes to read
+    # @return [Hash, nil] { step:, offset:, next_offset:, size:, eof:, text: },
+    #   or nil when the step has no log
+    # @raise [UnsupportedBackendError] when the backend does not implement it
+    def boot_log(sandbox_session, step:, offset: 0, limit: nil, secrets: [])
+      options = { step: step, offset: offset, secrets: secrets }
+      options[:limit] = limit if limit
+      @backend.public_send(adapter_method(:boot_log), sandbox_session, **options)
     end
 
     # Check if the backend is healthy
@@ -256,8 +441,43 @@ module ActionAgent
           "#{@backend.class} implements none of #{ADAPTER_METHODS.fetch(verb).join(', ')}")
     end
 
+    # The backend's create result in one shape whichever backend produced it.
+    def normalize_created(result, tier)
+      {
+        sandbox_id: result[:container_name] || result[:pod_name] || result[:job_name],
+        url: result[:url],
+        ip: result[:container_ip] || result[:pod_ip],
+        backend: @backend_name,
+        instance_tier: result[:instance_tier] || tier&.id,
+        resources: result[:resources],
+        hourly_cost: result[:hourly_cost] || tier&.hourly_cost&.to_f,
+        created_at: result[:created_at] || Time.current,
+        # An app_runtime sandbox's backend clones sandbox_session.checkout_spec,
+        # boots the app, and reports where its MCP facade answers (and the
+        # bearer token it expects) so agents can use the checkout's tools.
+        mcp_url: result[:mcp_url],
+        mcp_token: result[:mcp_token],
+        # The models its manifest lists (SandboxManifest.app_models), when the
+        # backend reports them.
+        app_models: result[:app_models]
+      }
+    end
+
+    # Whether +path+ names something inside a checkout: relative, and never
+    # climbing out through "..".
+    def checkout_relative?(path)
+      return false unless path.is_a?(String) && path.present? && !path.include?("\0")
+
+      pathname = Pathname.new(path)
+      pathname.relative? && pathname.each_filename.none?("..")
+    end
+
     def accepts_instance_tier?(method)
       @backend.method(method).parameters.any? { |_type, name| name == :instance_tier }
+    end
+
+    def accepts_keyword?(method, keyword)
+      @backend.method(method).parameters.any? { |type, name| name == keyword && %i[key keyreq].include?(type) }
     end
 
     def resolve_tier(tier_param)

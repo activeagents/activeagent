@@ -8,8 +8,8 @@ require "test_helper"
 class McpDashboardToolsTest < ActionDispatch::IntegrationTest
   RUNTIME_TOKEN = "aa_runtime_dashboard_tools_s3cret"
   DASHBOARD_TOOLS = %w[
-    evaluations_list evaluations_get evaluations_run evaluation_runs_get evaluation_runs_compare
-    traces_search traces_get
+    evaluations_list evaluations_get evaluations_create scenarios_merge explorations_submit evaluations_run
+    evaluation_runs_get evaluation_runs_compare traces_search traces_get input_requests_list input_requests_answer
   ].freeze
 
   # A trace model whose tenant is its service name, so a multi-tenant scope
@@ -257,6 +257,54 @@ class McpDashboardToolsTest < ActionDispatch::IntegrationTest
 
     assert_includes result["results"].find { |entry| entry["model"] == "mock/alpha" }["output"], ActionAgent::SecretScrubber::MASK
     assert_not_includes response.body, ollama_key
+  end
+
+  test "a member's personal provider key is masked like the organization's" do
+    ActionAgent::ProviderKey.delete_all
+    ActionAgent.user_class = "User"
+    ActionAgent.account_class = "User"
+    ActionAgent.multi_tenant = true
+    account = User.create!(email: "acme-#{SecureRandom.hex(3)}@example.com", name: "Acme", age: 30)
+    member = User.create!(email: "ada-#{SecureRandom.hex(3)}@example.com", name: "Ada", age: 30)
+    @key.update_columns(account_id: account.id)
+    @agent.update_columns(user_id: account.id)
+    personal = "sk-personal-dashboard-tools-s3cret"
+    ActionAgent::ProviderKey.create!(provider: "openai", credential: personal, account_id: account.id, scope_key: "user:#{member.id}")
+    completed_run(output: "Order ABC-123 shipped. debug: #{personal}")
+
+    result = structured(call_tool("evaluation_runs_get", { evaluation_id: @suite.id }))
+
+    assert_includes result["results"].find { |entry| entry["model"] == "mock/alpha" }["output"], ActionAgent::SecretScrubber::MASK
+    assert_not_includes response.body, personal
+  end
+
+  test "a project's secret is masked with its encodings, like the other credentials" do
+    ActionAgent::Project.delete_all
+    ActionAgent::ProjectSecret.delete_all
+    secret = "sk_test_dashboard tools/project+0123"
+    project = ActionAgent::Project.create!(name: "Shop", repository: "acme/shop", install_state: "detected")
+    project.assign_secret(name: "STRIPE_SECRET_KEY", value: secret).save!
+    completed_run(output: "env: #{secret} #{[ secret ].pack("m0")} #{CGI.escape(secret)}")
+
+    result = structured(call_tool("evaluation_runs_get", { evaluation_id: @suite.id }))
+
+    assert_includes result["results"].find { |entry| entry["model"] == "mock/alpha" }["output"], ActionAgent::SecretScrubber::MASK
+    ActionAgent::SecretScrubber.with_encodings([ secret ]).each do |form|
+      assert_not_includes response.body, form
+    end
+  ensure
+    ActionAgent::Project.delete_all
+    ActionAgent::ProjectSecret.delete_all
+  end
+
+  test "the owner's other dashboard API keys are masked like the other credentials" do
+    other_key = ActionAgent::ApiKey.create!(name: "CI")
+    completed_run(output: "Order ABC-123 shipped. debug: #{other_key.token}")
+
+    result = structured(call_tool("evaluation_runs_get", { evaluation_id: @suite.id }))
+
+    assert_includes result["results"].find { |entry| entry["model"] == "mock/alpha" }["output"], ActionAgent::SecretScrubber::MASK
+    assert_not_includes response.body, other_key.token
   end
 
   test "evaluation_runs_get pages results by limit and counts the rest" do

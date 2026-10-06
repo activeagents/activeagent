@@ -43,8 +43,12 @@ module ActionAgent
     end
 
     # Returns { text:, is_error: } — the tool result's text content.
-    def call_tool(name, arguments = {})
-      Rails.logger.debug("[MCPClient] call #{name} args=#{arguments.inspect[0, 200]}")
+    # +log_arguments+ false keeps the argument values out of the debug log,
+    # which then names only their keys: for a call that carries a
+    # credential.
+    def call_tool(name, arguments = {}, log_arguments: true)
+      logged = log_arguments ? arguments.inspect[0, 200] : "[FILTERED] #{arguments.to_h.keys.inspect}"
+      Rails.logger.debug("[MCPClient] call #{name} args=#{logged}")
       ensure_session!
       response = post(
         { jsonrpc: "2.0", id: next_id, method: "tools/call",

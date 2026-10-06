@@ -15,6 +15,7 @@ module ActionAgent
       # after a failed terminate, nothing would ever know the process (or
       # container) was still there. cleanup_expired! retries these.
       handle = sandbox.cloud_run_job_id.presence || derived_handle(sandbox)
+      stop_browser(sandbox)
       return if handle.present? && !released?(sandbox, handle)
 
       # Optionally delete old sandbox records
@@ -52,15 +53,20 @@ module ActionAgent
     # indistinguishable from an unreleased one, and a terminate of a
     # sandbox that is gone is a cheap no-op, so the window is what bounds
     # the retries.
+    #
+    # A failed checkout is among them for a day once its expiry has passed:
+    # a boot with keep_on_failure keeps its workspace and databases for
+    # SandboxSession#resume_boot! until then. Its status stays failed.
     RETRY_UNRECORDED_FOR = 1.day
     RETRY_UNRECORDED_LIMIT = 100
 
     def self.unrecorded_checkouts
       return [] unless SandboxOrchestrator.new.derives_handles?
 
-      SandboxSession.expired.by_type("app_runtime").where(cloud_run_job_id: [ nil, "" ])
-        .where(updated_at: RETRY_UNRECORDED_FOR.ago..)
-        .order(updated_at: :desc).limit(RETRY_UNRECORDED_LIMIT).pluck(:id)
+      checkouts = SandboxSession.by_type("app_runtime").where(cloud_run_job_id: [ nil, "" ])
+      expired = checkouts.expired.where(updated_at: RETRY_UNRECORDED_FOR.ago..)
+      kept = checkouts.failed.where(expires_at: RETRY_UNRECORDED_FOR.ago..Time.current)
+      expired.or(kept).order(updated_at: :desc).limit(RETRY_UNRECORDED_LIMIT).pluck(:id)
     rescue StandardError, LoadError => e
       Rails.logger.warn("[ActionAgent] sandbox backend unavailable to the reaper: #{e.message}")
       []
@@ -79,6 +85,17 @@ module ActionAgent
     rescue StandardError => e
       Rails.logger.warn("[ActionAgent] could not derive a sandbox handle: #{e.message}")
       nil
+    end
+
+    # A checkout's browser, which a backend may run apart from the sandbox
+    # itself. Best effort: the :local backend's terminate stops it as well.
+    def stop_browser(sandbox)
+      return unless sandbox.app_runtime?
+
+      orchestrator = SandboxOrchestrator.new
+      orchestrator.stop_browser(sandbox) if orchestrator.supports?(:stop_browser)
+    rescue StandardError, LoadError => e
+      Rails.logger.warn("[ActionAgent] could not stop the browser of sandbox #{sandbox.session_id}: #{e.message}")
     end
 
     # Whether the backend behind +handle+ let go of it.

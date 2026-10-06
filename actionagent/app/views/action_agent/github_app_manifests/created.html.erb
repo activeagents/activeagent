@@ -1,0 +1,55 @@
+<%# The created App's settings and credentials, shown once: nothing stores them. %>
+<% pem = @app["pem"].to_s %>
+<% values = { "GITHUB_APP_ID" => @app["id"], "GITHUB_APP_SLUG" => @app["slug"], "GITHUB_APP_CLIENT_ID" => @app["client_id"], "GITHUB_APP_CLIENT_SECRET" => @app["client_secret"] } %>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>GitHub App created</title>
+</head>
+<body style="font-family: -apple-system, 'Segoe UI', Roboto, sans-serif; color: #0f172a; background: #f8fafc; margin: 0;">
+<main style="max-width: 760px; margin: 40px auto; padding: 0 20px;">
+  <h1 style="font-size: 22px;">GitHub App created: <%= @app["name"] %></h1>
+  <p>
+    GitHub created <strong><%= @app["slug"] %></strong><% if @app.dig("owner", "login").present? %> under <strong><%= @app.dig("owner", "login") %></strong><% end %>.
+    Its credentials are below and are shown only on this page: the dashboard has not stored them.
+    Copy them into the dashboard's configuration now.
+  </p>
+  <p style="padding: 12px; border: 1px solid #fca5a5; background: #fef2f2; border-radius: 6px;">
+    The client secret and the private key give full control of this App. Keep them out of source control.
+  </p>
+
+  <h2 style="font-size: 16px; margin-top: 28px;">As environment variables</h2>
+  <pre style="background: #0f172a; color: #e2e8f0; padding: 14px; border-radius: 6px; overflow-x: auto; white-space: pre;"><% values.each do |name, value| %><%= name %>=<%= value %>
+<% end %>GITHUB_APP_PRIVATE_KEY="<%= pem.strip.gsub("\n", "\\n") %>"</pre>
+
+  <h2 style="font-size: 16px; margin-top: 28px;">Or in an initializer</h2>
+  <pre style="background: #0f172a; color: #e2e8f0; padding: 14px; border-radius: 6px; overflow-x: auto;">ActionAgent.configure do |config|
+  config.github_app_id = Rails.application.credentials.dig(:github_app, :id)
+  config.github_app_slug = Rails.application.credentials.dig(:github_app, :slug)
+  config.github_app_client_id = Rails.application.credentials.dig(:github_app, :client_id)
+  config.github_app_client_secret = Rails.application.credentials.dig(:github_app, :client_secret)
+  config.github_app_private_key = Rails.application.credentials.dig(:github_app, :private_key)
+end</pre>
+  <p>with these credentials (<code>bin/rails credentials:edit</code>):</p>
+  <pre style="background: #0f172a; color: #e2e8f0; padding: 14px; border-radius: 6px; overflow-x: auto;">github_app:
+  id: <%= @app["id"] %>
+  slug: <%= @app["slug"] %>
+  client_id: <%= @app["client_id"] %>
+  client_secret: <%= @app["client_secret"] %>
+  private_key: |
+<%= pem.strip.lines.map { |line| "    #{line.chomp}" }.join("\n") %></pre>
+
+  <h2 style="font-size: 16px; margin-top: 28px;">Then</h2>
+  <ol>
+    <li>Restart the dashboard so it reads the new settings.</li>
+    <li>In <a href="<%= @settings_url %>">Settings → Integrations</a>, choose <strong>Install the GitHub App</strong> and pick the repositories checkout sandboxes may use.</li>
+  </ol>
+  <% if @app["html_url"].to_s.start_with?("https://github.com/") %>
+    <p>The App's own settings are on <a href="<%= @app["html_url"] %>">GitHub</a>.</p>
+  <% end %>
+</main>
+</body>
+</html>

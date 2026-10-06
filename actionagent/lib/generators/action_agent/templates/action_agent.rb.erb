@@ -79,6 +79,95 @@ ActionAgent.configure do |config|
   # With an owner model configured, an owner that does not resolve sees
   # nothing rather than everything. An empty dashboard for a signed-in user
   # means the resolver above returned nil.
+  #
+  # Each model is owned by one class: agents, sandboxes, recordings and code
+  # sessions name the user first, keys and connections the account. With
+  # both classes configured, the dashboard still resolves the account as the
+  # owner, so a platform that scopes everything by account re-declares the
+  # user-first models from `to_prepare` and maps a user to its account:
+  #
+  # Rails.application.config.to_prepare do
+  #   [ActionAgent::Agent, ActionAgent::SandboxSession,
+  #    ActionAgent::SessionRecording, ActionAgent::CodeSession].each do |model|
+  #     model.owned_by :account, :user
+  #   end
+  # end
+  # config.tenant_resolver = ->(owner) { owner.is_a?(User) ? owner.account : owner }
+  #
+  # An owner of another class than the one a model is owned by reads nothing
+  # and is refused as a writer, so leaving this out shows an empty dashboard
+  # rather than another tenant's records.
+
+  # ==========================================================================
+  # Permissions
+  # ==========================================================================
+  #
+  # Who may perform the dashboard's privileged actions: storing provider
+  # credentials (:manage_credentials), connecting GitHub (:manage_github),
+  # creating and revoking API keys (:manage_api_keys), answering a paused
+  # run's request for input (:answer_input_request), and the rest of
+  # ActionAgent::PERMISSION_ACTIONS. Called with the signed-in user, the
+  # action and the record it applies to; true allows, false denies with a
+  # 403. Unset, anyone who passes authentication may do all of them. With
+  # multi_tenant on, that is every member of every tenant, and the engine
+  # logs a warning at boot until a checker is set.
+  #
+  # An exception from the checker denies. In multi-tenant mode a nil answer,
+  # or no signed-in user, also denies; in single-tenant mode a nil answer
+  # allows.
+  #
+  # config.permission_checker = ->(user, action, subject) {
+  #   user.present? && user.admin?
+  # }
+
+  # ==========================================================================
+  # Provider keys and members
+  # ===================================================================
+  #
+  # Agent runs, the evaluation judge and the assistant use the account's
+  # provider keys (Settings -> API Keys, or the Organization page) before
+  # config/active_agent.yml. With :personal_override, each member may also
+  # save a personal key per provider, which the runs they start use first.
+  # A personal key sends the organization's agent traffic to that member's
+  # own provider account, so it is off by default. It needs account_class;
+  # the judge, sandboxes, Claude Code and Codex always use the account's keys.
+  # A personal Ollama host decides where the server sends requests, so
+  # saving or testing one asks the permission_checker above for
+  # :manage_credentials, with the personal key (subject.personal?) as the
+  # subject.
+  #
+  # config.provider_key_scope = :personal_override
+  #
+  # Credentials your app keeps elsewhere, tried after a personal key and
+  # before the account's stored key. Declare actor: to learn who is acting
+  # (nil for the judge and unattributed runs). With multi_tenant on, a
+  # resolver that raises fails the run rather than falling back to
+  # config/active_agent.yml. If it reads the provider_keys table, keep it
+  # to organization rows (ActionAgent::ProviderKey.for_owner does).
+  #
+  # config.provider_credentials_resolver = ->(owner, provider, actor: nil) {
+  #   owner.provider_credentials_for(provider)
+  # }
+  #
+  # The Organization page's Team Members table, as
+  # [{ id:, name:, email:, role: }], and where "+ Invite Member" links. Both
+  # unset, the table lists the signed-in user and the button is hidden.
+  #
+  # config.members_resolver = ->(account) {
+  #   account.members.map { |user| { id: user.id, name: user.name, email: user.email, role: user.role } }
+  # }
+  # config.member_invite_url = "/team/invitations/new"
+
+  # ==========================================================================
+  # Input requests
+  # ==========================================================================
+  #
+  # How long a paused run's request for input waits for an answer. A later
+  # answer is refused with a 409, and the run fails. Schedule
+  # ActionAgent::InputRequestExpiryJob to fail the runs whose requests
+  # nobody answers or looks at.
+  #
+  # config.input_request_ttl = 1.day
 
   # ==========================================================================
   # Host integration
@@ -105,6 +194,48 @@ ActionAgent.configure do |config|
   # to remove it everywhere.
   #
   # config.assistant_enabled = true
+
+  # ==========================================================================
+  # GitHub
+  # ===================================================================
+
+  #
+  # Checkout sandboxes clone repositories chosen in Settings -> Integrations.
+  # Through a GitHub App, each checkout gets a one-hour token limited to its
+  # one repository. Settings -> Integrations -> Create GitHub App registers
+  # one for you and shows these values once; otherwise register the App with
+  # "Request user authorization (OAuth) during installation" and "Redirect on
+  # update" turned on and the callback URL
+  # <mount>/api/github_installations/callback. Each setting falls back to its
+  # GITHUB_APP_* environment variable.
+  #
+  # config.github_app_id = Rails.application.credentials.dig(:github_app, :id)
+  # config.github_app_slug = Rails.application.credentials.dig(:github_app, :slug)
+  # config.github_app_client_id = Rails.application.credentials.dig(:github_app, :client_id)
+  # config.github_app_client_secret = Rails.application.credentials.dig(:github_app, :client_secret)
+  # config.github_app_private_key = Rails.application.credentials.dig(:github_app, :private_key)
+  #
+  # Or an OAuth App, connected per owner with the callback URL
+  # <mount>/api/github_connection/callback (GITHUB_CLIENT_ID and
+  # GITHUB_CLIENT_SECRET when unset).
+  #
+  # config.github_client_id = Rails.application.credentials.dig(:github, :client_id)
+  # config.github_client_secret = Rails.application.credentials.dig(:github, :client_secret)
+
+  # ==========================================================================
+  # Recording the Run Agent workbench
+  # ==========================================================================
+  #
+  # While the Run Agent workbench has a conversation open, the dashboard
+  # records the page with rrweb, and the recording replays as the
+  # conversation's browser lane. Field values are masked, elements marked
+  # data-aa-secret and hidden inputs are left out, and the owner's stored
+  # credentials are masked in every batch; what the page shows otherwise, the
+  # conversation included, is recorded as shown. Set it to false to record
+  # nothing: conversations still replay from their messages, model calls and
+  # tool calls.
+  #
+  # config.capture_dashboard_sessions = false
 
   # ==========================================================================
   # Sandboxes

@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "digest"
 require "io/wait"
 require "net/http"
 require "open3"
@@ -21,10 +22,12 @@ module ActionAgent
   #     state.json    { pid, port, started_at, code_sessions: { "<id>" => pid } },
   #                   plus the commit checked out, the boot step running
   #                   (step_pid), when each recorded process started, cancels
-  #                   sent and cancels that found nothing to stop yet, and
-  #                   whether a terminate is under way
+  #                   sent and cancels that found nothing to stop yet,
+  #                   whether a terminate is under way, and the boot's steps
+  #                   and how each went (boot; see #boot_status)
   #     state.lock    what changes to state.json are serialized on
-  #     logs/         checkout, setup, manifest, server and claude-<id> logs
+  #     logs/         checkout, setup, manifest, server and claude-<id> logs,
+  #                   and with a boot spec preflight and one per spec step
   #     claude/       CLAUDE_CONFIG_DIR for Claude Code sessions (with
   #                   ActionAgent.claude_code_auth = :api_key; with
   #                   :local_login they use the user's own configuration)
@@ -36,7 +39,8 @@ module ActionAgent
   # it is only ever changed under an exclusive lock, and replaced whole (see
   # #update_state) so a crash never leaves it half written.
   #
-  # How a checkout boots is up to its .activeagents/sandbox.yml (see Config).
+  # How a checkout boots is up to its .activeagents/sandbox.yml (see Config),
+  # or to the boot spec the engine hands create_sandbox (see SandboxBootSpec).
   # Every process starts from a sanitized copy of the dashboard's environment
   # (see .sanitized_environment), so a checkout never sees the dashboard's
   # database or secrets. The GitHub token reaches only the fetch, and the
@@ -65,6 +69,19 @@ module ActionAgent
     STOP_GRACE = 10
     LOG_TAIL_LINES = 20
     LOG_TAIL_BYTES = 64 * 1024
+    # A boot step's output is scrubbed a line at a time on its way to the
+    # log; a longer line is cut into pieces of this size.
+    LOG_LINE_BYTES = 64 * 1024
+    # #boot_log pages.
+    LOG_PAGE_BYTES = 64 * 1024
+    MAX_LOG_PAGE_BYTES = 1024 * 1024
+    LOG_NAME = /\A[a-z][a-z0-9_]{0,39}\z/
+    # Listing the checkout's Rake tasks for a step's if_task.
+    TASK_LIST_TIMEOUT = 120
+    TASK_LIST_BYTES = 1024 * 1024
+    # How long one GET of a boot spec's start_url may take: a development
+    # server compiles on its first request.
+    START_URL_READ_TIMEOUT = 60
 
     # Bounds on the git commands run in a checkout (rev-parse after the
     # fetch, add and diff after a session) and on the diff a Claude Code
@@ -72,6 +89,22 @@ module ActionAgent
     # truncation notice still shows.
     GIT_TIMEOUT = 60
     MAX_DIFF_BYTES = 1_000_000
+    # Bounds on what #changed_files lists and #read_file returns.
+    MAX_LISTING_BYTES = 4 * 1024 * 1024
+    MAX_CHANGED_FILES = 5_000
+    MAX_READ_BYTES = 1024 * 1024
+    # The verified trees one backend keeps, by object id (see #tree_entries).
+    MAX_CACHED_TREES = 256
+    # The environment of the git commands that read a checkout's changes.
+    # They take no lock on the index, read every path as a literal name
+    # rather than a pathspec, and ignore replace refs, which the checkout
+    # could have added to make its commit read as something else.
+    READ_ONLY_GIT_ENVIRONMENT = {
+      "GIT_OPTIONAL_LOCKS" => "0",
+      "GIT_LITERAL_PATHSPECS" => "1",
+      "GIT_NO_REPLACE_OBJECTS" => "1",
+      "GIT_TERMINAL_PROMPT" => "0"
+    }.freeze
     # How long a cancel that found no Claude Code process is remembered. The
     # session it names starts within seconds of being marked running, or
     # never; this only keeps old ones from piling up in state.json.
@@ -255,6 +288,21 @@ module ActionAgent
       end
     end
 
+    # What a boot runs once the checkout is there: the steps of the
+    # checkout's sandbox.yml (mode "config") or of a boot spec (mode "spec"),
+    # then manifest, then start. +label+ is what a failure message calls the
+    # step, +log+ the file under logs/ its output goes to, and +skip+ why it
+    # will not run, when that is known before the boot starts.
+    BootStep = Struct.new(:name, :command, :timeout, :log, :label, :if_task, :skip, keyword_init: true)
+    BootPlan = Struct.new(:mode, :spec, :steps, :manifest, :start, :env, :start_url, :keep_on_failure, :offset,
+      keyword_init: true) do
+      def entries
+        [ *steps, manifest, start ]
+      end
+    end
+    # What a step's block returns when the step had nothing to do.
+    Skip = Struct.new(:reason)
+
     class << self
       # The environment every sandbox process starts from: the dashboard's
       # own, as it was before Bundler set it up, minus the dashboard's
@@ -362,16 +410,18 @@ module ActionAgent
       end
     end
 
-    # Clones the session's checkout, boots it as sandbox.yml says, and waits
-    # until its MCP facade answers.
+    # Clones the session's checkout, boots it as sandbox.yml says (or as
+    # +boot_config+ says, see SandboxBootSpec), and waits until its MCP
+    # facade answers.
     #
     # @return [Hash] the handle (container_name), url, mcp_url and mcp_token
-    def create_sandbox(session, instance_tier: nil)
+    def create_sandbox(session, instance_tier: nil, boot_config: nil)
       ensure_enabled!
       unless session.app_runtime?
         raise Error, "The local sandbox backend only boots app_runtime checkouts, not #{session.sandbox_type} sandboxes"
       end
 
+      boot_spec = boot_spec!(boot_config)
       spec = session.checkout_spec
       raise Error, "Sandbox #{session.session_id} has no checkout to boot (is GitHub still connected?)" if spec.blank?
 
@@ -382,7 +432,105 @@ module ActionAgent
         raise Error, "Sandbox #{session_id} still has processes from an earlier boot that could not be stopped; " \
           "see the dashboard log"
       end
-      boot(session_id, spec, [ spec[:token], *session.runtime_environment.values ])
+      boot(session_id, spec, [ spec[:token], *session.runtime_environment.values, *boot_spec&.secret_values ], boot_spec)
+    end
+
+    # Continues a boot that failed and kept its workspace (a boot spec with
+    # keep_on_failure): re-runs it from the step named +from+, or from the
+    # step that failed when +from+ is nil, on the same checkout and
+    # databases. Nothing is cloned again and no earlier step runs again.
+    # +boot_config+ replaces the spec the boot started with, for new env or
+    # secrets; without one the recorded spec is used, which holds no secret
+    # values, so a boot whose spec had secrets needs it passed again.
+    #
+    # @return [Hash] what #create_sandbox returns
+    def resume_boot(session, from:, boot_config: nil)
+      ensure_enabled!
+      session_id = session_id!(session.session_id)
+      workspace = workspace_for(session_id)
+      boot_state = read_state(workspace)["boot"]
+      unless boot_state.is_a?(Hash) && boot_state["kept"] == true
+        raise Error, "Sandbox #{session_id} has no failed boot kept to resume: start it again"
+      end
+
+      spec = boot_spec!(boot_config) || boot_spec!(boot_state["spec"])
+      raise Error, "Sandbox #{session_id} was not booted from a boot spec, so it cannot be resumed" if spec.nil?
+      if spec.missing_secrets.any?
+        raise Error, "Resuming sandbox #{session_id} needs its boot spec again: the values of " \
+          "#{spec.missing_secrets.join(", ")} are never kept"
+      end
+
+      plan = spec_plan(spec, Array(boot_state["locked_gems"]).to_set)
+      start_at = resume_position(plan, from.presence || boot_state["failed_step"])
+      unless claim_kept_boot(workspace)
+        raise Error, "Sandbox #{session_id} has no failed boot kept to resume: it is being resumed, or was stopped"
+      end
+
+      checkout = begin
+        session.checkout_spec
+      rescue StandardError
+        nil
+      end
+      secrets = [ checkout&.dig(:token), *session.runtime_environment.values, *spec.secret_values ]
+      resume(workspace, plan, start_at, secrets)
+    end
+
+    # How the sandbox's boot went, step by step (see
+    # SandboxOrchestrator#boot_status); nil when it has no workspace.
+    def boot_status(session)
+      session_id = session_id!(session.session_id)
+      boot_state = read_state(workspace_for(session_id))["boot"]
+      return nil unless boot_state.is_a?(Hash) && boot_state["steps"].is_a?(Array)
+
+      secrets = session_secrets(session)
+      {
+        mode: boot_state["mode"],
+        kind: boot_state["kind"],
+        failed_step: boot_state["failed_step"],
+        kept: boot_state["kept"] == true,
+        resumable_steps: resumable_step_names(boot_state),
+        steps: boot_state["steps"].filter_map do |step|
+          next unless step.is_a?(Hash)
+
+          {
+            name: step["name"], status: step["status"], started_at: step["started_at"], finished_at: step["finished_at"],
+            duration_ms: step["duration_ms"] || running_for(step["started_at"]),
+            detail: step["detail"] && SecretScrubber.scrub(step["detail"].to_s, secrets)
+          }
+        end
+      }
+    end
+
+    # One page of a boot step's log (see SandboxOrchestrator#boot_log).
+    def boot_log(session, step:, offset: 0, limit: LOG_PAGE_BYTES, secrets: [])
+      session_id = session_id!(session.session_id)
+      workspace = workspace_for(session_id)
+      boot_state = read_state(workspace)["boot"]
+      steps = boot_state.is_a?(Hash) && boot_state["steps"].is_a?(Array) ? boot_state["steps"] : []
+      entry = steps.find { |candidate| candidate.is_a?(Hash) && candidate["name"] == step.to_s }
+      return nil unless entry && LOG_NAME.match?(entry["log"].to_s)
+
+      path = log_path(workspace, entry["log"])
+      return nil unless path.file?
+
+      size = path.size
+      offset = Integer(offset, exception: false).to_i.clamp(0, size)
+      limit = Integer(limit, exception: false).to_i.clamp(1, MAX_LOG_PAGE_BYTES)
+      data = File.open(path, "rb") do |file|
+        file.seek(offset)
+        file.read(limit).to_s
+      end
+      # Ends on a line break when the page stops short of the end, so a
+      # value the scrubber masks is never split across two pages.
+      if offset + data.bytesize < size && (newline = data.rindex("\n"))
+        data = data.byteslice(0, newline + 1)
+      end
+      next_offset = offset + data.bytesize
+
+      {
+        step: entry["name"], offset: offset, next_offset: next_offset, size: size, eof: next_offset >= size,
+        text: SecretScrubber.scrub(data.force_encoding(Encoding::UTF_8).scrub, session_secrets(session) + Array(secrets))
+      }
     end
 
     # A sandbox's handle follows from its session id, so one whose boot was
@@ -522,7 +670,174 @@ module ActionAgent
       true
     end
 
+    # The paths the sandbox's checkout changed since it was fetched: what
+    # `git diff` reports against the commit checked out, and the untracked
+    # files the repository does not ignore. Git runs as #capture_diff runs
+    # it, with no credential in its environment, and not at all when the
+    # checkout's git config defines filter drivers. It does not look inside
+    # submodules, whose own configuration could define filters, so a
+    # submodule is listed only when the commit it points at changed. Each
+    # path's mode and size come from lstat of the working tree, so a symlink
+    # is reported as one (120000) and a nested repository as a submodule
+    # (160000). Sockets, pipes and devices, which git does not track, are
+    # left out.
+    #
+    # @return [Hash] { base_commit:, files: [{ path:, status:, mode:, base_mode:, size: }] },
+    #   as SandboxOrchestrator#changed_files describes
+    # @raise [Error] when the checkout is gone, recorded no commit, defines
+    #   filter drivers, or changed more than MAX_CHANGED_FILES paths
+    def changed_files(sandbox)
+      workspace, app = checkout_workspace!(sandbox)
+      base = recorded_checkout_commit!(workspace)
+      env = read_only_git_environment
+      git = git_command(app)
+      if filter_drivers?(app, env, git)
+        raise Error, "The checkout's git config defines filter drivers, which would run commands, so its changes are not read"
+      end
+
+      diff = git_listing!(env, [ *git, "diff", "--raw", "-z", "--no-renames", "--no-abbrev", "--no-ext-diff", "--no-textconv",
+        "--ignore-submodules=dirty", base, "--" ], app)
+      untracked = git_listing!(env, [ *git, "ls-files", "-z", "--others", "--exclude-standard" ], app)
+
+      # ":<base mode> <mode> <base object> <object> <status>" per path.
+      base_modes = {}
+      listed = []
+      diff.each_slice(2) do |header, path|
+        next if path.nil?
+
+        fields = header.split(" ")
+        base_modes[path] = fields.first.delete_prefix(":") unless fields.last == "A"
+        listed << path
+      end
+      # A nested repository is listed as its directory, with a trailing slash.
+      listed.concat(untracked.map { |path| path.delete_suffix("/") })
+      listed.uniq!
+      raise Error, "The checkout changed more than #{MAX_CHANGED_FILES} files" if listed.size > MAX_CHANGED_FILES
+
+      files = listed.filter_map do |path|
+        next unless checkout_path?(path)
+
+        base_mode = base_modes[path]
+        stat = working_tree_stat(app, path)
+        next { path: path, status: "deleted", mode: nil, base_mode: base_mode, size: nil } if stat.nil? && base_mode
+        next if stat.nil?
+
+        mode = mode_for(stat) or next
+        {
+          path: path, status: base_mode ? "modified" : "added", mode: mode, base_mode: base_mode,
+          size: stat.directory? ? nil : stat.size
+        }
+      end
+
+      { base_commit: base, files: files.sort_by { |file| file[:path] } }
+    end
+
+    # +path+'s content in the sandbox's checkout, or with +base+ in the
+    # commit the checkout was fetched at. Nil when nothing is there.
+    #
+    # The working tree is read with lstat, one path component at a time, and
+    # never through a symlink: a symlink reads as its target path, and a path
+    # whose parent is a symlink or a file reads as nothing. The commit is
+    # read one object at a time with `git cat-file`, which runs no filters,
+    # and each object must hash to its id (see #read_committed_file).
+    #
+    # @raise [Error] for a directory, a submodule, a special file, more than
+    #   MAX_READ_BYTES, or an object of the commit that does not hash to its
+    #   id
+    # @return [String, nil] binary-encoded bytes
+    def read_file(sandbox, path, base: false)
+      workspace, app = checkout_workspace!(sandbox)
+      raise Error, "#{path.inspect} is not a path inside the checkout" unless checkout_path?(path)
+
+      base ? read_committed_file(workspace, app, path) : read_working_file(app, path)
+    end
+
+    # The modes #start_browser runs a browser in on this machine: headless
+    # always, and headed where there is a display to show a window on.
+    #
+    # @return [Array<Symbol>]
+    def browser_modes
+      display = RUBY_PLATFORM.include?("darwin") || ENV["DISPLAY"].present? || ENV["WAYLAND_DISPLAY"].present?
+      display ? %i[headless headed] : %i[headless]
+    end
+
+    # Starts the browser sidecar (BrowserSidecar) for +sandbox+, pointed at
+    # its app as sandbox.browser_launch says, and waits until it listens. It
+    # runs in a process group of its own, recorded in state.json beside the
+    # app's, so terminate stops it with the sandbox. Its configuration,
+    # tokens included, goes in on stdin. Any browser the sandbox already had
+    # is stopped first.
+    #
+    # @return [Hash] { mcp_url:, mcp_token: }, and live_url: when the launch
+    #   asked for a live view
+    def start_browser(sandbox, mode: :headless)
+      ensure_enabled!
+      session_id = session_id!(sandbox.session_id)
+      workspace = workspace_for(session_id)
+      raise Error, "Sandbox #{session_id} has no local checkout: start the sandbox again" unless workspace.join("app").directory?
+      unless browser_modes.include?(mode.to_sym)
+        raise Error, "This machine has no display to show a browser window on; start the browser headless"
+      end
+
+      launch = sandbox.browser_launch
+      raise Error, "Sandbox #{session_id} was given no browser settings" unless launch.is_a?(Hash) && launch[:token].present?
+
+      refusal = BrowserSidecar.refusal
+      raise Error, refusal if refusal
+      raise Error, "The sandbox's earlier browser could not be stopped" unless stop_browser(sandbox)
+
+      run_browser(workspace, session_id, mode.to_s, launch)
+    end
+
+    # Stops +sandbox+'s browser sidecar and removes its directory. True, also
+    # when none was running; false when its process group is still alive and
+    # could not be stopped, or not told apart from an unrelated process, in
+    # which case state.json keeps it for terminate.
+    def stop_browser(sandbox)
+      session_id = session_id!(sandbox.session_id)
+      workspace = workspace_for(session_id)
+      state = read_state(workspace)
+      browser = state["browser"]
+      return true unless browser.is_a?(Hash)
+
+      pid = browser["pid"]
+      identity = signalable?(pid) ? group_identity(pid, session_id, state) : :stranger
+      stop_groups([ pid ]) if identity == :ours
+      return false if identity != :stranger && group_alive?(pid)
+
+      forget_browser(workspace, browser)
+      true
+    end
+
     private
+
+    def boot_spec!(value)
+      SandboxBootSpec.wrap(value)
+    rescue SandboxBootSpec::Invalid => e
+      raise Error, "Sandbox boot spec is invalid: #{e.message}"
+    end
+
+    # The secrets a sandbox's stored output is scrubbed of when it is read
+    # back: its checkout token, the credentials its sessions get, and the
+    # secrets of the project it was booted for.
+    def session_secrets(session)
+      token = begin
+        session.checkout_spec&.dig(:token)
+      rescue StandardError
+        nil
+      end
+      [ token, *session.runtime_environment.values, *Array(session.try(:project_scrub_values)) ].compact.map(&:to_s)
+    end
+
+    # Milliseconds since +started_at+ (an ISO 8601 time), for a step still
+    # running; nil without one.
+    def running_for(started_at)
+      return nil unless started_at.is_a?(String)
+
+      ((Time.current - Time.iso8601(started_at)) * 1000).round
+    rescue ArgumentError
+      nil
+    end
 
     def ensure_enabled!
       return if ActionAgent.local_sandboxes_enabled?
@@ -531,28 +846,314 @@ module ActionAgent
         "set ActionAgent.local_sandboxes_enabled = true to allow them"
     end
 
+    # --- Reading changes ----------------------------------------------------
+
+    # The workspace and checkout of +sandbox+, which must exist.
+    def checkout_workspace!(sandbox)
+      ensure_enabled!
+      workspace = workspace_for(session_id!(sandbox.session_id))
+      app = workspace.join("app")
+      raise Error, "Sandbox #{sandbox.session_id} has no local checkout" unless app.directory?
+
+      [ workspace, app ]
+    end
+
+    def recorded_checkout_commit!(workspace)
+      commit = read_state(workspace)["checkout_commit"]
+      return commit if commit.is_a?(String) && COMMIT_ID.match?(commit)
+
+      raise Error, "The sandbox did not record the commit it checked out"
+    end
+
+    def read_only_git_environment
+      self.class.sanitized_environment.merge(READ_ONLY_GIT_ENVIRONMENT)
+    end
+
+    # A filter driver in the checkout's git config (which a session could
+    # have written) runs its command whenever git reads the working tree, as
+    # the dashboard's user.
+    def filter_drivers?(app, env, git)
+      drivers, = capture(env, [ *git, "config", "--local", "--includes", "--name-only", "--get-regexp", "^filter\\." ],
+        chdir: app, limit: 64 * 1024, timeout: GIT_TIMEOUT)
+      drivers.to_s.strip.present?
+    end
+
+    # The NUL-separated fields +argv+ prints.
+    def git_listing!(env, argv, app)
+      output, status = capture(env, argv, chdir: app, limit: MAX_LISTING_BYTES, timeout: GIT_TIMEOUT)
+      raise Error, "The checkout's changes are too many to list" if output.bytesize >= MAX_LISTING_BYTES
+      raise Error, "git could not list the checkout's changes (#{status ? describe(status) : 'timed out'})" unless status&.success?
+
+      output.force_encoding(Encoding::UTF_8).split("\0").reject(&:empty?)
+    end
+
+    # Relative, inside the checkout, and outside its .git directory.
+    def checkout_path?(path)
+      return false unless path.is_a?(String) && path.valid_encoding? && path.present? && !path.include?("\0")
+      return false if path.start_with?("/")
+
+      parts = path.split("/")
+      parts.none? { |part| part.empty? || part == "." || part == ".." } && !parts.first.casecmp?(".git")
+    end
+
+    # lstat of +path+ under +app+, or nil when nothing is there, which
+    # includes a path one of whose parents is a symlink or a file.
+    def working_tree_stat(app, path)
+      *parents, name = path.split("/")
+      directory = app
+      parents.each do |part|
+        directory = directory.join(part)
+        return nil unless File.lstat(directory).directory?
+      end
+      File.lstat(directory.join(name))
+    rescue Errno::ENOENT, Errno::ENOTDIR
+      nil
+    end
+
+    # git's mode for what +stat+ describes, or nil for a socket, a pipe or a
+    # device.
+    def mode_for(stat)
+      if stat.symlink? then "120000"
+      elsif stat.directory? then "160000"
+      elsif stat.file? then stat.mode.anybits?(0o111) ? "100755" : "100644"
+      end
+    end
+
+    def read_working_file(app, path)
+      stat = working_tree_stat(app, path)
+      return nil if stat.nil?
+
+      full = app.join(path)
+      return File.readlink(full).b if stat.symlink?
+      raise Error, "#{path} is a submodule or a directory, not a file" if stat.directory?
+      raise Error, "#{path} is not a regular file" unless stat.file?
+      raise Error, "#{path} is larger than #{MAX_READ_BYTES} bytes" if stat.size > MAX_READ_BYTES
+
+      File.open(full, File::RDONLY | File::NOFOLLOW) do |file|
+        # Whatever replaced the file since the lstat was not what was listed.
+        opened = file.stat
+        raise Error, "#{path} changed while it was read" unless opened.file? && opened.ino == stat.ino && opened.dev == stat.dev
+        raise Error, "#{path} is not inside the checkout" unless File.realpath(full).start_with?("#{File.realpath(app)}/")
+
+        content = file.read(MAX_READ_BYTES + 1) || String.new
+        raise Error, "#{path} is larger than #{MAX_READ_BYTES} bytes" if content.bytesize > MAX_READ_BYTES
+
+        content.b
+      end
+    rescue Errno::ELOOP
+      raise Error, "#{path} changed while it was read"
+    rescue Errno::ENOENT, Errno::ENOTDIR
+      nil
+    end
+
+    # +path+ in the checkout commit, walked from the commit through each
+    # tree to the blob. Git does not check that an object it reads hashes to
+    # its id, and the checkout's object store is the sandbox's to rewrite, so
+    # every object is checked here: the content is the commit's, not
+    # whatever the sandbox wrote in its place.
+    def read_committed_file(workspace, app, path)
+      commit = recorded_checkout_commit!(workspace)
+      commit_object = read_object(app, commit, "commit", limit: MAX_LISTING_BYTES)
+      tree = commit_object[/\Atree (\h+)\n/, 1] or raise Error, "The checked-out commit #{commit} names no tree"
+
+      *parents, name = path.split("/")
+      parents.each do |part|
+        entry = tree_entries(app, tree)[part]
+        # Not there, or a file or submodule where a directory would be.
+        return nil unless entry && entry[:mode] == "40000"
+
+        tree = entry[:id]
+      end
+      entry = tree_entries(app, tree)[name]
+      return nil if entry.nil?
+      raise Error, "#{path} is a submodule in the checked-out commit" if entry[:mode] == "160000"
+      raise Error, "#{path} is a directory in the checked-out commit" if entry[:mode] == "40000"
+
+      read_object(app, entry[:id], "blob", limit: MAX_READ_BYTES, label: path)
+    end
+
+    # The entries of tree +id+, { name => { mode:, id: } }. Kept by id once
+    # checked, since a checked object never changes.
+    def tree_entries(app, id)
+      @verified_trees ||= {}
+      @verified_trees.fetch(id) do
+        @verified_trees.clear if @verified_trees.size >= MAX_CACHED_TREES
+        @verified_trees[id] = parse_tree(read_object(app, id, "tree", limit: MAX_LISTING_BYTES), id)
+      end
+    end
+
+    # A raw tree object: "<mode> <name>\0<id as bytes>" per entry.
+    def parse_tree(raw, id)
+      id_bytes = id.length / 2
+      entries = {}
+      offset = 0
+      while offset < raw.bytesize
+        space = raw.index(" ".b, offset)
+        nul = space && raw.index("\0".b, space)
+        raise Error, "The checkout's tree #{id} could not be read" unless nul && nul + 1 + id_bytes <= raw.bytesize
+
+        name = raw.byteslice(space + 1, nul - space - 1).force_encoding(Encoding::UTF_8)
+        entries[name] = { mode: raw.byteslice(offset, space - offset), id: raw.byteslice(nul + 1, id_bytes).unpack1("H*") }
+        offset = nul + 1 + id_bytes
+      end
+      entries
+    end
+
+    # The content of object +id+ as a +type+ ("commit", "tree" or "blob"),
+    # refused unless it hashes to +id+. +label+ names it in errors.
+    def read_object(app, id, type, limit:, label: nil)
+      label ||= "The checkout's #{type} #{id}"
+      raise Error, "#{label} has no valid object id" unless id.is_a?(String) && COMMIT_ID.match?(id)
+
+      content, status = capture(read_only_git_environment, [ *git_command(app), "cat-file", type, id ],
+        chdir: app, limit: limit + 1, timeout: GIT_TIMEOUT)
+      raise Error, "#{label} is larger than #{limit} bytes" if content.bytesize > limit
+      raise Error, "git could not read #{label} from the checked-out commit" unless status&.success?
+
+      digest = id.length == 64 ? Digest::SHA256 : Digest::SHA1
+      unless digest.hexdigest("#{type} #{content.bytesize}\0".b + content) == id
+        raise Error, "#{label} in the checkout does not match the checked-out commit, so it is not read"
+      end
+
+      content.b
+    end
+
     # --- Boot -------------------------------------------------------------
 
-    def boot(session_id, spec, secrets)
+    def boot(session_id, checkout, secrets, boot_spec = nil)
       workspace = workspace_for(session_id)
-      deadline = deadline_after(ActionAgent.local_sandbox_boot_timeout)
+      started = monotonic
+      # A spec only for checkouts without the engine may not apply, which is
+      # known once the checkout is there: until then, and when it does not,
+      # the boot has the configured limit.
+      reset_boot(boot_spec && !boot_spec.without_engine_only? ? spec_boot_timeout(boot_spec) : ActionAgent.local_sandbox_boot_timeout)
+      deadline = deadline_after(@boot_timeout)
       booted = false
-      server_pid = nil
+      keep = false
 
       prepare_workspace(workspace)
-      checkout!(workspace, spec, secrets, deadline)
+      update_state(workspace) do |state|
+        state["boot"] = { "steps" => [ { "name" => "checkout", "log" => "checkout", "status" => "pending" } ], "kept" => false }
+      end
+      boot_step(workspace, 0) { checkout!(workspace, checkout, secrets, deadline) }
 
       app = workspace.join("app")
-      config = Config.load(app)
-      databases = assign_databases(workspace, app, config, spec)
-      env = self.class.sanitized_environment.merge(databases).merge(config.env).merge(
+      plan = plan_boot(workspace, app, checkout, boot_spec)
+      if plan.spec && spec_boot_timeout(plan.spec) != @boot_timeout
+        @boot_timeout = spec_boot_timeout(plan.spec)
+        deadline = started + @boot_timeout
+      end
+      databases = assign_databases(workspace, app, plan.env, checkout)
+      # Only from here on does a kept workspace hold all a resume needs.
+      keep = plan.keep_on_failure
+      result = run_plan!(workspace, plan, boot_environment(workspace, databases, plan), 0, deadline, secrets)
+      booted = true
+      result
+    rescue Error
+      raise
+    rescue StandardError => e
+      raise Error, SecretScrubber.scrub("Sandbox boot failed: #{e.class.name}: #{e.message}", secrets)
+    ensure
+      finish_failed_boot(workspace, keep) unless booted
+    end
+
+    # Takes a kept boot for one resume, under the state.json lock, so two
+    # resumes never run in one workspace. False when there is none to take,
+    # including while a terminate is removing the workspace.
+    def claim_kept_boot(workspace)
+      claimed = false
+      update_state(workspace, create: false) do |state|
+        boot_state = state["boot"]
+        next if state["terminating"]
+        next unless boot_state.is_a?(Hash) && boot_state["kept"] == true
+
+        boot_state["kept"] = false
+        claimed = true
+      end
+      claimed
+    rescue Errno::ENOENT, Errno::ENOTDIR
+      false
+    end
+
+    # Runs a kept boot's +plan+ again from its entry +start_at+.
+    def resume(workspace, plan, start_at, secrets)
+      reset_boot(spec_boot_timeout(plan.spec))
+      deadline = deadline_after(@boot_timeout)
+      booted = false
+      keep = plan.keep_on_failure
+
+      database_env = read_state(workspace)["database_env"]
+      databases = database_env.is_a?(Hash) ? database_env.transform_values(&:to_s) : {}
+      record_resumed_plan(workspace, plan, start_at)
+      result = run_plan!(workspace, plan, boot_environment(workspace, databases, plan), start_at, deadline, secrets)
+      booted = true
+      result
+    rescue Error
+      raise
+    rescue StandardError => e
+      raise Error, SecretScrubber.scrub("Sandbox boot failed: #{e.class.name}: #{e.message}", secrets)
+    ensure
+      finish_failed_boot(workspace, keep) unless booted
+    end
+
+    # The limit on a boot from +spec+. A bootstrap does more than the app's
+    # own boot from its sandbox.yml, so it never gets less time than
+    # `local_sandbox_boot_timeout` gives that boot.
+    def spec_boot_timeout(spec)
+      spec.kind == "bootstrap" ? [ spec.timeout, ActionAgent.local_sandbox_boot_timeout ].max : spec.timeout
+    end
+
+    # What a boot remembers while it runs, which a backend instance holds for
+    # one call: the limit on the whole boot, the server it started and the
+    # checkout's Rake tasks once listed.
+    def reset_boot(timeout)
+      @boot_timeout = timeout
+      @server_pid = nil
+      @app_tasks = nil
+    end
+
+    # A failed boot leaves nothing running. Unless it is kept, it leaves
+    # nothing on disk either: no handle was reported, so nothing would ever
+    # reap it. The error carries the failing step's log tail.
+    def finish_failed_boot(workspace, keep)
+      stop_groups([ @server_pid ].compact)
+      if keep && workspace.directory?
+        update_state(workspace, create: false) { |state| state_hash(state, "boot")["kept"] = true }
+      else
+        # A setup that got as far as db:prepare created the databases.
+        drop_databases(workspace)
+        remove_workspace(workspace)
+      end
+    rescue SystemCallError => e
+      Rails.logger.warn("[ActionAgent] sandbox #{workspace.basename}: could not finish a failed boot: #{e.message}")
+    end
+
+    def boot_environment(workspace, databases, plan)
+      self.class.sanitized_environment.merge(databases).merge(plan.env).merge(
         # Merged after the file's env, so a checkout cannot move them.
         SandboxManifest::PATH_ENV => workspace.join("runtime.json").to_s,
-        SESSION_ID_ENV => session_id
+        SESSION_ID_ENV => workspace.basename.to_s,
+        SandboxMail::DIRECTORY_ENV => SandboxMail::DIRECTORY
       )
+    end
 
-      config.setup.each do |command|
-        run_step!(workspace, "setup", command, env: env, chdir: app, deadline: deadline, secrets: secrets)
+    # Runs +plan+'s entries from +start_at+ on, records each in state.json as
+    # it goes, and returns what #create_sandbox does.
+    def run_plan!(workspace, plan, env, start_at, deadline, secrets)
+      app = workspace.join("app")
+      plan.steps.each_with_index do |step, index|
+        next if index < start_at
+
+        boot_step(workspace, plan.offset + index) do
+          reason = step.skip || missing_task(workspace, step, env, deadline, secrets)
+          if reason
+            File.open(log_path(workspace, step.log), "a") { |file| file.puts("# skipped: #{reason}") }
+            next Skip.new(reason)
+          end
+
+          run_step!(workspace, step.label, step.command, env: env, chdir: app, deadline: deadline, secrets: secrets,
+            timeout: step.timeout, log: step.log)
+        end
       end
 
       # Picked after setup, which can take minutes, so that the port is
@@ -561,33 +1162,305 @@ module ActionAgent
       # of the server's own process group.
       port = free_port
       env = env.merge("PORT" => port.to_s)
-      manifest = run_manifest!(workspace, config, env, deadline, secrets)
+      manifest_index = plan.steps.size
+      manifest = if start_at > manifest_index
+        read_manifest!(workspace, plan.manifest, secrets)
+      else
+        boot_step(workspace, plan.offset + manifest_index) { run_manifest!(workspace, plan.manifest, env, deadline, secrets) }
+      end
 
-      server_pid, waiter = start_server(workspace, config, env, port)
-      wait_until_ready!(workspace, port, manifest, server_pid, waiter, deadline, secrets)
-      booted = true
+      boot_step(workspace, plan.offset + manifest_index + 1) do
+        server_pid, waiter = start_server(workspace, plan.start.command, env, port)
+        start_deadline = step_deadline(plan.start, deadline)
+        wait_until_ready!(workspace, port, manifest, server_pid, waiter, start_deadline, secrets, step: plan.start, boot_deadline: deadline)
+        probe_start_url!(workspace, port, plan.start_url, waiter, start_deadline, secrets, step: plan.start, boot_deadline: deadline) if plan.start_url
+      end
 
       {
-        container_name: "#{HANDLE_PREFIX}#{session_id}",
+        container_name: "#{HANDLE_PREFIX}#{workspace.basename}",
         url: "http://127.0.0.1:#{port}",
         container_ip: "127.0.0.1",
         mcp_url: "http://127.0.0.1:#{port}#{manifest["mcp_path"]}",
         mcp_token: manifest["mcp_token"],
+        app_models: manifest["models"],
         created_at: Time.current
       }
-    rescue Error
-      raise
+    end
+
+    # Records the boot's entry at +position+ in state.json as running, then
+    # as succeeded, skipped (the block returned a Skip) or failed, and names
+    # a failed one as the boot's failed_step. Returns the block's value.
+    def boot_step(workspace, position)
+      update_boot_step(workspace, position, "status" => "running", "started_at" => Time.current.iso8601(3),
+        "finished_at" => nil, "duration_ms" => nil, "detail" => nil)
+      started = monotonic
+      outcome = nil
+      finished = false
+      error = nil
+      begin
+        outcome = yield
+        finished = true
+      rescue StandardError => e
+        error = e
+        raise
+      ensure
+        result =
+          if !finished then { "status" => "failed", "detail" => error.is_a?(Error) ? error.message.lines.first.to_s.strip : nil }
+          elsif outcome.is_a?(Skip) then { "status" => "skipped", "detail" => outcome.reason }
+          else { "status" => "succeeded" }
+          end
+        update_boot_step(workspace, position,
+          result.merge("finished_at" => Time.current.iso8601(3), "duration_ms" => ((monotonic - started) * 1000).round))
+      end
+      outcome
+    end
+
+    def update_boot_step(workspace, position, attributes)
+      update_state(workspace, create: false) do |state|
+        boot_state = state_hash(state, "boot")
+        step = Array(boot_state["steps"])[position]
+        next unless step.is_a?(Hash)
+
+        step.merge!(attributes)
+        boot_state["failed_step"] = step["name"] if attributes["status"] == "failed"
+      end
+    rescue SystemCallError
+      # The workspace is gone: nothing left to record it in.
+    end
+
+    # Decides how the checkout boots, records the plan in state.json, and
+    # returns it. A boot spec that applies runs its preflight here, before
+    # any of the checkout's own commands.
+    def plan_boot(workspace, app, checkout, boot_spec)
+      facts = nil
+      if boot_spec && spec_applies?(boot_spec, app)
+        if boot_spec.preflight?
+          position = append_boot_steps(workspace, [ { "name" => "preflight", "log" => "preflight", "status" => "pending" } ])
+          facts = boot_step(workspace, position) { preflight!(workspace, app, checkout) }
+        else
+          facts = lock_facts(app.join("Gemfile.lock")) if app.join("Gemfile.lock").file?
+        end
+        plan = spec_plan(boot_spec, (facts&.dig("gems") || {}).keys.to_set)
+      else
+        plan = config_plan(Config.load(app), secrets: boot_spec&.step_environment || {}, steps: boot_spec&.always_steps || [])
+      end
+
+      update_state(workspace) do |state|
+        boot_state = state_hash(state, "boot")
+        boot_state["mode"] = plan.mode
+        if plan.spec
+          boot_state["kind"] = plan.spec.kind
+          boot_state["spec"] = plan.spec.redacted
+          boot_state["locked_gems"] = (facts&.dig("gems") || {}).keys.sort
+          boot_state["lock"] = facts&.except("gems")
+        end
+        steps = boot_state["steps"] = Array(boot_state["steps"])
+        plan.offset = boot_state["plan_offset"] = steps.size
+        steps.concat(plan.entries.map { |step| { "name" => step.name, "log" => step.log, "status" => "pending" } })
+      end
+      plan
+    end
+
+    # Appends +entries+ to the boot's steps; returns the first one's position.
+    def append_boot_steps(workspace, entries)
+      position = nil
+      update_state(workspace) do |state|
+        steps = state_hash(state, "boot")["steps"] = Array(state_hash(state, "boot")["steps"])
+        position = steps.size
+        steps.concat(entries)
+      end
+      position
+    end
+
+    # Rewrites the boot's steps for a resume from +start_at+: the entries
+    # before it keep how they went, the rest are pending again.
+    def record_resumed_plan(workspace, plan, start_at)
+      update_state(workspace, create: false) do |state|
+        boot_state = state_hash(state, "boot")
+        steps = Array(boot_state["steps"])
+        offset = Integer(boot_state["plan_offset"], exception: false) || steps.size
+        earlier = steps.drop(offset).select { |step| step.is_a?(Hash) }.index_by { |step| step["name"] }
+        resumed_from = plan.entries[start_at].name
+        entries = plan.entries.each_with_index.map do |step, index|
+          if index < start_at
+            earlier[step.name] || { "name" => step.name, "log" => step.log, "status" => "skipped", "detail" => "not run: resumed from #{resumed_from}" }
+          else
+            { "name" => step.name, "log" => step.log, "status" => "pending" }
+          end
+        end
+        plan.offset = offset
+        boot_state.merge!("steps" => steps.first(offset) + entries, "failed_step" => nil, "kept" => false,
+          "spec" => plan.spec.redacted, "plan_offset" => offset)
+      end
+    end
+
+    def resume_position(plan, name)
+      index = plan.entries.index { |step| step.name == name.to_s }
+      return index if index
+
+      raise Error, "#{name.inspect} is not a step this boot can resume from (#{plan.entries.map(&:name).join(", ")})"
+    end
+
+    # The steps #resume_position accepts: a spec boot's own, which follow
+    # the checkout and preflight steps. None for a boot from the checkout's
+    # sandbox.yml, which cannot be resumed.
+    def resumable_step_names(boot_state)
+      offset = Integer(boot_state["plan_offset"], exception: false)
+      return [] unless boot_state["mode"] == "spec" && offset
+
+      boot_state["steps"].drop(offset).filter_map { |step| step["name"] if step.is_a?(Hash) }
+    end
+
+    # +secrets+ are the env and secrets of a boot spec that does not apply to
+    # the checkout, and +steps+ its `always` steps: it boots as its
+    # sandbox.yml says, with them added to that file's env, and the steps
+    # run after that file's setup.
+    def config_plan(config, secrets: {}, steps: [])
+      extra = steps.map do |entry|
+        BootStep.new(name: entry["name"], command: entry["command"], timeout: entry["timeout"], log: entry["name"], label: entry["name"],
+          if_task: entry["if_task"])
+      end
+      BootPlan.new(
+        mode: "config", spec: nil,
+        steps: config.setup.map { |command| BootStep.new(name: "setup", command: command, log: "setup", label: "setup") } + extra,
+        manifest: BootStep.new(name: "manifest", command: config.manifest, log: "manifest", label: "manifest"),
+        start: BootStep.new(name: "start", command: config.start, log: "server", label: "server"),
+        env: config.env.merge(secrets), start_url: nil, keep_on_failure: false
+      )
+    end
+
+    # +locked+ holds the names of the gems the checkout's Gemfile.lock locked
+    # as it was checked out, before any step changed it.
+    def spec_plan(spec, locked)
+      steps = spec.steps.map do |entry|
+        gem = entry["unless_locked"]
+        BootStep.new(
+          name: entry["name"], command: entry["command"], timeout: entry["timeout"], log: entry["name"], label: entry["name"],
+          if_task: entry["if_task"], skip: (gem && locked.include?(gem) ? "the checkout already locks #{gem}" : nil)
+        )
+      end
+      BootPlan.new(
+        mode: "spec", spec: spec, steps: steps,
+        manifest: BootStep.new(name: "manifest", command: spec.manifest["command"], timeout: spec.manifest["timeout"],
+          log: "manifest", label: "manifest"),
+        start: BootStep.new(name: "start", command: spec.start["command"], timeout: spec.start["timeout"], log: "server",
+          label: "start"),
+        env: spec.step_environment, start_url: spec.start_url, keep_on_failure: spec.keep_on_failure?
+      )
+    end
+
+    # Whether +spec+ boots the checkout in +app+. One for checkouts without
+    # the engine leaves alone a checkout that bundles it, one that says how
+    # it serves its manifest itself, and anything without a Gemfile.lock.
+    def spec_applies?(spec, app)
+      return true unless spec.without_engine_only?
+
+      lock = app.join("Gemfile.lock")
+      return false unless lock.file?
+      return false if lock.read.match?(/^ {4}actionagent \(/)
+
+      file = app.join(Config::PATH)
+      data = file.file? ? YAML.safe_load(file.read, aliases: false) : nil
+      !(data.is_a?(Hash) && data.key?("manifest"))
+    rescue Psych::Exception
+      # Malformed: booting as configured reports what is wrong with it.
+      false
+    end
+
+    # Refuses, before any of the checkout's commands runs, a checkout the
+    # engine cannot be installed into. Returns what the checkout's
+    # Gemfile.lock locks (see #lock_facts).
+    def preflight!(workspace, app, checkout)
+      repository = checkout[:repository].presence || "The checkout"
+      log = log_path(workspace, "preflight")
+      lock = app.join("Gemfile.lock")
+      refuse = ->(problem) { fail_step!("preflight", problem, log, []) }
+
+      refuse.call("#{repository} has no Gemfile.lock at its root: a bootstrap boot needs a bundled Rails app") unless lock.file?
+      facts = lock_facts(lock)
+      ruby, ruby_source = facts["ruby"] ? [ facts["ruby"], "Gemfile.lock" ] : [ ruby_version_file(app), ".ruby-version" ]
+      railties = facts.dig("gems", "railties")
+      File.open(log, "a") do |file|
+        file.puts("Ruby #{ruby || "unpinned"}, railties #{railties || "not locked"}, " \
+          "activeagent #{facts.dig("gems", "activeagent") || "not locked"}, actionagent #{facts.dig("gems", "actionagent") || "not locked"}")
+      end
+
+      if ruby && version_below?(ruby, SandboxBootSpec::MINIMUM_RUBY)
+        refuse.call("#{repository} needs Ruby #{ruby} (#{ruby_source}); the engine needs Ruby #{SandboxBootSpec::MINIMUM_RUBY} or later")
+      end
+      refuse.call("#{repository}'s Gemfile.lock locks no railties: a bootstrap boot needs a Rails app") if railties.nil?
+      if version_below?(railties, SandboxBootSpec::MINIMUM_RAILTIES)
+        refuse.call("#{repository} locks railties #{railties}; the engine needs Rails #{SandboxBootSpec::MINIMUM_RAILTIES} or later")
+      end
+      unless app.join("config", "application.rb").file?
+        refuse.call("#{repository} has no config/application.rb at its root: a bootstrap boot needs the Rails app at the repository root")
+      end
+
+      facts.merge("ruby" => ruby, "railties" => railties,
+        "activeagent" => facts.dig("gems", "activeagent"), "actionagent" => facts.dig("gems", "actionagent"))
+    end
+
+    # What a Gemfile.lock locks: { "ruby" => "3.3.6" or nil, "gems" => { name => version } }.
+    # Read in this process with Bundler's parser, which only parses.
+    def lock_facts(path)
+      parser = ::Bundler::LockfileParser.new(path.read)
+      gems = parser.specs.each_with_object({}) { |spec, all| all[spec.name] ||= spec.version.to_s }
+      { "ruby" => parser.ruby_version.to_s[/\d+\.\d+(?:\.\d+)?/], "gems" => gems }
     rescue StandardError => e
-      raise Error, SecretScrubber.scrub("Sandbox boot failed: #{e.class.name}: #{e.message}", secrets)
-    ensure
-      # A failed boot leaves nothing running and nothing on disk: no handle
-      # was reported, so nothing would ever reap it. The error carries the
-      # failing step's log tail.
-      unless booted
-        stop_groups([ server_pid ].compact)
-        # A setup that got as far as db:prepare created the databases.
-        drop_databases(workspace) if workspace
-        remove_workspace(workspace) if workspace
+      raise Error, "Sandbox preflight failed: the checkout's Gemfile.lock could not be read (#{e.message.lines.first.to_s.strip.truncate(200)})"
+    end
+
+    def ruby_version_file(app)
+      file = app.join(".ruby-version")
+      file.file? ? file.read.lines.first.to_s.strip.delete_prefix("ruby-")[/\A\d+\.\d+(?:\.\d+)?/] : nil
+    end
+
+    def version_below?(version, minimum)
+      Gem::Version.correct?(version) && Gem::Version.new(version) < minimum
+    end
+
+    # Why +step+ is skipped because the checkout defines no Rake task of its
+    # if_task's name; nil when it has none, or the task exists.
+    def missing_task(workspace, step, env, deadline, secrets)
+      return nil unless step.if_task
+
+      app_tasks(workspace, step, env, deadline, secrets).include?(step.if_task) ? nil : "the app defines no #{step.if_task} task"
+    end
+
+    # The checkout's Rake tasks, as `bin/rails -T -A` lists them, once per
+    # boot: the first step that needs them runs it, after the steps before
+    # it installed the bundle.
+    def app_tasks(workspace, step, env, deadline, secrets)
+      return @app_tasks if @app_tasks
+
+      log = log_path(workspace, step.log)
+      File.open(log, "a") { |file| file.puts("$ bin/rails -T -A") }
+      timeout = [ time_left(step_deadline(step, deadline)) || TASK_LIST_TIMEOUT, TASK_LIST_TIMEOUT ].min
+      output, status = capture(env, [ "bin/rails", "-T", "-A" ], chdir: workspace.join("app"), limit: TASK_LIST_BYTES,
+        timeout: [ timeout, 1 ].max, err: [ :child, :out ])
+      unless status&.success?
+        File.open(log, "a") { |file| file.write(SecretScrubber.scrub(output.force_encoding(Encoding::UTF_8).scrub.last(LOG_TAIL_BYTES), secrets)) }
+        fail_step!(step.label, "could not list the app's Rake tasks: `bin/rails -T -A` #{status ? "exited with #{describe(status)}" : "did not finish"}",
+          log, secrets)
+      end
+
+      @app_tasks = output.force_encoding(Encoding::UTF_8).scrub.lines.filter_map { |line| line[/\A\S+\s+([^\s\[#]+)/, 1] }.to_set
+    rescue SystemCallError => e
+      fail_step!(step.label, "could not list the app's Rake tasks: #{e.message}", log, secrets)
+    end
+
+    # When +step+ must be done by: its own timeout or the boot's, whichever
+    # comes first.
+    def step_deadline(step, deadline)
+      step.timeout ? [ deadline, deadline_after(step.timeout) ].min : deadline
+    end
+
+    # How a timeout message names the limit that ran out.
+    def limit_reached(step, step_deadline, deadline)
+      if step&.timeout && step_deadline < deadline
+        "within its #{step.timeout}s timeout"
+      else
+        "within the boot timeout (#{@boot_timeout}s)"
       end
     end
 
@@ -596,9 +1469,9 @@ module ActionAgent
     # or after a restart, drops what is recorded there. Claude Code sessions
     # get them too, so a `bin/rails db:migrate` a session runs lands in the
     # sandbox's database rather than the developer's.
-    def assign_databases(workspace, app, config, spec)
+    def assign_databases(workspace, app, overrides, spec)
       plan = LocalSandboxDatabases.plan(
-        app: app, workspace: workspace, session_id: workspace.basename.to_s, overrides: config.env,
+        app: app, workspace: workspace, session_id: workspace.basename.to_s, overrides: overrides,
         fallback_name: spec[:repository].to_s.split("/").last
       )
       if plan.notes.any?
@@ -632,11 +1505,17 @@ module ActionAgent
       app = workspace.join("app")
       return unless app.join("bin", "rails").file?
 
-      file_env = begin
-        Config.load(app).env
-      rescue Error
-        {}
-      end
+      boot_state = state["boot"]
+      file_env =
+        if boot_state.is_a?(Hash) && boot_state["mode"] == "spec"
+          boot_state.dig("spec", "env").is_a?(Hash) ? boot_state.dig("spec", "env") : {}
+        else
+          begin
+            Config.load(app).env
+          rescue Error
+            {}
+          end
+        end
       env = self.class.sanitized_environment.merge(file_env).merge(database_env.transform_values(&:to_s)).merge(
         SESSION_ID_ENV => workspace.basename.to_s,
         "RAILS_ENV" => state.fetch("database_rails_env"),
@@ -692,13 +1571,22 @@ module ActionAgent
       update_state(workspace) { |state| state["checkout_commit"] = commit } if status&.success? && COMMIT_ID.match?(commit)
     end
 
-    def run_manifest!(workspace, config, env, deadline, secrets)
+    def run_manifest!(workspace, step, env, deadline, secrets)
       path = workspace.join("runtime.json")
       FileUtils.rm_f(path)
-      run_step!(workspace, "manifest", config.manifest, env: env, chdir: workspace.join("app"), deadline: deadline, secrets: secrets)
+      run_step!(workspace, step.label, step.command, env: env, chdir: workspace.join("app"), deadline: deadline, secrets: secrets,
+        timeout: step.timeout, log: step.log)
 
-      log = log_path(workspace, "manifest")
-      fail_step!("manifest", "`#{config.manifest}` wrote nothing to $#{SandboxManifest::PATH_ENV}", log, secrets) unless path.file?
+      log = log_path(workspace, step.log)
+      fail_step!(step.label, "`#{step.command}` wrote nothing to $#{SandboxManifest::PATH_ENV}", log, secrets) unless path.file?
+
+      read_manifest!(workspace, step, secrets)
+    end
+
+    def read_manifest!(workspace, step, secrets)
+      path = workspace.join("runtime.json")
+      log = log_path(workspace, step.log)
+      fail_step!(step.label, "there is no manifest to resume from: resume from manifest", log, secrets) unless path.file?
 
       # Written by the checkout's command, with its umask: the MCP token in
       # it is for the dashboard alone.
@@ -707,48 +1595,78 @@ module ActionAgent
       URI.parse("http://127.0.0.1#{manifest["mcp_path"]}")
       manifest
     rescue SandboxManifest::Error, URI::InvalidURIError => e
-      fail_step!("manifest", e.message, log_path(workspace, "manifest"), secrets)
+      fail_step!(step.label, e.message, log, secrets)
     end
 
     # Runs one boot command to completion in its own process group, with its
-    # output in logs/<step>.log. Anything it left running in that group is
-    # stopped too: a setup command is not a way to start services the
-    # sandbox never records (that is what `start` is for).
+    # output in logs/<log>.log, scrubbed of +secrets+ a line at a time on the
+    # way there. Anything it left running in that group is stopped too: a
+    # setup command is not a way to start services the sandbox never records
+    # (that is what `start` is for). +step+ names it in a failure, and
+    # +timeout+ bounds it within +deadline+.
     #
-    # The group is stopped however the wait ends: the deadline, or any
+    # The group is stopped however the wait ends: a deadline, or any
     # exception at all (a worker shutting down raises into this thread with
     # Thread#raise, which is no StandardError). While it runs its pid is in
     # state.json as step_pid, so a terminate after this process itself died
     # (a crashed dashboard, a killed worker) stops a hung `bundle install`
     # too; nothing else would, the deadline having died with this process.
-    def run_step!(workspace, step, command, env:, chdir:, deadline:, secrets:, label: command)
-      log = log_path(workspace, step)
-      File.open(log, "a") { |file| file.puts("$ #{label}") }
+    def run_step!(workspace, step, command, env:, chdir:, deadline:, secrets:, label: command, timeout: nil, log: step)
+      log = log_path(workspace, log)
+      File.open(log, "a") { |file| file.puts("$ #{SecretScrubber.scrub(label, secrets)}") }
+      until_time = timeout ? [ deadline, deadline_after(timeout) ].min : deadline
 
       pid = nil
       waiter = nil
       finished = false
+      reader, writer = IO.pipe
+      copier = nil
       # Deferred until the group is recorded or stopped, so an interrupt
       # never lands between the spawn and the ensure that stops it.
       Thread.handle_interrupt(Object => :never) do
-        pid = spawn_group(env, "sh", "-c", command, chdir: chdir, in: File::NULL, out: [ log.to_s, "a" ], err: [ :child, :out ])
+        begin
+          pid = spawn_group(env, "sh", "-c", command, chdir: chdir, in: File::NULL, out: writer, err: [ :child, :out ])
+        ensure
+          writer.close
+        end
         begin
           Thread.handle_interrupt(Object => :immediate) do
             record_step(workspace, pid)
+            # Started once the step is recorded: until then the group's
+            # output waits in the pipe.
+            copier = background { copy_output(reader, log, secrets) }
             waiter = Process.detach(pid)
-            finished = waiter.join(time_left(deadline))
+            finished = waiter.join(time_left(until_time))
           end
         ensure
           stop_groups([ pid ], grace: finished ? 1 : stop_grace)
           forget_step(workspace, pid)
+          # What the group wrote last is in the log before its tail is read.
+          copier&.join(OUTPUT_DRAIN_GRACE)
         end
       end
 
       unless finished
-        fail_step!(step, "`#{label}` did not finish within the boot timeout (#{ActionAgent.local_sandbox_boot_timeout}s)", log, secrets)
+        limit = timeout && until_time < deadline ? "within its #{timeout}s timeout" : "within the boot timeout (#{@boot_timeout || ActionAgent.local_sandbox_boot_timeout}s)"
+        fail_step!(step, "`#{label}` did not finish #{limit}", log, secrets)
       end
       status = waiter.value
       fail_step!(step, "`#{label}` exited with #{describe(status)}", log, secrets) unless status.success?
+    ensure
+      reader&.close unless reader&.closed?
+      writer&.close unless writer&.closed?
+    end
+
+    # Appends what a boot step prints to +log+, a line at a time, scrubbed.
+    def copy_output(io, log, secrets)
+      File.open(log, "ab") do |file|
+        io.each_line(LOG_LINE_BYTES) do |line|
+          file.write(SecretScrubber.scrub(line.force_encoding(Encoding::UTF_8).scrub, secrets))
+          file.flush
+        end
+      end
+    rescue IOError
+      # Closed under us once the step is over.
     end
 
     def record_step(workspace, pid)
@@ -769,12 +1687,16 @@ module ActionAgent
       # The workspace is gone: nothing left to forget it in.
     end
 
-    def start_server(workspace, config, env, port)
+    # The server's output goes to logs/server.log directly, unscrubbed: it
+    # outlives this process, and a pipe would end with it. #log_tail and
+    # #boot_log scrub it when they read it.
+    def start_server(workspace, command, env, port)
       log = log_path(workspace, "server")
-      File.open(log, "a") { |file| file.puts("$ #{config.start}") }
+      File.open(log, "a") { |file| file.puts("$ #{command}") }
 
-      pid = spawn_group(env, "sh", "-c", config.start,
+      pid = spawn_group(env, "sh", "-c", command,
         chdir: workspace.join("app"), in: File::NULL, out: [ log.to_s, "a" ], err: [ :child, :out ])
+      @server_pid = pid
       # Reaped by this thread for as long as the dashboard lives; after a
       # restart the recorded pid is all that is left, hence state.json.
       waiter = Process.detach(pid)
@@ -798,7 +1720,7 @@ module ActionAgent
     # server this sandbox started. The port was free when it was picked, but
     # nothing held it after: another process can bind it first, and then
     # answers in the server's place — and would be handed the MCP token.
-    def wait_until_ready!(workspace, port, manifest, server_pid, waiter, deadline, secrets)
+    def wait_until_ready!(workspace, port, manifest, server_pid, waiter, deadline, secrets, step:, boot_deadline: deadline)
       log = log_path(workspace, "server")
       mcp_path = manifest["mcp_path"]
       uri = URI.parse("http://127.0.0.1:#{port}#{mcp_path}")
@@ -808,7 +1730,7 @@ module ActionAgent
       loop do
         unless waiter.alive?
           taken = foreign ? " (another process was listening on port #{port})" : ""
-          fail_step!("server", "the server exited with #{describe(waiter.value)} before it answered on port #{port}#{taken}",
+          fail_step!(step.label, "the server exited with #{describe(waiter.value)} before it answered on port #{port}#{taken}",
             log, secrets)
         end
 
@@ -826,11 +1748,36 @@ module ActionAgent
             elsif last_status then " (last answer: #{last_status})"
             else ""
             end
-          fail_step!("server", "the server did not answer #{mcp_path} on port #{port} within the boot timeout " \
-            "(#{ActionAgent.local_sandbox_boot_timeout}s)#{answered}", log, secrets)
+          fail_step!(step.label, "the server did not answer #{mcp_path} on port #{port} " \
+            "#{limit_reached(step, deadline, boot_deadline)}#{answered}", log, secrets)
         end
         sleep POLL_INTERVAL
       end
+    end
+
+    # Fails the start step when +start_url+ on the booted server answers 5xx,
+    # or never answers. Asked once the MCP facade answered, so the server is
+    # the sandbox's own; anything else (a redirect to sign in, a 404) passes.
+    def probe_start_url!(workspace, port, start_url, waiter, deadline, secrets, step:, boot_deadline: deadline)
+      log = log_path(workspace, "server")
+      uri = URI.parse("http://127.0.0.1:#{port}#{start_url}")
+      loop do
+        read_timeout = [ START_URL_READ_TIMEOUT, time_left(deadline) || START_URL_READ_TIMEOUT ].min
+        status = probe(uri, accept: "text/html,*/*", read_timeout: [ read_timeout, 1 ].max)
+        if status
+          fail_step!(step.label, "GET #{start_url} answered #{status}", log, secrets) if status >= 500
+          return status
+        end
+        unless waiter.alive?
+          fail_step!(step.label, "the server exited with #{describe(waiter.value)} before it answered GET #{start_url}", log, secrets)
+        end
+        if monotonic >= deadline
+          fail_step!(step.label, "GET #{start_url} got no answer #{limit_reached(step, deadline, boot_deadline)}", log, secrets)
+        end
+        sleep POLL_INTERVAL
+      end
+    rescue URI::InvalidURIError
+      fail_step!(step.label, "#{start_url} is not a path this backend can request", log, secrets)
     end
 
     # Whether what listens on +uri+'s port is the sandbox's server (process
@@ -938,14 +1885,14 @@ module ActionAgent
       nil
     end
 
-    # The HTTP status a GET on the MCP path answers with, or nil while
-    # nothing answers.
-    def probe(uri)
+    # The HTTP status a GET on +uri+ answers with, or nil while nothing
+    # answers.
+    def probe(uri, accept: "application/json", read_timeout: 2)
       # No proxy: the dashboard's HTTP(S)_PROXY does not know this loopback.
       http = Net::HTTP.new(uri.host, uri.port, nil)
       http.open_timeout = 1
-      http.read_timeout = 2
-      http.start { |connection| connection.request(Net::HTTP::Get.new(uri, "Accept" => "application/json")).code.to_i }
+      http.read_timeout = read_timeout
+      http.start { |connection| connection.request(Net::HTTP::Get.new(uri, "Accept" => accept)).code.to_i }
     rescue SystemCallError, IOError, Timeout::Error, Net::HTTPBadResponse
       nil
     end
@@ -1252,12 +2199,8 @@ module ActionAgent
       app = workspace.join("app")
       env = self.class.sanitized_environment
       git = git_command(app)
-      # A filter driver in the checkout's git config (which the session could
-      # have written) runs its command on `git add` and `git diff`, as the
-      # dashboard's user. Rather than run it, report no diff.
-      drivers, = capture(env, [ *git, "config", "--local", "--includes", "--name-only", "--get-regexp", "^filter\\." ],
-        chdir: app, limit: 64 * 1024, timeout: GIT_TIMEOUT)
-      if drivers.to_s.strip.present?
+      # `git add` and `git diff` would run a filter driver's command.
+      if filter_drivers?(app, env, git)
         return "(diff not recorded: the checkout's git config defines filter drivers, which would run commands)"
       end
       capture(env, [ *git, "add", "--intent-to-add", "--all" ], chdir: app, limit: 64 * 1024, timeout: GIT_TIMEOUT)
@@ -1265,7 +2208,7 @@ module ActionAgent
       base = read_state(workspace)["checkout_commit"]
       base = "HEAD" unless base.is_a?(String) && COMMIT_ID.match?(base)
       diff = ->(commit) do
-        capture(env, [ *git, "diff", "--no-color", "--no-ext-diff", "--no-textconv", commit, "--" ],
+        capture(env, [ *git, "diff", "--no-color", "--no-ext-diff", "--no-textconv", "--ignore-submodules=dirty", commit, "--" ],
           chdir: app, limit: MAX_DIFF_BYTES, timeout: GIT_TIMEOUT)
       end
       output, status = diff.call(base)
@@ -1300,13 +2243,16 @@ module ActionAgent
       credentials
     end
 
+    # What a code session's output is scrubbed of. The project's secrets are
+    # among them although the session never gets them: the checkout's own
+    # files and processes can still show them.
     def sandbox_secrets(sandbox, credentials)
       token = begin
         sandbox.checkout_spec&.dig(:token)
       rescue StandardError
         nil
       end
-      [ token, *credentials.values ].compact.map(&:to_s)
+      [ token, *credentials.values, *Array(sandbox.try(:project_scrub_values)) ].compact.map(&:to_s)
     end
 
     # Drops the session's pid, and the cancels it may have left.
@@ -1323,6 +2269,133 @@ module ActionAgent
 
     def exit_code(status)
       status.exitstatus || (status.termsig ? 128 + status.termsig : 1)
+    end
+
+    # --- Browser ------------------------------------------------------------
+
+    BROWSER_DIR = /\Abrowser-\h+\z/
+
+    # Spawns the sidecar in a directory of its own under the workspace, hands
+    # it its configuration and waits for the line it prints once it listens.
+    def run_browser(workspace, session_id, mode, launch)
+      dir = workspace.join("browser-#{SecureRandom.hex(4)}")
+      FileUtils.mkdir_p(dir, mode: 0o700)
+      secrets = [ launch[:token], launch.dig(:recording, :token) ].compact
+      env = self.class.sanitized_environment.merge(BrowserSidecar.environment).merge(SESSION_ID_ENV => session_id)
+      log = log_path(workspace, "browser")
+      FileUtils.mkdir_p(log.dirname)
+      stdin_read, stdin_write = IO.pipe
+      stdout_read, stdout_write = IO.pipe
+
+      begin
+        pid = spawn_group(env, *BrowserSidecar.command("serve"), chdir: dir, in: stdin_read, out: stdout_write, err: [ log.to_s, "a" ])
+      rescue SystemCallError => e
+        raise Error, "Could not start the browser sidecar (#{ActionAgent.node_command}): #{e.message}"
+      ensure
+        [ stdin_read, stdout_write ].each(&:close)
+      end
+      Process.detach(pid)
+      browser = { "pid" => pid, "dir" => dir.basename.to_s, "mode" => mode }
+      started = false
+
+      begin
+        terminating = nil
+        update_state(workspace, create: false) do |state|
+          state["browser"] = browser
+          record_process_start(state, pid)
+          terminating = state["terminating"]
+        end
+        raise Error, "The sandbox is being stopped, so its browser did not start" if terminating
+
+        begin
+          stdin_write.write(JSON.generate(browser_config(launch, mode, dir)))
+          stdin_write.close
+        rescue Errno::EPIPE
+          # It exited before reading its configuration; its log says why.
+        end
+        ready = await_browser_ready(stdout_read, log, secrets)
+        unless BrowserSidecar.acceptable_version?(ready["version"].to_s)
+          raise Error, "The browser sidecar is version #{ready["version"]}, and this dashboard needs #{ActionAgent::VERSION}; " \
+            "run #{BrowserSidecar::INSTALL_COMMAND}"
+        end
+
+        port = Integer(ready["port"])
+        update_state(workspace, create: false) { |state| state["browser"]["port"] = port if state["browser"].is_a?(Hash) }
+        started = true
+        { mcp_url: "http://127.0.0.1:#{port}/mcp", mcp_token: launch[:token], live_url: ("ws://127.0.0.1:#{port}/live" if launch[:live]) }.compact
+      rescue Errno::ENOENT
+        raise Error, "Sandbox #{session_id} was stopped while its browser started"
+      ensure
+        [ stdin_write, stdout_read ].each { |io| io.close unless io.closed? }
+        unless started
+          stop_groups([ pid ], grace: 1)
+          forget_browser(workspace, browser)
+        end
+      end
+    end
+
+    def browser_config(launch, mode, dir)
+      recording = launch[:recording]
+      {
+        token: launch[:token],
+        app_url: launch[:app_url],
+        mode: mode,
+        capabilities: Array(launch[:capabilities]).map(&:to_s),
+        host: "127.0.0.1",
+        port: 0,
+        workdir: dir.to_s,
+        stop_at: launch[:stop_at] && (launch[:stop_at].to_f * 1000).floor,
+        recording: recording && recording.slice(:url, :token, :batch_events, :batch_bytes),
+        live: launch[:live] && launch[:live].slice(:session_id, :origins),
+        storage_state: launch[:storage_state]
+      }.compact
+    end
+
+    # The JSON line the sidecar prints once it listens. Raises with the tail
+    # of its log when it exits first or takes longer than
+    # ActionAgent.browser_start_timeout.
+    def await_browser_ready(io, log, secrets)
+      deadline = deadline_after(ActionAgent.browser_start_timeout)
+      line = String.new(encoding: Encoding::BINARY)
+      until line.include?("\n")
+        left = time_left(deadline)
+        unless left.nil? || left.positive?
+          raise Error, "The browser did not start within #{ActionAgent.browser_start_timeout}s#{browser_log_tail(log, secrets)}"
+        end
+        next unless io.wait_readable([ left || POLL_INTERVAL, POLL_INTERVAL ].min)
+
+        chunk = io.read_nonblock(4096, exception: false)
+        raise Error, "The browser sidecar exited before it started#{browser_log_tail(log, secrets)}" if chunk.nil?
+
+        line << chunk unless chunk == :wait_readable
+      end
+
+      ready = JSON.parse(line.lines.first)
+      raise Error, "The browser sidecar answered #{line.lines.first.strip.inspect}" unless ready.is_a?(Hash) && ready["ready"]
+
+      ready
+    rescue JSON::ParserError
+      raise Error, "The browser sidecar answered #{line.lines.first.to_s.strip.truncate(200).inspect}"
+    end
+
+    def browser_log_tail(log, secrets)
+      tail = log_tail(log, secrets)
+      tail.present? ? ":\n#{tail}" : ""
+    end
+
+    # Removes the browser's directory and its entry in state.json, if the
+    # entry is still +browser+'s.
+    def forget_browser(workspace, browser)
+      dir = browser["dir"].to_s
+      FileUtils.rm_rf(workspace.join(dir)) if BROWSER_DIR.match?(dir)
+      update_state(workspace, create: false) do |state|
+        next unless state["browser"].is_a?(Hash) && state["browser"]["pid"] == browser["pid"]
+
+        state.delete("browser")
+        state_hash(state, "process_starts").delete(browser["pid"].to_s)
+      end
+    rescue Errno::ENOENT
+      # Terminated meanwhile: the workspace, and its state, are gone.
     end
 
     # --- Processes ----------------------------------------------------------
@@ -1517,7 +2590,8 @@ module ActionAgent
         {}
       end
       sessions = state["code_sessions"].is_a?(Hash) ? state["code_sessions"].values : []
-      recorded = [ state["pid"], state["step_pid"], *sessions ].uniq.select { |pid| signalable?(pid) }
+      browser = state["browser"]["pid"] if state["browser"].is_a?(Hash)
+      recorded = [ state["pid"], state["step_pid"], browser, *sessions ].uniq.select { |pid| signalable?(pid) }
       identities = recorded.index_with { |pid| group_identity(pid, session_id, state) }
       stop_groups(recorded.select { |pid| identities[pid] == :ours })
       stop_escaped(session_id)
