@@ -185,6 +185,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   there is exactly one (the only account for the key and the only user for the
   agents, in an app that configures both), and to nobody in an app with no
   owner model, where `AgentSync` now accepts a nil owner.
+- **Create evaluations and merge scenarios over MCP** (`actionagent`). The
+  facade's `evaluations_create` tool creates an evaluation of one of the key's
+  agents, with scenarios or criteria, and runs nothing. `scenarios_merge` adds
+  scenarios to an evaluation and updates the ones whose keys it holds, through
+  the new `Evaluation#merge_scenarios!`, which never removes, disables or
+  reorders a scenario it was not given. A scenario without a key gets the next
+  `<group>_<n>` the evaluation does not use, and `key_prefix` namespaces
+  generated keys. Both tools ask the permission checker about
+  `:replace_scenarios` as the key's user, refuse an observed agent's suite as
+  `evaluations_run` does, and are held to 100 evaluations per agent, 2,000
+  scenarios per evaluation, 2 MiB of scenarios per call, and 200-character
+  scenario keys, groups and judge models. A refused call writes nothing.
+- **Generate scenario keys around keys already in use** (`activeagent`).
+  `ScenarioParser.parse` and `.scenarios` take `reserved_keys:`, which
+  generated keys skip ignoring case, and `key_prefix:`, a namespace in front
+  of every generated key. A prefix with no letters or digits a key can use
+  raises `ParseError`. Keys a paste names are unchanged.
 
 ### Changed
 

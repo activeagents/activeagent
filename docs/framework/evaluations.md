@@ -369,6 +369,45 @@ while leaving the results that scored it readable. Choose `:disable` for a
 suite synced from an evolving catalog, where a question can come back or an
 old report still needs its rows.
 
+### Adding to a suite
+
+`Evaluation#merge_scenarios!` treats its input as an addition to the suite,
+not the whole of it. A scenario whose key the input does not name is never
+touched: it keeps its prompt, its position, its `enabled` flag and its
+results.
+
+```ruby
+attributes = ActiveAgent::Evals::ScenarioParser.parse(
+  pasted_text,
+  reserved_keys: evaluation.scenarios.pluck(:key),
+  key_prefix: "batch2"
+).map { |attrs| attrs.except("position") }
+
+evaluation.merge_scenarios!(attributes, limit: 2_000)
+# => { added: ["batch2_orders_1"], updated: ["refund_window"], unchanged: [] }
+```
+
+- An existing key gets the given prompt, group, notes and expectations, and
+  keeps its position and `enabled` flag unless the attributes set
+  `"position"` or `"enabled"`. A group, notes or expectations the attributes
+  leave out are cleared.
+- A new key is appended after the suite's last position, in input order.
+- `limit:` refuses, with `Evaluation::ScenarioLimitExceeded`, a merge that
+  would leave the suite holding more scenarios than that. A refused or failed
+  merge writes nothing.
+
+The parser numbers `"position"` within its own paste, which is why the example
+drops it. `reserved_keys:` makes a scenario with no key take the next
+`<group>_<n>` the suite does not hold, ignoring case, so merging the same
+keyless paste twice adds it twice under distinct keys rather than overwriting
+the first copy. `key_prefix:` puts a namespace in front of every generated
+key, and raises `ScenarioParser::ParseError` when it has no letters or digits
+a key can use. Keys a paste names are kept as they are, so a named key the
+suite holds is updated.
+
+The MCP facade's `scenarios_merge` tool does exactly this for a coding
+harness (see the [dashboard guide](/framework/dashboard#writing-a-suite-from-your-harness)).
+
 ## Running a host application's agent from the mounted dashboard
 
 The engine normally replays scenarios with `ActionAgent::Agent#test_execute`.

@@ -27,6 +27,7 @@ class BrowserHandoffTest < ActionDispatch::IntegrationTest
 
   def setup
     ActionAgent::RecordingAction.delete_all
+    ActionAgent::RecordingEvent.delete_all
     ActionAgent::SessionRecording.delete_all
     ActionAgent::Agent.delete_all
     @browser = FakeBrowser.new
@@ -35,6 +36,12 @@ class BrowserHandoffTest < ActionDispatch::IntegrationTest
 
   def teardown
     ActionAgent::PlaywrightMCPClient.reset!
+  end
+
+  # The browser actions a run recorded, oldest first, as the event data the
+  # recorder stores (tool_name, action_type, parameters, status).
+  def recorded_actions(recording)
+    recording.recording_events.where(kind: "action").order(:id).flat_map(&:events).map { |event| event["data"] }
   end
 
   def build_run(tools: %w[playwright_mcp])
@@ -70,8 +77,9 @@ class BrowserHandoffTest < ActionDispatch::IntegrationTest
     assert_equal [ [ "browser_navigate", { url: "https://example.com/tickets" } ] ], @browser.calls
     recording = ActionAgent::SessionRecording.find_by!(agent_run: run)
     assert recording.recording?
-    assert_equal [ "navigate" ], recording.recording_actions.order(:sequence).pluck(:action_type)
-    assert_equal "https://example.com/tickets", recording.recording_actions.first.metadata["url"]
+    actions = recorded_actions(recording)
+    assert_equal [ "navigate" ], actions.map { |action| action["action_type"] }
+    assert_equal "https://example.com/tickets", actions.first.dig("parameters", "url")
   end
 
   test "typing and form filling reach the browser by target and are recorded" do
@@ -87,10 +95,10 @@ class BrowserHandoffTest < ActionDispatch::IntegrationTest
     assert_equal [ "browser_click", { target: "e48", element: "Continue" } ], @browser.calls[2]
 
     recording = ActionAgent::SessionRecording.find_by!(agent_run: run)
-    actions = recording.recording_actions.order(:sequence)
-    assert_equal %w[type form_fill click], actions.pluck(:action_type)
-    assert_equal "e41", actions.first.selector
-    assert_equal "e48", actions.last.selector
+    actions = recorded_actions(recording)
+    assert_equal %w[type form_fill click], actions.map { |action| action["action_type"] }
+    assert_equal "e41", actions.first.dig("parameters", "ref")
+    assert_equal "e48", actions.last.dig("parameters", "ref")
   end
 
   test "a browser action without an element ref is refused, not sent" do
@@ -141,7 +149,8 @@ class BrowserHandoffTest < ActionDispatch::IntegrationTest
     assert_equal "payment details", handoff.value
     assert_equal "https://tickets.example.com/checkout/abc123", handoff.metadata["url"]
     assert_equal "Pay with the company card, then forward the receipt.", handoff.metadata["instructions"]
-    assert_equal %w[navigate click handoff], recording.recording_actions.order(:sequence).pluck(:action_type)
+    assert_equal [ "handoff" ], recording.recording_actions.order(:sequence).pluck(:action_type)
+    assert_equal %w[browser_navigate browser_click], recorded_actions(recording).map { |action| action["tool_name"] }
   end
 
   test "request_handoff needs the browser tools and a page to continue on" do
