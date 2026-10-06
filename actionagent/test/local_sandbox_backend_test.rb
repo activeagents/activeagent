@@ -348,7 +348,7 @@ class LocalSandboxBackendTest < ActiveSupport::TestCase
     claude = nil
     # The cancel lands after the CLI was spawned but before its pid is in
     # state.json, from another backend as the controller's would be.
-    after_spawn(@backend) do |pid|
+    after_spawn(@backend, sandbox) do |pid|
       claude = pid
       assert Backend.new.cancel_code_session(sandbox, session)
       assert_includes read_json(workspace(sandbox).join("state.json"))["cancelled_code_sessions"], "32"
@@ -406,7 +406,7 @@ class LocalSandboxBackendTest < ActiveSupport::TestCase
     terminating = nil
     # The CLI is spawned, and before its pid is recorded a terminate (from
     # another backend, as the cleanup job's would be) reads state.json.
-    after_spawn(@backend) do |pid|
+    after_spawn(@backend, sandbox) do |pid|
       claude = pid
       terminating = Thread.new { Backend.new.terminate(handle) }
       wait_until { !workspace.join("state.json").exist? || read_json(workspace.join("state.json"))["terminating"] }
@@ -1511,11 +1511,22 @@ class LocalSandboxBackendTest < ActiveSupport::TestCase
   end
 
   # Runs the block with the pid of each Claude Code process +backend+
-  # spawns, before the backend goes on to record it.
-  def after_spawn(backend, &block)
+  # spawns for +sandbox+, once the fake CLI is up and waiting for its prompt
+  # and before the backend goes on to record it. The block ends in the
+  # session being stopped, and a SIGTERM that reaches Ruby while it still
+  # boots ends it with status 1 rather than the signal, or is lost: the fake
+  # marks the moment it is past that (see fake_claude.rb).
+  def after_spawn(backend, sandbox, &block)
+    ready = workspace(sandbox).join("claude/ready")
+    started = ->(pid) { wait_until { ready.exist? && ready.read.strip == pid.to_s } }
     hook = Module.new do
       define_method(:spawn_group) do |env, *argv, **options|
-        super(env, *argv, **options).tap { |pid| block.call(pid) if argv.include?("-p") }
+        super(env, *argv, **options).tap do |pid|
+          next unless argv.include?("-p")
+
+          started.call(pid)
+          block.call(pid)
+        end
       end
       private :spawn_group
     end
