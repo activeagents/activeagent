@@ -72,8 +72,12 @@ module ActionAgent
       # The last filters: RecordingEventIngest::BATCH_KEY, a batch that carries
       # page content and console output, and an input request's answer. Each
       # matches its key exactly, so a host parameter that merely contains those
-      # words is still logged.
-      app.config.filter_parameters += [ :credential, :api_key, :access_token, :password, /\Arecording_events\z/, /\A(?:answer|value)\z/i ]
+      # words is still logged. `answer` and `value` may also follow a dot:
+      # Rails 8.2 precompiles the host's filters into one expression and, once
+      # any of them names a nested key (Active Record Encryption adds
+      # `input_request.answer`), matches it against the dotted parameter path,
+      # where `\Aanswer\z` would no longer find `evaluation.answer`.
+      app.config.filter_parameters += [ :credential, :api_key, :access_token, :password, /\Arecording_events\z/, /(?:\A|\.)(?:answer|value)\z/i ]
     end
 
     # The project setup assistant's request_secret answers go to its
