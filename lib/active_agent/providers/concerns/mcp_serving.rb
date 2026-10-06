@@ -24,6 +24,9 @@ module ActiveAgent
     module MCPServing
       extend ActiveSupport::Concern
 
+      # The accepted `mcp_strategy:` values.
+      STRATEGIES = %i[auto client server].freeze
+
       included do
         # @return [MCPBridge, nil] bridge over the client-side declarations
         attr_internal :mcp_bridge
@@ -112,11 +115,15 @@ module ActiveAgent
 
       # Splits `mcps:` into what the provider serves and what the bridge serves.
       #
+      # A declaration whose calls may need approval is always the bridge's,
+      # because a provider that serves a server itself runs its tool calls where
+      # the approval gate never sees them (see {#mcp_gated?}).
+      #
       # @param declarations [Array<Hash>, Hash, nil]
       # @return [Array<Array<Hash>>] the provider's declarations, then the
       #   bridge's
       # @raise [ArgumentError] when `mcp_strategy: :server` was asked for and the
-      #   provider cannot serve one of the declarations
+      #   provider cannot serve one of the declarations, or one may need approval
       def mcp_partition_servers(declarations)
         declarations = mcp_normalize_declarations(declarations)
 
@@ -128,15 +135,65 @@ module ActiveAgent
 
           [ declarations, [] ]
         else
-          declarations.partition { |declaration| mcp_native_transports.include?(mcp_transport(declaration)) }
+          declarations.partition do |declaration|
+            mcp_native_transports.include?(mcp_transport(declaration)) && !mcp_gated?(declaration)
+          end
         end
+      end
+
+      # Whether some of a declaration's tool calls may need approval: its
+      # `require_approval` covers a tool, or its server may offer a tool the
+      # `requires_approval:` prompt option names (see
+      # {#mcp_approvals_served_by}).
+      #
+      # @param declaration [Hash]
+      # @return [Boolean]
+      def mcp_gated?(declaration)
+        return false unless declaration.is_a?(Hash)
+
+        MCPBridge.approval_policy?(declaration[:require_approval]) || mcp_approvals_served_by(declaration).any?
+      end
+
+      # Returns the names in the `requires_approval:` prompt option that a
+      # declaration's server may offer: those among its `allowed_tools`, or,
+      # when it lists none, every name that no tool in `tools:` has. The tools
+      # of a server without `allowed_tools` are unknown until it is connected
+      # to, so it is taken to offer any name.
+      #
+      # @param declaration [Hash]
+      # @return [Array<String>]
+      def mcp_approvals_served_by(declaration)
+        approvals = Array(tool_approvals)
+        return [] if approvals.empty?
+
+        allowed = Array(declaration[:allowed_tools]).map { |tool| mcp_tool_name(tool) }
+        return approvals & allowed if allowed.any?
+
+        approvals - Array(context[:tools]).map { |tool| mcp_tool_name(tool) }
+      end
+
+      # @param tool [Hash, String, Symbol] a tool definition, in the common
+      #   format or OpenAI Chat's `{ function: { name: } }`, or a tool name
+      # @return [String]
+      def mcp_tool_name(tool)
+        return tool.to_s unless tool.is_a?(Hash)
+
+        function = tool[:function] || tool["function"]
+        name     = tool[:name] || tool["name"]
+        name   ||= function[:name] || function["name"] if function.is_a?(Hash)
+
+        name.to_s
       end
 
       # @return [Symbol] how to serve `mcps:`: `:auto` (default, native where the
       #   provider can and client-side otherwise), `:client` to always run the
       #   servers here, or `:server` to require the provider to run them
+      # @raise [ArgumentError] for a value outside `STRATEGIES`
       def mcp_strategy
-        (context[:mcp_strategy] || :auto).to_sym
+        strategy = (context[:mcp_strategy] || :auto).to_sym
+        return strategy if STRATEGIES.include?(strategy)
+
+        fail ArgumentError, "`mcp_strategy:` must be one of #{STRATEGIES.map(&:inspect).join(', ')}, got #{strategy.inspect}."
       end
 
       # Removes the MCP options, which are instructions to this concern rather
@@ -153,9 +210,10 @@ module ActiveAgent
       def mcp_normalize_declarations(declarations)
         return [] if declarations.blank?
         # `Array(hash)` would split a lone declaration into pairs.
-        return [ declarations ] if declarations.is_a?(Hash)
+        declarations = [ declarations ] if declarations.is_a?(Hash)
 
-        Array(declarations)
+        # A declaration loaded from YAML or JSON arrives with String keys, and `mcp_transport` reads Symbols.
+        Array(declarations).map { |declaration| declaration.is_a?(Hash) ? declaration.deep_symbolize_keys : declaration }
       end
 
       # @param declaration [Hash]
@@ -181,6 +239,28 @@ module ActiveAgent
                "#{mcp_native_transports.any? ? mcp_native_transports.inspect : "none"}. " \
                "Use `mcp_strategy: :auto` to run the rest client-side."
         end
+
+        if MCPBridge.approval_policy?(declaration[:require_approval])
+          fail ArgumentError,
+               "The #{declaration[:name].to_s.inspect} MCP server's tool calls need approval, which is asked for " \
+               "only when ActiveAgent runs the server client-side, but `mcp_strategy: :server` hands it to " \
+               "#{service_name}. Use `mcp_strategy: :auto` or `:client`, or set `require_approval: \"never\"`."
+        end
+
+        approvals = mcp_approvals_served_by(declaration)
+        return if approvals.empty?
+
+        remedy = if declaration[:allowed_tools].present?
+          "Remove #{approvals.to_sentence} from its `allowed_tools:`"
+        else
+          "List the tools it may offer in `allowed_tools:`"
+        end
+
+        fail ArgumentError,
+             "`requires_approval:` names #{approvals.to_sentence}, which the #{declaration[:name].to_s.inspect} " \
+             "MCP server may offer, and approval is asked for only when ActiveAgent runs the server client-side, " \
+             "but `mcp_strategy: :server` hands it to #{service_name}. #{remedy}, or use `mcp_strategy: :auto` " \
+             "or `:client`."
       end
     end
   end

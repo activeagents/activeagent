@@ -5,6 +5,7 @@ import TimeWindowSelector from './TimeWindowSelector';
 import InteractionStream from './InteractionStream';
 import InteractionsView from './InteractionsView';
 import { dashboardPath, dashboardRelativePath } from '../../utils/dashboardPath';
+import ReplayLink from './replay/ReplayLink';
 
 export default function AgentInteractions({ agent, onBack }) {
   const { timeWindow } = useTimeWindow();
@@ -418,6 +419,7 @@ export default function AgentInteractions({ agent, onBack }) {
                         <span className="text-xs text-gray-400">
                           {formatDate(execution.created_at || execution.occurred_at)}
                         </span>
+                        {!reported && <ReplayLink kind="run" id={execution.id} title="Replay this run" />}
                       </div>
                     </div>
                     <p className="text-sm text-gray-700 truncate">
@@ -730,6 +732,7 @@ export default function AgentInteractions({ agent, onBack }) {
                             <span>{session.message_count} messages</span>
                             <span>{(session.tokens?.total || 0).toLocaleString()} tokens</span>
                             <span>{formatDate(session.last_activity_at)}</span>
+                            <ReplayLink kind="context" id={session.id} title="Replay this conversation" />
                           </div>
                         </div>
                       ))}

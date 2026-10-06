@@ -1,7 +1,11 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useTheme } from '../../contexts/ThemeContext';
 import { dashboardPath } from '../../utils/dashboardPath';
+import BrowserPanel from './BrowserPanel';
 import CodeSessionPanel, { StatusBadge } from './CodeSessionPanel';
+import DraftPullRequestPanel from './DraftPullRequestPanel';
+import GithubAppSection from './GithubAppSection';
+import RepoPicker from './RepoPicker';
 import {
   SANDBOX_POLL_INTERVAL_MS,
   apiErrorMessage,
@@ -15,6 +19,13 @@ import {
   upsertBy,
   claudeCodeAuth,
 } from '../../utils/codeSessions.mjs';
+import { toggleRepository } from '../../utils/repositories.mjs';
+import {
+  GITHUB_APP_CALLBACK_MESSAGES,
+  checkoutRepositories,
+  checkoutSourceLabel,
+  installationsSummary,
+} from '../../utils/githubApp.mjs';
 
 // What the OAuth callback reports back through ?github=… on its redirect.
 const CALLBACK_MESSAGES = {
@@ -23,18 +34,23 @@ const CALLBACK_MESSAGES = {
   invalid_state: { tone: 'error', text: 'That GitHub sign-in expired or was not started here. Try connecting again.' },
   missing_code: { tone: 'error', text: 'GitHub did not return an authorization code. Try connecting again.' },
   not_configured: { tone: 'error', text: 'GitHub OAuth is not configured on this dashboard.' },
+  forbidden: { tone: 'error', text: 'You do not have permission to change the GitHub connection.' },
   error: { tone: 'error', text: 'Could not finish connecting GitHub. Try again.' },
 };
 
-// Settings -> Integrations: the owner's GitHub connection, the repositories
-// it makes available, and checkout sandboxes booted from one of them — each
-// listed under its repository, polled while it boots, and, once ready, able
-// to run Claude Code sessions in its checkout. The sandboxes are listed
-// whether or not GitHub is still connected: disconnecting stops nothing, so
-// they stay here to be stopped.
+// Settings -> Integrations: the GitHub App installations and the OAuth
+// connection that give checkout sandboxes repository access, the
+// repositories they make available, and checkout sandboxes booted from one
+// of them — each listed under its repository, polled while it boots, and,
+// once ready, able to run Claude Code sessions in its checkout and publish
+// its changes as a draft pull request. The sandboxes are listed whether or
+// not GitHub is still connected: disconnecting stops nothing, so they stay
+// here to be stopped.
+// callbackStatus and appCallbackStatus are the ?github= and ?github_app=
+// outcomes the OAuth and installation callbacks redirect back with.
 // refreshKey changes when another Integrations card changed something the
 // sandbox listing reports (the Claude Code connection).
-export default function GithubIntegrationCard({ callbackStatus, refreshKey }) {
+export default function GithubIntegrationCard({ callbackStatus, appCallbackStatus, refreshKey }) {
   const { darkMode } = useTheme();
   const [status, setStatus] = useState(null);
   const [available, setAvailable] = useState(null); // repositories the token reaches
@@ -42,10 +58,12 @@ export default function GithubIntegrationCard({ callbackStatus, refreshKey }) {
   const [filter, setFilter] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
-  const [notice, setNotice] = useState(CALLBACK_MESSAGES[callbackStatus] || null);
+  const [notice, setNotice] = useState(
+    CALLBACK_MESSAGES[callbackStatus] || GITHUB_APP_CALLBACK_MESSAGES[appCallbackStatus] || null,
+  );
   const [sandboxes, setSandboxes] = useState([]); // the caller's app_runtime sandbox summaries, newest first
   // What the configured backend and the owner's credentials allow:
-  // { codeSessions, claudeCode }, from GET /api/sandboxes.
+  // { codeSessions, claudeCode, codex, browserModes }, from GET /api/sandboxes.
   const [sandboxSupport, setSandboxSupport] = useState(null);
   const [sandboxErrors, setSandboxErrors] = useState({}); // repository full_name -> message
   const [launching, setLaunching] = useState(null);
@@ -76,7 +94,13 @@ export default function GithubIntegrationCard({ callbackStatus, refreshKey }) {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(apiErrorMessage(data, `Could not list your sandboxes (HTTP ${res.status}).`));
       setSandboxes(data.sandboxes || []);
-      setSandboxSupport({ codeSessions: Boolean(data.code_sessions_supported), claudeCode: claudeCodeAuth(data), codex: { supported: data.codex_sessions_supported === true, connected: data.codex_connected === true } });
+      setSandboxSupport({
+        codeSessions: Boolean(data.code_sessions_supported),
+        claudeCode: claudeCodeAuth(data),
+        codex: { supported: data.codex_sessions_supported === true, connected: data.codex_connected === true },
+        pullRequests: data.pull_requests_supported === true,
+        browserModes: Array.isArray(data.browser_modes) ? data.browser_modes : [],
+      });
     } catch (e) {
       setError(e.message);
     }
@@ -168,11 +192,7 @@ export default function GithubIntegrationCard({ callbackStatus, refreshKey }) {
   };
 
   const toggle = (fullName) => {
-    setSelection((current) => {
-      const next = new Set(current);
-      if (next.has(fullName)) next.delete(fullName); else next.add(fullName);
-      return next;
-    });
+    setSelection((current) => toggleRepository(current, fullName));
   };
 
   const saveSelection = async () => {
@@ -262,13 +282,18 @@ export default function GithubIntegrationCard({ callbackStatus, refreshKey }) {
   const rowStyle = { backgroundColor: darkMode ? '#252525' : '#f9fafb' };
   const secondaryButton = `px-3 py-1 text-sm rounded ${darkMode ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`;
   const connection = status?.connection;
-  const selected = connection?.repositories || [];
-  const visible = (available || []).filter((r) => r.full_name.toLowerCase().includes(filter.toLowerCase()));
+  const oauthSelected = connection?.repositories || [];
+  const installations = status?.app?.configured ? status.app.installations || [] : [];
+  // Every repository a sandbox can check out, through an installation or
+  // the OAuth connection.
+  const selected = checkoutRepositories(connection, installations);
   const { byRepository, others } = groupSandboxes(sandboxes, selected.map((r) => r.full_name));
+  const linked = installations.length > 0;
+  const appSummary = installationsSummary(installations);
 
   const errorText = darkMode ? 'text-red-400' : 'text-red-600';
   // One sandbox: its status, what it failed with, how an agent uses it, and
-  // (once ready) Claude Code sessions in its checkout. Under a repository it
+  // (once ready) Claude Code sessions in its checkout and its browser. Under a repository it
   // sits below a divider; listed on its own it names its repository.
   const renderSandbox = (sandbox, { standalone = false } = {}) => {
     const { label, tone } = sandboxStatus(sandbox.status);
@@ -334,6 +359,8 @@ export default function GithubIntegrationCard({ callbackStatus, refreshKey }) {
         {ready && sandboxSupport && !sandboxSupport.codeSessions && (
           <p className={`text-xs ${muted}`}>The configured sandbox backend cannot run Claude Code sessions.</p>
         )}
+        {ready && sandboxSupport?.pullRequests && <DraftPullRequestPanel sandbox={sandbox} />}
+        {ready && sandboxSupport?.browserModes.length > 0 && <BrowserPanel sandbox={sandbox} modes={sandboxSupport.browserModes} />}
       </div>
     );
   };
@@ -345,23 +372,26 @@ export default function GithubIntegrationCard({ callbackStatus, refreshKey }) {
           <span className="text-xl">🐙</span>
           <div>
             <p className={`font-medium ${strong}`}>GitHub</p>
-            <p className={`text-sm ${status?.connected ? (darkMode ? 'text-green-400' : 'text-green-600') : muted}`}>
-              {!status ? 'Loading…' : status.connected ? `Connected as @${connection.login}` : 'Not connected'}
+            <p className={`text-sm ${status?.connected || appSummary.active > 0 ? (darkMode ? 'text-green-400' : 'text-green-600') : muted}`}>
+              {!status ? 'Loading…' : [
+                status.connected ? `Connected as @${connection.login}` : null,
+                appSummary.text,
+              ].filter(Boolean).join(' · ') || 'Not connected'}
             </p>
           </div>
         </div>
         {status?.connected ? (
           <button onClick={disconnect} className={`px-3 py-1 text-sm rounded ${darkMode ? 'text-red-300 hover:bg-red-900/40' : 'text-red-600 hover:bg-red-50'}`}>
-            Disconnect
+            {status.app?.configured ? 'Disconnect OAuth' : 'Disconnect'}
           </button>
         ) : status?.configured ? (
           <a href={dashboardPath('/api/github_connection/connect')} className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 text-sm">
-            Connect GitHub
+            {status.app?.configured ? 'Connect with OAuth' : 'Connect GitHub'}
           </a>
         ) : null}
       </div>
 
-      {status && !status.configured && !status.connected && (
+      {status && !status.configured && !status.connected && !status.app?.configured && (
         <p className={`text-sm ${muted}`}>
           The operator has not configured a GitHub OAuth app. Set <code>ActionAgent.github_client_id</code> and{' '}
           <code>github_client_secret</code> (or <code>GITHUB_CLIENT_ID</code> / <code>GITHUB_CLIENT_SECRET</code>) and register{' '}
@@ -382,13 +412,18 @@ export default function GithubIntegrationCard({ callbackStatus, refreshKey }) {
         </div>
       )}
 
+      <GithubAppSection app={status?.app} onChanged={loadStatus} onError={setError} onNotice={setNotice} />
+
       {status?.connected && (
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <p className={`text-sm font-medium ${strong}`}>Available repositories</p>
+            <div>
+              <p className={`text-sm font-medium ${strong}`}>OAuth connection</p>
+              <p className={`text-xs ${muted}`}>{oauthSelected.length} selected for sandboxes, cloned with @{connection.login}'s token.</p>
+            </div>
             {available ? (
               <div className="flex items-center space-x-2">
-                <button onClick={() => { setAvailable(null); setSelection(new Set(selected.map((r) => r.full_name))); }} className={secondaryButton}>Cancel</button>
+                <button onClick={() => { setAvailable(null); setSelection(new Set(oauthSelected.map((r) => r.full_name))); }} className={secondaryButton}>Cancel</button>
                 <button onClick={saveSelection} disabled={saving} className="px-3 py-1 text-sm bg-red-500 text-white rounded hover:bg-red-600 disabled:opacity-50">
                   {saving ? 'Saving…' : `Save (${selection.size})`}
                 </button>
@@ -398,27 +433,22 @@ export default function GithubIntegrationCard({ callbackStatus, refreshKey }) {
             )}
           </div>
 
-          {available ? (
-            <div className="space-y-2">
-              <input
-                type="text"
-                value={filter}
-                onChange={(e) => setFilter(e.target.value)}
-                placeholder="Filter repositories"
-                className={`w-full px-3 py-2 border rounded-lg text-sm ${darkMode ? 'bg-gray-800 border-gray-700 text-white placeholder-gray-500' : 'bg-white border-gray-300 text-gray-900'}`}
-              />
-              <div className="max-h-80 overflow-y-auto space-y-1">
-                {visible.map((repo) => (
-                  <label key={repo.id} className="flex items-center space-x-3 p-2 rounded cursor-pointer" style={rowStyle}>
-                    <input type="checkbox" checked={selection.has(repo.full_name)} onChange={() => toggle(repo.full_name)} />
-                    <span className={`text-sm font-mono ${strong}`}>{repo.full_name}</span>
-                    {repo.private && <span className={`text-xs ${muted}`}>private</span>}
-                  </label>
-                ))}
-                {visible.length === 0 && <p className={`text-sm ${muted}`}>No repositories match.</p>}
-              </div>
-            </div>
-          ) : selected.length === 0 ? (
+          {available && (
+            <RepoPicker
+              repositories={available}
+              selection={selection}
+              onToggle={toggle}
+              filter={filter}
+              onFilterChange={setFilter}
+            />
+          )}
+        </div>
+      )}
+
+      {(status?.connected || linked) && !available && (
+        <div className="space-y-3">
+          <p className={`text-sm font-medium ${strong}`}>Available repositories</p>
+          {selected.length === 0 ? (
             <p className={`text-sm ${muted}`}>No repositories selected yet. Selected repositories can be checked out into sandboxes.</p>
           ) : (
             <div className="space-y-2">
@@ -427,12 +457,14 @@ export default function GithubIntegrationCard({ callbackStatus, refreshKey }) {
                 // One checkout at a time: a second boot of the same app
                 // while the first is still installing only competes with it.
                 const booting = repoSandboxes.some(isSandboxBooting);
+                // Named only where a GitHub App offers a second way to clone.
+                const via = status.app?.configured ? ` · via ${checkoutSourceLabel(repo)}` : '';
                 return (
                   <div key={repo.full_name} className="p-3 rounded-lg" style={rowStyle}>
                     <div className="flex items-center justify-between">
                       <div>
                         <p className={`text-sm font-mono ${strong}`}>{repo.full_name}</p>
-                        <p className={`text-xs ${muted}`}>{repo.private ? 'private' : 'public'} · {repo.default_branch}</p>
+                        <p className={`text-xs ${muted}`}>{repo.private ? 'private' : 'public'} · {repo.default_branch}{via}</p>
                       </div>
                       <button
                         onClick={() => launchSandbox(repo.full_name)}
@@ -456,9 +488,9 @@ export default function GithubIntegrationCard({ callbackStatus, refreshKey }) {
           these, so they must stay reachable to be stopped. */}
       {!available && others.length > 0 && (
         <div className="space-y-2">
-          <p className={`text-sm font-medium ${strong}`}>{connected ? 'Other sandboxes' : 'Checkout sandboxes'}</p>
+          <p className={`text-sm font-medium ${strong}`}>{connected || linked ? 'Other sandboxes' : 'Checkout sandboxes'}</p>
           <p className={`text-xs ${muted}`}>
-            {connected ? 'From repositories no longer selected.' : 'Checked out while GitHub was connected.'}{' '}
+            {connected || linked ? 'From repositories no longer selected.' : 'Checked out while GitHub was connected.'}{' '}
             They keep running until stopped or they expire.
           </p>
           {others.map((sandbox) => (

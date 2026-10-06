@@ -2,7 +2,7 @@
 
 namespace :action_agent do
   namespace :sandbox do
-    desc "Write this app's checkout sandbox runtime manifest ({mcp_path, mcp_token}) to " \
+    desc "Write this app's checkout sandbox runtime manifest ({mcp_path, mcp_token, models}) to " \
          "$ACTION_AGENT_SANDBOX_MANIFEST, or print it"
     task manifest: :environment do
       manifest = JSON.generate(ActionAgent::SandboxManifest.generate)

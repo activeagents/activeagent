@@ -36,6 +36,20 @@ module ActionAgent
       update_column(:last_used_at, Time.current) if last_used_at.nil? || last_used_at < 1.minute.ago
     end
 
+    # The user who created the key, whom the MCP facade treats as the caller
+    # of a request made with it. Nil when the install has no user model, or
+    # the key records no creator: keys created before keys recorded one, and
+    # keys the engine creates for itself.
+    def creator
+      return nil if user_id.nil?
+
+      user_class = ActionAgent.user_class&.safe_constantize
+      return nil if user_class.nil?
+
+      reflection = self.class.reflect_on_association(:user)
+      reflection&.class_name == user_class.name ? user : user_class.find_by(id: user_id)
+    end
+
     # Safe to display in the dashboard key list: "aa_3xam…k9Q2"
     def masked_token
       "#{token_prefix}…#{token.last(4)}"

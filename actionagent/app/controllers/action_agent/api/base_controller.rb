@@ -17,7 +17,8 @@ module ActionAgent
     # the page's CSRF token with every mutating request (frontend
     # utils/apiFetch.mjs). Endpoints that authenticate with a bearer token
     # instead — the telemetry ingest endpoint (Api::TracesController), the
-    # evaluation report collector (Api::EvaluationReportsController) and the
+    # evaluation report collector (Api::EvaluationReportsController), a
+    # recording's event ingest (Api::RecordingEventIngestController) and the
     # MCP facade (Api::MCPController) — are exempt.
     class BaseController < ActionAgent::ApplicationController
       # Rails 8.2 verifies forgery protection from the browser's Sec-Fetch-Site
@@ -60,9 +61,11 @@ module ActionAgent
       # nothing owns) come back unfiltered.
       # An unresolved owner scopes to nothing rather than to
       # `where(id: nil)`, which would match every unowned row and leak them
-      # across tenants.
+      # across tenants. Only the rows the model's .owned_rows admits are
+      # returned, so a personal provider key never comes back from here.
       def owned(relation)
         klass = relation.respond_to?(:klass) ? relation.klass : relation
+        relation = relation.merge(klass.owned_rows) if klass.respond_to?(:owned_rows)
 
         case klass.owner_association
         when :account then current_account ? relation.where(account_id: current_account.id) : relation.none
@@ -78,10 +81,52 @@ module ActionAgent
         ActionAgent.agents_for(current_owner)
       end
 
+      # The requests for input the caller can see: those of the runs of
+      # owner_agents, the runs `GET /api/runs/:id` shows.
+      def owner_input_requests
+        InputRequest.where(subject_type: AgentRun.polymorphic_name, subject_id: AgentRun.where(agent: owner_agents).select(:id))
+      end
+
       # Reported traces visible to the caller. Scoped to the tenant in a
       # multi-tenant install; every trace otherwise.
       def owned_traces
         ActionAgent.trace_model.for_account(current_account)
+      end
+
+      # The recordings the caller may open: those the caller owns, plus those
+      # made inside a sandbox the caller owns. The second clause is what
+      # keeps recordings created before the owner column was written
+      # reachable.
+      def reachable_recordings
+        scope = owned(SessionRecording)
+        return scope if SessionRecording.owner_association.nil?
+
+        scope.or(SessionRecording.where(sandbox_session_id: owned(SandboxSession).select(:id)))
+      end
+
+      # What a session timeline may reach on the caller's behalf.
+      def timeline_scope
+        SessionTimeline::Scope.new(agents: owner_agents, traces: owned_traces, recordings: reachable_recordings)
+      end
+
+      # Rows read per kind of credential by #owner_credentials.
+      OWNER_CREDENTIAL_LIMIT = 100
+
+      # Returns the credentials the caller owns, for masking with
+      # SecretScrubber: provider keys, GitHub tokens, checkout sandboxes'
+      # runtime tokens, dashboard API keys (newest first) and the owner's
+      # telemetry key. Raises what a lookup raises, such as a credential that
+      # cannot be decrypted, so each caller decides whether to go on without
+      # the list.
+      # @return [Array<String>]
+      def owner_credentials
+        @owner_credentials ||= [
+          *owned(ProviderKey).limit(OWNER_CREDENTIAL_LIMIT).pluck(:credential, :api_key).flatten,
+          *owned(GithubConnection).limit(OWNER_CREDENTIAL_LIMIT).pluck(:access_token),
+          *owned(SandboxSession).where.not(runtime_mcp_token: nil).order(id: :desc).limit(OWNER_CREDENTIAL_LIMIT).pluck(:runtime_mcp_token),
+          *owned(ApiKey).order(id: :desc).limit(OWNER_CREDENTIAL_LIMIT).pluck(:token),
+          current_owner.try(:telemetry_api_key)
+        ].compact
       end
 
       # The caller an agent run executes on behalf of.
@@ -114,6 +159,22 @@ module ActionAgent
         return if current_owner.present?
 
         render json: { error: "No account" }, status: :unauthorized
+      end
+
+      # Returns whether the signed-in user may perform +action+ (one of
+      # ActionAgent::PERMISSION_ACTIONS) on +subject+, per
+      # ActionAgent.permission_checker. When not, renders the refusal first,
+      # so a caller returns unless this is true.
+      def authorize_action!(action, subject)
+        return true if ActionAgent.permitted?(current_user, action, subject)
+
+        permission_denied(action)
+        false
+      end
+
+      def permission_denied(action)
+        render json: { error: "You do not have permission to do this", code: "forbidden", permission: action },
+          status: :forbidden
       end
 
       # Asks the host app whether this owner may do +kind+ (:execution or

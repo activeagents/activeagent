@@ -2,6 +2,7 @@ require "active_support/delegation"
 
 require_relative "common/response"
 require_relative "concerns/exception_handler"
+require_relative "concerns/input_requests"
 require_relative "concerns/instrumentation"
 require_relative "concerns/mcp_serving"
 require_relative "concerns/previewable"
@@ -35,7 +36,7 @@ GEM_CONFLICTS = {
 # @param file_name [String] for error context
 # @return [void]
 # @raise [LoadError] when the gem is not installed, when the loaded version is
-#   outside the supported range, or when a different gem already defines the
+#   outside the supported range, or when something else already defines the
 #   client constant
 def require_gem!(type, file_name)
   gem_name, requirement, package_name = GEM_LOADERS.fetch(type)
@@ -53,31 +54,55 @@ def require_gem!(type, file_name)
     end
 
     if (conflict = gem_conflict_for(type))
-      raise LoadError, "#{provider_name} needs the '#{gem_name}' gem, but this bundle has '#{conflict[:gem]}'. " \
-                       "Both define #{conflict[:constant]}, so the two cannot be installed together — " \
-                       "replace `gem \"#{conflict[:gem]}\"` with `gem \"#{gem_name}\"` in your Gemfile and run `bundle install`."
+      if conflict[:gem]
+        raise LoadError, "#{provider_name} needs the '#{gem_name}' gem, but this bundle has '#{conflict[:gem]}'. " \
+                         "Both define #{conflict[:constant]}, so the two cannot be installed together — " \
+                         "replace `gem \"#{conflict[:gem]}\"` with `gem \"#{gem_name}\"` in your Gemfile and run `bundle install`."
+      end
+
+      where = conflict[:file] ? "in #{conflict[:file]}" : "elsewhere"
+      raise LoadError, "#{provider_name} needs the '#{gem_name}' gem, which defines #{conflict[:constant]}, " \
+                       "but #{conflict[:constant]} is already defined #{where}. " \
+                       "Rename or remove that definition, then add `gem \"#{gem_name}\"` to your Gemfile and run `bundle install`."
     end
 
     raise LoadError, "The '#{gem_name}' gem is required for #{provider_name}. Please add it to your Gemfile and run `bundle install`."
   end
 end
 
-# Finds a gem in the bundle that already defines the constant the provider's
-# client needs, if there is one.
+# Finds what already defines the constant the provider's client gem needs,
+# when that is not the gem itself.
 #
 # @param type [Symbol] provider type
-# @return [Hash, nil] the conflicting gem's name and the constant it defines
+# @return [Hash, nil] `{ gem:, constant: }` when the conflicting gem in
+#   GEM_CONFLICTS is present, `{ constant:, file: }` when something else
+#   defines the constant (`file` is nil when Ruby cannot tell where), or nil
 # @api private
 def gem_conflict_for(type)
   conflict = GEM_CONFLICTS[type]
   return unless conflict
-
-  # An activated gem is the usual case. The constant check catches the rest:
-  # the gem may sit in the bundle unrequired, and if its constant is already
-  # defined then the collision is real either way.
   return conflict if Gem.loaded_specs.key?(conflict[:gem])
 
-  conflict if Object.const_defined?(conflict[:constant])
+  # With the provider's own gem activated, requiring it is what failed. The
+  # gem may have defined the constant itself before failing, and a clash with
+  # a definition from anywhere else raises TypeError, not LoadError.
+  return if Gem.loaded_specs.key?(GEM_LOADERS.fetch(type).first)
+
+  constant = conflict[:constant]
+  location = Object.const_source_location(constant)
+  return unless location
+
+  # `const_source_location` places a pending autoload, which is how Zeitwerk
+  # defines an application's constants, at the line that registered it rather
+  # than in the file that will define the constant.
+  file = Object.autoload?(constant) || location.first
+
+  # RubyGems installs a gem into a directory named `<name>-<version>`
+  # (`ruby-openai-8.3.0`), so the path identifies the gem even when its files
+  # were loaded without activating it.
+  return conflict if file&.match?(%r{/#{Regexp.escape(conflict[:gem])}-\d[^/]*/})
+
+  { constant: constant, file: file }
 end
 
 module ActiveAgent
@@ -94,6 +119,7 @@ module ActiveAgent
       extend ActiveSupport::Delegation
 
       include ExceptionHandler
+      include InputRequests
       include Instrumentation
       include MCPServing
       include Previewable
@@ -169,6 +195,10 @@ module ActiveAgent
         self.max_tool_turns     = kwargs.delete(:max_tool_turns) || DEFAULT_MAX_TOOL_TURNS
         self.tool_turns         = 0
         self.instrumentation_enabled = kwargs.delete(:instrumentation) != false
+        self.generation_action_name  = kwargs.delete(:action_name)
+        self.tool_approvals          = normalize_tool_approvals(kwargs.delete(:requires_approval))
+        self.input_request_resume    = kwargs.delete(:input_request_resume)
+        self.announce_input_requests = kwargs.delete(:announce_input_requests) != false
         self.options            = options_klass.new(kwargs.extract!(*options_klass.keys))
         self.context            = kwargs
         self.message_stack      = []
@@ -198,7 +228,7 @@ module ActiveAgent
         self.request = prompt_request_type.cast(prompt_context.except(:trace_id))
 
         instrument("prompt.active_agent") do |payload|
-          response = resolve_prompt
+          response = input_request_resume ? resume_prompt : resolve_prompt
           instrumentation_prompt_payload(payload, request, response)
 
           response
@@ -244,11 +274,17 @@ module ActiveAgent
       #
       # @param name [String] tool name
       # @param kwargs [Hash] tool arguments
-      # @return [Object] the tool's result
+      # @return [Object] the tool's result, or an {MCPBridge::ErrorResult} for
+      #   a call that failed on an MCP server
+      # @raise [ActiveAgent::InputRequest::UnsupportedProviderError] when the
+      #   tool needs approval and the provider's tool loop never asked for it
       def call_tool_function(name, **kwargs)
+        assert_approval_gate_reached!(name)
         return mcp_call_tool(name, **kwargs) if mcp_owns_tool?(name)
 
-        tools_function.call(name, **kwargs)
+        result = isolate_undispatched_tool_call { tools_function.call(name, **kwargs) }
+        assert_input_request_supported!(result)
+        result
       end
 
       # @param name [String, nil]
@@ -539,6 +575,8 @@ module ActiveAgent
 
         if (tool_calls = process_prompt_finished_extract_function_calls)&.any? && tool_turn_allowed?
           process_function_calls(tool_calls)
+          return paused_prompt_response(api_response) if awaiting_input?
+
           resolve_prompt
         else
 
@@ -547,23 +585,31 @@ module ActiveAgent
           # as they continue to work.
           broadcast_stream_close
 
-          # To convert the messages into common format we first need to merge the current
-          # stack and then cast them to the provider type, so we can cast them out to common.
-          messages = prompt_request_type.cast(
-            messages: [ *request.messages, *message_stack ]
-          ).messages
-
-          # Create response object with usage_stack array for multi-turn cumulative tracking.
-          # This will returned as it closes up the recursive stack
-          Common::PromptResponse.new(
-            context:,
-            format: request.response_format,
-            messages:,
-            raw_request:  prompt_request_type.serialize(request),
-            raw_response: api_response,
-            usages: usage_stack
-          )
+          build_prompt_response(api_response)
         end
+      end
+
+      # @param api_response [Object, nil] provider-specific response
+      # @param attributes [Hash] further response attributes
+      # @return [Common::PromptResponse]
+      def build_prompt_response(api_response, **attributes)
+        # To convert the messages into common format we first need to merge the current
+        # stack and then cast them to the provider type, so we can cast them out to common.
+        messages = prompt_request_type.cast(
+          messages: [ *request.messages, *message_stack ]
+        ).messages
+
+        # Create response object with usage_stack array for multi-turn cumulative tracking.
+        # This will returned as it closes up the recursive stack
+        Common::PromptResponse.new(
+          context:,
+          format: request.response_format,
+          messages:,
+          raw_request:  prompt_request_type.serialize(request),
+          raw_response: api_response,
+          usages: usage_stack,
+          **attributes
+        )
       end
 
       # Counts a tool round-trip against the per-generation cap. When the

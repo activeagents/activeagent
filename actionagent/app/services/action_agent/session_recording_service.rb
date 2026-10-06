@@ -154,6 +154,17 @@ module ActionAgent
       )
     end
 
+    # Record the moment the agent stops for a person: what the page asked
+    # for, where it stopped, and what the person should do. Pairs with
+    # #capture_handoff_state, which stores the page to resume on.
+    def handoff(reason:, url:, instructions: nil)
+      @recording.record_action!(
+        action_type: "handoff",
+        value: reason,
+        metadata: { url: url, instructions: instructions }.compact
+      )
+    end
+
     # Capture browser state for handoff
     def capture_handoff_state(url:, cookies: nil, local_storage: nil, session_storage: nil, form_values: nil)
       @recording.update!(

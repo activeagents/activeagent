@@ -7,7 +7,13 @@ module ActionAgent
 
     # Provision a Cloud Run sandbox for the session
     # Each sandbox is an instance of the ActiveAgents application running in sandbox mode
-    def perform(sandbox_session_id)
+    #
+    # @param options [Hash] for a checkout, at most one of
+    #   "boot"   => how to boot it, as SandboxBootSpec.request_options
+    #               returns it; without it, "auto"
+    #   "resume" => { "from" => a step name or nil }, to continue a failed
+    #               boot its backend kept (SandboxSession#resume_boot!)
+    def perform(sandbox_session_id, options = {})
       # Deleted before the job ran: nothing to provision. `find` raised here,
       # and the rescue below then called update! on nil.
       sandbox = SandboxSession.find_by(id: sandbox_session_id)
@@ -29,10 +35,26 @@ module ActionAgent
       # Hand off to whichever backend this install registered — the engine
       # ships the in-memory one and :local, so a real container/job comes
       # from the host app's backend (see ActionAgent.sandbox_backends).
-      ensure_checkout_available!(sandbox) if sandbox.app_runtime?
+      if sandbox.app_runtime?
+        ensure_checkout_available!(sandbox)
+        mint_checkout_token!(sandbox)
+      end
 
       orchestrator = SandboxOrchestrator.new
-      result = orchestrator.create_sandbox(sandbox)
+      options = options.is_a?(Hash) ? options : {}
+      # A project's checkout boots from the project's spec, built here so its
+      # secrets' values are read in this process and never enqueued.
+      project = sandbox.app_runtime? ? sandbox.project : nil
+      result =
+        if options["resume"].is_a?(Hash)
+          orchestrator.resume_boot(sandbox, from: options["resume"]["from"].presence, boot_config: project&.boot_spec(sandbox))
+        elsif project
+          orchestrator.create_sandbox(sandbox, boot_config: project.boot_spec(sandbox))
+        elsif (spec = sandbox.app_runtime? && boot_spec(options["boot"]))
+          orchestrator.create_sandbox(sandbox, boot_config: spec)
+        else
+          orchestrator.create_sandbox(sandbox)
+        end
       # From here on the backend runs a sandbox for this session: whatever
       # goes wrong below, the rescue releases it unless the session recorded
       # its handle.
@@ -46,6 +68,7 @@ module ActionAgent
         return
       end
 
+      project&.sandbox_ready!(sandbox, app_models: result[:app_models])
       # Broadcast status update
       broadcast_sandbox_update(sandbox)
     rescue StandardError => e
@@ -65,6 +88,21 @@ module ActionAgent
 
     private
 
+    # The boot spec a checkout's boot options ask for, or nil to boot it as
+    # its sandbox.yml says. A spec "auto" asked for that cannot be built
+    # (the engine's gems come from a git URL with credentials in it) is
+    # dropped with a warning, so a checkout that bundles the engine still
+    # boots. One asked for with "always" fails the boot with the reason.
+    def boot_spec(boot)
+      boot = boot.is_a?(Hash) ? boot : {}
+      SandboxBootSpec.for_request(boot)
+    rescue SandboxBootSpec::Invalid => e
+      raise "Sandbox boot spec is invalid: #{e.message}" if %w[always true].include?(boot["bootstrap"].to_s)
+
+      Rails.logger.warn("[ActionAgent] not bootstrapping checkouts without the engine: #{e.message}")
+      nil
+    end
+
     def simulate_provisioning(sandbox)
       # Simulate a small delay for provisioning
       sleep(0.5)
@@ -79,7 +117,12 @@ module ActionAgent
     # selection, between creating the session and this job running.
     # checkout_spec answers nil for the first and raises ArgumentError for
     # the second; both mean the same thing to the owner.
+    # A GitHub App installation can also have been unlinked, or found removed
+    # or suspended by an earlier mint.
     def ensure_checkout_available!(sandbox)
+      installation = sandbox.checkout_installation
+      raise reinstall_message(sandbox, installation.removed_at ? :removed : :suspended) if installation && !installation.usable?
+
       available = begin
         sandbox.checkout_spec.present?
       rescue ArgumentError
@@ -88,6 +131,30 @@ module ActionAgent
       return if available
 
       raise "#{sandbox.repository} is no longer available: reconnect GitHub or reselect it in Settings -> Integrations"
+    end
+
+    # The one mint of a provision (see SandboxSession#mint_checkout_spec!).
+    # The token stays on +sandbox+, the object the orchestrator hands the
+    # backend and #secrets_for reads, so the backend clones with exactly the
+    # value this job scrubs.
+    def mint_checkout_token!(sandbox)
+      sandbox.mint_checkout_spec!
+    rescue GithubClient::InstallationUnavailable => e
+      raise reinstall_message(sandbox, e.reason)
+    rescue GithubClient::Error => e
+      raise "Could not get a GitHub token to check out #{sandbox.repository}: #{e.message}"
+    end
+
+    def reinstall_message(sandbox, reason)
+      installation = sandbox.checkout_installation
+      on = installation ? " on #{installation.github_account_login}" : ""
+      if reason == :suspended
+        "The GitHub App installation#{on} is suspended, so #{sandbox.repository} cannot be checked out. " \
+          "Once it is unsuspended on GitHub, use Check again in Settings -> Integrations and start the sandbox again."
+      else
+        "The GitHub App installation#{on} was removed, so #{sandbox.repository} cannot be checked out. " \
+          "Reinstall the GitHub App in Settings -> Integrations and start the sandbox again."
+      end
     end
 
     # Marks the session ready with the backend's endpoint, under a row lock
@@ -134,13 +201,16 @@ module ActionAgent
       return unless sandbox.provisioning?
 
       sandbox.update!(status: :failed, error_message: message)
+      sandbox.project&.sandbox_failed!(sandbox)
       broadcast_sandbox_update(sandbox)
     rescue ActiveRecord::RecordNotFound
       nil
     end
 
-    # What must never reach error_message: the checkout token and the Claude
-    # Code credential this session boots with.
+    # What must never reach error_message: the checkout token, the Claude
+    # Code credential this session boots with, and its project's secrets.
+    # Reads the checkout without minting, so a GitHub App checkout
+    # contributes the token this job minted.
     def secrets_for(sandbox)
       return [] if sandbox.nil?
 
@@ -149,16 +219,13 @@ module ActionAgent
       rescue StandardError
         nil
       end
-      [ spec&.dig(:token), *sandbox.runtime_environment.values ].compact
+      [ spec&.dig(:token), *sandbox.runtime_environment.values, *sandbox.project_scrub_values ].compact
     rescue StandardError
       []
     end
 
     def broadcast_sandbox_update(sandbox)
-      ActionCable.server.broadcast(
-        "sandbox_#{sandbox.session_id}",
-        { type: "status_update", sandbox: sandbox.summary }
-      )
+      LiveUpdates.broadcast("sandbox_#{sandbox.session_id}", type: "status_update", id: sandbox.session_id, status: sandbox.status)
     end
   end
 end

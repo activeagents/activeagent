@@ -544,6 +544,7 @@ module ActionAgent
           action_prompts: [ :name, :prompt, :expose_as_tool ],
           instruction_sets: [],
           tools: [],
+          approval_required_tools: [],
           model_config: {},
           response_format: {}
         )

@@ -8,6 +8,7 @@ import {
 } from '../../utils/evaluationRuns.mjs';
 import ModelScorecard from './evaluations/ModelScorecard';
 import ModelComparisonTable from './evaluations/ModelComparisonTable';
+import ReplayLink from './replay/ReplayLink';
 
 // The panels a scenario suite's expanded body is built from — Models, the
 // scenario matrix and a scenario's drill-down, What to fix — plus the
@@ -679,6 +680,9 @@ function ResultCard({ label, run, result, expects, running }) {
     <>
       <Badge tone={statusTone}>{result.score == null ? result.status : `${result.status} · ${fmtScore(result.score)}`}</Badge>
       {meta && <span style={{ marginLeft: 'auto', ...mono(11) }} title={resultCostTitle(result)}>{meta}</span>}
+      {result.agent_run_id && (
+        <ReplayLink kind="scenario_result" id={result.id} title="Replay this scenario's run" testId="scenario-result-replay" style={meta ? undefined : { marginLeft: 'auto' }} />
+      )}
     </>
   );
 }

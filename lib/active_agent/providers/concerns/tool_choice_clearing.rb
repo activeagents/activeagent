@@ -16,26 +16,41 @@ module ActiveAgent
     module ToolChoiceClearing
       extend ActiveSupport::Concern
 
+      included do
+        # Whether this generation has cleared a forced tool_choice. A paused
+        # generation's checkpoint records it, since a resumed generation
+        # casts its request, tool_choice included, from the action again.
+        attr_internal :tool_choice_cleared
+      end
+
       # @api private
       def prepare_prompt_request_tools
-        return unless request.tool_choice
+        # Once cleared, tool_choice is not read again: the Anthropic SDK's
+        # request model raises when its tool_choice is read back as nil.
+        return if tool_choice_cleared || !request.tool_choice
 
         functions_used = extract_used_function_names
 
         # Clear if forcing required and any tool was used
         if tool_choice_forces_required? && functions_used.any?
-          request.tool_choice = nil
+          clear_tool_choice
           return
         end
 
         # Clear if forcing specific tool and that tool was used
         forces_specific, tool_name = tool_choice_forces_specific?
         if forces_specific && tool_name && functions_used.include?(tool_name)
-          request.tool_choice = nil
+          clear_tool_choice
         end
       end
 
       private
+
+      # @return [void]
+      def clear_tool_choice
+        request.tool_choice      = nil
+        self.tool_choice_cleared = true
+      end
 
       # Extracts the list of function names that have been called.
       #

@@ -11,12 +11,22 @@ module ActionAgent
       # callback that refuses to serve an unauthenticated dashboard outside
       # development, so it bypassed that safeguard too.
 
-      before_action :require_execution_enabled!, only: [ :run, :compare ]
+      # What POST /api/sandboxes takes for a checkout's boot (see #create).
+      BOOT_OPTIONS = %i[bootstrap start_url keep_on_failure].freeze
+      BOOT_LOG_PAGE_BYTES = 64 * 1024
+      BOOT_LOG_MAX_PAGE_BYTES = 1024 * 1024
+
+      # Declared once per method: Rails replaces an earlier callback for the
+      # same method whatever its `only:`, so a second declaration would ungate
+      # the first one's actions.
+      before_action :require_execution_enabled!, only: [ :run, :compare, :resume_boot ]
       # A checkout runs the owner's code (setup, server): the same gates as
       # running an agent, like MCPServersController#launch.
       before_action :gate_checkout!, only: [ :create ]
-      before_action :enforce_execution_quota!, only: [ :compare ]
-      before_action :set_sandbox, only: [ :show, :run, :destroy ]
+      # A resume runs the checkout's code again, so it answers to the quota,
+      # but continues the boot its create already counted and spends nothing.
+      before_action :enforce_execution_quota!, only: [ :compare, :resume_boot ]
+      before_action :set_sandbox, only: [ :show, :run, :destroy, :boot, :boot_log, :resume_boot ]
 
       # POST /api/sandboxes/compare
       # Run multiple providers in a single sandbox using parallel generation jobs
@@ -88,7 +98,8 @@ module ActionAgent
       # GET /api/sandboxes
       # List available sandbox types and sample tasks, and the caller's own
       # sandboxes (?sandbox_type= narrows them), with what the Settings ->
-      # Integrations view needs to offer Claude Code sessions in a checkout.
+      # Integrations view needs to offer Claude Code sessions and a browser
+      # in a checkout.
       def index
         render json: {
           sandbox_types: SandboxSession::SANDBOX_TYPES,
@@ -98,7 +109,9 @@ module ActionAgent
           sandboxes: listed_sandboxes.map(&:summary),
           code_sessions_supported: code_sessions_supported?,
           codex_sessions_supported: codex_sessions_supported?,
+          pull_requests_supported: pull_requests_supported?,
           codex_connected: owned(ProviderKey).where(provider: "codex").any? { |key| key.runtime_environment.present? },
+          browser_modes: browser_modes,
           **claude_code_status
         }
       end
@@ -116,7 +129,14 @@ module ActionAgent
 
       # POST /api/sandboxes
       # Create a new sandbox session, owned by whoever opened it.
+      #
+      # A checkout also takes how it boots (see SandboxBootSpec.request_options):
+      # `bootstrap` ("auto", "always" or "never"), `start_url` and
+      # `keep_on_failure`.
       def create
+        boot = checkout_requested? ? boot_options : nil
+        return if performed?
+
         @sandbox = SandboxSession.new(sandbox_params)
         # Guarded: the association only exists when the host app configured a
         # user model, and a single-user install configures none.
@@ -127,7 +147,7 @@ module ActionAgent
         @sandbox.agent_template = AgentTemplate.find_by(slug: params[:template_slug]) if params[:template_slug]
 
         if @sandbox.save
-          @sandbox.provision!
+          @sandbox.provision!(boot: boot)
           @sandbox.reload # Reload to get updated status after provisioning
           # Counted once the checkout exists, as MCPServersController#launch
           # counts a launched server.
@@ -188,6 +208,84 @@ module ActionAgent
         }, status: :accepted
       end
 
+      # GET /api/sandboxes/:session_id/boot
+      # How a checkout's boot went, step by step (see
+      # SandboxOrchestrator#boot_status). `boot` is null when the backend
+      # reports no steps, or holds nothing for the sandbox.
+      def boot
+        orchestrator = SandboxOrchestrator.new
+        status = @sandbox.app_runtime? && orchestrator.supports?(:boot_status) ? orchestrator.boot_status(@sandbox) : nil
+        # A project's checkout booted with its secrets, which the backend may
+        # not know to mask.
+        status = SecretScrubber.scrub(status, @sandbox.project_scrub_values) if status
+        render json: {
+          boot: status,
+          resumable: !!(status&.dig(:kept) && @sandbox.failed? && !@sandbox.past_expiry? && orchestrator.supports?(:resume_boot)),
+          logs: @sandbox.app_runtime? && orchestrator.supports?(:boot_log)
+        }
+      end
+
+      # GET /api/sandboxes/:session_id/boot_log?step=NAME&offset=N&limit=N
+      # One page of a boot step's log, scrubbed (see
+      # SandboxOrchestrator#boot_log). Read on from `next_offset` until
+      # `eof`.
+      def boot_log
+        orchestrator = SandboxOrchestrator.new
+        unless @sandbox.app_runtime? && orchestrator.supports?(:boot_log)
+          return render json: { error: "This sandbox backend keeps no boot logs" }, status: :not_found
+        end
+
+        step = params[:step]
+        return render json: { error: "step is required" }, status: :bad_request unless step.is_a?(String) && step.present?
+
+        project_secrets = @sandbox.project_scrub_values
+        page = orchestrator.boot_log(@sandbox, step: step, offset: clamped_param(:offset, default: 0, min: 0, max: 2**62),
+          limit: clamped_param(:limit, default: BOOT_LOG_PAGE_BYTES, min: 1, max: BOOT_LOG_MAX_PAGE_BYTES), secrets: project_secrets)
+        return render json: { error: "No log for step #{step}" }, status: :not_found if page.nil?
+
+        render json: project_secrets.any? ? page.merge(text: SecretScrubber.scrub(page[:text], project_secrets)) : page
+      end
+
+      # POST /api/sandboxes/:session_id/resume_boot
+      # Continues a checkout whose boot failed and was kept (`keep_on_failure`),
+      # from the step named `from`, or from the one that failed. The sandbox
+      # is provisioning again, and is polled until ready or failed as after
+      # #create.
+      def resume_boot
+        orchestrator = SandboxOrchestrator.new
+        unless @sandbox.app_runtime? && orchestrator.supports?(:resume_boot)
+          return render json: { error: "This sandbox backend cannot resume a boot" }, status: :unprocessable_entity
+        end
+
+        from = params[:from]
+        unless from.nil? || from.is_a?(String)
+          return render json: { error: "from must be a step name" }, status: :bad_request
+        end
+
+        status = orchestrator.boot_status(@sandbox) if orchestrator.supports?(:boot_status)
+        if orchestrator.supports?(:boot_status) && !status&.dig(:kept)
+          return render json: { error: "This sandbox kept no failed boot to resume: start it again", sandbox: @sandbox.summary },
+            status: :unprocessable_entity
+        end
+
+        # Refused here rather than by the backend, whose refusal would fail
+        # the sandbox again and replace the error the failed boot left.
+        steps = status&.dig(:resumable_steps)
+        if from.present? && steps.is_a?(Array) && !steps.include?(from)
+          return render json: { error: "#{from.inspect} is not a step this boot can resume from (#{steps.join(", ")})" },
+            status: :unprocessable_entity
+        end
+
+        unless @sandbox.resume_boot!(from: from)
+          return render json: {
+            error: "Only a failed checkout that has not expired can be resumed: start it again",
+            sandbox: @sandbox.summary
+          }, status: :unprocessable_entity
+        end
+
+        render json: { sandbox: @sandbox.reload.summary }, status: :accepted
+      end
+
       # DELETE /api/sandboxes/:session_id
       # End sandbox session. Expiring it enqueues SandboxCleanupJob, which
       # terminates whatever the backend runs for it (a checkout's processes
@@ -206,6 +304,22 @@ module ActionAgent
 
       def checkout_requested?
         params[:sandbox_type].to_s == "app_runtime"
+      end
+
+      # A checkout's boot options, or a rendered 422 when they are malformed
+      # or ask for a bootstrap the backend cannot do.
+      def boot_options
+        raw = params.slice(*BOOT_OPTIONS).permit(*BOOT_OPTIONS).to_h.symbolize_keys
+        options = SandboxBootSpec.request_options(**raw)
+        if options["bootstrap"] == "always" && !SandboxOrchestrator.new.accepts_boot_config?
+          render json: { errors: [ "This sandbox backend cannot bootstrap a checkout" ] }, status: :unprocessable_entity
+          return
+        end
+
+        options
+      rescue SandboxBootSpec::Invalid => e
+        render json: { errors: [ e.message ] }, status: :unprocessable_entity
+        nil
       end
 
       # A checkout runs on its account's GitHub token and Claude Code
@@ -236,8 +350,25 @@ module ActionAgent
         false
       end
 
+      # The modes a checkout's browser can start in on the configured
+      # backend (SandboxBrowser): none when it runs no browsers, or cannot be
+      # loaded.
+      def browser_modes
+        SandboxOrchestrator.new.browser_modes.map(&:to_s)
+      rescue StandardError, LoadError
+        []
+      end
+
       def codex_sessions_supported?
         SandboxOrchestrator.new.supports_code_runner?("codex")
+      rescue StandardError, LoadError
+        false
+      end
+
+      # Whether the configured backend can read a checkout's changes, which
+      # opening a pull request and downloading a patch both need.
+      def pull_requests_supported?
+        SandboxOrchestrator.new.reads_checkouts?
       rescue StandardError, LoadError
         false
       end
@@ -274,7 +405,7 @@ module ActionAgent
       # An app_runtime sandbox also names the checkout: one of the owner's
       # selected GitHub repositories and, optionally, a ref.
       def sandbox_params
-        params.permit(:sandbox_type, :repository, :repository_ref)
+        params.slice(:sandbox_type, :repository, :repository_ref).permit(:sandbox_type, :repository, :repository_ref)
       end
 
       def free_tier_templates

@@ -1,0 +1,79 @@
+# frozen_string_literal: true
+
+# Projects: a repository the dashboard boots in a checkout sandbox, the
+# secrets that boot needs, and the agent and evaluation the project tests the
+# booted app with. A sandbox session records the project it was booted for.
+#
+# Table names follow ActionAgent.table_name_prefix, and JSON columns are
+# jsonb on PostgreSQL and json elsewhere, the same way as
+# create_active_agent_dashboard_tables.
+class CreateActiveAgentProjects < ActiveRecord::Migration[7.2]
+  def change
+    prefix = ActionAgent.table_name_prefix
+
+    create_table "#{prefix}projects" do |t|
+      t.string :name, null: false
+      # owner/name on GitHub, and the ref a boot checks out (the repository's
+      # default branch when blank).
+      t.string :repository, null: false
+      t.string :default_ref
+      t.string :start_url, null: false, default: "/"
+      t.string :status, null: false, default: "draft"
+      # detected: the repository does not bundle the engine; bootstrapped: a
+      # sandbox installed it; installed: the repository bundles it already.
+      t.string :install_state, null: false, default: "detected"
+      t.bigint :current_sandbox_session_id
+      t.bigint :target_agent_id
+      t.bigint :evaluation_id
+      t.column :settings, json_type, **json_default({})
+      t.bigint :account_id
+      t.bigint :user_id
+      t.timestamps
+      t.index :account_id
+      t.index :user_id
+      t.index :current_sandbox_session_id
+      t.index :target_agent_id
+    end
+
+    create_table "#{prefix}project_secrets" do |t|
+      t.bigint :project_id, null: false
+      t.string :name, null: false
+      # Encrypted at rest (text: ciphertext is longer than the value). Empty
+      # for a secret that uses the organization's provider key instead.
+      t.text :value
+      t.string :source, null: false, default: "entered"
+      t.string :provider
+      t.datetime :consented_at
+      t.bigint :set_by_id
+      t.bigint :account_id
+      t.bigint :user_id
+      t.timestamps
+      t.index [ :project_id, :name ], unique: true
+      t.index :account_id
+      t.index :user_id
+    end
+
+    change_table "#{prefix}sandbox_sessions" do |t|
+      t.bigint :project_id
+      t.index :project_id
+    end
+  end
+
+  private
+
+  def json_type
+    @json_type ||= postgres? ? :jsonb : :json
+  end
+
+  # MySQL rejects a default on a JSON column outright, so the column is
+  # created without one there.
+  def json_default(value, null: nil)
+    return {} unless postgres?
+
+    null.nil? ? { default: value } : { default: value, null: null }
+  end
+
+  def postgres?
+    connection.adapter_name.to_s.downcase.include?("postgres")
+  end
+end

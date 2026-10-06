@@ -9,8 +9,10 @@ import InteractionStream, { roleBubble } from './InteractionStream';
 import ContextMeter, { contextWindowFor, estimateTokens } from './ContextMeter';
 import TraceSpanBar from './TraceSpanBar';
 import TraceDetail from './TraceDetail';
+import NeedsInputLane from './NeedsInputLane';
 import { formatDuration } from './SpanWaterfall';
 import { dashboardPath } from '../../utils/dashboardPath';
+import ReplayLink from './replay/ReplayLink';
 import {
   Chevron,
   META_COLUMN,
@@ -428,6 +430,8 @@ export default function InteractionsView({ agentId = null, embedded = false }) {
         </div>
       </div>
 
+      <NeedsInputLane agentId={agentId} />
+
       {loadError && (
         <div className="p-3 rounded-lg text-sm" style={{ background: darkMode ? 'rgba(239,68,68,0.1)' : '#fef2f2', color: '#ef4444' }}>
           Failed to load interactions: {loadError}
@@ -639,6 +643,9 @@ export default function InteractionsView({ agentId = null, embedded = false }) {
                         },
                       ]}
                     />
+                    {session.source !== 'telemetry' && (
+                      <ReplayLink kind="context" id={session.id} title="Replay this conversation" />
+                    )}
                     <Chevron open={isExpanded} darkMode={darkMode} />
                   </div>
                 </div>

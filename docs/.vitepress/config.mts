@@ -101,10 +101,12 @@ export default defineConfig({
           { text: 'Instrumentation', link: '/framework/instrumentation' },
           { text: 'Telemetry', link: '/framework/telemetry' },
           { text: 'Dev Console (Dashboard Engine)', link: '/framework/dashboard' },
+          { text: 'Browser Sessions', link: '/framework/browser-sessions' },
           { text: 'Evaluations', link: '/framework/evaluations' },
           { text: 'Self-Hosted Dashboard', link: '/framework/self-hosted-observability' },
           { text: 'Dashboard for RubyLLM Apps', link: '/framework/ruby_llm_dashboard' },
           { text: 'Retries', link: '/framework/retries' },
+          { text: 'Asking the User', link: '/framework/input_requests' },
           { text: 'Rails Integration', link: '/framework/rails' },
           { text: 'Testing', link: '/framework/testing' },
         ]
@@ -161,6 +163,11 @@ export default defineConfig({
           { text: 'Data Extraction', link: '/examples/data_extraction_agent' },
           // { text: 'Translation', link: '/examples/translation-agent' },
           { text: 'SolidAgent Examples', link: '/solid_agent/examples' },
+        ]
+      },
+      { text: 'Demos',
+        items: [
+          { text: 'Conference Ticket Handoff', link: '/demos/sfruby-conf-ticket-handoff' },
         ]
       },
       { text: 'Contributing',

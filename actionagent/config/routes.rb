@@ -71,6 +71,15 @@ ActionAgent::Engine.routes.draw do
       end
     end
 
+    # What paused runs are waiting on a person for, and the answers that
+    # resume them.
+    resources :input_requests, only: [ :index ] do
+      member do
+        post :answer
+        post :decline
+      end
+    end
+
     # Sandboxes. The engine ships the in-memory and local backends; an
     # operator registers the rest (see ActionAgent.sandbox_backends).
     resources :sandboxes, param: :id, only: [ :index, :create, :show, :destroy ] do
@@ -79,12 +88,77 @@ ActionAgent::Engine.routes.draw do
       end
       member do
         post :run
+        # A checkout's boot: its steps, a step's log, and continuing a
+        # failed boot the backend kept.
+        get :boot
+        get :boot_log
+        post :resume_boot
       end
       # Claude Code sessions in an app_runtime sandbox's checkout.
       resources :code_sessions, only: [ :index, :create, :show ] do
         member do
           post :cancel
         end
+      end
+      # The checkout's browser (SandboxBrowser), and tickets into its live view.
+      resource :browser, only: [ :show, :create, :destroy ], controller: "sandbox_browsers" do
+        resources :tickets, only: [ :create ], controller: "sandbox_browser_tickets"
+      end
+
+      # A pull request opened from the checkout's changes, its preview, and
+      # the patch to download instead.
+      resource :pull_request, only: [ :show, :create ], controller: "draft_pull_requests" do
+        post :preview
+        get :patch
+      end
+    end
+
+    # Projects: a repository booted in a checkout sandbox and evaluated,
+    # with the secrets its boot needs (names only in responses).
+    resources :projects, only: [ :index, :show, :create, :update, :destroy ] do
+      collection do
+        get :capabilities
+        get :preflight
+        get :discover_secrets
+      end
+      member do
+        post :boot
+        get :boot, action: :boot_status
+        get :boot_log
+        get :synced_agents
+        patch :target
+        post :run_evaluation
+      end
+      put :secrets, to: "project_secrets#upsert"
+      resources :secrets, controller: "project_secrets", only: [ :index, :update, :destroy ], param: :name
+      # The setup assistant, the requests for input waiting on the project's
+      # agents, and the models the App assistant may read.
+      post :setup, to: "project_setup#start"
+      patch :setup, to: "project_setup#update"
+      get :input_requests, to: "project_setup#input_requests"
+      get :app_models, to: "project_setup#app_models"
+      put :schema_tools, to: "project_setup#schema_tools"
+      # The pull request that installs the engine in the repository.
+      resource :install_pull_request, only: [ :show, :create ], controller: "project_install_pull_requests" do
+        post :preview
+        get :patch
+      end
+
+      # The explorer agent's start, and how the project's browser signs in.
+      resources :explorations, controller: "project_explorations", only: [ :create ]
+      resource :sign_in, controller: "project_sign_ins", only: [ :show, :update, :destroy ] do
+        post :check
+        post :save_browser
+      end
+    end
+
+    # Explorations: candidate scenarios found by walking a project's app,
+    # reviewed and accepted into its evaluation (see Exploration).
+    resources :explorations, only: [ :index, :show, :create ] do
+      member do
+        post :accept
+        post :stop
+        patch "candidates/:candidate_id", action: :update_candidate, as: :candidate
       end
     end
 
@@ -108,8 +182,17 @@ ActionAgent::Engine.routes.draw do
       end
     end
 
-    resources :session_recordings, only: [ :index, :show, :destroy ] do
+    # create is the Run Agent workbench's recording of a conversation.
+    resources :session_recordings, only: [ :index, :show, :create, :destroy ] do
       member do
+        # A recorder holding the recording's ingest token posts its events
+        # here without a dashboard session; any other post is a dashboard
+        # session's, checked for forgery like the rest of the API.
+        post :events, to: "recording_event_ingest#create",
+          constraints: ->(request) { request.authorization.to_s.match?(/\ABearer\s/i) }
+        post :events, action: :create_events
+        get :events
+        get :timeline
         get :actions
         get "snapshot/:action_id", action: :snapshot, as: :snapshot
         post :export
@@ -122,6 +205,12 @@ ActionAgent::Engine.routes.draw do
         post :start_user_session
       end
     end
+
+    # The sessions a caller can replay, and the timeline of a conversation,
+    # a run or an evaluation scenario's replay, with or without a recording.
+    get "sessions", to: "sessions#index", as: :sessions
+    get "sessions/:kind/:id/timeline", to: "sessions#timeline", as: :session_timeline,
+      constraints: { kind: /context|run|scenario_result/ }
 
     resource :analytics, only: [], controller: "analytics" do
       get "/", action: :index
@@ -172,6 +261,24 @@ ActionAgent::Engine.routes.draw do
       get :callback
     end
 
+    # The owner's GitHub App installations: install sends the admin to GitHub,
+    # which returns to callback; each installation's repositories are chosen
+    # with PATCH, and DELETE unlinks one (the App stays installed on GitHub).
+    resources :github_installations, only: [ :index, :update, :destroy ] do
+      collection do
+        get :install
+        get :callback
+      end
+      member do
+        get :repositories
+      end
+    end
+
+    # Creating the GitHub App from a manifest on a self-hosted dashboard.
+    resource :github_app_manifest, only: [ :create ] do
+      get :callback
+    end
+
     # Model catalogs for the agent builder (Ollama queried live from the
     # configured host; hosted providers curated).
     resources :provider_models, only: [ :index ]
@@ -181,6 +288,14 @@ ActionAgent::Engine.routes.draw do
     # against a plan answers through ActionAgent.usage_resolver, and a bare
     # mount reports unlimited rather than 404.
     resource :usage, only: [ :show ], controller: "usage"
+
+    # The Organization view's Team Members table. The host lists them
+    # through ActionAgent.members_resolver; without one it is the signed-in
+    # user alone.
+    resources :members, only: [ :index ]
+
+    # The owner's trace ingest key, read by the Organization view.
+    resource :telemetry_key, only: [ :show ], controller: "telemetry_keys"
   end
 
   # The account's agents presented as an authenticated MCP server (tools +
@@ -201,6 +316,10 @@ ActionAgent::Engine.routes.draw do
   # the catch-all below like any other client-side route.
   match "mcp", to: "api/mcp#unsupported", via: [ :get, :delete ],
     constraints: ->(request) { request.delete? || !ActionAgent::Engine.html_request?(request) }
+
+  # The frame the session player runs in, holding the replay bundle and no
+  # data. See SessionPlayerController.
+  get "session_player", to: "session_player#show", as: :session_player
 
   # Everything else under the mount is a client-side route: render the
   # dashboard and let the browser resolve it. Anchored last so it can only
