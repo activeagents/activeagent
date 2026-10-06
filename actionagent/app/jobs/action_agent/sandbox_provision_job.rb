@@ -155,10 +155,7 @@ module ActionAgent
     end
 
     def broadcast_sandbox_update(sandbox)
-      ActionCable.server.broadcast(
-        "sandbox_#{sandbox.session_id}",
-        { type: "status_update", sandbox: sandbox.summary }
-      )
+      LiveUpdates.broadcast("sandbox_#{sandbox.session_id}", type: "status_update", id: sandbox.session_id, status: sandbox.status)
     end
   end
 end

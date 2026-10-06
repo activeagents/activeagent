@@ -116,6 +116,22 @@ module ActionAgent
         render json: { error: "No account" }, status: :unauthorized
       end
 
+      # Returns whether the signed-in user may perform +action+ (one of
+      # ActionAgent::PERMISSION_ACTIONS) on +subject+, per
+      # ActionAgent.permission_checker. When not, renders the refusal first,
+      # so a caller returns unless this is true.
+      def authorize_action!(action, subject)
+        return true if ActionAgent.permitted?(current_user, action, subject)
+
+        permission_denied(action)
+        false
+      end
+
+      def permission_denied(action)
+        render json: { error: "You do not have permission to do this", code: "forbidden", permission: action },
+          status: :forbidden
+      end
+
       # Asks the host app whether this owner may do +kind+ (:execution or
       # :trace_ingest). Unlimited unless the app said otherwise.
       def enforce_quota!(kind)

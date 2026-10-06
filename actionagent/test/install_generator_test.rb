@@ -22,6 +22,10 @@ class ActionAgentInstallGeneratorTest < Rails::Generators::TestCase
     create_active_agent_evaluation_scenarios
   ].freeze
 
+  # The numbered migration templates the engine ships, as
+  # [template path, migration name] pairs.
+  NUMBERED = ActionAgent::InstallGenerator.numbered_migrations.freeze
+
   test "a fresh install creates evaluation runs with the report identity and emits the upgrade after them" do
     run_generator [ "--skip-routes" ]
 
@@ -66,7 +70,7 @@ class ActionAgentInstallGeneratorTest < Rails::Generators::TestCase
     assert_migration "db/migrate/create_active_agent_github_connections.rb"
     assert_migration "db/migrate/create_active_agent_code_sessions.rb"
     assert_migration "db/migrate/add_code_session_runner.rb"
-    assert_equal EARLIER_MIGRATIONS.size + 6, Dir[File.join(destination_root, "db/migrate/*.rb")].size
+    assert_equal EARLIER_MIGRATIONS.size + 6 + NUMBERED.size, Dir[File.join(destination_root, "db/migrate/*.rb")].size
   end
 
   test "a fresh install emits the Claude Code sessions table with the dashboard's" do
@@ -97,7 +101,7 @@ class ActionAgentInstallGeneratorTest < Rails::Generators::TestCase
     assert_migration "db/migrate/create_active_agent_code_sessions.rb"
     emitted = Dir.children(migrate).reject { |file| file.start_with?("202501010000") }
     assert_migration "db/migrate/add_code_session_runner.rb"
-    assert_equal 2, emitted.size, "only the missing migrations are emitted: #{emitted.inspect}"
+    assert_equal 2 + NUMBERED.size, emitted.size, "only the missing migrations are emitted: #{emitted.inspect}"
     assert_equal 1, Dir.glob(File.join(migrate, "*_create_active_agent_github_connections.rb")).size
   end
 
@@ -161,7 +165,107 @@ class ActionAgentInstallGeneratorTest < Rails::Generators::TestCase
     end
   end
 
+  test "a fresh install emits every shipped numbered template after the dashboard tables" do
+    run_generator [ "--skip-routes" ]
+
+    NUMBERED.each do |_template, name|
+      assert_migration "db/migrate/#{name}.rb"
+      assert_operator migration_version(name), :>, migration_version("add_code_session_runner"),
+        "#{name} must run after every migration emitted before the numbered templates"
+    end
+    assert_equal NUMBERED.map(&:last).uniq.size, NUMBERED.size, "two numbered templates share a migration name"
+    numbers = NUMBERED.map { |template, _name| File.basename(template)[0, 3] }
+    assert_equal numbers.uniq.size, numbers.size, "two numbered templates share a number"
+  end
+
+  test "numbered templates are emitted in number order, with their ERB rendered" do
+    with_numbered_templates(
+      "002_add_widget_color.rb.erb" => numbered_template("AddWidgetColor"),
+      "001_create_widgets.rb.erb" => numbered_template("CreateWidgets"),
+      "010_add_widget_size.rb.erb" => numbered_template("AddWidgetSize")
+    ) do
+      run_generator [ "--skip-routes" ]
+    end
+
+    assert_migration "db/migrate/create_widgets.rb" do |content|
+      assert_match(/class CreateWidgets < ActiveRecord::Migration\[\d+\.\d+\]/, content)
+    end
+    versions = %w[create_widgets add_widget_color add_widget_size].map { |name| migration_version(name) }
+    assert_equal versions.sort, versions, "emitted in NNN order"
+    assert_operator versions.first, :>, migration_version("create_active_agent_dashboard_tables")
+  end
+
+  test "files in the numbered template directory that break the naming convention are not emitted" do
+    with_numbered_templates(
+      "001_create_widgets.rb.erb" => numbered_template("CreateWidgets"),
+      "7_misnumbered.rb.erb" => numbered_template("Misnumbered"),
+      "002_Capitalized.rb.erb" => numbered_template("Capitalized"),
+      "003_no_extension.rb" => numbered_template("NoExtension"),
+      "README.md" => "notes\n"
+    ) do
+      run_generator [ "--skip-routes" ]
+    end
+
+    assert_migration "db/migrate/create_widgets.rb"
+    emitted = Dir.children(File.join(destination_root, "db/migrate")).map { |file| file.sub(/\A\d+_/, "") }
+    assert_empty emitted & %w[misnumbered.rb Capitalized.rb capitalized.rb no_extension.rb README.md]
+  end
+
+  test "a numbered migration the app already has is not emitted again" do
+    migrate = File.join(destination_root, "db/migrate")
+    FileUtils.mkdir_p(migrate)
+    File.write(File.join(migrate, "20250101000000_create_widgets.rb"), "# already installed\n")
+
+    with_numbered_templates(
+      "001_create_widgets.rb.erb" => numbered_template("CreateWidgets"),
+      "002_add_widget_color.rb.erb" => numbered_template("AddWidgetColor")
+    ) do
+      run_generator [ "--skip-routes" ]
+      run_generator [ "--skip-routes" ]
+    end
+
+    assert_equal [ "20250101000000_create_widgets.rb" ], Dir.glob("*_create_widgets.rb", base: migrate)
+    assert_equal 1, Dir.glob("*_add_widget_color.rb", base: migrate).size
+  end
+
+  test "a traces-only install emits no numbered template" do
+    with_numbered_templates("001_create_widgets.rb.erb" => numbered_template("CreateWidgets")) do
+      run_generator [ "--skip-routes", "--traces-only" ]
+    end
+
+    assert_no_migration "db/migrate/create_widgets.rb"
+  end
+
+  test "a missing numbered template directory emits nothing" do
+    ActionAgent::InstallGenerator.numbered_migrations_path = File.join(destination_root, "no-such-directory")
+
+    assert_equal [], ActionAgent::InstallGenerator.numbered_migrations
+  ensure
+    ActionAgent::InstallGenerator.numbered_migrations_path = nil
+  end
+
   private
+
+  # Points the generator at a directory holding +files+ (name => content)
+  # for the block.
+  def with_numbered_templates(files)
+    Dir.mktmpdir("numbered-migrations") do |dir|
+      files.each { |name, content| File.write(File.join(dir, name), content) }
+      ActionAgent::InstallGenerator.numbered_migrations_path = dir
+      yield
+    ensure
+      ActionAgent::InstallGenerator.numbered_migrations_path = nil
+    end
+  end
+
+  def numbered_template(class_name)
+    <<~ERB
+      class #{class_name} < ActiveRecord::Migration<%= migration_version %>
+        def change
+        end
+      end
+    ERB
+  end
 
   def migration_version(name)
     File.basename(migration_file_name("db/migrate/#{name}.rb")).to_i

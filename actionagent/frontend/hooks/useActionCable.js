@@ -39,6 +39,7 @@ export function useActionCable(channelName, params, onReceived, enabled = true) 
     }
 
     const cable = getConsumer();
+    if (!cable) return undefined;
 
     // Create subscription
     subscriptionRef.current = cable.subscriptions.create(
