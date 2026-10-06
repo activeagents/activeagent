@@ -133,6 +133,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `MCPBridge::TimeoutError` names the server and the request. The handshake
   keeps the `mcp` gem's 5-second bound on its `server/discover` probe instead
   of waiting the full read timeout.
+- **Name conflicting gems in provider load errors** (`activeagent`). Explain
+  when another gem already defines `OpenAI` and show the Gemfile replacement.
+- **Use an explicit OpenRouter key before the environment** (`activeagent`).
+  An `api_key` or `access_token` passed to the OpenRouter provider wins over
+  `OPENROUTER_API_KEY` and the other OpenRouter variables, as it does for the
+  other providers. An explicit `api_key` is no longer dropped when no
+  OpenRouter variable is set. A blank explicit key is also used as given, so a
+  config value that renders as an empty string no longer falls back to the
+  environment; leave the key unset to use the environment.
+- **Use an explicit OpenAI project before the environment** (`activeagent`).
+  A `project` or `project_id` passed to the OpenAI provider wins over
+  `OPENAI_PROJECT_ID`, and an explicit `project_id` is no longer dropped.
 
 ## [1.8.1] - 2026-10-01
 
