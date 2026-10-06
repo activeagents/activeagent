@@ -672,9 +672,11 @@ finished must handle. Session Replay is now **Sessions** in the sidebar.
 - **Filter `answer` and `value` from request logs** (`actionagent`). The engine
   adds them to the host's `filter_parameters`, beside `credential`, `api_key`
   and `access_token`, matching only parameters named exactly `answer` or
-  `value`, at any depth. Rails also copies `filter_parameters` into Active
-  Record's `filter_attributes`, so a host model attribute named `answer` or
-  `value` shows as `[FILTERED]` in `inspect` and in logged SQL binds.
+  `value`, at any depth, including under Rails 8.2, which matches a host's
+  precompiled filters against the dotted parameter path. Rails also copies
+  `filter_parameters` into Active Record's `filter_attributes`, so a host
+  model attribute named `answer` or `value` shows as `[FILTERED]` in
+  `inspect` and in logged SQL binds.
 
 - **CI covers ruby_llm 1.16 and 2.x with explicit bundles** (`activeagent`).
   `gemfiles/ruby_llm_2.gemfile` runs the full suite on ruby_llm 2.x beside
