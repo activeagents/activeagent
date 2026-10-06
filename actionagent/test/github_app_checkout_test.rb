@@ -107,7 +107,9 @@ class GithubAppCheckoutTest < ActionDispatch::IntegrationTest
     assert_not_requested :post, mint_url
     session = ActionAgent::SandboxSession.find_by!(session_id: JSON.parse(response.body).dig("sandbox", "session_id"))
     provision = enqueued_jobs.select { |job| job[:job] == ActionAgent::SandboxProvisionJob }.sole
-    assert_equal [ session.id ], provision[:args], "the job is handed the session id and nothing else"
+    assert_equal session.id, provision[:args].first, "the job is handed the session id"
+    assert_equal({ "bootstrap" => "auto", "start_url" => "/", "keep_on_failure" => false },
+      provision[:args].second["boot"].except("_aj_symbol_keys"), "and the boot options, which hold no token")
 
     perform_enqueued_jobs
 

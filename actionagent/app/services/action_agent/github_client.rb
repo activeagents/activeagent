@@ -4,9 +4,9 @@ require "openssl"
 require "base64"
 
 module ActionAgent
-  # The GitHub calls the dashboard makes. Plain Net::HTTP and OpenSSL, like
-  # the provider model lookups, so the engine carries no GitHub SDK and no
-  # JWT library.
+  # The GitHub calls the dashboard makes, including reading a repository's
+  # files without cloning it. Plain Net::HTTP and OpenSSL, like the provider
+  # model lookups, so the engine carries no GitHub SDK and no JWT library.
   #
   # Two kinds of credential reach it:
   #
@@ -15,9 +15,6 @@ module ActionAgent
   #     installation token.
   #   - The class methods that act as the GitHub App sign a JWT with the
   #     App's private key (ActionAgent.github_app_private_key) per request.
-  #
-  # It also reads a repository without cloning it: one repository, a file's
-  # content, the commit a ref names and the tree of a ref, for projects.
   class GithubClient
     API = "https://api.github.com"
     WEB = "https://github.com"
@@ -163,7 +160,8 @@ module ActionAgent
         raise NotFound.new("GitHub found nothing at #{uri.path}", status: status) if [ 404, 409 ].include?(status)
         unless status.between?(200, 299)
           body = error_body(response)
-          raise Error.new(refusal_message(response.code, body), status: status, errors: Array(body["errors"]).grep(Hash))
+          error = [ 404, 409 ].include?(status) ? NotFound : Error
+          raise error.new(refusal_message(response.code, body), status: status, errors: Array(body["errors"]).grep(Hash))
         end
 
         JSON.parse(response.body.presence || "{}")
@@ -266,6 +264,52 @@ module ActionAgent
       end
     end
 
+    # One repository the token reaches, by owner/name, sliced like
+    # #repositories; nil when GitHub finds none. Reaches repositories past
+    # the listing's cap.
+    def repository(full_name)
+      self.class.slice_repository(get(repository_path(full_name)))
+    rescue NotFound
+      nil
+    end
+
+    # The content of +path+ in +full_name+ at +ref+, or nil when there is no
+    # file there or it is larger than MAX_FILE_BYTES.
+    #
+    # @return [String, nil] UTF-8, invalid bytes replaced
+    def file(full_name, path, ref: nil)
+      encoded = path.to_s.split("/").map { |segment| ERB::Util.url_encode(segment) }.join("/")
+      data = get("#{repository_path(full_name)}/contents/#{encoded}", ref.present? ? { ref: ref } : {})
+      return nil unless data.is_a?(Hash) && data["type"] == "file" && data["encoding"] == "base64"
+      return nil if data["size"].to_i > MAX_FILE_BYTES
+
+      data["content"].to_s.unpack1("m").force_encoding(Encoding::UTF_8).scrub
+    rescue NotFound
+      nil
+    end
+
+    # The SHA of the commit +ref+ (a branch, tag or commit; the default
+    # branch when nil) names in +full_name+, or nil when there is none.
+    def commit_sha(full_name, ref)
+      query = { per_page: 1 }
+      query[:sha] = ref if ref.present?
+      commit = Array(get("#{repository_path(full_name)}/commits", query)).first
+      commit.is_a?(Hash) ? commit["sha"].presence : nil
+    rescue NotFound
+      nil
+    end
+
+    # Every file path in +full_name+ at +ref+, with its size:
+    # { paths: [{ path:, size: }], truncated: }. GitHub truncates the
+    # listing of a very large repository.
+    def tree(full_name, ref:)
+      data = get("#{repository_path(full_name)}/git/trees/#{ERB::Util.url_encode(ref.to_s)}", recursive: 1)
+      paths = Array(data["tree"]).filter_map do |entry|
+        { path: entry["path"].to_s, size: entry["size"].to_i } if entry.is_a?(Hash) && entry["type"] == "blob"
+      end
+      { paths: paths, truncated: data["truncated"] == true }
+    end
+
     # The GitHub App's installations a GitHub App user token's user can
     # reach, as GitHub describes them (id, account, repository_selection,
     # permissions, suspended_at).
@@ -352,52 +396,6 @@ module ActionAgent
 
     def pull_request(repository, number)
       get("#{repository_path(repository)}/pulls/#{Integer(number)}")
-    end
-
-    # One repository the token reaches, by owner/name, sliced like
-    # #repositories; nil when GitHub finds none. Reaches repositories past
-    # the listing's cap.
-    def repository(full_name)
-      self.class.slice_repository(get(repository_path(full_name)))
-    rescue NotFound
-      nil
-    end
-
-    # The content of +path+ in +full_name+ at +ref+, or nil when there is no
-    # file there or it is larger than MAX_FILE_BYTES.
-    #
-    # @return [String, nil] UTF-8, invalid bytes replaced
-    def file(full_name, path, ref: nil)
-      encoded = path.to_s.split("/").map { |segment| ERB::Util.url_encode(segment) }.join("/")
-      data = get("#{repository_path(full_name)}/contents/#{encoded}", ref.present? ? { ref: ref } : {})
-      return nil unless data.is_a?(Hash) && data["type"] == "file" && data["encoding"] == "base64"
-      return nil if data["size"].to_i > MAX_FILE_BYTES
-
-      data["content"].to_s.unpack1("m").force_encoding(Encoding::UTF_8).scrub
-    rescue NotFound
-      nil
-    end
-
-    # The SHA of the commit +ref+ (a branch, tag or commit; the default
-    # branch when nil) names in +full_name+, or nil when there is none.
-    def commit_sha(full_name, ref)
-      query = { per_page: 1 }
-      query[:sha] = ref if ref.present?
-      commit = Array(get("#{repository_path(full_name)}/commits", query)).first
-      commit.is_a?(Hash) ? commit["sha"].presence : nil
-    rescue NotFound
-      nil
-    end
-
-    # Every file path in +full_name+ at +ref+, with its size:
-    # { paths: [{ path:, size: }], truncated: }. GitHub truncates the
-    # listing of a very large repository.
-    def tree(full_name, ref:)
-      data = get("#{repository_path(full_name)}/git/trees/#{ERB::Util.url_encode(ref.to_s)}", recursive: 1)
-      paths = Array(data["tree"]).filter_map do |entry|
-        { path: entry["path"].to_s, size: entry["size"].to_i } if entry.is_a?(Hash) && entry["type"] == "blob"
-      end
-      { paths: paths, truncated: data["truncated"] == true }
     end
 
     private

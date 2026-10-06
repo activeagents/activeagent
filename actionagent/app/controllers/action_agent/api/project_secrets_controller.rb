@@ -7,7 +7,8 @@ module ActionAgent
     # :manage_project_secrets, and using the organization's provider key
     # :manage_credentials as well (see ProjectSecretAuthorization). A name
     # the sandbox sets itself, or one that changes how code is loaded, is
-    # refused with 422 (see ProjectSecret).
+    # refused with 422 (see ProjectSecret), and so is a source a person
+    # cannot give (ProjectSecretAuthorization#secret_sources_allowed!).
     class ProjectSecretsController < BaseController
       include ProjectSecretAuthorization
 
@@ -30,6 +31,8 @@ module ActionAgent
           return render json: { error: "secrets must be a list of { name:, value: }" }, status: :bad_request
         end
 
+        return unless secret_sources_allowed!(entries)
+
         records = entries.map { |entry| assign(entry) }
         return unless records.all? { |record| authorize_secret!(record) }
 
@@ -40,6 +43,8 @@ module ActionAgent
       # PUT /api/projects/:project_id/secrets/:name { value: } or
       # { source: "organization_key", consent: true }
       def update
+        return unless secret_sources_allowed!([ params ])
+
         record = assign(params)
         return unless authorize_secret!(record)
 

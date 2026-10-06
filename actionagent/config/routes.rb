@@ -131,6 +131,18 @@ ActionAgent::Engine.routes.draw do
       end
       put :secrets, to: "project_secrets#upsert"
       resources :secrets, controller: "project_secrets", only: [ :index, :update, :destroy ], param: :name
+      # The setup assistant, the requests for input waiting on the project's
+      # agents, and the models the App assistant may read.
+      post :setup, to: "project_setup#start"
+      patch :setup, to: "project_setup#update"
+      get :input_requests, to: "project_setup#input_requests"
+      get :app_models, to: "project_setup#app_models"
+      put :schema_tools, to: "project_setup#schema_tools"
+      # The pull request that installs the engine in the repository.
+      resource :install_pull_request, only: [ :show, :create ], controller: "project_install_pull_requests" do
+        post :preview
+        get :patch
+      end
     end
 
     # Explorations: candidate scenarios found by walking a project's app,

@@ -282,4 +282,30 @@ class SandboxBootSpecTest < ActiveSupport::TestCase
     assert_not_includes created.to_json, SECRET
     assert_nil ActionAgent::MockSandboxBackend.new.create_sandbox(session)[:boot_config]
   end
+
+  test "an always step runs whether the spec applies or not, so it cannot hang on the checkout's lock" do
+    step = { "name" => "write_tools", "command" => "bin/rails runner 1", "always" => true }
+    spec = Spec.new("apply" => "without_engine", "steps" => [ step, { "name" => "install", "command" => "bundle install" } ])
+
+    assert_equal [ "write_tools" ], spec.always_steps.map { |entry| entry["name"] }
+    assert_equal spec.to_h, Spec.wrap(JSON.parse(JSON.generate(spec.to_h))).to_h, "the flag reads back"
+    assert_raises(Spec::Invalid) { Spec.new("steps" => [ step.merge("always" => "yes") ]) }
+    error = assert_raises(Spec::Invalid) { Spec.new("steps" => [ step.merge("unless_locked" => "actionagent") ]) }
+    assert_match(/runs always/, error.message)
+  end
+
+  test "a bootstrap holds as many schema tools steps as choices can make" do
+    columns = (1..100).map { |index| "c#{index.to_s.rjust(3, "0")}_#{"x" * 10}" }
+    choices = (1..Spec::MAX_SCHEMA_TOOL_MODELS).map { |index| { "model" => "Model#{index}", "filterable" => columns, "returns" => columns } }
+
+    error = assert_raises(Spec::Invalid) { Spec.schema_tools_steps(choices) }
+    assert_match(/more than #{Spec::MAX_SCHEMA_TOOL_STEPS} boot steps/, error.message)
+
+    fitting = choices.first(Spec::MAX_SCHEMA_TOOL_STEPS)
+    steps = Spec.schema_tools_steps(fitting)
+    assert_equal Spec::MAX_SCHEMA_TOOL_STEPS, steps.size
+    git = { "source" => "git", "uri" => "https://github.com/acme/agents.git", "ref" => "a" * 40 }
+    bootstrap = Spec.bootstrap(engine: { "activeagent" => git, "actionagent" => git }, steps: steps)
+    assert_operator bootstrap.steps.size, :<=, Spec::MAX_STEPS, "the bootstrap with the most steps of its own still fits them"
+  end
 end

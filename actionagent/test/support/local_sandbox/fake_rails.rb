@@ -14,6 +14,10 @@
 #                                   they exist (as --skip does)
 #   generate action_agent:install   writes the initializer and a migration,
 #                                   and mounts the engine
+#   generate active_agent:schema_tools MODEL --filterable … --returns …
+#                                   writes app/agent_tools/<model>_tools.rb
+#                                   declaring those columns, headed by the
+#                                   dashboard's marker with --managed
 #   db:prepare                      writes db/schema.rb
 #   action_agent:sandbox:manifest   writes the runtime manifest
 #   server ...                      runs fake_app_server.rb
@@ -27,6 +31,7 @@
 #   "echo"        a variable whose value db:prepare prints, before it fails
 #                 or does anything else
 #   "root_status" the status the server answers GET / with
+#   "models"      the models the manifest lists
 require "fileutils"
 require "json"
 
@@ -63,11 +68,29 @@ when "generate action_agent:install"
   write_new("db/migrate/20260101000000_create_active_agent_dashboard_tables.rb", "# fixture migration\n")
   routes = File.read("config/routes.rb")
   File.write("config/routes.rb", routes.sub("draw do\n", "draw do\n  mount ActionAgent::Engine => \"/activeagents\"\n"))
+when "generate active_agent:schema_tools"
+  model = ARGV[2]
+  declared = Hash.new { |hash, key| hash[key] = [] }
+  option = nil
+  ARGV.drop(3).each do |word|
+    if word.start_with?("--")
+      option = word.delete_prefix("--")
+    elsif option
+      declared[option] << word
+    end
+  end
+  file = model.gsub("::", "/").gsub(/([a-z\d])([A-Z])/, '\1_\2').downcase
+  path = "app/agent_tools/#{file}_tools.rb"
+  FileUtils.mkdir_p(File.dirname(path))
+  header = ARGV.include?("--managed") ? "# Managed by the ActiveAgent dashboard: fixture\n" : ""
+  File.write(path, "#{header}class #{model}Tools < ActiveAgent::SchemaTools\n  model #{model}\n" \
+    "  filterable #{[ "id", *declared["filterable"] ].map { |name| ":#{name}" }.join(", ")}\n" \
+    "  returns #{[ "id", *declared["returns"] ].map { |name| ":#{name}" }.join(", ")}\nend\n")
 when "db:prepare"
   write_new("db/schema.rb", "# fixture schema\n")
 when "action_agent:sandbox:manifest"
   File.write(ENV.fetch("ACTION_AGENT_SANDBOX_MANIFEST"),
-    JSON.generate("mcp_path" => "/activeagents/mcp", "mcp_token" => "fixture-mcp-token-0123456789"))
+    JSON.generate("mcp_path" => "/activeagents/mcp", "mcp_token" => "fixture-mcp-token-0123456789", "models" => control["models"]))
 when "server"
   ENV["FAKE_APP_ROOT_STATUS"] = control["root_status"].to_s if control["root_status"]
   exec(RbConfig.ruby, File.join(__dir__, "fake_app_server.rb"), "serve")

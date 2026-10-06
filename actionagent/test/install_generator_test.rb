@@ -192,6 +192,15 @@ class ActionAgentInstallGeneratorTest < Rails::Generators::TestCase
     assert_operator migration_version("create_active_agent_explorations"), :>, migration_version("create_active_agent_projects")
   end
 
+  test "every migration a fresh install emits is one a project's install pull request publishes, by name" do
+    run_generator [ "--skip-routes" ]
+
+    pattern = ActionAgent::ProjectInstallPullRequest.new(ActionAgent::Project.new(name: "Shop")).allowlist.grep(Regexp).sole
+    emitted = Dir[File.join(destination_root, "db/migrate/*.rb")].map { |path| "db/migrate/#{File.basename(path)}" }
+    assert_operator emitted.size, :>, NUMBERED.size
+    emitted.each { |path| assert_match pattern, path }
+  end
+
   test "numbered templates are emitted in number order, with their ERB rendered" do
     with_numbered_templates(
       "002_add_widget_color.rb.erb" => numbered_template("AddWidgetColor"),

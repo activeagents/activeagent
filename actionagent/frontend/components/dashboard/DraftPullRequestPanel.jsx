@@ -320,9 +320,13 @@ function DraftPullRequestDialog({ sandbox, pullRequest, publishing, mode, onClos
 //   update  a commit on the pull request's branch, with its message; the
 //           files the branch holds and the update leaves out are named
 //   patch   the patch alone, also whenever publishing is not available
+//
+// `patchHref(paths, title)` gives the patch link's mount-relative path, the
+// sandbox's patch by default. Without `onApplyAllowlist` the paths to read
+// are not editable, as when the server decides them.
 export function DraftPullRequestDialogView({
   sandbox, preview, loading, error, publishing, pullRequest, selection, onToggle, fields, onField, allowlistApplied, onApplyAllowlist,
-  mode, submitting, onSubmit, onCancel,
+  mode, submitting, onSubmit, onCancel, patchHref,
 }) {
   const classes = useClasses();
   const { muted, strong, border, link, secondaryButton, primaryButton, input, errorBox, darkMode } = classes;
@@ -361,7 +365,7 @@ export function DraftPullRequestDialogView({
 
         {preview && (
           <>
-            {(hasUnreadFiles(files) || allowlistApplied) && (
+            {onApplyAllowlist && (hasUnreadFiles(files) || allowlistApplied) && (
               <div className="flex flex-wrap items-end gap-2">
                 <label className={`flex-1 min-w-[16rem] text-xs space-y-1 ${muted}`}>
                   <span>Only read paths matching</span>
@@ -473,7 +477,9 @@ export function DraftPullRequestDialogView({
               <div className="flex items-center gap-3">
                 {chosen.length > 0 && (
                   <a
-                    href={dashboardPath(patchPath(sandbox.session_id, chosen.map((file) => file.path), update ? fields.message : fields.title))}
+                    href={dashboardPath((patchHref || ((paths, title) => patchPath(sandbox.session_id, paths, title)))(
+                      chosen.map((file) => file.path), update ? fields.message : fields.title,
+                    ))}
                     className={`text-sm ${link}`}
                   >
                     Download patch
