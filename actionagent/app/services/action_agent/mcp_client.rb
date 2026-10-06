@@ -119,6 +119,7 @@ module ActionAgent
       request = Net::HTTP::Post.new(@uri.request_uri)
       request["Content-Type"] = "application/json"
       request["Accept"] = "application/json, text/event-stream"
+      request["User-Agent"] = "ActionAgent/#{ActionAgent::VERSION}"
       request["Mcp-Session-Id"] = session if session
       @headers.each { |name, value| request[name.to_s] = value }
       request.body = payload.to_json
