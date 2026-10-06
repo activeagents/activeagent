@@ -9,6 +9,12 @@ module ActionAgent
   # The checked-out app writes it with `bin/rails action_agent:sandbox:manifest`
   # (it mounts this engine, so the task ships with it), and a backend reads it
   # back with .parse. Both halves live here so they cannot drift.
+  #
+  # Writing it also mirrors the checkout's agent classes into its dashboard
+  # (AgentSync), so the facade serves their run_<slug> tools to the key it
+  # names. The key and the agents each belong to the only record of the class
+  # their model is owned through, when there is exactly one (see
+  # .sandbox_owner), and to nobody in an app with no owner model.
   module SandboxManifest
     # Where the manifest task writes, when set; stdout otherwise.
     PATH_ENV = "ACTION_AGENT_SANDBOX_MANIFEST"
@@ -20,11 +26,15 @@ module ActionAgent
     module_function
 
     # Builds the manifest inside the booted app: the engine's MCP path under
-    # wherever the app mounts it, and an API key for the MCP facade.
+    # wherever the app mounts it, and an API key for the MCP facade. Also
+    # syncs the app's agent classes. A class that cannot be synced is
+    # reported on stderr, and the manifest is written regardless.
     #
     # @param routes [ActionDispatch::Routing::RouteSet] the app's routes
+    # @param agent_classes [Array<Class>, nil] what to sync; nil for
+    #   .checkout_agent_classes
     # @return [Hash{String => String}]
-    def generate(routes: Rails.application.routes)
+    def generate(routes: Rails.application.routes, agent_classes: nil)
       # Rails 8 loads routes lazily in development and test; the mount is
       # invisible until they are.
       Rails.application.reload_routes_unless_loaded if Rails.application.respond_to?(:reload_routes_unless_loaded)
@@ -32,15 +42,87 @@ module ActionAgent
       mount = ActiveAgent::Telemetry::Configuration.new.mount_path_in(routes)
       raise Error, "ActionAgent::Engine is not mounted in this app's routes" if mount.nil?
 
-      { "mcp_path" => "#{mount}/mcp", "mcp_token" => api_key.token }
+      key = api_key(sandbox_owner(ActionAgent::ApiKey))
+      sync_agents(agent_classes || checkout_agent_classes, sandbox_owner(ActionAgent::Agent))
+      { "mcp_path" => "#{mount}/mcp", "mcp_token" => key.token }
     end
 
     # The checkout's own dashboard API key for the facade. Reused across
-    # runs so a re-run manifest does not mint a key per boot. A host that
-    # owns keys by account or user gets a key with no owner, which reaches
-    # no agents over MCP — the manifest says so rather than failing.
-    def api_key
-      ActionAgent::ApiKey.find_or_create_by!(name: KEY_NAME)
+    # runs so a re-run manifest does not mint a key per boot. A key without
+    # an owner takes +owner+ when there is one. In an app that owns keys by
+    # account or user and has no single owner, the key has none and reaches
+    # no agents over MCP.
+    def api_key(owner = nil)
+      key = ActionAgent::ApiKey.find_or_initialize_by(name: KEY_NAME)
+      key.owner = owner if owner && key.owner.nil?
+      key.save! if key.new_record? || key.changed?
+      key
+    end
+
+    # The record the checkout's +model+ rows belong to: the only one of the
+    # class +model+ is owned through. The API key and the agents can be owned
+    # through different classes (an account and a user), so each is resolved
+    # on its own. Nil when the app configures no owner class for +model+, and
+    # when that class has no record or several, since a sandbox cannot tell
+    # whose it would be.
+    #
+    # @param model [Class] an Ownable model
+    # @return [ActiveRecord::Base, nil]
+    def sandbox_owner(model)
+      owner_class = owner_class_for(model)
+      return nil if owner_class.nil?
+
+      owners = owner_class.limit(2).to_a
+      owners.first if owners.one?
+    end
+
+    def owner_class_for(model)
+      association = model.owner_association
+      association && ActionAgent.public_send(Ownable::CLASS_FOR.fetch(association)).safe_constantize
+    end
+
+    # The app's own agent classes: those defined under app/agents, except
+    # ApplicationAgent and abstract ones.
+    #
+    # @param root [Pathname] where the app keeps its agents
+    # @return [Array<Class>]
+    def checkout_agent_classes(root = Rails.root.join("app", "agents"))
+      return [] unless defined?(ActiveAgent::Base) && root.directory?
+
+      loader = Rails.autoloaders.main
+      Dir[root.join("**", "*.rb").to_s].sort.each do |path|
+        loader.load_file(path)
+      rescue StandardError, ScriptError => e
+        warn "[ActionAgent] sandbox manifest: could not load #{path}: #{e.class}: #{e.message}"
+      end
+
+      roots = [ root.to_s, File.realpath(root) ].uniq.map { |dir| "#{dir.chomp("/")}/" }
+      ActiveAgent::Base.descendants.select do |klass|
+        next false if klass.name.blank? || klass.abstract? || klass.name == "ApplicationAgent"
+
+        file, = Object.const_source_location(klass.name)
+        file && roots.any? { |dir| file.start_with?(dir) || File.realpath(file).start_with?(dir) }
+      rescue NameError, SystemCallError
+        false
+      end.sort_by(&:name)
+    end
+
+    # Syncs each class on its own, so one that cannot be synced (a provider
+    # gem the checkout lacks, say) leaves the rest synced.
+    def sync_agents(classes, owner)
+      if owner.nil? && ActionAgent::Agent.owner_association
+        warn "[ActionAgent] sandbox manifest: no agents synced: the app owns agents by " \
+          "#{owner_class_for(ActionAgent::Agent)&.name || "an owner model"} and has no single owner for a sandbox to use"
+        return
+      end
+
+      classes.each do |klass|
+        result = ActionAgent::AgentSync.call([ klass ], owner: owner)
+        warn "[ActionAgent] sandbox manifest: could not sync #{klass.name}: #{result.errors}" unless result.success?
+        result.skipped.each { |row| warn "[ActionAgent] sandbox manifest: skipped #{row.skipped}" }
+      rescue StandardError => e
+        warn "[ActionAgent] sandbox manifest: could not sync #{klass.name}: #{e.class}: #{e.message}"
+      end
     end
 
     # Reads a manifest a checkout wrote.
