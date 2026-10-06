@@ -114,17 +114,22 @@ module ActionAgent
   # The privileged actions ActionAgent.permission_checker is asked about:
   #
   #   :manage_credentials     store, test or delete an organization provider
-  #                           credential, or store or test a member's personal
-  #                           Ollama host (the subject is that personal key);
-  #                           a member's other personal keys need none
+  #                           credential, hand the organization's to a
+  #                           project's code, or store or test a member's
+  #                           personal Ollama host (the subject is that
+  #                           personal key); a member's other personal keys
+  #                           need none
   #   :manage_github          connect, disconnect, or choose the repositories of
   #                           the GitHub connection or a GitHub App
   #                           installation; link or unlink an installation;
-  #                           create a GitHub App from a manifest
+  #                           create a GitHub App from a manifest; read a
+  #                           repository the connection has not selected
   #   :manage_api_keys        create or revoke a dashboard API key
   #   :publish_pull_request   open a pull request from a sandbox's changes
   #   :answer_input_request   answer or decline a run's request for input
-  #   :manage_project_secrets set or remove a project's secrets
+  #   :manage_project_secrets set or remove a project's secrets, change the ref
+  #                           they are handed to, or delete a project that has
+  #                           them
   #   :take_over_browser      drive a run's browser by hand
   #   :manage_recordings      delete a session recording
   #   :replace_scenarios      replace or merge an evaluation's scenarios
@@ -327,6 +332,8 @@ module ActionAgent
     #   :trace_ingest      — a POST to <mount>/api/traces; HTTP 429
     #   :evaluation_report — a report <mount>/api/evaluation_reports would
     #                        store (never an identical retry); HTTP 429
+    #   :project           — creating a project; HTTP 402, and usage is
+    #                        recorded under the same kind once it exists
     #
     # The owner of an ingest kind is the tenant the key resolved to, nil on a
     # single-tenant install.

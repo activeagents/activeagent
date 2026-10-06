@@ -13,7 +13,8 @@ module ActionAgent
   #   apply            "always", or "without_engine": only when the checkout
   #                    has a Gemfile.lock that locks no actionagent and its
   #                    sandbox.yml names no manifest. Otherwise the checkout
-  #                    boots exactly as it would without a spec.
+  #                    boots as it would without a spec, with only the
+  #                    spec's secrets added to its sandbox.yml env.
   #   preflight        refuse, before any repository command runs, a
   #                    checkout without a Gemfile.lock or a
   #                    config/application.rb at its root, or one locking Ruby

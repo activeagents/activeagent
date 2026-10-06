@@ -34,6 +34,21 @@ module ActionAgent
       deep_scrub(value, pattern)
     end
 
+    # +values+ with the other forms each can take in output: URL-encoded (as
+    # a form and as a path encode it) and Base64 (standard and URL-safe,
+    # with and without padding). Blank values are dropped.
+    #
+    # @param values [Array<String>]
+    # @return [Array<String>]
+    def with_encodings(values)
+      Array(values).compact.map(&:to_s).reject(&:empty?).flat_map do |value|
+        base64 = [ value ].pack("m0")
+        urlsafe = base64.tr("+/", "-_")
+        [ value, URI.encode_www_form_component(value), ERB::Util.url_encode(value),
+          base64, base64.delete("="), urlsafe, urlsafe.delete("=") ]
+      end.uniq
+    end
+
     def deep_scrub(value, pattern)
       case value
       # A regexp cannot scan bytes that are invalid in the string's encoding,

@@ -761,14 +761,15 @@ module ActionAgent
     end
 
     # The secrets a sandbox's stored output is scrubbed of when it is read
-    # back: its checkout token and the credentials its sessions get.
+    # back: its checkout token, the credentials its sessions get, and the
+    # secrets of the project it was booted for.
     def session_secrets(session)
       token = begin
         session.checkout_spec&.dig(:token)
       rescue StandardError
         nil
       end
-      [ token, *session.runtime_environment.values ].compact.map(&:to_s)
+      [ token, *session.runtime_environment.values, *Array(session.try(:project_scrub_values)) ].compact.map(&:to_s)
     end
 
     # Milliseconds since +started_at+ (an ISO 8601 time), for a step still
@@ -1182,7 +1183,7 @@ module ActionAgent
         end
         plan = spec_plan(boot_spec, (facts&.dig("gems") || {}).keys.to_set)
       else
-        plan = config_plan(Config.load(app))
+        plan = config_plan(Config.load(app), secrets: boot_spec&.secrets || {})
       end
 
       update_state(workspace) do |state|
@@ -1251,13 +1252,15 @@ module ActionAgent
       boot_state["steps"].drop(offset).filter_map { |step| step["name"] if step.is_a?(Hash) }
     end
 
-    def config_plan(config)
+    # +secrets+ are those of a boot spec that does not apply to the checkout:
+    # it boots as its sandbox.yml says, with them added to that file's env.
+    def config_plan(config, secrets: {})
       BootPlan.new(
         mode: "config", spec: nil,
         steps: config.setup.map { |command| BootStep.new(name: "setup", command: command, log: "setup", label: "setup") },
         manifest: BootStep.new(name: "manifest", command: config.manifest, log: "manifest", label: "manifest"),
         start: BootStep.new(name: "start", command: config.start, log: "server", label: "server"),
-        env: config.env, start_url: nil, keep_on_failure: false
+        env: config.env.merge(secrets), start_url: nil, keep_on_failure: false
       )
     end
 
@@ -2175,13 +2178,16 @@ module ActionAgent
       credentials
     end
 
+    # What a code session's output is scrubbed of. The project's secrets are
+    # among them although the session never gets them: the checkout's own
+    # files and processes can still show them.
     def sandbox_secrets(sandbox, credentials)
       token = begin
         sandbox.checkout_spec&.dig(:token)
       rescue StandardError
         nil
       end
-      [ token, *credentials.values ].compact.map(&:to_s)
+      [ token, *credentials.values, *Array(sandbox.try(:project_scrub_values)) ].compact.map(&:to_s)
     end
 
     # Drops the session's pid, and the cancels it may have left.

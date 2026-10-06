@@ -108,6 +108,26 @@ ActionAgent::Engine.routes.draw do
       end
     end
 
+    # Projects: a repository booted in a checkout sandbox and evaluated,
+    # with the secrets its boot needs (names only in responses).
+    resources :projects, only: [ :index, :show, :create, :update, :destroy ] do
+      collection do
+        get :capabilities
+        get :preflight
+        get :discover_secrets
+      end
+      member do
+        post :boot
+        get :boot, action: :boot_status
+        get :boot_log
+        get :synced_agents
+        patch :target
+        post :run_evaluation
+      end
+      put :secrets, to: "project_secrets#upsert"
+      resources :secrets, controller: "project_secrets", only: [ :index, :update, :destroy ], param: :name
+    end
+
     # Tool inventory — auto-detected from the tool roster each generation
     # request offered, telemetry tool spans, and solid_agent records.
     resources :tools, only: [ :index ]

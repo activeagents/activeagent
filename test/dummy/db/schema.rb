@@ -392,6 +392,44 @@ ActiveRecord::Schema[8.0].define(version: 23) do
     t.index [ "user_id" ], name: "index_active_agent_input_requests_on_user_id"
   end
 
+  create_table "active_agent_project_secrets", force: :cascade do |t|
+    t.bigint "project_id", null: false
+    t.string "name", null: false
+    t.text "value"
+    t.string "source", default: "entered", null: false
+    t.string "provider"
+    t.datetime "consented_at"
+    t.bigint "set_by_id"
+    t.bigint "account_id"
+    t.bigint "user_id"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index [ "account_id" ], name: "index_active_agent_project_secrets_on_account_id"
+    t.index [ "project_id", "name" ], name: "index_active_agent_project_secrets_on_project_id_and_name", unique: true
+    t.index [ "user_id" ], name: "index_active_agent_project_secrets_on_user_id"
+  end
+
+  create_table "active_agent_projects", force: :cascade do |t|
+    t.string "name", null: false
+    t.string "repository", null: false
+    t.string "default_ref"
+    t.string "start_url", default: "/", null: false
+    t.string "status", default: "draft", null: false
+    t.string "install_state", default: "detected", null: false
+    t.bigint "current_sandbox_session_id"
+    t.bigint "target_agent_id"
+    t.bigint "evaluation_id"
+    t.json "settings"
+    t.bigint "account_id"
+    t.bigint "user_id"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index [ "account_id" ], name: "index_active_agent_projects_on_account_id"
+    t.index [ "current_sandbox_session_id" ], name: "index_active_agent_projects_on_current_sandbox_session_id"
+    t.index [ "target_agent_id" ], name: "index_active_agent_projects_on_target_agent_id"
+    t.index [ "user_id" ], name: "index_active_agent_projects_on_user_id"
+  end
+
   create_table "active_agent_provider_keys", force: :cascade do |t|
     t.bigint "account_id"
     t.string "api_key"
@@ -483,6 +521,7 @@ ActiveRecord::Schema[8.0].define(version: 23) do
     t.datetime "last_activity_at"
     t.integer "max_runs", default: 10
     t.json "mcp_servers", default: []
+    t.bigint "project_id"
     t.string "repository"
     t.string "repository_ref"
     t.json "runs", default: []
@@ -498,6 +537,7 @@ ActiveRecord::Schema[8.0].define(version: 23) do
     t.datetime "updated_at", null: false
     t.bigint "user_id"
     t.index [ "github_installation_id" ], name: "index_active_agent_sandbox_sessions_on_github_installation"
+    t.index [ "project_id" ], name: "index_active_agent_sandbox_sessions_on_project_id"
     t.index [ "session_id" ], name: "index_active_agent_sandbox_sessions_on_session_id", unique: true
     t.index [ "user_id" ], name: "index_active_agent_sandbox_sessions_on_user_id"
   end

@@ -15,6 +15,9 @@ module ActionAgent
   #     installation token.
   #   - The class methods that act as the GitHub App sign a JWT with the
   #     App's private key (ActionAgent.github_app_private_key) per request.
+  #
+  # It also reads a repository without cloning it: one repository, a file's
+  # content, the commit a ref names and the tree of a ref, for projects.
   class GithubClient
     API = "https://api.github.com"
     WEB = "https://github.com"
@@ -37,6 +40,9 @@ module ActionAgent
     REPOSITORY = %r{\A[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})/(?!\.{1,2}\z)[A-Za-z0-9._-]{1,100}\z}
     OBJECT_ID = /\A\h{40}(?:\h{24})?\z/
 
+    # Files larger than this are not read through the contents API.
+    MAX_FILE_BYTES = 512 * 1024
+
     class Error < StandardError
       # The HTTP status GitHub answered with, or nil when it was not reached.
       attr_reader :status
@@ -53,6 +59,10 @@ module ActionAgent
     end
     # The token was revoked or expired: the owner has to connect again.
     class Unauthorized < Error; end
+    # GitHub answered 404: no such repository, ref or path, or one the token
+    # cannot see, which GitHub does not tell apart. Also 409, which GitHub
+    # answers for the commits and trees of a repository with no commits.
+    class NotFound < Error; end
     # GitHub minted no token because the installation was removed from its
     # account (404) or suspended (403). +reason+ is :removed or :suspended.
     class InstallationUnavailable < Error
@@ -150,6 +160,7 @@ module ActionAgent
 
         status = response.code.to_i
         raise Unauthorized.new("GitHub rejected the token", status: status) if status == 401
+        raise NotFound.new("GitHub found nothing at #{uri.path}", status: status) if [ 404, 409 ].include?(status)
         unless status.between?(200, 299)
           body = error_body(response)
           raise Error.new(refusal_message(response.code, body), status: status, errors: Array(body["errors"]).grep(Hash))
@@ -341,6 +352,52 @@ module ActionAgent
 
     def pull_request(repository, number)
       get("#{repository_path(repository)}/pulls/#{Integer(number)}")
+    end
+
+    # One repository the token reaches, by owner/name, sliced like
+    # #repositories; nil when GitHub finds none. Reaches repositories past
+    # the listing's cap.
+    def repository(full_name)
+      self.class.slice_repository(get(repository_path(full_name)))
+    rescue NotFound
+      nil
+    end
+
+    # The content of +path+ in +full_name+ at +ref+, or nil when there is no
+    # file there or it is larger than MAX_FILE_BYTES.
+    #
+    # @return [String, nil] UTF-8, invalid bytes replaced
+    def file(full_name, path, ref: nil)
+      encoded = path.to_s.split("/").map { |segment| ERB::Util.url_encode(segment) }.join("/")
+      data = get("#{repository_path(full_name)}/contents/#{encoded}", ref.present? ? { ref: ref } : {})
+      return nil unless data.is_a?(Hash) && data["type"] == "file" && data["encoding"] == "base64"
+      return nil if data["size"].to_i > MAX_FILE_BYTES
+
+      data["content"].to_s.unpack1("m").force_encoding(Encoding::UTF_8).scrub
+    rescue NotFound
+      nil
+    end
+
+    # The SHA of the commit +ref+ (a branch, tag or commit; the default
+    # branch when nil) names in +full_name+, or nil when there is none.
+    def commit_sha(full_name, ref)
+      query = { per_page: 1 }
+      query[:sha] = ref if ref.present?
+      commit = Array(get("#{repository_path(full_name)}/commits", query)).first
+      commit.is_a?(Hash) ? commit["sha"].presence : nil
+    rescue NotFound
+      nil
+    end
+
+    # Every file path in +full_name+ at +ref+, with its size:
+    # { paths: [{ path:, size: }], truncated: }. GitHub truncates the
+    # listing of a very large repository.
+    def tree(full_name, ref:)
+      data = get("#{repository_path(full_name)}/git/trees/#{ERB::Util.url_encode(ref.to_s)}", recursive: 1)
+      paths = Array(data["tree"]).filter_map do |entry|
+        { path: entry["path"].to_s, size: entry["size"].to_i } if entry.is_a?(Hash) && entry["type"] == "blob"
+      end
+      { paths: paths, truncated: data["truncated"] == true }
     end
 
     private
