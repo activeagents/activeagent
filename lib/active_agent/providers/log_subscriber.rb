@@ -124,6 +124,19 @@ module ActiveAgent
 
       # @param event [ActiveSupport::Notifications::Event]
       # @return [void]
+      def input_requested(event)
+        trace_id        = event.payload[:trace_id]
+        provider_module = event.payload[:provider_module]
+        tool_names      = Array(event.payload[:input_requests]).map(&:tool_name)
+
+        debug do
+          "[#{trace_id}] [ActiveAgent] [#{provider_module}] Awaiting input for: #{tool_names.join(", ")}"
+        end
+      end
+      # event_log_level :input_requested, :debug # Rails 8.1
+
+      # @param event [ActiveSupport::Notifications::Event]
+      # @return [void]
       def stream_chunk(event)
         trace_id        = event.payload[:trace_id]
         provider_module = event.payload[:provider_module]
