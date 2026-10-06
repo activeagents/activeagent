@@ -35,7 +35,7 @@ GEM_CONFLICTS = {
 # @param file_name [String] for error context
 # @return [void]
 # @raise [LoadError] when the gem is not installed, when the loaded version is
-#   outside the supported range, or when a different gem already defines the
+#   outside the supported range, or when something else already defines the
 #   client constant
 def require_gem!(type, file_name)
   gem_name, requirement, package_name = GEM_LOADERS.fetch(type)
@@ -53,31 +53,55 @@ def require_gem!(type, file_name)
     end
 
     if (conflict = gem_conflict_for(type))
-      raise LoadError, "#{provider_name} needs the '#{gem_name}' gem, but this bundle has '#{conflict[:gem]}'. " \
-                       "Both define #{conflict[:constant]}, so the two cannot be installed together — " \
-                       "replace `gem \"#{conflict[:gem]}\"` with `gem \"#{gem_name}\"` in your Gemfile and run `bundle install`."
+      if conflict[:gem]
+        raise LoadError, "#{provider_name} needs the '#{gem_name}' gem, but this bundle has '#{conflict[:gem]}'. " \
+                         "Both define #{conflict[:constant]}, so the two cannot be installed together — " \
+                         "replace `gem \"#{conflict[:gem]}\"` with `gem \"#{gem_name}\"` in your Gemfile and run `bundle install`."
+      end
+
+      where = conflict[:file] ? "in #{conflict[:file]}" : "elsewhere"
+      raise LoadError, "#{provider_name} needs the '#{gem_name}' gem, which defines #{conflict[:constant]}, " \
+                       "but #{conflict[:constant]} is already defined #{where}. " \
+                       "Rename or remove that definition, then add `gem \"#{gem_name}\"` to your Gemfile and run `bundle install`."
     end
 
     raise LoadError, "The '#{gem_name}' gem is required for #{provider_name}. Please add it to your Gemfile and run `bundle install`."
   end
 end
 
-# Finds a gem in the bundle that already defines the constant the provider's
-# client needs, if there is one.
+# Finds what already defines the constant the provider's client gem needs,
+# when that is not the gem itself.
 #
 # @param type [Symbol] provider type
-# @return [Hash, nil] the conflicting gem's name and the constant it defines
+# @return [Hash, nil] `{ gem:, constant: }` when the conflicting gem in
+#   GEM_CONFLICTS is present, `{ constant:, file: }` when something else
+#   defines the constant (`file` is nil when Ruby cannot tell where), or nil
 # @api private
 def gem_conflict_for(type)
   conflict = GEM_CONFLICTS[type]
   return unless conflict
-
-  # An activated gem is the usual case. The constant check catches the rest:
-  # the gem may sit in the bundle unrequired, and if its constant is already
-  # defined then the collision is real either way.
   return conflict if Gem.loaded_specs.key?(conflict[:gem])
 
-  conflict if Object.const_defined?(conflict[:constant])
+  # With the provider's own gem activated, requiring it is what failed. The
+  # gem may have defined the constant itself before failing, and a clash with
+  # a definition from anywhere else raises TypeError, not LoadError.
+  return if Gem.loaded_specs.key?(GEM_LOADERS.fetch(type).first)
+
+  constant = conflict[:constant]
+  location = Object.const_source_location(constant)
+  return unless location
+
+  # `const_source_location` places a pending autoload, which is how Zeitwerk
+  # defines an application's constants, at the line that registered it rather
+  # than in the file that will define the constant.
+  file = Object.autoload?(constant) || location.first
+
+  # RubyGems installs a gem into a directory named `<name>-<version>`
+  # (`ruby-openai-8.3.0`), so the path identifies the gem even when its files
+  # were loaded without activating it.
+  return conflict if file&.match?(%r{/#{Regexp.escape(conflict[:gem])}-\d[^/]*/})
+
+  { constant: constant, file: file }
 end
 
 module ActiveAgent
