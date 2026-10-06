@@ -143,6 +143,13 @@ ActionAgent::Engine.routes.draw do
         post :preview
         get :patch
       end
+
+      # The explorer agent's start, and how the project's browser signs in.
+      resources :explorations, controller: "project_explorations", only: [ :create ]
+      resource :sign_in, controller: "project_sign_ins", only: [ :show, :update, :destroy ] do
+        post :check
+        post :save_browser
+      end
     end
 
     # Explorations: candidate scenarios found by walking a project's app,

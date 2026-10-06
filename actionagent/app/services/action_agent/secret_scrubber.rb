@@ -35,8 +35,9 @@ module ActionAgent
     end
 
     # +values+ with the other forms each can take in output: URL-encoded (as
-    # a form and as a path encode it) and Base64 (standard and URL-safe,
-    # with and without padding). Blank values are dropped.
+    # a form and as a path encode it), Base64 (standard and URL-safe, with
+    # and without padding) and escaped inside a JSON string (as JSON.stringify
+    # and as Rails' to_json escape it). Blank values are dropped.
     #
     # @param values [Array<String>]
     # @return [Array<String>]
@@ -45,7 +46,8 @@ module ActionAgent
         base64 = [ value ].pack("m0")
         urlsafe = base64.tr("+/", "-_")
         [ value, URI.encode_www_form_component(value), ERB::Util.url_encode(value),
-          base64, base64.delete("="), urlsafe, urlsafe.delete("=") ]
+          base64, base64.delete("="), urlsafe, urlsafe.delete("="),
+          JSON.generate(value)[1...-1], value.to_json[1...-1] ]
       end.uniq
     end
 

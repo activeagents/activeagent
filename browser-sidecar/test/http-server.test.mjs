@@ -8,7 +8,7 @@ import { createHttpServer } from '../lib/http-server.mjs';
 
 const TOKEN = 'browser-token-0123456789abcdef0123456789';
 
-async function start() {
+async function start({ storageState = null } = {}) {
   const calls = [];
   const gateway = {
     async handle(message, sessionId) {
@@ -21,7 +21,7 @@ async function start() {
     },
   };
   let hosts = new Set();
-  const server = createHttpServer({ rules: () => ({ token: TOKEN, hosts }), gateway, version: '9.9.9' });
+  const server = createHttpServer({ rules: () => ({ token: TOKEN, hosts }), gateway, version: '9.9.9', storageState });
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
   const { port } = server.address();
   hosts = acceptedHosts('127.0.0.1', port);
@@ -77,6 +77,22 @@ test('every request needs the token', async (t) => {
   assert.equal(health.status, 200);
   assert.deepEqual(health.body, { status: 'ok', version: '9.9.9' });
   assert.equal(health.headers['access-control-allow-origin'], undefined);
+});
+
+test('the storage state is read with the token only, and only when the sidecar serves it', async (t) => {
+  const state = { cookies: [{ name: 'session', value: 'abc', domain: '127.0.0.1', path: '/' }], origins: [] };
+  const { server, port } = await start({ storageState: async () => state });
+  t.after(() => server.close());
+
+  assert.equal((await send(port, { path: '/storage-state' })).status, 401);
+  const read = await send(port, { path: '/storage-state', headers: auth });
+  assert.equal(read.status, 200);
+  assert.deepEqual(read.body, { storage_state: state });
+  assert.equal(read.headers['cache-control'], 'no-store');
+
+  const { server: plain, port: plainPort } = await start();
+  t.after(() => plain.close());
+  assert.equal((await send(plainPort, { path: '/storage-state', headers: auth })).status, 404);
 });
 
 test('a foreign Host or any Origin is refused, even with the token', async (t) => {

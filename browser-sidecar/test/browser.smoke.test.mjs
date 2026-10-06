@@ -367,3 +367,40 @@ test('watch live and take over: frames of the page on screen, input from the per
   assert.deepEqual(takeovers.map((event) => [event.data.label, event.data.user.name]), [['takeover_started', 'Ada'], ['takeover_ended', 'Ada']]);
   assert.ok(!JSON.stringify(batches).includes(typed), 'what the person typed is masked in the recording');
 });
+
+test('a saved sign-in is applied before the first page, and a new one is handed back', { skip }, async (t) => {
+  const app = await listen((request, response) => {
+    const headers = { 'content-type': 'text/html' };
+    if (request.url === '/sign_in') headers['set-cookie'] = 'fresh=signed-in-now; Path=/';
+    response.writeHead(200, headers);
+    response.end(`<!doctype html><title>Fixture</title><p>cookies: ${request.headers.cookie ?? 'none'}</p>`);
+  });
+  const workdir = await mkdtemp(join(tmpdir(), 'sidecar-state-'));
+  const cwd = process.cwd();
+  const saved = {
+    cookies: [
+      { name: 'saved', value: 'kept-session', domain: '127.0.0.1', path: '/' },
+      { name: 'elsewhere', value: 'dropped', domain: 'example.com', path: '/' },
+    ],
+    origins: [],
+  };
+  const sidecar = await startSidecar(parseConfig({ token: TOKEN, app_url: origin(app), workdir, storage_state: saved }), { log: () => {} });
+  t.after(async () => {
+    await sidecar.close();
+    process.chdir(cwd);
+    app.close();
+    await rm(workdir, { recursive: true, force: true });
+  });
+
+  const mcp = mcpClient(`http://127.0.0.1:${sidecar.port}/mcp`);
+  await mcp.initialize();
+  await untilAppOpened(mcp);
+
+  assert.match(text(await mcp.call('browser_navigate', { url: '/' })), /cookies: saved=kept-session"/);
+  await mcp.call('browser_navigate', { url: '/sign_in' });
+
+  const response = await fetch(`http://127.0.0.1:${sidecar.port}/storage-state`, { headers: { authorization: `Bearer ${TOKEN}` } });
+  const { storage_state: state } = await response.json();
+  assert.deepEqual(state.cookies.map((cookie) => cookie.name).sort(), ['fresh', 'saved']);
+  assert.equal((await fetch(`http://127.0.0.1:${sidecar.port}/storage-state`)).status, 401);
+});

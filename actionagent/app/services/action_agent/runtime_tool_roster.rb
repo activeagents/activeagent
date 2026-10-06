@@ -3,7 +3,8 @@
 module ActionAgent
   # Used to list the tools an agent can call in a run: the engine's toolbox
   # tools its saved +tools+ name, and whatever its MCP servers and the run's
-  # extra checkout sandboxes serve (MCPToolDispatcher). A scenario run's
+  # extra checkout sandboxes and browsers serve (MCPToolDispatcher). When a
+  # sandbox's browser is attached, the toolbox's own browser tools drop. A scenario run's
   # diagnosis and an exploration's answerability verdicts read the same list.
   #
   # AgentToolRoster is a different list: the agent editor's view of every
@@ -12,8 +13,9 @@ module ActionAgent
     attr_reader :agent, :dispatcher
 
     # @param agent [Agent]
-    # @param extra_server_keys [Array<String>] "sandbox:<session_id>" keys
-    #   the run reaches beside the agent's own servers
+    # @param extra_server_keys [Array<String>] "sandbox:<session_id>" and
+    #   "browser:<session_id>" keys the run reaches beside the agent's own
+    #   servers
     def initialize(agent, extra_server_keys: [])
       @agent = agent
       @dispatcher = MCPToolDispatcher.new(agent, extra_server_keys: extra_server_keys)
@@ -27,7 +29,8 @@ module ActionAgent
     #   not live or does not answer discovery
     # @return [Hash{String => String}]
     def tools
-      @tools ||= (dispatcher.tool_definitions + AgentToolbox.definitions_for(agent.tools, browser_attached: dispatcher.browser_attached?))
+      @tools ||= (dispatcher.tool_definitions +
+        AgentToolbox.definitions_for(agent.tools, browser_attached: dispatcher.browser_attached?))
         .to_h { |definition| [ definition[:name].to_s, definition[:description].to_s ] }
     end
 

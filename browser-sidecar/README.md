@@ -67,6 +67,7 @@ other version.
 | `POST /mcp` | one JSON-RPC message, answered as JSON |
 | `DELETE /mcp` | ends the session in `Mcp-Session-Id` |
 | `GET /live` | the live view's WebSocket, when `live` is configured |
+| `GET /storage-state` | `{ "storage_state": { "cookies": […], "origins": […] } }`: the browser's cookies and localStorage for the app, so a sign-in made in it can be kept |
 
 Every request, a WebSocket upgrade other than the live view's included, must:
 
@@ -181,7 +182,8 @@ browser, posts what it has recorded, and removes its directories.
     "origins": ["http://localhost:3000"],
     "agent_wait_ms": 20000,
     "release_grace_ms": 10000
-  }
+  },
+  "storage_state": { "cookies": [], "origins": [] }
 }
 ```
 
@@ -198,6 +200,7 @@ browser, posts what it has recorded, and removes its directories.
 | `chromium_sandbox` | `false` where Chromium's own sandbox cannot run, as in a container without the privileges it needs |
 | `recording` | where to post recorded events, and the batch limits the ingest enforces; nothing is recorded when unset |
 | `live` | the live view: the sandbox session tickets must name, the dashboard origins that may open it, how long an agent's call waits for control (at most 45000 ms) and how long control outlives a dropped connection; no live view when unset |
+| `storage_state` | a Playwright storage state the browser starts with, such as a sign-in saved from `GET /storage-state`; only the cookies sent to the app's host and the localStorage of its origin are applied |
 
 ## The image
 

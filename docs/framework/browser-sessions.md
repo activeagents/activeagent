@@ -66,6 +66,13 @@ In the dashboard, a ready checkout sandbox under Settings → Integrations has
 a Browser panel that starts and stops it, with "Open a window on this
 machine" for `headed` where the backend can show one.
 
+A project's browser, started for an [exploration](./dashboard#the-explorer-agent)
+or a run of the project's evaluation, starts with the project's saved sign-in
+(see [Signing in to the app](./dashboard#signing-in-to-the-app)), and the
+sidecar's `GET /storage-state` hands a sign-in made in it back. Both are
+limited to the cookies sent to the app's host and the localStorage of its
+origin.
+
 A browser starts only for a checkout sandbox that is ready. A start is
 refused with 422 while another browser of the same sandbox is starting or
 running, for an unknown mode or capability, and on a backend that cannot run

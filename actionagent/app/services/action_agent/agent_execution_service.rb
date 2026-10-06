@@ -657,6 +657,12 @@ module ActionAgent
       end
     end
 
+    # Options added to the provider's for this run, such as a
+    # max_tool_turns cap above the provider's default.
+    def generation_options
+      {}
+    end
+
     # Maximum agent-to-agent delegation depth for the call_agent tool. A
     # thread-local counter guards it because the sub-agent runs synchronously
     # on the same thread via Agent#test_execute.
@@ -811,6 +817,7 @@ module ActionAgent
       action = action_name
       run_trace_id = trace_id
       tool_definitions = tool_schemas
+      extra_options = generation_options
       service = self
 
       # A dashboard-authored agent has no Ruby class — it is rows: a tool
@@ -859,9 +866,9 @@ module ActionAgent
 
         if effective_provider == :mock
           # Test environment only (see #provider_available?).
-          generate_with :mock
+          generate_with :mock, **extra_options
         else
-          generate_with effective_provider, model: provider_model, **model_options
+          generate_with effective_provider, model: provider_model, **model_options, **extra_options
         end
 
         # Expose the agent's server-executable tools as public methods so the

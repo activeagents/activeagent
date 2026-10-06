@@ -78,6 +78,8 @@ module ActionAgent
     #   live          the live view: { session_id:, origins: }, the session
     #                 its tickets name and the dashboard origins that may
     #                 open it, or nil for none (BrowserLiveTicket)
+    #   storage_state a Playwright storage state to start signed in with,
+    #                 or absent
     #
     # @return [Hash, nil]
     attr_accessor :browser_launch

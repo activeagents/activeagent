@@ -69,11 +69,11 @@ module ActionAgent
     # param or model attribute such as `values` or `default_value` is not
     # filtered with them.
     initializer "action_agent.filter_parameters" do |app|
-      # The last two filters: RecordingEventIngest::BATCH_KEY, a batch that carries
+      # The last filters: RecordingEventIngest::BATCH_KEY, a batch that carries
       # page content and console output, and an input request's answer. Each
       # matches its key exactly, so a host parameter that merely contains those
       # words is still logged.
-      app.config.filter_parameters += [ :credential, :api_key, :access_token, /\Arecording_events\z/, /\A(?:answer|value)\z/i ]
+      app.config.filter_parameters += [ :credential, :api_key, :access_token, :password, /\Arecording_events\z/, /\A(?:answer|value)\z/i ]
     end
 
     # The project setup assistant's request_secret answers go to its
@@ -82,6 +82,25 @@ module ActionAgent
     initializer "action_agent.secret_requests" do |app|
       app.config.to_prepare do
         ActionAgent::SecretRequests.register(ActionAgent::ProjectSetup::AGENT_CLASS_NAME, ActionAgent::ProjectSetup::SecretHandler.new)
+      end
+    end
+
+    # In a sandbox app (a checkout the dashboard booted, which bundles this
+    # engine), its backend sets ActionAgent::SandboxMail::DIRECTORY_ENV, and
+    # mail is written to files in that directory instead of being sent, so
+    # an agent exploring the app can read a sign-up's verification link.
+    # Registered as a load hook after the app's own configuration has been
+    # applied, so it wins over the environment file's delivery method. Set
+    # only in the sandbox's environment, it never reaches the checkout.
+    initializer "action_agent.sandbox_mail" do |app|
+      directory = ENV["ACTION_AGENT_SANDBOX_MAIL_DIR"].presence
+      next unless directory
+
+      location = File.expand_path(directory, app.root.to_s)
+      ActiveSupport.on_load(:action_mailer) do
+        self.delivery_method = :file
+        self.file_settings = { location: location }
+        self.perform_deliveries = true
       end
     end
 

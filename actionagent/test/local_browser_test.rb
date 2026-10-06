@@ -94,6 +94,20 @@ class LocalBrowserTest < ActiveSupport::TestCase
     assert_equal "ws://127.0.0.1:#{URI(result[:mcp_url]).port}/live", result[:live_url]
   end
 
+  test "a saved sign-in reaches the sidecar on stdin with the rest of its configuration" do
+    state = { "cookies" => [ { "name" => "_shop_session", "value" => "saved-session-cookie", "domain" => "127.0.0.1", "path" => "/" } ],
+              "origins" => [] }
+    sandbox = booted_sandbox
+    sandbox.browser_launch = launch.merge(storage_state: state)
+
+    @backend.start_browser(sandbox, mode: :headless)
+
+    record = sidecar_record(sandbox)
+    assert_equal state, record.dig("config", "storage_state")
+    assert_not_includes record["argv"].join(" "), "saved-session-cookie"
+    assert_not_includes record["env"].values.join(" "), "saved-session-cookie"
+  end
+
   test "stopping the browser stops its process group and removes its directory, and leaves the sandbox" do
     sandbox = booted_sandbox
     @backend.start_browser(sandbox, mode: :headless)
