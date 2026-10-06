@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.9.0] - 2026-10-06
+
+Releases `activeagent` and `actionagent` 1.9.0 from one tag. A minor release.
+The dashboard gains **Projects**: a GitHub repository boots in a checkout
+sandbox with a browser of its own, which a person can watch live and take
+over, and an agent is evaluated against the running app. A browser run can
+stop for a person: `request_handoff` records where the agent stopped and
+Session Replay's **Take Over Session** opens that page. A run can pause to ask
+the user, for an approval or a secret, and resume with the answer. Checkouts
+can go through a GitHub App, provider keys can be personal as well as the
+organization's, the explorer agent proposes scenarios from a project's app,
+and a sandbox can open a draft pull request. The framework gains a DeepSeek
+provider; `mcps:` runs client-side on every provider through `MCPBridge`, with
+`mcp_strategy:` and a cached tool list (needs the optional `mcp` gem); a
+generation can pause to ask the user and require approval before a tool runs;
+the RubyLLM provider reports cache and reasoning tokens, streams tool-call
+fragments correctly, carries usage and stop reason for streamed turns and
+takes a `protocol:` option on ruby_llm 2.x; the flat `json_schema`
+response_format is accepted by every provider. Carries the 1.8.2 owner fix.
+
+Upgrading: run `bin/rails generate action_agent:install --skip` and
+`bin/rails db:migrate`. The generator adds the migrations an install lacks,
+now shipped as numbered templates: input requests, recording events, sandbox
+browsers, projects and their secrets, GitHub App installations, explorations
+and draft pull requests. `AgentRun` gains the `awaiting_input` status, which
+a client that treats every status other than `pending` and `running` as
+finished must handle. Session Replay is now **Sessions** in the sidebar.
+
 ### Added
 
 - **Hand a browser run to a person** (`actionagent`). Agents with the
@@ -53,6 +81,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   are native. Instructions are sent as `system` messages, and provider defaults
   such as thinking mode are left unchanged. Thinking is billed and disables
   sampling parameters; prompts can opt out with `thinking: { type: "disabled" }`.
+
+- **Cache and reasoning tokens from the RubyLLM provider** (`activeagent`).
+  `response.usage` now carries `cached_tokens`, `cache_creation_tokens` and
+  `reasoning_tokens` when RubyLLM counted them, and a response that calls
+  tools reports `tool_use` as its `finish_reason` however the API ends it;
+  OpenAI's Responses API ends one with `stop` (#502).
+
+- **A `protocol:` option for the RubyLLM provider** (`activeagent`). Pins
+  which wire protocol carries a request, as RubyLLM's own `protocol:` does:
+  `:chat_completions` or `:responses` for OpenAI. Set it in `generate_with`
+  or `config/active_agent.yml`, beside `platform:`. ruby_llm 2.x sends OpenAI
+  chat to the Responses API (`/v1/responses`) where 1.16 used Chat
+  Completions, and an OpenAI-compatible server behind `openai_api_base` may
+  not implement it; `protocol: :chat_completions` keeps an agent on the old
+  endpoint, and `config.openai_protocol` in `RubyLLM.configure` keeps every
+  agent there. The option needs ruby_llm 2.x; with 1.16, which has no other
+  protocol to choose, it raises `ArgumentError` rather than being ignored
+  (#502).
 
 - **Ship dashboard migrations as numbered templates** (`actionagent`).
   `rails g action_agent:install` also emits every
@@ -626,9 +672,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Filter `answer` and `value` from request logs** (`actionagent`). The engine
   adds them to the host's `filter_parameters`, beside `credential`, `api_key`
   and `access_token`, matching only parameters named exactly `answer` or
-  `value`, at any depth. Rails also copies `filter_parameters` into Active
-  Record's `filter_attributes`, so a host model attribute named `answer` or
-  `value` shows as `[FILTERED]` in `inspect` and in logged SQL binds.
+  `value`, at any depth, including under Rails 8.2, which matches a host's
+  precompiled filters against the dotted parameter path. Rails also copies
+  `filter_parameters` into Active Record's `filter_attributes`, so a host
+  model attribute named `answer` or `value` shows as `[FILTERED]` in
+  `inspect` and in logged SQL binds.
+
+- **CI covers ruby_llm 1.16 and 2.x with explicit bundles** (`activeagent`).
+  `gemfiles/ruby_llm_2.gemfile` runs the full suite on ruby_llm 2.x beside
+  `gemfiles/ruby_llm_1.gemfile`, so the 2.x adapter keeps its coverage even
+  when the default bundle resolves to 1.x (#502).
 
 ### Fixed
 
@@ -747,6 +800,65 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (`activeagent`). Once the forced tool was used, the next turn cleared
   `tool_choice`, and the turn after it raised `Anthropic::Errors::ConversionError`
   reading the cleared value back.
+
+- **A flat `json_schema` response_format under every provider**
+  (`activeagent`). The OpenAI providers and OpenRouter accept `name`,
+  `schema` and `strict` beside `type` as well as under `json_schema`, but
+  the RubyLLM provider raised "needs a schema for a json_schema
+  response_format" for the flat shape, the Anthropic provider sent
+  `output_config.format` with no schema, and an agent's `prompt` looked for
+  an `{action}.json` view instead, raising `ActionView::MissingTemplate`
+  for any provider. All three now read the flat shape, so a
+  `response_format` keeps working when `generate_with` changes provider
+  (#505).
+
+- **Usage and stop reasons in RubyLLM streams** (`activeagent`). Streaming
+  preserves the final stop reason and token counts, including counts sent
+  across separate chunks. Cumulative counts are merged within a turn and
+  summed across tool turns. A later chunk that omits cache writes no longer
+  erases an earlier count with RubyLLM's synthetic zero. Cache-only and
+  reasoning-only usage is also preserved when input and output counts are
+  absent (#502).
+
+- **Streamed tool calls through the RubyLLM provider** (`activeagent`).
+  An API streams a tool call's arguments as fragments of one JSON string,
+  and only the first fragment says which call it belongs to. The provider
+  took every later fragment for a call of its own with no name, so a
+  streamed tool call ran twice, once with no arguments and once under no
+  name, and two streamed calls ran on arguments joined into invalid JSON.
+  Fragments now go to the call they belong to, for OpenAI (Chat Completions
+  and Responses) and Anthropic, on ruby_llm 1.16 and 2.x. Arguments an API
+  sends whole, as Gemini does, are serialized as JSON instead of Ruby's
+  `Hash#to_s`; and Anthropic's empty opening input no longer leaves `{}` in
+  front of the arguments. Interleaved parallel OpenAI calls require
+  ruby_llm 2.x, since 1.16 discards their stream indices (#502).
+
+## [1.8.2] - 2026-10-01
+
+Releases `activeagent` and `actionagent` 1.8.2 from one tag. A patch on 1.8.1:
+the dashboard engine's owner scopes match an owner by class, so an
+account-owned record is no longer read through a user that shares the
+account's id. No migrations. The `activeagent` gem changes only its version.
+
+### Fixed
+
+- **An owner of another class reads no other tenant's rows** (`actionagent`).
+  `Ownable.for_owner` scoped by the owner's id alone, so an account-owned
+  model handed a user — the stored provider-key fallback of an agent run,
+  `ProviderKey.for_owner(agent.owner)`, when agents are owned per user — read
+  whichever account shared that user's id, and the run generated with that
+  account's key. The scope now matches the owner by class: a user handed to an
+  account-owned model maps to its tenant through `ActionAgent.tenant_for`, and
+  any other mismatch scopes to nothing. `TelemetryTrace.for_account` matches
+  the same way, and `owner=` raises `ArgumentError` for an owner that resolves
+  to nothing rather than writing its id into another class's column.
+  **Upgrading:** a multi-tenant install that configures both `account_class`
+  and `user_class` must own every model by one class or map between them.
+  Re-declare `owned_by :account, :user` on `Agent`, `SandboxSession`,
+  `SessionRecording` and `CodeSession` from `to_prepare` and set
+  `tenant_resolver`, as the install generator's template now shows; rows those
+  models stored under `user_id` with the account's id need `account_id`
+  backfilled, or the dashboard lists nothing for them.
 
 ## [1.8.1] - 2026-10-01
 

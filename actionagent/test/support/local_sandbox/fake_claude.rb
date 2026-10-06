@@ -15,6 +15,12 @@
 #   working directory, prompt) is written to invocation.json in
 #   $CLAUDE_CONFIG_DIR, or in $HOME/.claude without one (a session on the
 #   machine's own login).
+# * Before it reads the prompt it writes its pid to `ready` in that
+#   directory. Ruby answers a SIGTERM that arrives while it is still booting
+#   (loading RubyGems, parsing this file) with exit status 1 rather than the
+#   signal, or drops it; from `ready` on the signal ends the process as it
+#   should (143). A test that stops a session as it starts waits for the
+#   file first.
 # * A prompt containing SLEEP starts a `sleep` in its process group, writes
 #   both pids to $CLAUDE_CONFIG_DIR/pids.json and waits to be stopped. With
 #   STUBBORN too it ignores SIGTERM, so only SIGKILL stops it.
@@ -60,6 +66,9 @@ if argv.include?("--help")
   exit 0
 end
 
+# Up and waiting for the prompt: a SIGTERM from here on ends the process by
+# the signal, where one during Ruby's own boot exits 1 (see above).
+File.write(File.join(config_dir, "ready"), Process.pid.to_s)
 prompt = $stdin.read
 File.write(File.join(config_dir, "invocation.json"),
   JSON.generate("argv" => argv, "env" => ENV.to_h, "cwd" => Dir.pwd, "prompt" => prompt))

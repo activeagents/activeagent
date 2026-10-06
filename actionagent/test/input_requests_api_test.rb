@@ -416,19 +416,22 @@ class InputRequestsApiTest < ActionDispatch::IntegrationTest
   end
 
   test "only parameters named answer or value are filtered, at any depth" do
-    filter = ActiveSupport::ParameterFilter.new(Rails.application.config.filter_parameters)
     params = {
-      "answer" => "a", "Value" => "v", "evaluation" => { "value" => "n" },
+      "answer" => "a", "Value" => "v", "evaluation" => { "value" => "n" }, "list" => [ { "answer" => "l" } ],
+      "values" => "x", "default_value" => "d", "expected_answer" => "e"
+    }
+    filtered = {
+      "answer" => "[FILTERED]", "Value" => "[FILTERED]", "evaluation" => { "value" => "[FILTERED]" }, "list" => [ { "answer" => "[FILTERED]" } ],
       "values" => "x", "default_value" => "d", "expected_answer" => "e"
     }
 
-    assert_equal(
-      {
-        "answer" => "[FILTERED]", "Value" => "[FILTERED]", "evaluation" => { "value" => "[FILTERED]" },
-        "values" => "x", "default_value" => "d", "expected_answer" => "e"
-      },
-      filter.filter(params)
-    )
+    # The host's filters as configured, and as Rails precompiles them for the
+    # request log, where Rails 8.2 merges them into one expression that it
+    # matches against the dotted parameter path once a filter names a nested
+    # key, as Active Record Encryption's do.
+    filters = Rails.application.config.filter_parameters
+    assert_equal filtered, ActiveSupport::ParameterFilter.new(filters).filter(params)
+    assert_equal filtered, ActiveSupport::ParameterFilter.new(ActiveSupport::ParameterFilter.precompile_filters(filters)).filter(params)
   end
 
   test "cancelling a paused run cancels its pending requests" do

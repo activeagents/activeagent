@@ -15,6 +15,11 @@ module ActiveAgent
         # e.g. :vertexai, :gemini, :bedrock). A model ID served by several
         # backends otherwise resolves by RubyLLM's registry preference.
         attribute :platform, :string
+        # Pins which of the backend's wire protocols carries a request
+        # (RubyLLM's protocol:, e.g. :chat_completions or :responses for
+        # OpenAI). ruby_llm 2.x only; without it RubyLLM's own setting
+        # applies, and for OpenAI that defaults to :responses.
+        attribute :protocol, :string
         attribute :temperature, :float
         attribute :max_tokens, :integer
 
