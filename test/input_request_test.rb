@@ -35,6 +35,73 @@ class InputRequestTest < ActiveSupport::TestCase
     assert_equal({ kind: "text", prompt: "Why?", metadata: {} }, ActiveAgent::InputRequest.text("Why?").to_h)
   end
 
+  test "the arguments of the paused call survive a JSON round trip" do
+    request = ActiveAgent::InputRequest.confirm("Go ahead?")
+                                       .for_tool_call(id: "call_1", name: "issue_refund", arguments: { order_id: 7, amount: 40 })
+
+    restored = ActiveAgent::InputRequest.from_h(JSON.parse(request.to_h.to_json))
+
+    assert_equal({ "order_id" => 7, "amount" => 40 }, restored.arguments)
+    assert_equal request, restored
+  end
+
+  # A checkpoint whose tool-call turn is a reasoning item and two function
+  # calls, as OpenAI Responses sends one.
+  def multi_item_checkpoint(**overrides)
+    {
+      "version" => ActiveAgent::InputRequest::Resume::VERSION,
+      "messages" => [
+        { "role" => "user", "content" => "Refund order 7" },
+        { "type" => "reasoning", "id" => "rs_1", "summary" => [] },
+        { "type" => "function_call", "call_id" => "call_1", "name" => "lookup_order", "arguments" => "{}" },
+        { "type" => "function_call", "call_id" => "call_2", "name" => "issue_refund", "arguments" => "{}" }
+      ],
+      "tool_call_turn_size" => 3,
+      "completed_results" => { "call_1" => { "total" => 40 } },
+      "input_requests" => [ ActiveAgent::InputRequest.confirm("Refund?").for_tool_call(id: "call_2", name: "issue_refund").to_h ]
+    }.merge(overrides.stringify_keys)
+  end
+
+  test "a resume splits off a tool-call turn of several items" do
+    resume = ActiveAgent::InputRequest::Resume.new(checkpoint: multi_item_checkpoint, answers: { "call_2" => true })
+
+    assert_equal [ "user" ], resume.messages.map { _1[:role] }
+    assert_equal %w[reasoning function_call function_call], resume.tool_call_turn.map { _1[:type] }
+  end
+
+  test "a checkpoint without tool_call_turn_size takes the last message as the tool-call turn" do
+    resume = ActiveAgent::InputRequest::Resume.new(checkpoint: multi_item_checkpoint.except("tool_call_turn_size"), answers: { "call_2" => true })
+
+    assert_equal 3, resume.messages.size
+    assert_equal [ "call_2" ], resume.tool_call_turn.map { _1[:call_id] }
+  end
+
+  test "a checkpoint whose tool-call turn is larger than its conversation is refused" do
+    assert_raises(ActiveAgent::InputRequest::ResumeError) do
+      ActiveAgent::InputRequest::Resume.new(checkpoint: multi_item_checkpoint(tool_call_turn_size: 5), answers: { "call_2" => true })
+    end
+  end
+
+  test "approvals and client-side MCP calls are read only for paused calls" do
+    ids        = %w[call_1 call_2]
+    checkpoint = multi_item_checkpoint(approval_tool_calls: ids, approved_tool_calls: ids, mcp_tool_calls: ids)
+
+    resume = ActiveAgent::InputRequest::Resume.new(checkpoint:, answers: { "call_2" => true })
+
+    assert_equal [ false, true ], ids.map { resume.approval_given?(_1) }
+    assert_equal [ false, true ], ids.map { resume.approved?(_1) }
+    assert_equal [ false, true ], ids.map { resume.mcp_tool_call?(_1) }
+  end
+
+  test "a declined approval is not given" do
+    checkpoint = multi_item_checkpoint(approval_tool_calls: %w[call_2])
+
+    resume = ActiveAgent::InputRequest::Resume.new(checkpoint:, answers: { "call_2" => false })
+
+    assert_not resume.approval_given?("call_2")
+    assert resume.declined?("call_2")
+  end
+
   test "an answer is readable only for the call being dispatched" do
     ActiveAgent::InputRequest.dispatching("call_1", answer: "yes") do
       assert_equal "call_1", ActiveAgent::InputRequest.current_tool_call_id

@@ -8,6 +8,8 @@ require_relative "../../lib/active_agent/providers/mock_provider"
 # with the answers. These tests run the real provider tool loop against a
 # scripted model, so no request leaves the process.
 class InputRequestsTest < ActiveSupport::TestCase
+  include ActiveJob::TestHelper
+
   # A fake model that answers with a scripted sequence of assistant turns,
   # in the Anthropic content-block shape, and records every request.
   class ScriptedProvider < ActiveAgent::Providers::MockProvider
@@ -403,6 +405,95 @@ class InputRequestsTest < ActiveSupport::TestCase
     assert_equal [ [ :issue_refund, true ] ], RefundAgent.calls, "the second turn's call is over the cap"
   end
 
+  ##### Approvals ###########################################################
+
+  # Lists tools in requires_approval:, so their calls wait for the user.
+  class GatedRefundAgent < RefundAgent
+    def self.name = "GatedRefundAgent"
+
+    def triage(order_id:)
+      super
+      prompt(requires_approval: %w[lookup_order deploy])
+    end
+  end
+
+  def gated_triage(*turns)
+    ScriptedProvider.script(*turns)
+    GatedRefundAgent.triage(order_id: 7).generate_now
+  end
+
+  def resume_gated(response, answers)
+    GatedRefundAgent.triage(order_id: 7).resume_now(checkpoint: JSON.parse(response.checkpoint.to_json), answers:)
+  end
+
+  test "requires_approval: pauses a listed tool before it runs, with the call's arguments" do
+    paused = gated_triage([ self.class.tool_use("call_1", "lookup_order", order_id: 7) ])
+
+    request = paused.input_requests.sole
+    assert_equal [ :confirm, "lookup_order", { "order_id" => 7 }, { "approval" => true } ],
+                 [ request.kind, request.tool_name, request.arguments, request.metadata ]
+    assert_empty RefundAgent.calls
+  end
+
+  # Takes its approval list from params, so a test can pass any value.
+  class ParamGatedRefundAgent < RefundAgent
+    def self.name = "ParamGatedRefundAgent"
+
+    def triage(order_id:)
+      super
+      prompt(requires_approval: params[:requires_approval])
+    end
+  end
+
+  test "requires_approval: takes a single tool name, and refuses a value that is not tool names" do
+    ScriptedProvider.script([ self.class.tool_use("call_1", "lookup_order", order_id: 7) ])
+    paused = ParamGatedRefundAgent.with(requires_approval: :lookup_order).triage(order_id: 7).generate_now
+    assert_equal "lookup_order", paused.input_requests.sole.tool_name
+
+    [ true, { lookup_order: true }, [ "lookup_order", true ] ].each do |value|
+      ScriptedProvider.script
+      error = assert_raises(ArgumentError) { ParamGatedRefundAgent.with(requires_approval: value).triage(order_id: 7).generate_now }
+
+      assert_match "requires_approval: takes a tool name or an array of tool names", error.message
+      assert_empty ScriptedProvider.requests, "#{value.inspect} is refused before any request"
+    end
+  end
+
+  test "an approved call runs once, and a declined one never runs" do
+    paused = gated_triage([ self.class.tool_use("call_1", "lookup_order", order_id: 7), self.class.tool_use("call_2", "close_ticket") ])
+    assert_equal [ [ :close_ticket ] ], RefundAgent.calls, "a tool that is not listed runs as usual"
+
+    resume_gated(paused, "call_1" => true)
+    assert_equal [ [ :close_ticket ], [ :lookup_order ] ], RefundAgent.calls
+
+    resume_gated(paused, "call_1" => false)
+    assert_equal [ [ :close_ticket ], [ :lookup_order ] ], RefundAgent.calls
+    assert_equal ActiveAgent::InputRequest::DECLINED_RESULT.to_json, ScriptedProvider.requests.last.last[:content].first[:content]
+  end
+
+  test "an approved tool asks its own question without being asked to approve it again" do
+    paused = gated_triage([ self.class.tool_use("call_1", "deploy", environment: "staging") ])
+
+    asking = resume_gated(paused, "call_1" => true)
+
+    assert_equal :secret, asking.input_requests.sole.kind, "the approval is not the tool's answer"
+    assert_equal [ "call_1" ], asking.checkpoint["approved_tool_calls"]
+
+    resume_gated(asking, "call_1" => "tok-live-12345")
+
+    assert_equal [ [ :deploy ] ], RefundAgent.calls
+  end
+
+  test "an approval answers the gate even when the resumed action no longer requires it" do
+    paused = gated_triage([ self.class.tool_use("call_1", "deploy", environment: "staging") ])
+    assert_equal [ "call_1" ], paused.checkpoint["approval_tool_calls"]
+
+    asking = resume(paused, "call_1" => true)
+
+    assert_equal :secret, asking.input_requests.sole.kind, "the approval is not handed to the tool as its answer"
+    assert_empty RefundAgent.calls
+  end
+
   ##### Secrets #############################################################
 
   test "a secret answer reaches the tool but never the model" do
@@ -496,6 +587,79 @@ class InputRequestsTest < ActiveSupport::TestCase
     assert_equal [ true, nil ], roots.map { _1.attributes["agent.awaiting_input"] }
   ensure
     config.enabled, config.api_key = saved if saved
+  end
+
+  ##### Resuming later ######################################################
+
+  # Records the params and actor its tool runs with.
+  class TicketRefundAgent < RefundAgent
+    def self.name = "InputRequestsTest::TicketRefundAgent"
+
+    def issue_refund(order_id:, amount:)
+      result = super
+      record(:context, params[:ticket], current_user) unless result.is_a?(ActiveAgent::InputRequest)
+      result
+    end
+  end
+
+  test "resume_later enqueues the resume with its params and actor, and the job continues the generation" do
+    ScriptedProvider.script([ self.class.tool_use("call_1", "issue_refund", order_id: 7, amount: 40) ])
+    paused = TicketRefundAgent.with(ticket: 42).as("user-1").triage(order_id: 7).generate_now
+
+    TicketRefundAgent.with(ticket: 42).as("user-1").triage(order_id: 7)
+                     .resume_later(checkpoint: paused.checkpoint, answers: { "call_1" => true }, queue: :refunds)
+
+    job = enqueued_jobs.sole
+    arguments = ActiveJob::Arguments.deserialize(job[:args]).last
+    assert_equal "refunds", job[:queue]
+    assert_equal({ "checkpoint" => paused.checkpoint, "answers" => { "call_1" => true } }, arguments[:resume])
+
+    perform_enqueued_jobs
+
+    assert_equal [ [ :issue_refund, true ], [ :context, 42, "user-1" ] ], RefundAgent.calls
+    assert_equal "call_1", ScriptedProvider.requests.last.last[:content].sole[:tool_use_id]
+  end
+
+  test "resume_later refuses a secret answer before enqueueing" do
+    ScriptedProvider.script([ self.class.tool_use("call_1", "deploy", environment: "staging") ])
+    paused = RefundAgent.triage(order_id: 7).generate_now
+
+    error = assert_raises(ActiveAgent::InputRequest::ResumeError) do
+      RefundAgent.triage(order_id: 7).resume_later(checkpoint: paused.checkpoint, answers: { "call_1" => "tok-live-12345" })
+    end
+
+    assert_no_match "tok-live-12345", error.message
+    assert_no_enqueued_jobs
+  end
+
+  test "resume_later refuses answers that do not fit before enqueueing" do
+    paused = paused_triage([ self.class.tool_use("call_1", "issue_refund", order_id: 7, amount: 40) ])
+
+    assert_raises(ActiveAgent::InputRequest::ResumeError) do
+      RefundAgent.triage(order_id: 7).resume_later(checkpoint: paused.checkpoint, answers: {})
+    end
+    assert_no_enqueued_jobs
+  end
+
+  test "resume_later continues a direct prompt, which has no action to run again" do
+    ScriptedProvider.script([ self.class.tool_use("call_1", "issue_refund", order_id: 7, amount: 40) ])
+    paused = RefundAgent.prompt(message: "Handle order 7").generate_now
+    assert paused.awaiting_input?
+
+    RefundAgent.prompt(message: "Handle order 7").resume_later(checkpoint: paused.checkpoint, answers: { "call_1" => true })
+    perform_enqueued_jobs
+
+    assert_equal [ [ :issue_refund, true ] ], RefundAgent.calls
+    assert_equal [ "Handle order 7" ], ScriptedProvider.requests.last.select { _1[:role] == "user" && _1[:content].is_a?(String) }.pluck(:content)
+  end
+
+  test "resume_later from the generation that paused raises, as generate_later does after the agent was used" do
+    generation = RefundAgent.triage(order_id: 7)
+    ScriptedProvider.script([ self.class.tool_use("call_1", "issue_refund", order_id: 7, amount: 40) ])
+    paused = generation.generate_now
+
+    assert_raises(RuntimeError) { generation.resume_later(checkpoint: paused.checkpoint, answers: { "call_1" => true }) }
+    assert_no_enqueued_jobs
   end
 
   ##### Refusals ############################################################
@@ -619,6 +783,22 @@ class InputRequestsTest < ActiveSupport::TestCase
     result = JSON.parse(ScriptedProvider.requests.last.last[:content].sole[:content])
     assert_equal "input_required", result["error"]
     assert_equal [ "Refund 40?" ], result["questions"]
+  end
+
+  test "a delegated agent that pauses raises under the :raise budget policy" do
+    manager = Class.new(ManagerAgent) do
+      def self.name = "RaisingManagerAgent"
+
+      delegate_to ApprovalAgent, budget: { on_exceeded: :raise }
+    end
+    ScriptedProvider.script(
+      [ self.class.tool_use("call_parent", "approve", amount: 40) ],
+      [ self.class.tool_use("call_child", "issue_refund", amount: 40) ]
+    )
+
+    error = assert_raises(ActiveAgent::Delegation::InputRequiredError) { manager.handle.generate_now }
+
+    assert_match "issue_refund", error.message
   end
 
   test "a delegated agent's pause is neither announced nor passed to its callbacks" do

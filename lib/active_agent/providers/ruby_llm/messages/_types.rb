@@ -34,8 +34,10 @@ module ActiveAgent
             when Array
               grouped = []
 
+              # Each tool result answers one call by its tool_call_id, so tool
+              # messages are never merged.
               value.each do |message|
-                if grouped.empty? || grouped.last.role != message.role
+                if grouped.empty? || grouped.last.role != message.role || message.role == "tool"
                   grouped << message.deep_dup
                 else
                   grouped.last.content += message.content.deep_dup
