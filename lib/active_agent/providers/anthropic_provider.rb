@@ -227,6 +227,9 @@ module ActiveAgent
 
       # Executes a single tool call via callback.
       #
+      # A call that failed on a bridged MCP server is flagged with `is_error`,
+      # so the model reads its content as the failure it describes.
+      #
       # @param api_function_call [Hash] with :name, :input, and :id keys
       # @return [Anthropic::Models::ToolResultBlockParam]
       def process_tool_call_function(api_function_call)
@@ -239,7 +242,7 @@ module ActiveAgent
             type:        "tool_result",
             tool_use_id: api_function_call[:id],
             content:     results.to_json,
-            is_error:    false
+            is_error:    results.is_a?(MCPBridge::ErrorResult)
           )
         end
       end
