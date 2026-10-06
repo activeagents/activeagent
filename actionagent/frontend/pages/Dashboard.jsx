@@ -16,6 +16,7 @@ import McpServersView from '../components/dashboard/McpServersView';
 import EvaluationsView from '../components/dashboard/EvaluationsView';
 import SandboxRunner from '../components/dashboard/SandboxRunner';
 import SessionReplayView from '../components/dashboard/SessionReplayView';
+import SessionsView from '../components/dashboard/SessionsView';
 import OrganizationView from '../components/dashboard/OrganizationView';
 import SettingsView from '../components/dashboard/SettingsView';
 import DashboardAssistant from '../components/dashboard/DashboardAssistant';
@@ -30,7 +31,9 @@ import {
   dashboardViewPath,
   isDashboardViewEnabled,
   matchDashboardRoute,
+  navView,
 } from '../utils/dashboardRoutes.mjs';
+import { openedFromSessions } from '../utils/sessionsQuery.mjs';
 
 /**
  * Dashboard - Main dashboard application
@@ -62,6 +65,8 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
   // Counts in-app navigations, so a view that reads its own sub-path
   // (ProjectsView) re-reads it when the sidebar opens it again.
   const [visit, setVisit] = useState(0);
+  // The session a /replay URL opens (see sessionReplayPath).
+  const [replaySession, setReplaySession] = useState(null);
 
   // Parse the URL into a view. Runs on mount and on popstate, so browser
   // back/forward and in-app pushState navigation (e.g. a Traces agent card
@@ -73,6 +78,7 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
       // /demo rendered the sandbox everywhere.
       const route = matchDashboardRoute(dashboardRelativePath(), features);
       if (route.focusServer) setFocusServer(route.focusServer);
+      if (route.sessionId) setReplaySession({ kind: route.sessionKind, id: route.sessionId });
       if (route.replacePath) window.history.replaceState({}, '', route.replacePath);
       if (route.agentId) loadAgent(route.agentId, route.view);
       else setCurrentView(route.view);
@@ -365,8 +371,12 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
     ),
     evaluations: () => <EvaluationsView />,
     projects: () => <ProjectsView visit={visit} />,
-    replay: () => (
+    sessions: () => <SessionsView agents={agents} user={user} />,
+    replay: () => (replaySession ? (
       <SessionReplayView
+        key={`${replaySession.kind}-${replaySession.id}`}
+        kind={replaySession.kind}
+        id={replaySession.id}
         onHandoff={(handoffData) => {
           // The agent stopped on a page only a person may finish (payment,
           // a login code). Open that page for them; the recording keeps
@@ -381,9 +391,9 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
             'info'
           );
         }}
-        onClose={() => navigateTo('list')}
+        onBack={() => (openedFromSessions(window.history.state) ? window.history.back() : navigateTo('sessions'))}
       />
-    ),
+    ) : null),
     sandbox: () => (
       <SandboxRunner
         initialType="playwright_mcp"
@@ -429,7 +439,7 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
       style={{ backgroundColor: darkMode ? '#0f0f0f' : '#f9fafb' }}
     >
       <Sidebar
-        currentView={currentView}
+        currentView={navView(currentView)}
         onNavigate={navigateTo}
         agentCount={agents.length}
         pendingInputCount={pendingBadge(pendingInput)}
