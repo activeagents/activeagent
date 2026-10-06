@@ -25,6 +25,9 @@ module ActionAgent
   # The batch is stored whole or not at all. RecordingEvent.limits caps it,
   # and caps the recording's totals. A refused batch over a cap is counted
   # in the recording's dropped_event_count.
+  #
+  # Given +secrets+, every string in the batch's events has each of them
+  # masked (SecretScrubber) before it is stored.
   class RecordingEventIngest
     # The outcome as an HTTP response: +status+ and the JSON +body+.
     Result = Struct.new(:status, :body, keyword_init: true)
@@ -45,16 +48,18 @@ module ActionAgent
     # @param recording [SessionRecording] the recording the batch was posted to
     # @param body [String] the request body
     # @param kinds [Array<String>] the event kinds the caller may write
+    # @param secrets [Array<String>] values to mask in the events
     # @return [Result]
-    def self.call(recording, body, received_at: Time.current, kinds: RecordingEvent::CLIENT_KINDS)
-      new(recording, body, received_at: received_at, kinds: kinds).call
+    def self.call(recording, body, received_at: Time.current, kinds: RecordingEvent::CLIENT_KINDS, secrets: [])
+      new(recording, body, received_at: received_at, kinds: kinds, secrets: secrets).call
     end
 
-    def initialize(recording, body, received_at:, kinds:)
+    def initialize(recording, body, received_at:, kinds:, secrets: [])
       @recording = recording
       @body = body.to_s
       @received_at = received_at
       @kinds = kinds.map(&:to_s)
+      @secrets = secrets
     end
 
     def call
@@ -76,7 +81,7 @@ module ActionAgent
       return invalid(problem) if problem
 
       offset = RecordingEvent.milliseconds(@received_at) - sent_at
-      store(build_rows(events, sent_at, offset), offset, limits)
+      store(build_rows(SecretScrubber.scrub(events, @secrets), sent_at, offset), offset, limits)
     end
 
     private

@@ -71,7 +71,7 @@ export default function CodexIntegrationCard({ onChange }) {
         <form onSubmit={save} className="flex flex-wrap gap-2">
           <label className={`flex-1 text-sm ${muted}`}>
             OpenAI API key for Codex
-            <input type="password" autoComplete="off" spellCheck={false} value={credential} onChange={(e) => setCredential(e.target.value)} placeholder="sk-…" disabled={saving}
+            <input type="password" data-aa-secret="" autoComplete="off" spellCheck={false} value={credential} onChange={(e) => setCredential(e.target.value)} placeholder="sk-…" disabled={saving}
               className={`block w-full mt-1 px-3 py-2 border rounded ${darkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`} />
           </label>
           <button type="submit" className={`${button} self-end`} disabled={saving || !credential.trim()}>{saving ? 'Saving…' : 'Save API key'}</button>

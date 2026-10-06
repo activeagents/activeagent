@@ -273,6 +273,7 @@ export default function ProviderKeysCard({ providerKeys, editor, scope, editable
                   <div className="flex items-center space-x-2">
                     <input
                       type={hostBased ? 'text' : 'password'}
+                      data-aa-secret={hostBased ? undefined : ''}
                       value={providerInput}
                       onChange={(e) => setProviderInput(e.target.value)}
                       onKeyDown={(e) => e.key === 'Enter' && saveProviderKey(provider, { hostBased })}
@@ -306,6 +307,7 @@ export default function ProviderKeysCard({ providerKeys, editor, scope, editable
                     <div className="flex items-center space-x-2">
                       <input
                         type="password"
+                        data-aa-secret=""
                         value={providerApiKeyInput}
                         onChange={(e) => setProviderApiKeyInput(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && saveProviderKey(provider, { hostBased })}
