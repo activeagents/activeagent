@@ -37,6 +37,18 @@ const assistantEnabled = (features) => features.assistantEnabled !== false;
 
 const agentInteractionsPage = agentPage(/\/agents\/\d+\/(interactions|history)/);
 
+// The kinds of session a replay opens, and the timeline each one reads.
+export const SESSION_KINDS = ['recording', 'context', 'run', 'scenario_result'];
+
+const REPLAY_PATH = /^\/replay\/(?:(context|run|scenario_result)\/)?(\d+)\/?$/;
+
+// /replay/:id opens a recording, /replay/:kind/:id a conversation (context),
+// a run or an evaluation scenario's replay.
+function replayPage(path) {
+  const match = path.match(REPLAY_PATH);
+  return match ? { sessionKind: match[1] || 'recording', sessionId: match[2] } : null;
+}
+
 // Checked in order, first match wins. Prefixes match without a segment
 // boundary and the agent patterns are unanchored, so the order decides a path
 // more than one row matches: '/traces/agents/5' opens traces, while
@@ -49,6 +61,7 @@ const agentInteractionsPage = agentPage(/\/agents\/\d+\/(interactions|history)/)
 //              agentId:     the view needs this agent loaded before it opens
 //              focusServer: the MCP service to open expanded
 //              replacePath: the canonical path to replace the URL with
+//              sessionKind, sessionId: the session a replay opens
 //   path:    the mount-relative path the view pushes, or a function of
 //            { agent } returning it ('' when it has no agent to name)
 //   enabled: (features) => whether this dashboard has the view
@@ -88,7 +101,9 @@ export const DASHBOARD_ROUTES = [
   { view: 'runner', match: agentPage(/\/agents\/\d+\/run/), path: agentPagePath('/run') },
   // A bare /agents/:id opens the agent's interactions.
   { view: 'history', match: agentPage(/\/agents\/\d+\/?$/) },
-  { view: 'replay', match: prefix('/replay'), path: '/replay' },
+  { view: 'replay', match: replayPage },
+  // /replay without a session id opens the index too.
+  { view: 'sessions', match: prefix('/sessions', '/replay'), path: '/sessions' },
   { view: 'sandbox', match: prefix('/sandbox', '/demo'), path: '/sandbox' },
   { view: 'organization', match: prefix('/organization'), path: '/organization' },
   { view: 'settings', match: prefix('/settings'), path: '/settings' },
@@ -101,7 +116,7 @@ export const DEFAULT_VIEW = 'list';
 // ICONS.nav (utils/designTokens.js); `glyph` is the character itself.
 // `badge` names a count the sidebar is given. An `attention` badge is drawn
 // in the warning tone, is left out while its count is zero, and says what it
-// counts in `badgeTitle`.
+// counts in `badgeTitle`. `also` lists views the item is shown as current for.
 export const DASHBOARD_NAV = [
   {
     id: 'agents',
@@ -131,7 +146,7 @@ export const DASHBOARD_NAV = [
       { view: 'mcp', label: 'MCP Services', icon: 'mcp' },
       { view: 'metrics', label: 'Metrics', icon: 'metrics' },
       { view: 'evaluations', label: 'Evaluations', icon: 'evaluations' },
-      { view: 'replay', label: 'Session Replay', icon: 'replay' },
+      { view: 'sessions', label: 'Sessions', icon: 'replay', also: ['replay'] },
     ],
   },
   {
@@ -176,6 +191,22 @@ export function dashboardViewPath(view, { agent = null, features = {} } = {}) {
   const route = DASHBOARD_ROUTES.find((candidate) => candidate.view === view && candidate.path !== undefined);
   if (!route) return '';
   return (typeof route.path === 'function' ? route.path({ agent }) : route.path) || '';
+}
+
+// Returns the view whose sidebar item is current while `view` is open.
+export function navView(view) {
+  for (const section of DASHBOARD_NAV) {
+    const item = section.items.find((candidate) => candidate.also?.includes(view));
+    if (item) return item.view;
+  }
+  return view;
+}
+
+// Returns the mount-relative path that replays a session, or null for a
+// kind SESSION_KINDS does not name or an id that is not a positive integer.
+export function sessionReplayPath(kind, id) {
+  if (!SESSION_KINDS.includes(kind) || !/^[1-9]\d*$/.test(String(id))) return null;
+  return kind === 'recording' ? `/replay/${id}` : `/replay/${kind}/${id}`;
 }
 
 // Returns DASHBOARD_NAV without the items for views this dashboard does not

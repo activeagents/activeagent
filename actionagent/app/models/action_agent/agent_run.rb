@@ -147,6 +147,23 @@ module ActionAgent
     scope :successful, -> { where(status: :complete) }
     scope :failed_runs, -> { where(status: :failed) }
     scope :today, -> { where("created_at >= ?", Time.current.beginning_of_day) }
+    # Runs executed on behalf of +actor+, matched on the Global ID recorded
+    # under ACTOR_PARAM. None for an actor without one.
+    scope :on_behalf_of, ->(actor) {
+      gid = actor.respond_to?(:to_global_id) ? actor.to_global_id.to_s : nil
+      gid ? where("#{input_param_sql(ACTOR_PARAM)} = ?", gid) : none
+    }
+
+    # SQL reading +key+ of input_params as text on the connected database.
+    # +key+ is always a literal from this codebase, never user input.
+    def self.input_param_sql(key)
+      column = "#{quoted_table_name}.input_params"
+      case connection.adapter_name.to_s.downcase
+      when /postgres/ then "#{column} ->> '#{key}'"
+      when /mysql|trilogy/ then "JSON_UNQUOTE(JSON_EXTRACT(#{column}, '$.#{key}'))"
+      else "json_extract(#{column}, '$.#{key}')"
+      end
+    end
 
     # Callbacks
     before_validation :set_trace_id, on: :create

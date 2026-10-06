@@ -346,6 +346,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (`actionagent`). With `multi_tenant = true` the toolbox's `playwright_mcp`
   tools are neither offered nor called, and `PlaywrightMCPClient.instance`
   raises: a run gets a browser only from its sandbox.
+- **List and replay sessions in the dashboard** (`actionagent`). The Sessions
+  page (`<mount>/sessions`, from `GET <mount>/api/sessions`) lists every
+  conversation, evaluation scenario replay and lone agent browser recording,
+  newest first, with server-side filters for agent, `user=me`, source,
+  outcome and a last-activity date range, a page at a time by cursor.
+  `<mount>/replay/:id` replays a recording and `<mount>/replay/:kind/:id` a
+  conversation, run or scenario result: messages, model calls and tool calls
+  on one axis, with idle stretches shortened, a scrubber, stepping and speed.
+  A recorded browser replays beneath them in step, in a frame served at
+  `<mount>/session_player` that runs the new `action_agent_replay.js` bundle
+  (rrweb) under a policy that allows no other script and loads nothing from
+  the network. The engine adds the bundle to the Sprockets precompile list.
+  The Run Agent workbench, Interactions, an agent's interactions page and
+  evaluation scenario results link to their replays.
+
+### Changed
+
+- **Session Replay is now Sessions** (`actionagent`). The sidebar entry opens
+  the Sessions list, and `<mount>/replay` without an id opens it too. The
+  replay view plays a session's timeline and its rrweb recording instead of
+  loading the recording's page URL in an iframe and animating a cursor over
+  it. A recording that carries handoff state still offers Take over session.
 - **Record an agent's browser tool calls as recording events**
   (`actionagent`). `ActionAgent::MCPRecordingMiddleware#intercept` now stores
   each call to a tool in `MCPRecordingMiddleware::PLAYWRIGHT_TOOLS` as one
@@ -356,9 +378,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   first browser call starts the run's recording (`source: "agent"`). The
   constructor no longer starts a recording: `#recording` and
   `#recording_service` find or start one on first use, and are `nil` when none
-  can be started. The Session Replay page reads `/actions`, so it lists these
-  recordings with no actions until the replay view moves to the timeline; read
-  them from `GET .../timeline` or `GET .../events?kind=action`. The
+  can be started. Read these events from `GET .../timeline` or
+  `GET .../events?kind=action`; `GET .../actions` does not return them. The
   `record_navigate`, `record_click`, `record_type` and `capture_for_handoff`
   helpers still write `RecordingAction`s. `PLAYWRIGHT_TOOLS` matches the tools
   of `@playwright/mcp` 0.0.83, and `browser_press_sequentially`'s text is

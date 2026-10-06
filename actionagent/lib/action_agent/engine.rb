@@ -221,8 +221,10 @@ module ActionAgent
       # i.e. the dashboard's only page 500s on every sprockets-rails host.
       # Propshaft serves everything on the load path and has no precompile
       # list, so the respond_to? check is what distinguishes them.
+      # action_agent_replay.js is the session player's own bundle, loaded
+      # only by SessionPlayerController's frame.
       if app.config.assets.respond_to?(:precompile)
-        app.config.assets.precompile |= %w[action_agent.js action_agent.css]
+        app.config.assets.precompile |= %w[action_agent.js action_agent.css action_agent_replay.js]
       end
     end
   end
