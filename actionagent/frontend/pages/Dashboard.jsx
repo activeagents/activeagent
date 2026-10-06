@@ -316,6 +316,7 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
     runner: () => (selectedAgent ? (
       <AgentRunner
         agent={selectedAgent}
+        recorderUrl={meta.recorderUrl}
         onBack={() => navigateTo('editor', selectedAgent)}
       />
     ) : null),

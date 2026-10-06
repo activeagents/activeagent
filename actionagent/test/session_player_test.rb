@@ -59,7 +59,7 @@ class SessionPlayerTest < ActionDispatch::IntegrationTest
     assert_includes policy.split("; "), "script-src https://cdn.example.com/assets/action_agent_replay.js"
   end
 
-  test "a Sprockets host precompiles the replay bundle with the dashboard's" do
+  test "a Sprockets host precompiles the replay and recorder bundles with the dashboard's" do
     assets = ActiveSupport::OrderedOptions.new
     assets.paths = []
     assets.precompile = []
@@ -67,7 +67,7 @@ class SessionPlayerTest < ActionDispatch::IntegrationTest
 
     ActionAgent::Engine.instance.initializers.find { |initializer| initializer.name == "action_agent.assets" }.run(app)
 
-    assert_equal %w[action_agent.js action_agent.css action_agent_replay.js], assets.precompile
+    assert_equal %w[action_agent.js action_agent.css action_agent_replay.js action_agent_recorder.js], assets.precompile
     assert_equal [ ActionAgent::Engine.root.join("app", "assets", "builds").to_s ], assets.paths
   end
 end

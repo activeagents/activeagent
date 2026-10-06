@@ -291,7 +291,7 @@ export default function SettingsView({ user, account }) {
                   Key “{createdKey.name}” created. Copy it now — it won't be shown again.
                 </p>
                 <div className="flex items-center space-x-2">
-                  <code className={`flex-1 px-3 py-2 rounded text-sm font-mono break-all ${darkMode ? 'bg-gray-900 text-green-300' : 'bg-white text-green-800 border border-green-200'}`}>
+                  <code data-aa-secret="" className={`flex-1 px-3 py-2 rounded text-sm font-mono break-all ${darkMode ? 'bg-gray-900 text-green-300' : 'bg-white text-green-800 border border-green-200'}`}>
                     {createdKey.token}
                   </code>
                   <button

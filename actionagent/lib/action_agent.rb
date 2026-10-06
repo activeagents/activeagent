@@ -587,6 +587,24 @@ module ActionAgent
     # @return [Boolean, nil]
     attr_accessor :assistant_enabled
 
+    # Whether the dashboard records a person's view of the Run Agent
+    # workbench, as the browser lane of the conversation's replay. On unless
+    # set to false.
+    #
+    # While the workbench has a conversation open, the page is recorded with
+    # rrweb, each visit into a recording of its own (`source: "dashboard"`),
+    # and nowhere else in the dashboard. Field values are masked. Elements
+    # marked `data-aa-secret` (credential fields and displays), the CSRF
+    # token and hidden inputs are recorded as blank boxes. Each batch is
+    # scrubbed of the owner's stored credentials before it is kept. What the
+    # page shows otherwise, the conversation included, is recorded as shown.
+    #
+    # Off, the dashboard loads no recorder and refuses the batches a
+    # dashboard session posts. Conversations still replay from their
+    # messages, model calls and tool calls.
+    # @return [Boolean]
+    attr_accessor :capture_dashboard_sessions
+
     # Resolves a host application's runner for one scenario evaluation.
     # Return nil for the engine's normal Agent#test_execute path, or a callable
     # accepting evaluation:, owner:, scenarios:, models:, on_result: and
@@ -848,6 +866,13 @@ module ActionAgent
     # @return [Boolean]
     def execution_enabled?
       @execution_enabled != false
+    end
+
+    # Returns whether the dashboard records the Run Agent workbench.
+    #
+    # @return [Boolean]
+    def capture_dashboard_sessions?
+      @capture_dashboard_sessions != false
     end
 
     # Returns whether the dashboard assistant is available. Unconfigured, it
@@ -1117,6 +1142,7 @@ module ActionAgent
       @execution_enabled = true
       @run_host_agent_classes = false
       @assistant_enabled = nil
+      @capture_dashboard_sessions = true
 
       @scenario_evaluation_adapter_resolver = nil
       @table_name_prefix = "active_agent_"

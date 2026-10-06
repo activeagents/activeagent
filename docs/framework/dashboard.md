@@ -199,6 +199,12 @@ other host is shown as a button naming that host instead: fetching an image
 is a request to whoever serves it, and the model chose the address, so the
 person reading the reply decides whether to make it.
 
+**Recorded for replay.** While a conversation is open the workbench records
+the page, with field values masked and credentials left out, so the
+conversation's replay shows what you saw. See
+[Recording the Run Agent workbench](#recording-the-run-agent-workbench) for
+what a recording holds and how to turn it off.
+
 Time-series charts on the console's metrics page use the optional
 [groupdate](https://github.com/ankane/groupdate) gem when present and
 degrade gracefully without it; the React metrics page reads buckets the
@@ -1911,6 +1917,62 @@ an iframe created inside an opaque-origin document gets an opaque origin of its
 own, which rrweb could not write into. The frame response sends
 `X-Frame-Options: SAMEORIGIN`; a host that forces `DENY` on every response
 has to exempt that path.
+
+### Recording the Run Agent workbench
+
+While the Run Agent workbench has a conversation open, the dashboard records
+the page with rrweb, and the recording replays as that conversation's browser
+lane. The workbench says **Recording** beside the conversation while it does.
+Recording starts when the workbench opens a conversation and stops when you
+leave the workbench or switch to another conversation. No other view is
+recorded.
+
+Each visit gets a recording of its own (`source: "dashboard"`, linked by its
+`agent_context_id`): opening the conversation again, or in a second tab,
+starts another, and the conversation's replay shows the visit each moment
+falls in. The recorder is its own bundle, `action_agent_recorder.js`, which
+the dashboard imports only while it records, from the URL the dashboard page
+names, so a host layout set with `ActionAgent.layout` needs no change. The
+engine adds it to the Sprockets precompile list.
+
+What a recording holds:
+
+- **Field values are masked.** rrweb records what is typed or chosen in a
+  text-like input (text, password, email, number, date and the other typed
+  kinds), a textarea or a select as asterisks (`maskAllInputs`). Whether a
+  checkbox or radio button is checked is recorded.
+- **Elements marked `data-aa-secret` are left out.** They are recorded as
+  empty boxes of the same size, with nothing inside. The dashboard marks its
+  credential fields, a newly created API key and the telemetry key. Mark any
+  element of your own that renders a credential inside the dashboard. The
+  page's CSRF token and every hidden input, where a form such as the sign-out
+  form carries that token, are left out the same way.
+- **Stored credentials are masked on the server.** Every batch a dashboard
+  session posts has the owner's provider keys, GitHub tokens, checkout
+  sandbox runtime tokens, dashboard API keys and telemetry key replaced with
+  `[REDACTED]` before it is stored. When those credentials cannot be read, the
+  batch is refused (503, `credential_check_failed`) and nothing is stored.
+- **Everything else is recorded as shown**, the conversation included. A
+  secret pasted into a message is recorded unless it is one of the stored
+  credentials above.
+
+The dashboard page itself carries no credential, so a recording of it holds
+none. The Organization page reads the telemetry key from
+`GET /api/telemetry_key` when you show or copy it.
+
+The recorder starts its recording with `POST /api/session_recordings` and
+`agent_context_id`. It answers 201 with `{ recording: { id, agent_context_id,
+source, status } }`, 400 without a conversation id, and 404 for a
+conversation of an agent you cannot reach. Batches go to
+`POST /api/session_recordings/:id/events` every five seconds. A batch over
+`ActionAgent.recording_limits` (413) ends the recording of that visit, and the
+workbench then says **Recording stopped**. The next visit records again.
+
+To record nothing, set `config.capture_dashboard_sessions = false`. The
+dashboard then loads no recorder, and `POST /api/session_recordings` and every
+batch a dashboard session posts answer 403 (`capture_disabled`). Batches
+posted with a recording's ingest token are unaffected, and conversations
+still replay from their messages, model calls and tool calls.
 
 ## Session timelines
 
