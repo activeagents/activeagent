@@ -172,6 +172,24 @@ ActionAgent::Engine.routes.draw do
       get :callback
     end
 
+    # The owner's GitHub App installations: install sends the admin to GitHub,
+    # which returns to callback; each installation's repositories are chosen
+    # with PATCH, and DELETE unlinks one (the App stays installed on GitHub).
+    resources :github_installations, only: [ :index, :update, :destroy ] do
+      collection do
+        get :install
+        get :callback
+      end
+      member do
+        get :repositories
+      end
+    end
+
+    # Creating the GitHub App from a manifest on a self-hosted dashboard.
+    resource :github_app_manifest, only: [ :create ] do
+      get :callback
+    end
+
     # Model catalogs for the agent builder (Ollama queried live from the
     # configured host; hosted providers curated).
     resources :provider_models, only: [ :index ]

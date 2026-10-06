@@ -107,6 +107,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   documented on the orchestrator and in the dashboard guide; the `:mock` and
   `:local` backends implement none of them. `read_file` refuses a path outside
   the checkout before the backend sees it.
+- **Check out sandboxes through a GitHub App** (`actionagent`). Configure
+  `github_app_id`, `github_app_private_key`, `github_app_slug`,
+  `github_app_client_id` and `github_app_client_secret` (or the matching
+  `GITHUB_APP_*` variables), and Settings -> Integrations offers **Install
+  the GitHub App**. An installation is linked only after the App's user
+  authorization shows the user is the account it is installed on or an
+  active admin of its organization, and that user's token is then dropped.
+  An installation belongs to one owner at most. Its repositories are chosen
+  like the OAuth connection's, and a checkout of one of them mints a one-hour
+  token limited to that repository's contents, once per provision, held in
+  memory only. When a repository is reachable both ways, the installation
+  is used. The App's JWT is signed with OpenSSL, so there is no new
+  dependency. Run `rails g action_agent:install` and `rails db:migrate` for
+  the `github_installations` table and
+  `sandbox_sessions.github_installation_id`. The OAuth connection works as
+  before. Installing, linking, listing and choosing an installation's
+  repositories, and unlinking it ask `ActionAgent.permission_checker` for
+  `:manage_github`. An installation GitHub reports removed or suspended is
+  marked, and **Check again** clears the mark once GitHub serves it again.
+- **Create the GitHub App from Settings** (`actionagent`). On a
+  single-tenant dashboard, **Create GitHub App** posts a manifest to GitHub
+  and shows the new App's credentials once, with the configuration to add.
+  The dashboard stores none of them.
+- **Mask GitHub tokens in sandbox output by their shape** (`actionagent`).
+  `SecretScrubber` masks `ghp_`, `gho_`, `ghu_`, `ghs_`, `ghr_` and
+  `github_pat_` tokens even when it is given no values, so a code session's
+  transcript masks a checkout token it never knew.
 
 ### Changed
 

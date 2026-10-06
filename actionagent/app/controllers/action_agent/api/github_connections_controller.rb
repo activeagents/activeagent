@@ -21,14 +21,17 @@ module ActionAgent
       rescue_from GithubClient::Error, with: :github_unavailable
       rescue_from GithubClient::Unauthorized, with: :github_unauthorized
 
-      # GET /api/github_connection
+      # GET /api/github_connection — the OAuth connection, and the GitHub App
+      # path beside it under +app+: whether an App is configured, whether one
+      # can be created from a manifest here, and the owner's installations.
       def show
         connection = owned(GithubConnection).first
 
         render json: {
           configured: ActionAgent.github_oauth_configured?,
           connected: connection.present?,
-          connection: connection&.as_summary
+          connection: connection&.as_summary,
+          app: github_app_status
         }
       end
 
@@ -146,6 +149,20 @@ module ActionAgent
 
       def callback_url
         "#{request.base_url}#{request.script_name}/api/github_connection/callback"
+      end
+
+      def github_app_status
+        configured = ActionAgent.github_app_configured?
+
+        {
+          configured: configured,
+          slug: configured ? ActionAgent.github_app_slug : nil,
+          callback_url: "#{request.base_url}#{request.script_name}/api/github_installations/callback",
+          manifest_available: !ActionAgent.multi_tenant?,
+          # Listed only while an App is configured: without one nothing can
+          # mint an installation's tokens, so its repositories cannot be used.
+          installations: configured ? owned(GithubInstallation).order(:id).map(&:as_summary) : []
+        }
       end
 
       def redirect_to_settings(**query)
