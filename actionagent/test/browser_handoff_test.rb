@@ -110,12 +110,16 @@ class BrowserHandoffTest < ActionDispatch::IntegrationTest
     assert_empty @browser.calls
   end
 
-  test "an agent without the browser tools is not recorded" do
+  test "a run that never touches the browser gets no recording, not even when it completes" do
     agent, run = build_run(tools: %w[memory])
+    service = service_for(agent, run)
 
-    service_for(agent, run).execute_tool("browser_navigate", url: "https://example.com/tickets")
+    service.execute_tool("nothing_here")
+    service.send(:finish_browser_recording)
 
     assert_nil ActionAgent::SessionRecording.find_by(agent_run: run)
+    assert_empty @browser.calls
+    assert_not_includes ActionAgent::AgentToolbox.definitions_for(agent.tools).map { |definition| definition[:name] }, "request_handoff"
   end
 
   test "request_handoff keeps where the agent stopped and what it entered, never a secret" do

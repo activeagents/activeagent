@@ -71,9 +71,11 @@ class BrowserRunTest < ActionDispatch::IntegrationTest
 
     assert_response :success, response.body
     assert_nil @agent.agent_runs.order(:id).last.browser_server_key
+    # The toolbox's whole browser group: navigation, typing, forms and the
+    # handoff to a person, which a sandbox's own browser does not offer.
     assert_requested(:post, CHAT_URL) do |request|
       names = JSON.parse(request.body)["tools"].map { |tool| tool.dig("function", "name") }
-      names.sort == (BROWSER_TOOLS + [ "lookup_order" ]).sort
+      names.sort == (ActionAgent::AgentToolbox::SHARED_BROWSER_FUNCTIONS + [ "lookup_order" ]).sort
     end
     assert_not_requested :post, BROWSER_URL
   end
