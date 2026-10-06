@@ -123,7 +123,10 @@ class SampleDataConferenceTicketTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_includes response.body, "ConferenceTicketAgent"
 
-    get "/activeagents/api/traces/#{trace.id}"
+    # The show route resolves a trace_id (or a prefix of one) before a numeric
+    # id, so a random trace_id that happens to start with this trace's row
+    # number would win; address the trace the way the dashboard links it.
+    get "/activeagents/api/traces/#{trace.trace_id}"
     assert_response :success
     assert_includes response.body, "tool.request_handoff"
 
