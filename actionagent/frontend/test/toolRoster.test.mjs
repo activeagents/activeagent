@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   allToolRows,
+  approvalNames,
+  approvalState,
   changeCount,
   fmtAgo,
   fmtDuration,
@@ -14,7 +16,9 @@ import {
   serviceRows,
   serviceState,
   toolGroups,
+  toggledApproval,
   toolsFor,
+  withApproval,
 } from '../utils/toolRoster.mjs';
 
 // The Tools tab derives everything from two inputs: the roster endpoint's
@@ -301,4 +305,72 @@ test('a sandbox runtime is never undocumented, live or stopped', () => {
   assert.equal(isUndocumented(unknown), true);
   assert.equal(isUndocumented({ key: 'github', known: true }), false);
   assert.equal(isUndocumented(null), false);
+});
+
+// The roster as the endpoint describes approval: each row names what the
+// agent's approval list takes for it.
+const approvalPayload = () => {
+  const base = payload();
+  base.services[0].tools.forEach((tool) => { tool.approval_names = [tool.name]; });
+  base.tools.forEach((tool) => {
+    tool.approval_names = { find_tickets: ['find_tickets'], memory: ['save_memory', 'recall_memory'] }[tool.key] || [];
+  });
+  return base;
+};
+
+test('a row offers approval for its names only while it is on', () => {
+  const rows = allToolRows(approvalPayload(), serviceState(approvalPayload(), ['playwright']), ['memory']);
+  const row = (key) => rows.find((candidate) => candidate.key === key);
+
+  assert.deepEqual(approvalNames(row('memory')), ['save_memory', 'recall_memory']);
+  assert.deepEqual(approvalNames(row('playwright:browser_navigate')), ['browser_navigate']);
+  // Off: the schema tool is not offered, so there is nothing to approve.
+  assert.deepEqual(approvalNames(row('find_tickets')), []);
+  // The class runs a tool it declares in code, so the endpoint names nothing.
+  assert.deepEqual(approvalNames(row('refund_invoice')), []);
+});
+
+test('a row reads as approved when the list names all of its names', () => {
+  const memory = { on: true, approval_names: ['save_memory', 'recall_memory'] };
+
+  assert.equal(approvalState(memory, []), 'off');
+  assert.equal(approvalState(memory, ['save_memory']), 'partial');
+  assert.equal(approvalState(memory, ['recall_memory', 'save_memory', 'fetch_url']), 'on');
+  assert.equal(approvalState({ on: true, approval_names: [] }, ['x']), null);
+  assert.equal(approvalState({ on: false, approval_names: ['x'] }, ['x']), null);
+});
+
+test('switching approval adds or removes a row\'s names and leaves the rest of the list', () => {
+  assert.deepEqual(withApproval(['fetch_url'], ['save_memory', 'recall_memory'], true), ['fetch_url', 'save_memory', 'recall_memory']);
+  assert.deepEqual(withApproval(['fetch_url', 'save_memory'], ['save_memory', 'recall_memory'], true), ['fetch_url', 'save_memory', 'recall_memory']);
+  assert.deepEqual(withApproval(['fetch_url', 'save_memory', 'recall_memory'], ['save_memory', 'recall_memory'], false), ['fetch_url']);
+  assert.deepEqual(withApproval(undefined, ['x'], true), ['x']);
+});
+
+test('an approval change counts once per row', () => {
+  const saved = { tools: ['memory'], mcpServers: ['playwright'], approvalRequiredTools: [] };
+  const current = { ...saved, approvalRequiredTools: ['save_memory', 'recall_memory', 'browser_navigate'] };
+
+  assert.equal(changeCount(approvalPayload(), saved, saved), 0);
+  assert.equal(changeCount(approvalPayload(), current, saved), 2);
+  assert.equal(changeCount(approvalPayload(), saved, { ...saved, approvalRequiredTools: ['save_memory'] }), 1);
+});
+
+test('a switch click turns an on or partly on row off, and an off row on', () => {
+  const memory = { on: true, approval_names: ['save_memory', 'recall_memory'] };
+
+  assert.deepEqual(toggledApproval(['fetch_url'], memory), ['fetch_url', 'save_memory', 'recall_memory']);
+  assert.deepEqual(toggledApproval(['save_memory', 'fetch_url', 'recall_memory'], memory), ['fetch_url']);
+  assert.deepEqual(toggledApproval(['fetch_url', 'save_memory'], memory), ['fetch_url']);
+  assert.deepEqual(toggledApproval(['fetch_url'], { on: false, approval_names: ['fetch_url'] }), ['fetch_url']);
+});
+
+test('switching a row back restores the list in its saved order', () => {
+  const memory = { on: true, approval_names: ['save_memory', 'recall_memory'] };
+  const saved = ['recall_memory', 'fetch_url', 'save_memory'];
+
+  const off = toggledApproval(saved, memory, saved);
+  assert.deepEqual(off, ['fetch_url']);
+  assert.deepEqual(toggledApproval(off, memory, saved), saved);
+  assert.deepEqual(toggledApproval(off, memory, ['fetch_url']), ['fetch_url', 'save_memory', 'recall_memory']);
 });

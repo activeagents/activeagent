@@ -61,6 +61,7 @@ require "solid_agent"
 require "action_agent/version"
 require "action_agent/engine"
 require "action_agent/compatibility"
+require "action_agent/secret_requests"
 
 # Dashboard engine for visualizing telemetry data and managing agents.
 #
@@ -106,6 +107,43 @@ require "action_agent/compatibility"
 module ActionAgent
   # What ActionAgent.claude_code_auth may be set to.
   CLAUDE_CODE_AUTH_MODES = %i[api_key local_login].freeze
+
+  # What ActionAgent.provider_key_scope may be set to.
+  PROVIDER_KEY_SCOPES = %i[organization personal_override].freeze
+
+  # The privileged actions ActionAgent.permission_checker is asked about:
+  #
+  #   :manage_credentials     store, test or delete an organization provider
+  #                           credential, hand the organization's to a
+  #                           project's code, or store or test a member's
+  #                           personal Ollama host (the subject is that
+  #                           personal key); a member's other personal keys
+  #                           need none
+  #   :manage_github          connect, disconnect, or choose the repositories of
+  #                           the GitHub connection or a GitHub App
+  #                           installation; link or unlink an installation;
+  #                           create a GitHub App from a manifest; read a
+  #                           repository the connection has not selected
+  #   :manage_api_keys        create or revoke a dashboard API key
+  #   :publish_pull_request   open a pull request from a sandbox's changes
+  #   :answer_input_request   answer or decline a run's request for input
+  #   :manage_project_secrets set or remove a project's secrets, change the ref
+  #                           they are handed to, or delete a project that has
+  #                           them
+  #   :take_over_browser      drive a run's browser by hand
+  #   :manage_recordings      delete a session recording
+  #   :replace_scenarios      replace or merge an evaluation's scenarios
+  PERMISSION_ACTIONS = %i[
+    manage_credentials
+    manage_github
+    manage_api_keys
+    publish_pull_request
+    answer_input_request
+    manage_project_secrets
+    take_over_browser
+    manage_recordings
+    replace_scenarios
+  ].freeze
 
   class << self
     # Deprecation warnings for this gem, routed through Rails' machinery so a
@@ -159,8 +197,9 @@ module ActionAgent
     #   config.agent_actor_resolver = ->(controller) { controller.current_user }
     #
     # Unset means the dashboard's signed-in user, and, for the MCP endpoint,
-    # the API key's owner — the identity that authenticated the call. A host
-    # whose keys are issued per end user overrides this to return that user.
+    # the user who created the API key, else the key's owner — the identity
+    # that authenticated the call. A host whose keys are issued per end user
+    # overrides this to return that user.
     #
     # Returning nil runs the agent unattributed, which a correctly written
     # host scope reads as "no access". That is the safe direction, and it is
@@ -208,6 +247,18 @@ module ActionAgent
     # Custom sandbox limits (overrides defaults)
     # @return [Hash, nil]
     attr_accessor :sandbox_limits
+
+    # Caps on the events a browser may post to a session recording, merged
+    # over RecordingEvent::DEFAULT_LIMITS. Keys:
+    #
+    #   batch_events      events in one batch
+    #   batch_bytes       bytes in one batch's request body
+    #   recording_events  events stored on one recording
+    #   recording_bytes   bytes of event JSON stored on one recording
+    #
+    # A batch over any of them is refused and counted on the recording.
+    # @return [Hash, nil]
+    attr_accessor :recording_limits
 
     # Storage service for screenshots/snapshots
     # @return [Object, nil] Object responding to #signed_url_for and #fetch_snapshot
@@ -281,6 +332,11 @@ module ActionAgent
     #   :trace_ingest      — a POST to <mount>/api/traces; HTTP 429
     #   :evaluation_report — a report <mount>/api/evaluation_reports would
     #                        store (never an identical retry); HTTP 429
+    #   :project           — creating a project; HTTP 402, and usage is
+    #                        recorded under the same kind once it exists
+    #   :browser_minutes   — starting a sandbox's browser; HTTP 402
+    #   :exploration       — starting the explorer on a project; HTTP 402,
+    #                        and usage is recorded once for each start
     #
     # The owner of an ingest kind is the tenant the key resolved to, nil on a
     # single-tenant install.
@@ -289,16 +345,110 @@ module ActionAgent
     # @return [Proc, nil]
     attr_accessor :quota_checker
 
+    # Decides whether the signed-in user may perform a privileged action,
+    # called as (user, action, subject):
+    #
+    #   user    the signed-in user (the dashboard's current_user), or nil
+    #   action  one of PERMISSION_ACTIONS
+    #   subject the record the action applies to, unsaved when the action
+    #           creates it, with its owner columns set
+    #
+    # A truthy answer allows and false denies. {.permitted?} describes how a
+    # nil answer, an exception and a missing user are treated. A denied API
+    # request gets HTTP 403, and a denied GitHub connect or callback returns
+    # to Settings.
+    #
+    # For :answer_input_request the subject is the InputRequest, whose
+    # `requested_by_id` is the id of the user the paused run acts for.
+    #
+    #   config.permission_checker = ->(user, action, subject) {
+    #     user.present? && (user.admin? ||
+    #       action == :answer_input_request && subject.requested_by_id.in?([ nil, user.id ]))
+    #   }
+    #
+    # Unset means everyone who can reach the dashboard may do everything,
+    # which is what a single-user install wants. In multi-tenant mode it means
+    # every member of a tenant may do everything except answer a request for
+    # input another member's run raised (InputRequest#answerable_by?), and the
+    # engine logs a warning at boot (see {.warn_about_unchecked_permissions}).
+    # @return [Proc, nil]
+    attr_accessor :permission_checker
+
     # Resolves LLM provider credentials for a run. Receives
     # (owner, provider_name) and returns a Hash merged into the agent's
     # generation options (e.g. { access_token: "sk-..." } or
     # { host: "http://localhost:11434" }), or nil to fall back to the
-    # host app's config/active_agent.yml.
+    # dashboard's stored organization key and then the host app's
+    # config/active_agent.yml.
+    #
+    # A resolver that declares an +actor:+ keyword (or accepts any keyword
+    # with **) is also told who is acting: the user who started the run, the
+    # signed-in user for the dashboard assistant and the model pickers, nil
+    # for the evaluation judge and a run nobody started:
+    #
+    #   config.provider_credentials_resolver = ->(owner, provider, actor: nil) {
+    #     owner.provider_key_for(provider)&.generation_options
+    #   }
+    #
+    # A personal key (see provider_key_scope) is tried before the resolver,
+    # so a resolver that reads the dashboard's provider_keys table by
+    # provider alone has to keep to organization rows
+    # (ActionAgent::ProviderKey.for_owner does).
     #
     # Unset means config/active_agent.yml is the only source, which is what
-    # a self-hosted install wants.
+    # a self-hosted install wants. See {.provider_credentials} for how an
+    # exception is treated.
     # @return [Proc, nil]
     attr_accessor :provider_credentials_resolver
+
+    # Whether a member's own provider key may stand in for the
+    # organization's. One of PROVIDER_KEY_SCOPES:
+    #
+    #   :organization       (default) runs use the organization's key, the
+    #                       host resolver's, or config/active_agent.yml
+    #   :personal_override  a member may also save a personal key per
+    #                       provider in Settings, and the runs that member
+    #                       starts, the dashboard assistant and the model
+    #                       pickers use it before the organization's
+    #
+    # A personal key sends the organization's agent traffic to the member's
+    # own provider account, so an install opts in. Without an account_class
+    # there are no personal keys and the setting has no effect. The
+    # evaluation judge, sandboxes, and Claude Code and Codex connections
+    # always use organization keys. A personal Ollama host decides where the
+    # server sends requests, so storing one asks permission_checker for
+    # :manage_credentials.
+    # @return [Symbol]
+    attr_reader :provider_key_scope
+
+    def provider_key_scope=(value)
+      scope = value.nil? ? :organization : value.to_sym
+      unless PROVIDER_KEY_SCOPES.include?(scope)
+        raise ArgumentError, "provider_key_scope must be one of #{PROVIDER_KEY_SCOPES.join(', ')}, got #{value.inspect}"
+      end
+
+      @provider_key_scope = scope
+    end
+
+    # Lists the members of an owner for the Organization view's Team Members
+    # table, answering GET <mount>/api/members. Receives (owner) and returns
+    # an Array of Hashes with :id, :name, :email and :role; any other key is
+    # dropped before it reaches the browser.
+    #
+    #   config.members_resolver = ->(account) {
+    #     account.memberships.includes(:user).map { |m| { id: m.user.id, name: m.user.name, email: m.user.email, role: m.role } }
+    #   }
+    #
+    # Unset, or when it raises (logged), the table lists the signed-in user
+    # alone.
+    # @return [Proc, nil]
+    attr_accessor :members_resolver
+
+    # Where the Organization view's "+ Invite Member" button links: the
+    # host app's own invitation page. Unset, the button is not shown; the
+    # engine has no invitations of its own.
+    # @return [String, nil]
+    attr_accessor :member_invite_url
 
     # Sandbox backends contributed by the host app, as
     # { "cloud_run" => "CloudRunService" }. The engine ships only :mock;
@@ -327,6 +477,34 @@ module ActionAgent
     # come up before giving up, in seconds.
     # @return [Integer]
     attr_accessor :local_sandbox_boot_timeout
+
+    # A checkout of the browser sidecar (the repository's browser-sidecar/
+    # directory) for the :local backend to run instead of the package
+    # `bin/rails action_agent:browser:install` installs. For working on the
+    # sidecar itself: a checkout's version is not checked against the
+    # engine's. Unset, the installed package runs.
+    # @return [String, Pathname, nil]
+    attr_accessor :browser_sidecar_path
+
+    # The Node.js and npm executables the browser sidecar is installed and
+    # run with.
+    # @return [String]
+    attr_accessor :node_command, :npm_command
+
+    # How long the :local backend waits for a browser to start, in seconds.
+    # @return [Integer]
+    attr_accessor :browser_start_timeout
+
+    # Origins, besides the one a browser is started from, whose dashboard
+    # pages may open its live view, such as "http://127.0.0.1:3000" when the
+    # dashboard is also reached that way. A live view's WebSocket refuses
+    # every other Origin.
+    # @return [Array<String>]
+    attr_writer :browser_live_origins
+
+    def browser_live_origins
+      Array(@browser_live_origins).map(&:to_s)
+    end
 
     # The Claude Code executable a sandbox backend runs headless sessions
     # with. The :local backend runs it on the dashboard's machine.
@@ -411,6 +589,24 @@ module ActionAgent
     # @return [Boolean, nil]
     attr_accessor :assistant_enabled
 
+    # Whether the dashboard records a person's view of the Run Agent
+    # workbench, as the browser lane of the conversation's replay. On unless
+    # set to false.
+    #
+    # While the workbench has a conversation open, the page is recorded with
+    # rrweb, each visit into a recording of its own (`source: "dashboard"`),
+    # and nowhere else in the dashboard. Field values are masked. Elements
+    # marked `data-aa-secret` (credential fields and displays), the CSRF
+    # token and hidden inputs are recorded as blank boxes. Each batch is
+    # scrubbed of the owner's stored credentials before it is kept. What the
+    # page shows otherwise, the conversation included, is recorded as shown.
+    #
+    # Off, the dashboard loads no recorder and refuses the batches a
+    # dashboard session posts. Conversations still replay from their
+    # messages, model calls and tool calls.
+    # @return [Boolean]
+    attr_accessor :capture_dashboard_sessions
+
     # Resolves a host application's runner for one scenario evaluation.
     # Return nil for the engine's normal Agent#test_execute path, or a callable
     # accepting evaluation:, owner:, scenarios:, models:, on_result: and
@@ -418,6 +614,14 @@ module ActionAgent
     # judge and yields every result to on_result for dashboard persistence.
     # @return [Proc, nil]
     attr_accessor :scenario_evaluation_adapter_resolver
+
+    # How many answerable candidates an exploration's review pre-selects for
+    # acceptance: an Integer, or a Proc called with (owner) that returns one.
+    # A platform can cap a free plan's suite this way. Unset, or nil from the
+    # Proc, pre-selects every answerable candidate. See
+    # {.exploration_preselect_limit_for}.
+    # @return [Integer, Proc, nil]
+    attr_accessor :exploration_preselect_limit
 
     # Where the dashboard's upgrade CTAs should send people. Unset in a
     # self-hosted install, where there is nothing to upgrade, and the CTAs
@@ -458,9 +662,17 @@ module ActionAgent
 
     # Called after the dashboard performs a metered action, as
     # (owner, kind) — the counterpart to quota_checker, for host apps that
-    # track usage against a plan. The kinds are :execution, for each agent
-    # run, and :evaluation_report, for each report the collector stores; an
-    # identical retry is not counted again. Unset means nothing is counted.
+    # track usage against a plan. The kinds:
+    #
+    #   :execution         — each agent run
+    #   :evaluation_report — each report the collector stores; an identical
+    #                        retry is not counted again
+    #   :browser_minutes   — each browser that stopped, with the minutes it
+    #                        ran, rounded up, as a third argument
+    #
+    # A recorder that takes a third argument receives the quantity, and nil
+    # for a kind that has none when the argument is required; one that takes
+    # two is called as (owner, kind). Unset means nothing is counted.
     # @return [Proc, nil]
     attr_accessor :usage_recorder
 
@@ -484,6 +696,13 @@ module ActionAgent
     # @return [ActiveSupport::Duration, Proc, nil]
     attr_accessor :trace_retention
 
+    # How long a run's request for input waits for an answer. Past it, the
+    # request expires and its run fails, once an answer, the request list,
+    # the run's page or InputRequestExpiryJob reaches it. One day by default;
+    # nil lets a request wait until it is answered or its run is cancelled.
+    # @return [ActiveSupport::Duration, nil]
+    attr_accessor :input_request_ttl
+
     # Whether API keys and provider credentials are encrypted at rest with
     # Active Record Encryption. On by default, which requires the host app
     # to have run `rails db:encryption:init`. Turning it off stores those
@@ -504,6 +723,23 @@ module ActionAgent
     # public checkouts only.
     # @return [String]
     attr_accessor :github_oauth_scopes
+
+    # The GitHub App checkout sandboxes get repository access through
+    # (Settings -> Integrations -> Install the GitHub App). Each falls back to
+    # the matching GITHUB_APP_* variable (GITHUB_APP_ID, GITHUB_APP_PRIVATE_KEY,
+    # GITHUB_APP_SLUG, GITHUB_APP_CLIENT_ID, GITHUB_APP_CLIENT_SECRET), and the
+    # dashboard offers no installation until all five are present. Register
+    # the App with "Request user authorization (OAuth) during installation"
+    # and "Redirect on update" turned on and
+    # <mount>/api/github_installations/callback as its callback URL, or create
+    # it from Settings with the manifest flow.
+    #
+    # The private key is the PEM GitHub generated for the App. A key whose
+    # line breaks were written as "\n" (one line in an env file) is read with
+    # real line breaks.
+    # @return [String, nil]
+    attr_writer :github_app_id, :github_app_private_key, :github_app_slug,
+      :github_app_client_id, :github_app_client_secret
 
     # MCP servers the host app itself serves or connects, appended to the
     # built-in catalog (MCPCatalog) so the MCP Services view lists them and
@@ -586,6 +822,36 @@ module ActionAgent
       github_client_id.present? && github_client_secret.present?
     end
 
+    def github_app_id
+      (@github_app_id.presence || ENV["GITHUB_APP_ID"].presence)&.to_s
+    end
+
+    def github_app_private_key
+      key = @github_app_private_key.presence || ENV["GITHUB_APP_PRIVATE_KEY"].presence
+      return nil if key.nil?
+
+      key.include?("\n") ? key : key.gsub("\\n", "\n")
+    end
+
+    def github_app_slug
+      @github_app_slug.presence || ENV["GITHUB_APP_SLUG"].presence
+    end
+
+    def github_app_client_id
+      @github_app_client_id.presence || ENV["GITHUB_APP_CLIENT_ID"].presence
+    end
+
+    def github_app_client_secret
+      @github_app_client_secret.presence || ENV["GITHUB_APP_CLIENT_SECRET"].presence
+    end
+
+    # Whether the GitHub App installation flow can run on this install: every
+    # github_app_* setting is present.
+    # @return [Boolean]
+    def github_app_configured?
+      [ github_app_id, github_app_private_key, github_app_slug, github_app_client_id, github_app_client_secret ].all?(&:present?)
+    end
+
     def multi_tenant?
       @multi_tenant == true
     end
@@ -612,6 +878,13 @@ module ActionAgent
       @execution_enabled != false
     end
 
+    # Returns whether the dashboard records the Run Agent workbench.
+    #
+    # @return [Boolean]
+    def capture_dashboard_sessions?
+      @capture_dashboard_sessions != false
+    end
+
     # Returns whether the dashboard assistant is available. Unconfigured, it
     # follows the environment: development and test yes, everywhere else no.
     #
@@ -635,10 +908,13 @@ module ActionAgent
       Pathname.new(@local_sandbox_root.presence || Rails.root.join("tmp", "action_agent", "sandboxes"))
     end
 
-    # Tells the host app that +owner+ performed +kind+. Never raises: a
-    # bookkeeping failure must not fail the action that was already taken.
-    def record_usage(owner, kind)
-      usage_recorder&.call(owner, kind)
+    # Tells the host app that +owner+ performed +kind+, +quantity+ times when
+    # given (see usage_recorder). Never raises: a bookkeeping failure must not
+    # fail the action that was already taken.
+    def record_usage(owner, kind, quantity = nil)
+      return nil if usage_recorder.nil?
+
+      usage_recorder.call(*usage_arguments(usage_recorder, owner, kind, quantity))
     rescue StandardError => e
       Rails.logger.warn("[ActionAgent] usage recording failed: #{e.message}")
       nil
@@ -657,6 +933,21 @@ module ActionAgent
       UNLIMITED_USAGE.dup
     end
 
+    # The exploration_preselect_limit for +owner+, or nil for no limit. A
+    # value that is not a non-negative Integer, and a Proc that raises, mean
+    # no limit: the setting only trims a default selection, and the
+    # reviewer can still select every candidate.
+    #
+    # @return [Integer, nil]
+    def exploration_preselect_limit_for(owner)
+      limit = exploration_preselect_limit
+      limit = limit.call(owner) if limit.respond_to?(:call)
+      limit.is_a?(Integer) && !limit.negative? ? limit : nil
+    rescue StandardError => e
+      Rails.logger.warn("[ActionAgent] exploration_preselect_limit failed: #{e.class}: #{e.message}")
+      nil
+    end
+
     # Asks the host app whether +owner+ may perform +kind+.
     #
     # @return [String, Hash, nil] denial message or payload, nil when allowed
@@ -666,17 +957,101 @@ module ActionAgent
       quota_checker.call(owner, kind)
     end
 
-    # Provider options for +owner+, or {} when the host app has none and
-    # config/active_agent.yml should be used as-is.
+    # Whether +user+ may perform +action+ on +subject+, as permission_checker
+    # answers. Always true when no checker is configured, in either mode.
+    # Otherwise:
+    #
+    #   - an exception from the checker denies, and is logged
+    #   - in multi-tenant mode a nil +user+ denies without asking the checker,
+    #     and a nil answer denies
+    #   - in single-tenant mode a nil answer allows
+    #
+    # @raise [ArgumentError] when +action+ is not one of PERMISSION_ACTIONS
+    # @return [Boolean]
+    def permitted?(user, action, subject = nil)
+      unless PERMISSION_ACTIONS.include?(action)
+        raise ArgumentError, "Unknown permission action #{action.inspect}; expected one of #{PERMISSION_ACTIONS.join(', ')}"
+      end
+      return true if permission_checker.nil?
+      return false if multi_tenant? && user.nil?
+
+      answer = begin
+        permission_checker.call(user, action, subject)
+      rescue StandardError => e
+        Rails.logger.error("[ActionAgent] permission_checker raised for #{action}, denying: #{e.class}: #{e.message}")
+        return false
+      end
+      return !multi_tenant? if answer.nil?
+
+      answer ? true : false
+    end
+
+    # Logs a warning when the install is multi-tenant and has no
+    # permission_checker, because every member of a tenant may then perform
+    # every privileged action. The engine calls it once the host's
+    # initializers have run.
+    #
+    # @return [Boolean] whether it warned
+    def warn_about_unchecked_permissions
+      return false unless multi_tenant? && permission_checker.nil?
+
+      Rails.logger&.warn(
+        "[ActionAgent] multi_tenant is on and no permission_checker is configured, so every member of a tenant " \
+        "may store provider credentials, connect GitHub and create API keys. Set config.permission_checker to " \
+        "restrict them."
+      )
+      true
+    end
+
+    # Provider options the host's provider_credentials_resolver returns for
+    # +owner+, or {} when it is unset or has none. +actor+ is passed only to
+    # a resolver that declares an actor: keyword or accepts **; any other is
+    # called with (owner, provider).
+    #
+    # A resolver that raises is logged and yields {} on a single-tenant
+    # install. On a multi-tenant install it raises
+    # ActionAgent::ProviderCredentials::Unresolved instead, so the run
+    # fails rather than generating on the platform's own credentials.
+    #
+    # Callers resolving what a generation runs on use
+    # ActionAgent::ProviderCredentials.resolve, which also tries the
+    # dashboard's stored keys.
     #
     # @return [Hash]
-    def provider_credentials(owner, provider)
+    def provider_credentials(owner, provider, actor: nil)
       return {} if provider_credentials_resolver.nil?
 
-      provider_credentials_resolver.call(owner, provider) || {}
+      resolver = provider_credentials_resolver
+      result = if resolver_accepts_actor?(resolver)
+        resolver.call(owner, provider, actor: actor)
+      else
+        resolver.call(owner, provider)
+      end
+      result || {}
     rescue StandardError => e
+      if multi_tenant?
+        raise ActionAgent::ProviderCredentials::Unresolved,
+              "The provider_credentials_resolver failed for #{provider} (#{e.class})"
+      end
+
       Rails.logger.warn("[ActionAgent] provider credential lookup failed: #{e.message}")
       {}
+    end
+
+    # The members ActionAgent.members_resolver lists for +owner+, each
+    # reduced to id, name, email and role. Nil when no resolver is set or it
+    # raised (logged), so the caller can list the signed-in user instead.
+    #
+    # @return [Array<Hash>, nil]
+    def members_for(owner)
+      return nil if members_resolver.nil?
+
+      Array(members_resolver.call(owner)).map do |member|
+        member.to_h.symbolize_keys.slice(:id, :name, :email, :role)
+      end
+    rescue StandardError => e
+      Rails.logger.warn("[ActionAgent] members_resolver failed: #{e.class}: #{e.message}")
+      nil
     end
 
     # Returns the trace model class to use.
@@ -761,17 +1136,27 @@ module ActionAgent
       @layout = nil
       @sandbox_service = :mock
       @sandbox_limits = nil
+      @recording_limits = nil
       @storage_service = nil
       @ingest_api_key = nil
       @base_controller_class = "ActionController::Base" # deprecated no-op
       @model_concerns = []
       @controller_concerns = []
       @quota_checker = nil
+      @permission_checker = nil
       @provider_credentials_resolver = nil
+      @provider_key_scope = :organization
+      @members_resolver = nil
+      @member_invite_url = nil
       @sandbox_backends = {}
       @local_sandboxes_enabled = nil
       @local_sandbox_root = nil
       @local_sandbox_boot_timeout = 600
+      @browser_sidecar_path = nil
+      @node_command = "node"
+      @npm_command = "npm"
+      @browser_start_timeout = 60
+      @browser_live_origins = []
       @claude_code_command = "claude"
       @claude_code_permission_mode = "acceptEdits"
       @claude_code_max_turns = nil
@@ -782,14 +1167,21 @@ module ActionAgent
       @execution_enabled = true
       @run_host_agent_classes = false
       @assistant_enabled = nil
+      @capture_dashboard_sessions = true
 
       @scenario_evaluation_adapter_resolver = nil
       @table_name_prefix = "active_agent_"
       @agent_polymorphic_name = nil
       @encrypt_credentials = true
+      @input_request_ttl = 1.day
       @github_client_id = nil
       @github_client_secret = nil
       @github_oauth_scopes = "repo read:user"
+      @github_app_id = nil
+      @github_app_private_key = nil
+      @github_app_slug = nil
+      @github_app_client_id = nil
+      @github_app_client_secret = nil
       @trace_retention = nil
       @trace_owner_resolver = nil
       @usage_recorder = nil
@@ -803,6 +1195,7 @@ module ActionAgent
       @schema_tools_path = "app/agent_tools"
       @mcp_schema_tools = nil
       @mcp_dashboard_tools = nil
+      @exploration_preselect_limit = nil
     end
 
     # Host-declared schema tool classes, resolved from names and filtered to
@@ -883,8 +1276,27 @@ module ActionAgent
 
     private
 
+    def resolver_accepts_actor?(resolver)
+      parameters = resolver.respond_to?(:parameters) ? resolver.parameters : resolver.method(:call).parameters
+      parameters.any? { |type, name| type == :keyrest || (%i[key keyreq].include?(type) && name == :actor) }
+    end
+
     def resolve_concerns(entries)
       Array(entries).map { |entry| entry.is_a?(Module) ? entry : entry.to_s.constantize }
+    end
+
+    # What +recorder+ is called with: the quantity when there is one and it
+    # takes a third argument, nil in its place when it requires one, and
+    # nothing more otherwise.
+    def usage_arguments(recorder, owner, kind, quantity)
+      parameters = (recorder.is_a?(Proc) || recorder.is_a?(Method) ? recorder : recorder.method(:call)).parameters
+      third =
+        if quantity.nil?
+          parameters.count { |type, _| type == :req } >= 3
+        else
+          parameters.count { |type, _| %i[req opt].include?(type) } >= 3 || parameters.any? { |type, _| type == :rest }
+        end
+      third ? [ owner, kind, quantity ] : [ owner, kind ]
     end
   end
 

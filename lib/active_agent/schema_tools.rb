@@ -83,6 +83,18 @@ module ActiveAgent
       "on_or_before" => :lteq, "on_or_after" => :gteq
     }.freeze
 
+    # Column names that look like they hold a credential. The schema tools
+    # generator never suggests one, and the dashboard never lets one be
+    # chosen: reading one back would hand a model a credential, and
+    # filtering on one leaks it a character at a time through the row
+    # counts.
+    SECRET_COLUMNS = /password|digest|token|secret|api_key|otp|encrypted|ssn/i
+
+    # Heads a file `active_agent:schema_tools --managed` wrote. The
+    # dashboard rewrites and removes only tools files that carry it, so
+    # deleting the line hands the file back to whoever edits it.
+    MANAGED_MARKER = "Managed by the ActiveAgent dashboard"
+
     # Raised when a tool call names a column outside the declared allowlists,
     # or is otherwise outside the declared boundary.
     class UnpermittedAttribute < ArgumentError; end

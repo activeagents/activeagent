@@ -1,4 +1,9 @@
 <% module_namespacing do -%>
+<% if options[:managed] -%>
+# <%= ActiveAgent::SchemaTools::MANAGED_MARKER %>: a project's choice of what its
+# App assistant may read rewrites or removes this file on every boot. Delete
+# these three lines to keep your own edits.
+<% end -%>
 # Bounded, read-only agent tools over <%= class_name %>:
 # find_<%= collection_name %>, count_<%= collection_name %>, get_<%= resource_name %>.
 #
@@ -9,18 +14,26 @@
 class <%= class_name %>Tools < ActiveAgent::SchemaTools
   model <%= class_name %>
 
+<% if (declared = declared_columns(:filterable)) -%>
+  filterable <%= column_list(declared) %>
+<% else -%>
   filterable :id
 <% if suggested_columns.any? -%>
   # filterable <%= suggested_columns.map { |name, _type| ":#{name}" }.join(", ") %>
 <% else -%>
   # filterable :status, :owner_id   # columns an agent may filter on
 <% end -%>
+<% end -%>
 
+<% if (declared = declared_columns(:returns)) -%>
+  returns <%= column_list(declared) %>
+<% else -%>
   returns :id
 <% if suggested_columns.any? -%>
   # returns <%= suggested_columns.map { |name, _type| ":#{name}" }.join(", ") %>
 <% else -%>
   # returns :id, :title, :status    # columns an agent may read back
+<% end -%>
 <% end -%>
 <% if suggested_columns.any? -%>
   #

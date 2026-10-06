@@ -208,8 +208,9 @@ module ActiveAgent
       #
       # @param generation_method [Symbol, String] the generation method to call
       # @param job_options [Hash] options to pass to the job (e.g., queue, priority)
+      # @param job_arguments [Hash] further keyword arguments for the job
       # @return [Object] the enqueued job instance
-      def enqueue_generation(generation_method, job_options = {})
+      def enqueue_generation(generation_method, job_options = {}, **job_arguments)
         if processed?
           super
         else
@@ -218,7 +219,7 @@ module ActiveAgent
           # another machine authorizes as the same caller.
           agent_class.generation_job.set(job_options).perform_later(
             agent_class.name, action_name.to_s, generation_method.to_s,
-            params: @params, args: args, kwargs: kwargs, actor: @actor
+            params: @params, args: args, kwargs: kwargs, actor: @actor, **job_arguments
           )
         end
       end
@@ -305,8 +306,9 @@ module ActiveAgent
       #
       # @param generation_method [Symbol, String] the generation method to call
       # @param job_options [Hash] options to pass to the job
+      # @param job_arguments [Hash] further keyword arguments for the job
       # @return [Object] the enqueued job instance
-      def enqueue_generation(generation_method, job_options = {})
+      def enqueue_generation(generation_method, job_options = {}, **job_arguments)
         if processed?
           super
         else
@@ -320,7 +322,8 @@ module ActiveAgent
             kwargs: kwargs,
             direct_generation_type: @generation_type,
             direct_args: @direct_args,
-            direct_options: @direct_options
+            direct_options: @direct_options,
+            **job_arguments
           )
         end
       end

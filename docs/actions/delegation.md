@@ -172,6 +172,8 @@ rescue ActiveAgent::Delegation::BudgetExceededError => error
   error.violation.used     #=> 3
 ```
 
+A delegated agent cannot pause to [ask the user](/framework/input_requests), because nothing keeps its checkpoint once the call returns. When one of its tools asks, the calling model reads `{ "error": "input_required", "questions": [...] }` by default, and `on_exceeded: :raise` raises `ActiveAgent::Delegation::InputRequiredError` instead.
+
 Since token spend can only be measured after a call, limits are checked *before* each call: `max_tokens: 8_000` means "stop delegating once 8,000 tokens have been spent", not "never exceed 8,000 tokens".
 
 ### Cost budgets

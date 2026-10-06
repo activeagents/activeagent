@@ -32,7 +32,8 @@ module ActionAgent
     end
 
     # @param agents [Array<Class>] ActiveAgent::Base subclasses
-    # @param owner [Object] the record agents and API keys scope to
+    # @param owner [Object, nil] the record agents and API keys scope to; nil
+    #   only in an install with no owner model, where agents have no owner
     # @param provider [String, Symbol, nil] defaults to the class's own
     # @param model [String, nil] defaults to the class's own
     def self.call(agents, owner:, provider: nil, model: nil)
@@ -48,7 +49,9 @@ module ActionAgent
 
     # @return [Result]
     def call
-      return Result.new(rows: [], errors: "An owner is required: the engine scopes agents to one.") if @owner.nil?
+      if @owner.nil? && Agent.owner_association
+        return Result.new(rows: [], errors: "An owner is required: the engine scopes agents to one.")
+      end
 
       rows = Agent.transaction { @agents.map { |klass| upsert(klass) } }
       Result.new(rows: rows, errors: nil)

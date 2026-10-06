@@ -16,10 +16,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   values already entered, and Session Replay's **Take Over Session** opens
   that page for the person. Browser tool calls in such runs are recorded, so
   the run plays back in Session Replay.
+
 - **Conference Ticket Agent template** (`actionagent`). Registers on an
   event's ticket page and stops before paying, built for the SF Ruby
   Conference demo. The Playwright demo template now names the published
   `@playwright/mcp` package.
+
 - **Conference-ticket sample data** (`actionagent`). `bin/rails
   action_agent:sample:conference_ticket` seeds a workspace with fictional
   but complete data for the scenario: the agent, a week of runs with their
@@ -29,11 +31,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   clicked Pay — and the fix. Every record carries a `sample` marker;
   `action_agent:sample:clear` removes it all. `ACCOUNT_ID` names the
   workspace on a multi-tenant install.
+
 - **Typing and forms in the browser tools** (`actionagent`). The
   `playwright_mcp` tools gain `browser_type`, `browser_fill_form`,
   `browser_select_option` and `browser_press_key`, and address elements the
   way current Playwright MCP releases expect (`target`), accepting the `ref`
   the schemas ask the model for.
+
 - **Support MCP across providers** (`activeagent`). Anthropic and OpenAI
   Responses handle remote servers natively; ActiveAgent bridges other providers
   and all local `command:` servers. `mcp_strategy:` selects automatic, client,
@@ -42,6 +46,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   is called. `mcp_cache: false` bypasses the cache for one generation. Entries
   are scoped by endpoint, credentials, environment, and `allowed_tools:`. The
   client-side bridge requires the optional `mcp` gem.
+
 - **Add a DeepSeek provider** (`activeagent`). `generate_with :deepseek` uses
   DeepSeek's OpenAI-compatible API, `deepseek-flash` by default, and
   `DEEPSEEK_API_KEY` as the credential fallback. JSON output and tool calling
@@ -49,46 +54,651 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   such as thinking mode are left unchanged. Thinking is billed and disables
   sampling parameters; prompts can opt out with `thinking: { type: "disabled" }`.
 
+- **Ship dashboard migrations as numbered templates** (`actionagent`).
+  `rails g action_agent:install` also emits every
+  `templates/migrations/NNN_<name>.rb.erb` in the generator, in number order and
+  after the other dashboard migrations, skipping any whose name `db/migrate`
+  already holds. A new engine migration is one new template file.
+
+- **Ask the host before privileged dashboard actions** (`actionagent`).
+  `ActionAgent.permission_checker = ->(user, action, subject) { ... }` is asked
+  before a provider credential is stored, tested or deleted
+  (`:manage_credentials`), before GitHub is connected, its repositories chosen
+  or it is disconnected (`:manage_github`), and before an API key is created or
+  revoked (`:manage_api_keys`). A denial answers 403, except that the GitHub
+  connect and callback navigations return to Settings instead. The remaining
+  actions in `ActionAgent::PERMISSION_ACTIONS` are reserved for features that
+  need them. Unset, every action is allowed as before, which in multi-tenant
+  mode means every member of a tenant may perform every action; the engine
+  logs a warning at boot in that case. A checker that raises denies; in
+  multi-tenant mode a nil answer or a missing user also denies.
+
+- **Record who created an API key** (`actionagent`). A key created in Settings
+  stores the signed-in user beside its owner, and an MCP call made with an
+  account's key runs as that user. Keys created earlier have no creator and
+  behave as before.
+
+- **Organization and personal provider keys** (`actionagent`). A provider
+  key is an organization key, shared by the account's members, or a member's
+  personal key. With `ActionAgent.provider_key_scope = :personal_override`, a
+  member saves personal keys in Settings → API Keys, and the runs they start,
+  the dashboard assistant and the model pickers use them before the
+  organization's; the judge, sandboxes, Claude Code and Codex use organization
+  keys only, as do scenario replays on a multi-tenant install, so the
+  evaluation form offers only the providers those keys cover. A personal
+  Ollama host decides where the server sends requests, so saving or testing
+  one asks `permission_checker` for `:manage_credentials`, with the personal
+  key as the subject, as an organization key does. Every lookup goes through
+  `ActionAgent::ProviderCredentials.resolve(owner:, actor:, provider:)`: the
+  actor's personal key, then `provider_credentials_resolver`, then the
+  organization key, then `config/active_agent.yml`. A resolver that declares
+  `actor:` is told who is acting. With `multi_tenant` on, an owner that does
+  not resolve to the configured owner class, or a resolver that raises, fails
+  the generation with `ProviderCredentials::Unresolved` instead of using the
+  platform's credentials. The provider keys API takes `scope=organization` or
+  `scope=personal` and returns `scope`, `effective_source`, `set_by` and
+  `updated_at`, and `POST /api/provider_keys/test` sends a stored key only to
+  the stored host. The Organization page manages the
+  organization's keys and lists the members `ActionAgent.members_resolver`
+  returns, with "+ Invite Member" linking to `ActionAgent.member_invite_url`
+  (`GET /api/members`). **Upgrading:** run the new `add_provider_key_scope`
+  migration (`rails g action_agent:install` emits it); it stops and lists the
+  keys if an account holds two for one provider. A host that keeps its own
+  `provider_keys` table with a unique `(account_id, provider)` index replaces
+  it with `(account_id, scope_key, provider)`. Before turning on
+  `:personal_override`, change any `provider_credentials_resolver` that reads
+  `provider_keys` by provider alone so it reads organization rows only
+  (`ProviderKey.for_owner`), or remove it.
+
+- **Declare optional sandbox backend verbs** (`actionagent`).
+  `SandboxOrchestrator` dispatches `changed_files`, `read_file`,
+  `start_browser`, `stop_browser` and `resume_boot` to a backend that defines
+  them, and `supports?` is false for one that does not. Their signatures are
+  documented on the orchestrator and in the dashboard guide; the `:local`
+  backend implements `changed_files` and `read_file` only, and the `:mock`
+  backend none of them. `read_file` refuses a path outside the checkout before
+  the backend sees it.
+
+- **Check out sandboxes through a GitHub App** (`actionagent`). Configure
+  `github_app_id`, `github_app_private_key`, `github_app_slug`,
+  `github_app_client_id` and `github_app_client_secret` (or the matching
+  `GITHUB_APP_*` variables), and Settings -> Integrations offers **Install
+  the GitHub App**. An installation is linked only after the App's user
+  authorization shows the user is the account it is installed on or an
+  active admin of its organization, and that user's token is then dropped.
+  An installation belongs to one owner at most. Its repositories are chosen
+  like the OAuth connection's, and a checkout of one of them mints a one-hour
+  token limited to that repository's contents, once per provision, held in
+  memory only. When a repository is reachable both ways, the installation
+  is used. The App's JWT is signed with OpenSSL, so there is no new
+  dependency. Run `rails g action_agent:install` and `rails db:migrate` for
+  the `github_installations` table and
+  `sandbox_sessions.github_installation_id`. The OAuth connection works as
+  before. Installing, linking, listing and choosing an installation's
+  repositories, and unlinking it ask `ActionAgent.permission_checker` for
+  `:manage_github`. An installation GitHub reports removed or suspended is
+  marked, and **Check again** clears the mark once GitHub serves it again.
+
+- **Create the GitHub App from Settings** (`actionagent`). On a
+  single-tenant dashboard, **Create GitHub App** posts a manifest to GitHub
+  and shows the new App's credentials once, with the configuration to add.
+  The dashboard stores none of them.
+
+- **Mask GitHub tokens in sandbox output by their shape** (`actionagent`).
+  `SecretScrubber` masks `ghp_`, `gho_`, `ghu_`, `ghs_`, `ghr_` and
+  `github_pat_` tokens even when it is given no values, so a code session's
+  transcript masks a checkout token it never knew.
+
+- **Store browser events on session recordings, and read any session as a
+  timeline** (`actionagent`). `POST <mount>/api/session_recordings/:id/events`
+  takes a batch of `rrweb`, `console` and `marker` events under the
+  `recording_events` key, authenticated by the recording's ingest token
+  (`SessionRecording#issue_ingest_token!`, stored as a digest, expiring with
+  the recording or its sandbox) or by a dashboard session that owns the
+  recording. Each batch's clock offset is applied, so events are stored in
+  server time, and an event more than a day before the batch's `sent_at` is
+  refused. Batches over `ActionAgent.recording_limits` answer 413 and are
+  counted as dropped. The engine adds `recording_events` to the app's
+  `filter_parameters`. `GET .../events?after=` reads them back in time order.
+  `GET <mount>/api/session_recordings/:id/timeline` and
+  `GET <mount>/api/sessions/{context,run,scenario_result}/:id/timeline` return
+  message, LLM, tool and browser lanes, derived when read from runs, messages,
+  generations and telemetry spans. An agent's browser tool calls are recorded
+  as `action` events with typed values masked. A recording can belong to a
+  conversation (`agent_context_id`) and records its `source`. Deleting a
+  recording asks the permission checker about `:manage_recordings`. Adds
+  migration `create_active_agent_recording_events`.
+
+- **Boot a checkout that does not bundle the engine** (`actionagent`). An
+  `app_runtime` sandbox of a Rails app whose `Gemfile.lock` locks no
+  `actionagent` now installs it first: the dashboard's own engine version (or
+  the same git revision or path), the generators with `--skip`, asset builds
+  the app defines, `db:prepare`, then the manifest. `POST /api/sandboxes`
+  takes `bootstrap` (`auto` by default, `always` or `never`), `start_url` and
+  `keep_on_failure`. Before any of a bootstrapped checkout's commands runs, a
+  preflight refuses one without a root `config/application.rb`, or locking
+  Ruby older than 3.2 or railties older than 7.2. With `"auto"` a checkout
+  without a `Gemfile.lock` boots as before, and with `"always"` the preflight
+  refuses it. Each step has a log and a timeout of its own (1800 seconds for
+  the whole bootstrap, or `local_sandbox_boot_timeout` on `:local` when that
+  is longer), and `GET /api/sandboxes/:id/boot` and `…/boot_log` read them
+  back, scrubbed.
+  With `keep_on_failure`, `POST /api/sandboxes/:id/resume_boot` continues a
+  failed boot from the step that failed, on the same checkout and databases.
+  Once the MCP facade answers, `start_url` must not answer `5xx`. The boot is
+  a plain-JSON spec (`ActionAgent::SandboxBootSpec`) the orchestrator hands a
+  backend whose `create_sandbox` takes `boot_config:`; any other backend boots
+  as before. The `:local` backend implements `resume_boot`, `boot_status` and
+  `boot_log`, and the reaper releases a kept boot once its sandbox expires.
+
+- **Sync a checkout's agents in the sandbox manifest** (`actionagent`).
+  `bin/rails action_agent:sandbox:manifest` also mirrors the app's
+  `app/agents` classes with `AgentSync`, so a sandbox's MCP facade serves
+  their `run_<slug>` tools. The manifest's API key and the synced agents each
+  belong to the only record of the class their model is owned through, when
+  there is exactly one (the only account for the key and the only user for the
+  agents, in an app that configures both), and to nobody in an app with no
+  owner model, where `AgentSync` now accepts a nil owner.
+
+- **Create evaluations and merge scenarios over MCP** (`actionagent`). The
+  facade's `evaluations_create` tool creates an evaluation of one of the key's
+  agents, with scenarios or criteria, and runs nothing. `scenarios_merge` adds
+  scenarios to an evaluation and updates the ones whose keys it holds, through
+  the new `Evaluation#merge_scenarios!`, which never removes, disables or
+  reorders a scenario it was not given. A scenario without a key gets the next
+  `<group>_<n>` the evaluation does not use, and `key_prefix` namespaces
+  generated keys. Both tools ask the permission checker about
+  `:replace_scenarios` as the key's user, refuse an observed agent's suite as
+  `evaluations_run` does, and are held to 100 evaluations per agent, 2,000
+  scenarios per evaluation, 2 MiB of scenarios per call, and 200-character
+  scenario keys, groups and judge models. A refused call writes nothing.
+
+- **Generate scenario keys around keys already in use** (`activeagent`).
+  `ScenarioParser.parse` and `.scenarios` take `reserved_keys:`, which
+  generated keys skip ignoring case, and `key_prefix:`, a namespace in front
+  of every generated key. A prefix with no letters or digits a key can use
+  raises `ParseError`. Keys a paste names are unchanged.
+
+- **Pause a generation to ask the user, and resume it with the answer**
+  (`activeagent`). A tool returns an `ActiveAgent::InputRequest` (`:text`,
+  `:choice`, `:confirm` or `:secret`); the turn's other calls finish, nothing
+  is sent back to the model, and the response is `awaiting_input?` with
+  `input_requests` and a JSON-safe `checkpoint`. `Generation#resume_now(checkpoint:,
+  answers:)`, on the generation that paused or on one built the same way,
+  restores the conversation and dispatches each paused call again with its
+  answer readable through `input_answer` / `InputRequest.answer_for`; `false`
+  declines without running the tool. A `:secret` answer is scrubbed from tool
+  results, telemetry tool spans and tool errors. Pauses publish
+  `input_requested.active_agent` and run `on_input_request` callbacks; a
+  delegated agent that pauses returns `{ error: "input_required" }` to its
+  caller instead, without announcing the pause, and raises
+  `Delegation::InputRequiredError` under `on_exceeded: :raise`. Supported by
+  every built-in tool loop, streamed or not: Anthropic, OpenAI Chat
+  Completions, OpenAI Responses (reasoning items included) and RubyLLM. Under a
+  custom provider that does not run its calls through `dispatch_tool_calls`, a
+  tool that asks raises `InputRequest::UnsupportedProviderError`.
+
+- **Let a dashboard run stop to ask a person, and continue with the answer**
+  (`actionagent`). A paused run is `awaiting_input`, with one
+  `ActionAgent::InputRequest` per paused tool call (migration `016`, emitted by
+  `rails g action_agent:install`). The request's owner is copied from the run's
+  agent, and its answer and the pause's checkpoint are encrypted at rest. The
+  `ask` tools (`ask_user`, `request_approval`) raise `text`, `choice` and
+  `confirm` requests. An agent's `approval_required_tools` holds a listed
+  tool's call until a person approves it, and changing the list makes the
+  agent's evaluations stale. `request_secret` is reserved for agents the
+  engine defines. `GET /api/input_requests` lists requests without their
+  answers. `POST /api/input_requests/:id/answer` and `/decline` check
+  `:answer_input_request` (with no checker, a multi-tenant install lets only
+  the run's actor answer), are refused while execution is disabled, and
+  return 409 for a settled or expired request and 422 for an invalid answer.
+  A `confirm` request is approved by `true` and declined by `false`. Once a
+  pause is settled, `AgentResumeJob` resumes the same run under its trace id.
+  MCP `run_<slug>` returns a paused run's request ids, and
+  `input_requests_list` and `input_requests_answer` (text and choice only)
+  join the MCP facade. `config.input_request_ttl` (one day by default) bounds
+  how long a request waits, and `InputRequestExpiryJob`, which a host
+  schedules, fails the runs whose requests expired unread.
+
+- **Open a draft pull request from a sandbox** (`actionagent`). A ready
+  checkout's **Open draft PR** previews the exact diff of the files it would
+  publish, then publishes them from the dashboard's own process through
+  GitHub's Git Data API: a commit on the checkout commit, a new branch (an
+  existing one is refused, never overwritten) and a draft pull request. No
+  git process holds the token, which is minted at publish time for the one
+  repository, or is the OAuth connection's token when the user who connected
+  it publishes and its scopes allow writing. `.github/`, symlinks,
+  submodules, oversize files and files holding one of the sandbox's secrets
+  or a GitHub token are never published, and a file that changed since the
+  preview refuses the publish. One publish carries at most 300 files and
+  10 MB, chosen from every changed file. **Update draft PR** fast-forwards
+  the branch with a commit message of its own; a draft GitHub refuses keeps
+  the branch and offers a regular pull request as a second step. Where
+  nothing can write, **Download patch** offers the same files for `git am`.
+  Publishing asks `ActionAgent.permission_checker` for
+  `:publish_pull_request`, also when its job runs, needs a ready or running
+  sandbox, and runs one at a time per sandbox; a publish that never finishes
+  is failed as stalled after 15 minutes. The `:local` backend now implements
+  `changed_files` and `read_file`, which gains `base: true` (a backend whose
+  `read_file` takes no `base:` offers no publishing), and checks every object
+  of the checkout commit it reads against its id. The OAuth connect callback
+  records the user who connected. Run `rails g action_agent:install` and
+  `rails db:migrate` for the `draft_pull_requests` table.
+
+- **Answer input requests in the dashboard** (`actionagent`). The
+  Interactions nav item shows how many requests are waiting, and Interactions
+  opens with a Needs input lane listing them. The runner keeps a paused run in
+  flight, shows its requests inline, and after each answer polls the same run
+  until its reply arrives. A `?run=` link opens a run that way. One card
+  answers every kind: a text field or option buttons (through Generative UI),
+  Approve and Decline beside a `confirm` request's arguments, and a password
+  field for a `secret`, marked `data-aa-secret` and emptied once sent. The
+  Tools tab has an Approval switch per enabled tool that writes the agent's
+  `approval_required_tools`, using the `approval_names` the roster endpoint
+  now returns for each row.
+
+- **Projects** (`actionagent`). A project boots a GitHub repository in a
+  checkout sandbox, installing the engine there when the repository lacks it,
+  and evaluates an agent against the running app. `ActionAgent::Project` and
+  `ActionAgent::ProjectSecret` (migration template `019`, owned by the account
+  first) are served under `/api/projects` and the new **Projects** view.
+  `GET /api/projects/capabilities` is a checklist of what the install still
+  needs, with the line that fixes each item; the mock backend is refused
+  outside the test environment. Before any sandbox exists, the repository is
+  checked through GitHub's contents API (Ruby, railties, a root
+  `config/application.rb`) and its environment variables are found in
+  `.env.example`, `.env.sample`, a new `secrets:` key in
+  `.activeagents/sandbox.yml` and `ENV` call sites. Both read the commit the
+  ref names and are cached per commit. Reading a repository the GitHub
+  connection has not selected needs `:manage_github`. Secrets are encrypted,
+  never returned, refused for names the sandbox sets or that change how code
+  loads, and need `:manage_project_secrets`, as do changing the ref they are
+  handed to (preflighted again, and stopping the old ref's sandbox) and
+  deleting a project that has them. A provider key variable can use the
+  organization's stored key, with consent and `:manage_credentials`, and
+  without copying it. Values reach only the steps that run the repository's
+  code and are scrubbed, with their URL-encoded and Base64 forms, from
+  errors, logs, code-session events and the MCP dashboard tools. The
+  project's agent is an App assistant over the sandbox's tools, or a proxy for
+  one of the checkout's own agents; Run evaluation boots an expired sandbox
+  again and waits for it. The first boot on `:local` asks for confirmation,
+  and `quota_checker` is asked about `:project`. A boot spec that does not
+  apply to a checkout now still hands it its `secrets`.
+
+- **Run a browser per checkout sandbox** (`actionagent`,
+  `@activeagents/browser-sidecar`). `POST <mount>/api/sandboxes/:id/browser`
+  (`mode: "headless"` or `"headed"`, optional `capabilities`) starts one,
+  `GET` shows it and `DELETE` stops it. While it runs, every agent run and
+  evaluation against the sandbox reaches it as the MCP server
+  `browser:<session_id>`, and the toolbox's own `browser_*` tools are left
+  out so no tool name is offered twice. A run whose browser stopped after it
+  was queued fails before generation. Each browser records into a session
+  recording of its own: rrweb with input values and `contenteditable` text
+  masked, console errors and markers, posted gzipped to the recording's
+  ingest, which now accepts `Content-Encoding: gzip`. Deleting a sandbox
+  stops its browser before expiring it, and a browser stops itself 30
+  seconds before its sandbox expires, so the recording keeps its last
+  events. Starting asks the quota checker about `:browser_minutes`; each
+  stop, including the sandbox's expiry and the reaper, reports the minutes
+  used, counted to when the browser stopped itself at the latest. In a
+  multi-tenant install both are asked about the sandbox's account. `:local`
+  runs the new `@activeagents/browser-sidecar` npm package (in
+  `browser-sidecar/`, outside the gem, at the engine's version): Chromium
+  with a fresh profile over a pipe, Playwright MCP behind a bearer token and
+  `Host`/`Origin` checks, every connection through a proxy in the sidecar
+  that refuses loopback, link-local and private addresses but the app's
+  (after redirects too), and top-level navigation pinned to the sandbox app,
+  with a tab that a redirect takes elsewhere closed. Install it with
+  `bin/rails action_agent:browser:install` and check the machine with
+  `bin/rails action_agent:browser:doctor`; `ActionAgent.browser_sidecar_path`
+  runs a checkout of it instead. The browser token is encrypted like the
+  runtime token, never serialized, and masked in recordings and MCP tool
+  output. The sidecar also builds as an OCI image. Adds migration
+  `add_browser_to_active_agent_sandbox_sessions`.
+
+- **Watch a sandbox's browser live and take it over** (`actionagent`,
+  `@activeagents/browser-sidecar`). A ready checkout sandbox in Settings →
+  Integrations gets a Browser panel to start and stop its browser, and,
+  while it runs, a live view with "Watch live", "Take over" and "Hand back".
+  The sidecar streams the page on screen over a WebSocket (`/live`),
+  following new tabs and the tab the agent selects, and relays the input of
+  the one person in control. `POST <mount>/api/sandboxes/:id/browser/tickets`
+  issues a ticket that lives 30 seconds and is accepted once: `mode:
+  "view"`, sent as the WebSocket's first message, needs access to the
+  sandbox, and `mode: "control"`, which every Take over asks for afresh,
+  also asks the permission checker about `:take_over_browser`. The
+  WebSocket also checks `Host` and the dashboard's
+  `Origin` (the one the browser was started from, plus
+  `ActionAgent.browser_live_origins`). While a person holds control, an
+  agent's browser call that would change the page waits for them to hand
+  back and then returns an error naming them; calls that only read the page
+  go ahead. Control is released 10 seconds after its holder's connection
+  drops, and the same person may continue driving from another tab before
+  then. Relayed input is never logged or recorded; a takeover's start and
+  end are recorded as `marker` events with `source: "human"`. The sandbox
+  listing reports `browser_modes`.
+
+- **Report quantities to the usage recorder** (`actionagent`).
+  `ActionAgent.record_usage(owner, kind, quantity)` passes the quantity to a
+  `usage_recorder` that takes a third argument; one that takes two is still
+  called as `(owner, kind)`.
+
+- **Review explorations' candidate scenarios** (`actionagent`). An
+  `ActionAgent::Exploration` holds the scenarios a walk through a project's
+  app proposed, for a person to accept or reject on the project's
+  Explorations tab before any reaches the evaluation. Each candidate's
+  expected tools are checked against the tools the project's agent can call
+  (`answerable`, `needs_tool` with the missing tools, or `unverified` when the
+  sandbox did not answer), and its text is scrubbed of the project's secrets
+  and the owner's credentials before it is stored. A prompt or rubric over
+  4,000 characters, an expectation list over 50 entries, or a call or
+  exploration over 2 MiB of JSON is refused. Accepting merges into the
+  project's evaluation under `x<exploration id>_<candidate id>` keys with the
+  rubric as `notes`, never touches another scenario, asks the permission
+  checker about `:replace_scenarios`, and writes each scenario so that a Save
+  in the suite editor leaves it unchanged. The `/api/explorations` endpoints
+  list, show, submit, edit, accept and stop explorations, and the MCP
+  facade's `explorations_submit` tool lets an agent outside the dashboard
+  submit candidates and read back their verdicts. The review shows a budget
+  meter, Stop and review, and the executions an accept-and-run uses;
+  `config.exploration_preselect_limit` caps how many candidates it
+  pre-selects. Ships as migration template `021`.
+
+- **Interactive project setup and the install pull request** (`actionagent`).
+  A failed project boot starts the project's setup assistant, an agent the
+  engine defines whose runs have exactly `read_step_log`, `set_env`,
+  `request_secret` and `retry_boot` and nothing else: no shell, no file reads,
+  no code session. At most three automatic runs follow each other before a
+  boot succeeds; `PATCH /api/projects/:id/setup` with `auto: false` switches
+  them off, and `POST /api/projects/:id/setup` (`:manage_project_secrets`)
+  starts one. A new run waits until the last one is done or no longer waiting
+  for an answer. Each run is an execution for `quota_checker`. `set_env`
+  stores a value that is not secret (source `setup_assistant`, passed as boot
+  `env`, never masked, shown in the Environment tab), refuses the names
+  project secrets refuse and leaves values a person set alone. The secrets API
+  refuses that source. A `request_secret` question names who asks, the
+  repository and the variable; answering it also needs
+  `:manage_project_secrets`, and the answer becomes a project secret the
+  resumed boot gets, never the transcript, telemetry or a job argument. The
+  Project page answers the requests waiting on the project's agents in place
+  (`GET /api/projects/:id/input_requests`) and reads "Waiting for you: N".
+  The sandbox manifest lists the app's models and columns (secret-looking
+  columns left out), and a project evaluated with the App assistant chooses
+  which it may filter on and read (`GET /api/projects/:id/app_models`,
+  `PUT /api/projects/:id/schema_tools`); every later boot writes
+  `app/agent_tools/<model>_tools.rb` with them, also once the repository
+  bundles the engine and boots from its own `sandbox.yml`, and removes the
+  files it wrote for models taken off the list. A tools file the dashboard
+  did not write is left alone. `POST /api/projects/:id/install_pull_request`
+  publishes the install through `DraftPullRequestPublisher` with the
+  project's allowlist: the Gemfile and lock, the initializer and routes, the
+  framework's config and application agent when the bootstrap wrote them, the
+  engine's migrations by name, the schema, the chosen schema tools, and a
+  generated `.activeagents/sandbox.yml` (setup and secret names) and
+  `.activeagents/evals/<project>.yml` (the evaluation's enabled scenarios, as
+  a suite `ActiveAgent::Evals::Suite.load` reads). A publish must take every
+  one of those install files the sandbox changed, and a file holding a
+  project secret is refused. While the pull request is open every boot checks
+  out its branch without installing again, and once GitHub reports it merged
+  the project is installed. A boot spec step marked `always` runs whether the
+  spec applies or not: after a checkout's own `sandbox.yml` setup when it does
+  not.
+
+- **Declare schema tool columns from the generator** (`activeagent`).
+  `bin/rails generate active_agent:schema_tools Model --filterable a --returns
+  a b` writes those columns as the class's allowlist instead of commented
+  suggestions, leaving out a column that looks like a secret or that the
+  model lacks. `ActiveAgent::SchemaTools::SECRET_COLUMNS` names the pattern.
+  `--managed` heads the file with `ActiveAgent::SchemaTools::MANAGED_MARKER`,
+  which a dashboard project looks for before it rewrites or removes the file.
+
+- **Explore a project's app with the engine's explorer agent**
+  (`actionagent`). `POST <mount>/api/projects/:id/explorations` (and
+  **Explore the app** on the Project page) asks the quota checker about the
+  new `:exploration` kind (402 and nothing started on a denial), gives the
+  project's ready sandbox a browser, records `:exploration` once and walks
+  the app within a budget of minutes, browser steps and an optional cost
+  (15 minutes and 150 steps by default). The explorer is an agent run of a
+  project-owned agent, traced and recorded: it is offered an allowlist of
+  the browser's tools pinned to the app, `sign_in(secret_ref:)`,
+  `read_last_email(to:)`, `propose_candidate` (verdicts against the target
+  agent's real tools, provenance with the pages, steps and recording range
+  filled in server-side) and `finish`. Browser results are scrubbed of the
+  project's secrets and cut to 24,000 characters each. Running out of
+  budget or of conversation room, or Stop and review, moves the exploration
+  to review with its candidates; a crash fails it and keeps them.
+
+- **Sign a project's browser in without a model seeing the credentials**
+  (`actionagent`, `@activeagents/browser-sidecar`). A project secret now has
+  a `kind`: `env` (as before), `sign_in` (login URL, login, password and
+  optional field selectors) or `storage_state` (a saved browser sign-in).
+  Only `env` secrets reach the sandbox's environment, the two sign-in names
+  are refused for `env` secrets, and the password and a saved sign-in's
+  session values are scrubbed on their own. `sign_in` types the credentials
+  from the Rails process, never logging them, and answers only whether the
+  browser left the login form, or `unsupported` when the login page has no
+  password field.
+  `<mount>/api/projects/:id/sign_in` sets, checks, saves from the running
+  browser and removes them, asked as `:manage_project_secrets`. The sidecar
+  takes a `storage_state` to start with and answers `GET /storage-state`.
+  Adds migration `add_kind_to_active_agent_project_secrets`.
+
+- **Read the mail a sandbox app sends** (`actionagent`). Sandbox backends set
+  `ACTION_AGENT_SANDBOX_MAIL_DIR`, which switches the sandbox app's Action
+  Mailer to file delivery, and `ActionAgent::SandboxMail.last_message`
+  reads the newest message for an address through the backend's
+  `read_file` verb.
+
+- **Mask JSON-escaped secrets** (`actionagent`).
+  `ActionAgent::SecretScrubber.with_encodings` also lists each value as it
+  appears escaped inside a JSON string, so a secret with a quote or a
+  backslash is masked in JSON output too.
+
+- **Give a project's evaluation runs the sandbox's browser**
+  (`actionagent`). A run started from the project page reaches the
+  sandbox's browser in every replay, starting it headless with the
+  project's saved sign-in when none runs and opening the start URL before
+  each replay, and records the browser in its selection. A browser that
+  cannot start fails the run before any replay, and one the run started is
+  stopped when it ends.
+
+- **List and replay sessions in the dashboard** (`actionagent`). The Sessions
+  page (`<mount>/sessions`, from `GET <mount>/api/sessions`) lists every
+  conversation, evaluation scenario replay and lone agent browser recording,
+  newest first, with server-side filters for agent, `user=me`, source,
+  outcome and a last-activity date range, a page at a time by cursor.
+  `<mount>/replay/:id` replays a recording and `<mount>/replay/:kind/:id` a
+  conversation, run or scenario result: messages, model calls and tool calls
+  on one axis, with idle stretches shortened, a scrubber, stepping and speed.
+  A recorded browser replays beneath them in step, in a frame served at
+  `<mount>/session_player` that runs the new `action_agent_replay.js` bundle
+  (rrweb) under a policy that allows no other script and loads nothing from
+  the network. The engine adds the bundle to the Sprockets precompile list.
+  The Run Agent workbench, Interactions, an agent's interactions page and
+  evaluation scenario results link to their replays.
+
+- **Record the Run Agent workbench for its conversation's replay**
+  (`actionagent`). While the workbench has a conversation open, the dashboard
+  records the page with rrweb, each visit into a recording of its own
+  (`source: "dashboard"`), which replays in the conversation's browser lane,
+  and says so beside the conversation. It stops when you leave the workbench
+  or switch conversation, and no other view is recorded. Field values are
+  masked. Elements marked `data-aa-secret` (the dashboard's credential fields
+  and key displays), hidden inputs and the CSRF token are left out, and the
+  server masks the owner's stored credentials in every batch before storing
+  it. The recorder is a new bundle, `action_agent_recorder.js`, imported only
+  while it records and added to the Sprockets precompile list. `POST
+  <mount>/api/session_recordings` with `agent_context_id` starts the caller's
+  recording of a visit to a conversation.
+  `ActionAgent.capture_dashboard_sessions = false` turns it off: no recorder
+  loads, and that endpoint and dashboard-session batches answer 403.
+
+- **Require approval before a tool runs** (`activeagent`). The
+  `requires_approval:` prompt option lists tools whose calls pause with a
+  `:confirm` request carrying the tool name and arguments before the tool runs;
+  `true` runs it, `false` declines. It covers agent tools, delegations and
+  client-side MCP tools, and is never sent to the provider. An MCP declaration's
+  own `require_approval` (`"always"`, or a map of `always`/`never` tool lists)
+  gates its tools the same way. A remote MCP server that may offer a listed
+  tool runs client-side so that its calls are gated too: one whose
+  `allowed_tools:` include the tool, or one without `allowed_tools:` when no
+  tool in `tools:` has the name; `mcp_strategy: :server` with such a server
+  raises `ArgumentError`, as does a `requires_approval:` value that is not tool
+  names. A paused call to an MCP tool its server no longer offers returns an
+  `{ error: }` result on resume.
+
+- **Resume a paused generation in a job** (`activeagent`).
+  `Generation#resume_later(checkpoint:, answers:, **job_options)` validates the
+  answers, refuses any answer to a `:secret` request, and enqueues
+  `GenerationJob` with a new `resume:` argument; params and actor travel as they
+  do for `generate_later`. `InputRequest#arguments` holds the arguments of the
+  paused call.
+
+### Changed
+
+- **Keep the shared Playwright MCP browser out of multi-tenant installs**
+  (`actionagent`). With `multi_tenant = true` the toolbox's `playwright_mcp`
+  tools are neither offered nor called, and `PlaywrightMCPClient.instance`
+  raises: a run gets a browser only from its sandbox.
+
+- **The dashboard page no longer carries the telemetry key**
+  (`actionagent`). `account.telemetry_api_key` is gone from the dashboard's
+  `data-props`, so nothing that reads the page's markup sees it. The
+  Organization page reads it from `GET <mount>/api/telemetry_key` when you
+  show or copy it. A host layout or script that read it from the props must
+  call that endpoint.
+
+- **Mask dashboard API keys and the telemetry key in MCP tool output**
+  (`actionagent`). The MCP facade masks the same owner credentials as session
+  recording ingest, which adds the owner's dashboard API keys and telemetry
+  key to the provider keys, GitHub tokens and sandbox runtime tokens it
+  already masked.
+
+- **Session Replay is now Sessions** (`actionagent`). The sidebar entry opens
+  the Sessions list, and `<mount>/replay` without an id opens it too. The
+  replay view plays a session's timeline and its rrweb recording instead of
+  loading the recording's page URL in an iframe and animating a cursor over
+  it. A recording that carries handoff state still offers Take over session.
+
+- **Record an agent's browser tool calls as recording events**
+  (`actionagent`). `ActionAgent::MCPRecordingMiddleware#intercept` now stores
+  each call to a tool in `MCPRecordingMiddleware::PLAYWRIGHT_TOOLS` as one
+  `action` event, with typed values masked and the owner's credentials
+  scrubbed, instead of writing `RecordingAction`s through
+  `SessionRecordingService`. It no longer extracts screenshots from tool
+  results. `AgentExecutionService` wraps every tool call with it, so a run's
+  first browser call starts the run's recording (`source: "agent"`). The
+  constructor no longer starts a recording: `#recording` and
+  `#recording_service` find or start one on first use, and are `nil` when none
+  can be started. The Session Replay page reads `/actions`, so it lists these
+  recordings with no actions until the replay view moves to the timeline; read
+  them from `GET .../timeline` or `GET .../events?kind=action`. The
+  `record_navigate`, `record_click`, `record_type` and `capture_for_handoff`
+  helpers still write `RecordingAction`s. `PLAYWRIGHT_TOOLS` matches the tools
+  of `@playwright/mcp` 0.0.83, and `browser_press_sequentially`'s text is
+  masked like `browser_type`'s. `browser_scroll`, which Playwright MCP does
+  not have, is gone.
+
+- **Announce run and sandbox changes without their content** (`actionagent`).
+  The Action Cable messages on `agent_run_<id>`, `agent_runs_<agent_id>` and
+  `sandbox_<session_id>` are now `{ type, id, status }`; a subscriber reads
+  the run or sandbox back over the JSON API. Nothing is broadcast when the host
+  has not loaded Action Cable. A host channel or client that read `run`,
+  `sandbox`, `task`, `error` or `provider` from these messages must refetch.
+
+- **`GenerationJob` no longer logs its arguments** (`activeagent`). They can
+  hold a paused generation's conversation and the user's answers.
+
+- **MCP declarations that set `require_approval` run client-side**
+  (`activeagent`). On Anthropic and OpenAI Responses, a `url:` declaration whose
+  `require_approval` is anything but `"never"` is served by ActiveAgent's MCP
+  bridge rather than handed to the provider, so its calls can pause for
+  approval; `mcp_strategy: :server` with one raises `ArgumentError`. Such
+  servers now connect from your app and need `gem "mcp"`; set
+  `require_approval: "never"` to keep one with the provider.
+
+- **Add the `awaiting_input` run status** (`actionagent`). `AgentRun` status
+  `5` is a run waiting on its input requests: neither `in_progress?` nor
+  `finished?`, never picked up again by `AgentExecutionJob`, and cancellable
+  with `cancel!`, which also cancels its pending requests. A client that treats
+  every status other than `pending` and `running` as finished must handle it.
+
+- **Filter `answer` and `value` from request logs** (`actionagent`). The engine
+  adds them to the host's `filter_parameters`, beside `credential`, `api_key`
+  and `access_token`, matching only parameters named exactly `answer` or
+  `value`, at any depth. Rails also copies `filter_parameters` into Active
+  Record's `filter_attributes`, so a host model attribute named `answer` or
+  `value` shows as `[FILTERED]` in `inspect` and in logged SQL binds.
+
 ### Fixed
+
+- **An owner of another class reads no other tenant's rows** (`actionagent`).
+  `Ownable.for_owner` scoped by the owner's id alone, so an account-owned
+  model handed a user — the stored provider-key fallback of an agent run,
+  `ProviderKey.for_owner(agent.owner)`, when agents are owned per user — read
+  whichever account shared that user's id, and the run generated with that
+  account's key. The scope now matches the owner by class: a user handed to an
+  account-owned model maps to its tenant through `ActionAgent.tenant_for`, and
+  any other mismatch scopes to nothing. `TelemetryTrace.for_account` matches
+  the same way, and `owner=` raises `ArgumentError` for an owner that resolves
+  to nothing rather than writing its id into another class's column.
+  **Upgrading:** a multi-tenant install that configures both `account_class`
+  and `user_class` must own every model by one class or map between them.
+  Re-declare `owned_by :account, :user` on `Agent`, `SandboxSession`,
+  `SessionRecording` and `CodeSession` from `to_prepare` and set
+  `tenant_resolver`, as the install generator's template now shows; rows those
+  models stored under `user_id` with the account's id need `account_id`
+  backfilled, or the dashboard lists nothing for them.
 
 - **Fix Anthropic structured output mapping** (`activeagent`). Preserve caller
   `output_config` and ignore unsupported response formats.
+
 - **Fix Anthropic JSON emulation on current models and with thinking**
   (`activeagent`). `json_object` requests reach current Claude models
   without a prefill, which they refuse with or without thinking, and so do
   requests with thinking on. The JSON is read from the answer, inside a code
   fence or not, and a retry drops an unparseable answer rather than ending on
   it. Claude 4.5 and earlier models keep the lead-in while thinking is off.
+
 - **Prevent Anthropic response fields from leaking into replayed requests**
   (`activeagent`). Keep only request-supported message fields.
+
 - **Name conflicting gems in provider load errors** (`activeagent`). Name
   `ruby-openai` and show the Gemfile replacement only when that gem is
   activated or defined `OpenAI`; when something else defines it, say where.
+
 - **Start `command:` MCP servers that declare `env:`** (`activeagent`). The
   declaration's symbolized environment keys reached the process spawn, which
   requires Strings, so every stdio server that needed credentials in its
   environment failed with a TypeError.
+
 - **Return an MCP server's JSON-RPC error to the model, marked as a failure**
   (`activeagent`). The client raises on an error envelope; the bridge hands
   the message back as the tool's result instead of failing the generation.
   That error, like a result the tool marks `isError`, reaches the model as
   `{"error": message}`, with `is_error: true` on Anthropic, so it no longer
   reads as a successful result.
+
 - **Serve String-keyed `mcps:` declarations natively where the provider can**
   (`activeagent`). Keys are symbolized before partitioning, so a declaration
   loaded from YAML is no longer bridged on Anthropic or OpenAI Responses.
+
 - **Keep credentials out of the `mcps:` declaration error** (`activeagent`).
   The message names the declaration's keys, not its values.
+
 - **Refuse an unknown `mcp_strategy:`** (`activeagent`) instead of treating it
   as `:auto`.
+
 - **Create the MCP tool cache's lock with the class** (`activeagent`), so the
   first concurrent callers share it.
+
 - **Apply `read_timeout:` to `url:` MCP servers** (`activeagent`). The option
   was accepted on a remote server but neither validated nor applied, so its
   requests waited as long as Net::HTTP allowed. It is validated for both
   transports and sets the read timeout of the server's HTTP connection, 30
   seconds by default, so a streamed response stays open while it keeps sending
   events.
+
 - **Bound a `command:` MCP server's whole answer by `read_timeout:`**
   (`activeagent`). The wait restarted with every frame read, so a server that
   kept sending notifications or pings without answering held the generation
@@ -96,6 +706,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `MCPBridge::TimeoutError` names the server and the request. The handshake
   keeps the `mcp` gem's 5-second bound on its `server/discover` probe instead
   of waiting the full read timeout.
+
+- **Use an explicit OpenRouter key before the environment** (`activeagent`).
+  An `api_key` or `access_token` passed to the OpenRouter provider wins over
+  `OPENROUTER_API_KEY` and the other OpenRouter variables, as it does for the
+  other providers. An explicit `api_key` is no longer dropped when no
+  OpenRouter variable is set. A blank explicit key is also used as given, so a
+  config value that renders as an empty string no longer falls back to the
+  environment; leave the key unset to use the environment.
+
+- **Use an explicit OpenAI project before the environment** (`activeagent`).
+  A `project` or `project_id` passed to the OpenAI provider wins over
+  `OPENAI_PROJECT_ID`, and an explicit `project_id` is no longer dropped.
+
+- **Stop Session Replay spinning when there is nothing to play**
+  (`actionagent`). With no recordings, a failed list request or a network
+  error, the page shows the empty state, or an error when the list failed.
+
+- **List only the session recordings the caller can open** (`actionagent`).
+  The list uses the rule that opening a recording does, so a recording named
+  `lander_demo` is no longer listed for every caller.
+
+- **Replay every action of a long recording** (`actionagent`). Session Replay
+  pages through `GET /api/session_recordings/:id/actions` with
+  `after_sequence`, up to 5,000 actions, instead of stopping at the first 100.
+  That endpoint's `has_more` is exact and its `limit` is clamped to 1..500.
+
+- **Key show timeline entries `action_type`** (`actionagent`). They match
+  `/actions` entries; `type` remains as an alias.
+
+- **Accept reasoning items in streamed OpenAI Responses** (`activeagent`). A
+  streamed response from a reasoning model raised `Unexpected Item Type`; its
+  reasoning items are now kept and sent back with the function calls they led to.
+
+- **Send each RubyLLM tool result as its own message** (`activeagent`). A turn
+  with several tool calls sent their results merged into one message, under the
+  first call's id.
+
+- **Fix a forced Anthropic `tool_choice` failing on a third turn**
+  (`activeagent`). Once the forced tool was used, the next turn cleared
+  `tool_choice`, and the turn after it raised `Anthropic::Errors::ConversionError`
+  reading the cleared value back.
 
 ## [1.8.1] - 2026-10-01
 
@@ -533,6 +1184,48 @@ output in the shape ruby_llm reads. No migrations.
   `json_object`, which ruby_llm has no mode for, and a `json_schema`
   without a schema now raise `ArgumentError` instead of sending a request
   the API rejects (#501).
+- **`ActiveAgent::Evals::RubyLLM`** — the RubyLLM side of an evaluation,
+  which hosts driving RubyLLM conversations had been writing for themselves.
+  `require "active_agent/evals/ruby_llm"` (it requires `ruby_llm`;
+  `require "active_agent/evals"` alone still does not) gives two helpers, for
+  RubyLLM 1.16 and later and for 2.x:
+  - `RubyLLM.judge(label:, model:, provider:, context:, correlation:)`, a
+    `Judge` that answers from `context.chat(...)` and, with a `Correlation`,
+    traces each call under the kind it serves. `temperature:` and a
+    `configure:` hook set the chat up; any other keyword must be one
+    `RubyLLM::Chat.new` takes, and anything else raises when the judge is
+    built rather than failing every call. `on_usage:` reports each call's
+    model, tokens and cost.
+  - `RubyLLM.replay(messages)`, a `Replay` from a conversation's messages.
+    `acts_as_chat` records of either RubyLLM generation are read through
+    their own `to_llm`, so a 2.x table, or one between 2.x's upgrade and its
+    cleanup, replays the same as `RubyLLM::Message` values. Tool calls keep
+    the order the model made them in, each paired with the result that
+    answers it; one is errored when that result reports an error at its top
+    level — JSON whose `"error"` is a non-empty string, object or array, or
+    `true`; an MCP result with `"isError": true`; or the inspected
+    `{ error: "..." }` RubyLLM 1.x stores for a tool's error Hash with a
+    String error — with the error (JSON-encoded, at most 1,200 bytes) as its
+    detail. `input_tokens` counts the whole prompt, cache reads and writes
+    included. Cost is RubyLLM's own price, left nil when any message is
+    unpriced. The answer is the last reply after the last user message; a
+    conversation that stopped at a tool call or on the user's own message
+    has no answer and says so in its `error` (on RubyLLM 1.x, pass `answer:`
+    for a tool that ends the turn with `halt`).
+- **`ActionAgent::ProviderKey.credentials_for(owner)` and
+  `.apply_to(config, owner:)`** (`actionagent`) hand an owner's API keys to
+  code outside the engine — `{ "openai" => "sk-..." }`, or written through
+  `<provider>_api_key=` onto a `RubyLLM.context` config block or anything
+  shaped like one, returning the providers written rather than the keys. A
+  key is looked up in the order the engine's runs use: the host's
+  `provider_credentials_resolver`, then the owner's saved row. A resolver
+  answer that sends a provider to another endpoint (`uri_base`, `base_url`,
+  `api_base`, `host`) leaves it out, so a gateway's key never reaches the
+  public endpoint. On an install with an owner model, the owner must be an
+  instance of the model it keeps keys by, since rows are scoped by its id
+  alone; anything else raises `ArgumentError`. A saved credential that no
+  longer decrypts is skipped with a warning naming the error class, never
+  the value.
 
 ## [1.7.0] - 2026-09-24
 

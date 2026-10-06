@@ -346,6 +346,10 @@ ActionAgent.configure do |config|
   # development and test only. Turn it on elsewhere deliberately:
   # config.assistant_enabled = true
 
+  # The Run Agent workbench is recorded for its conversation's replay, with
+  # field values masked. Record nothing:
+  # config.capture_dashboard_sessions = false
+
   # Boot GitHub checkouts as local processes (development and test only
   # unless local_sandboxes_enabled is set):
   # config.sandbox_service = :local
@@ -377,10 +381,10 @@ section covers the sandbox and Claude Code options:
 
 **[Self-Hosted Dashboard](/framework/self-hosted-observability)** adds
 `ingest_api_key`, `current_account_resolver`, `trace_retention`,
-`execution_enabled`, `assistant_enabled`, `sandbox_backends`, `layout`, and
-`model_concerns` and `controller_concerns`, which put your app's own concerns
-on the engine's models and controllers. The host-app
-integration seams — `quota_checker`, `usage_recorder`,
+`execution_enabled`, `assistant_enabled`, `capture_dashboard_sessions`,
+`sandbox_backends`, `layout`, and `model_concerns` and `controller_concerns`,
+which put your app's own concerns on the engine's models and controllers. The
+host-app integration seams — `quota_checker`, `usage_recorder`,
 `agent_scope_resolver`, `tenant_resolver`, `trace_owner_resolver`,
 `provider_credentials_resolver` and the rest — are documented on
 `ActionAgent` itself, in the gem's `lib/action_agent.rb`.

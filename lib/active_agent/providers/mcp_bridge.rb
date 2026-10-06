@@ -161,6 +161,68 @@ module ActiveAgent
         @ownership.key?(name.to_s)
       end
 
+      # Whether a call to the tool needs the user's approval, by the
+      # `require_approval` of the declaration that serves it (see
+      # {.approval_required?}).
+      #
+      # @param name [String, Symbol] tool name
+      # @return [Boolean] false for a tool no declared server provides
+      def requires_approval?(name)
+        return false unless owns?(name)
+
+        self.class.approval_required?(@ownership[name.to_s][:require_approval], name)
+      end
+
+      # Whether a declaration's `require_approval` asks for approval of any of
+      # its tools: anything but blank, `"never"`, or a map whose only list,
+      # under `always`, is empty.
+      #
+      # @param policy [String, Symbol, Hash, nil]
+      # @return [Boolean]
+      def self.approval_policy?(policy)
+        return false if policy.blank? || policy.to_s == "never"
+        return true unless policy.is_a?(Hash)
+
+        policy = policy.to_h.transform_keys(&:to_s)
+        policy.key?("never") || !policy.key?("always") || approval_tool_names(policy["always"]).any?
+      end
+
+      # Whether `require_approval` covers a tool. The policy takes the shapes
+      # OpenAI's hosted MCP tool does:
+      #   - `"always"` covers every tool, and `"never"` none
+      #   - a map covers the tools listed under `always`, and, when it lists
+      #     tools under `never`, every tool not listed there. A list is an
+      #     array of names or `{ tool_names: [...] }`.
+      #
+      # Any other policy covers every tool.
+      #
+      # @example
+      #   approval_required?({ never: { tool_names: ["search"] } }, "delete_file") # => true
+      #   approval_required?({ always: ["delete_file"] }, "search")                # => false
+      #
+      # @param policy [String, Symbol, Hash, nil]
+      # @param name [String, Symbol] tool name
+      # @return [Boolean]
+      def self.approval_required?(policy, name)
+        return false unless approval_policy?(policy)
+        return true unless policy.is_a?(Hash)
+
+        policy = policy.to_h.transform_keys(&:to_s)
+        return true if approval_tool_names(policy["always"]).include?(name.to_s)
+        return !approval_tool_names(policy["never"]).include?(name.to_s) if policy.key?("never")
+
+        !policy.key?("always")
+      end
+
+      # @param entry [Array, Hash, nil] a list under `always` or `never`
+      # @return [Array<String>]
+      def self.approval_tool_names(entry)
+        names = entry.is_a?(Hash) ? (entry[:tool_names] || entry["tool_names"]) : entry
+
+        Array(names).map(&:to_s)
+      end
+      private_class_method :approval_tool_names
+
       # The caller's tools followed by the servers' tools.
       #
       # @param declared [Array<Hash>, nil] tools the caller declared

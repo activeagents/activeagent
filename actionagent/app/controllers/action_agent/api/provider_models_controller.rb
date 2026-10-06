@@ -7,11 +7,12 @@ module ActionAgent
     #
     # Hosted providers get a curated list of current models (kept here, server
     # side, so the UI can't drift stale). Ollama is queried live from the
-    # account's configured host (Settings -> Provider API Keys, falling back to
-    # the platform config) so locally pulled models appear; OpenRouter is
-    # queried from its public catalog, and Anthropic from its Models API with
-    # the account's key. Live lookups fall back to the curated list on any
-    # failure.
+    # caller's effective host (see ProviderCredentials: their personal key,
+    # the host resolver's, the account's, falling back to the platform
+    # config) so locally pulled models appear; OpenRouter is queried from its
+    # public catalog, and Anthropic from its Models API with the caller's
+    # effective key. Live lookups fall back to the curated list on any
+    # failure, and when the caller's credentials cannot be resolved.
     #
     # When the host app loads RubyLLM, the chat models its registry lists for
     # the provider that take and return text follow: RubyLLM's bundled
@@ -55,16 +56,36 @@ module ActionAgent
 
       private
 
-      # The owner's configured Ollama endpoint, else the host app's default
+      # The caller's effective Ollama endpoint, else the host app's default
       # from config/active_agent.yml.
       def ollama_host
-        key = owner_provider_key("ollama")
-        host = key&.credential.presence || ActiveAgent.configuration[:ollama]&.dig(:host)
-        host.presence
+        resolution = credentials("ollama")
+        return nil if resolution.nil?
+
+        options = resolution.options
+        host = options[:host].presence || options[:base_url].presence || options[:uri_base].presence
+        (host || ActiveAgent.configuration[:ollama]&.dig(:host)).presence
       end
 
-      def owner_provider_key(provider)
-        owned(ProviderKey).find_by(provider: provider)
+      # The caller's effective credentials for +provider+, or nil when they
+      # cannot be resolved.
+      def credentials(provider)
+        @credentials ||= {}
+        return @credentials[provider] if @credentials.key?(provider)
+
+        @credentials[provider] = begin
+          resolution = ProviderCredentials.resolve(owner: current_owner, actor: current_user, provider: provider)
+          resolution.options = resolution.options.symbolize_keys
+          resolution
+        rescue ProviderCredentials::Unresolved => e
+          Rails.logger.warn("[ProviderModels] #{e.message}")
+          nil
+        end
+      end
+
+      def credential_key(provider)
+        options = credentials(provider)&.options || {}
+        options[:access_token].presence || options[:api_key].presence
       end
 
       # Same probe as Settings -> "Test connection", so the builder's dropdown
@@ -74,7 +95,7 @@ module ActionAgent
         host = ollama_host
         return nil unless host
 
-        result = OllamaHostProbe.call(host: host, api_key: owner_provider_key("ollama")&.api_key)
+        result = OllamaHostProbe.call(host: host, api_key: credential_key("ollama"))
         unless result.ok
           Rails.logger.warn("[ProviderModels] ollama lookup failed: #{result.error}")
           return nil
@@ -83,10 +104,11 @@ module ActionAgent
         [ result.models, "live" ] if result.models.any?
       end
 
-      # Queries the Anthropic Models API with the account's key (newest first,
-      # as returned by the API) so new model releases appear without a deploy.
+      # Queries the Anthropic Models API with the caller's effective key
+      # (newest first, as returned by the API) so new model releases appear
+      # without a deploy. The platform's own key is never used here.
       def live_anthropic_models
-        key = owner_provider_key("anthropic")&.credential
+        key = credential_key("anthropic")
         return nil if key.blank?
 
         data = Rails.cache.fetch("provider_models:anthropic:#{Digest::SHA256.hexdigest(key)}", expires_in: 1.hour) do

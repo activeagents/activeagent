@@ -1,0 +1,32 @@
+[
+  {
+    "entry": {
+      "key": "x4_1",
+      "prompt": "Which of my orders shipped late last month?",
+      "group": "Orders",
+      "notes": "Lists each late order by number with its promised and actual ship dates; says so when there are none.",
+      "expectations": { "tools": ["find_orders"] }
+    },
+    "line": "Which of my orders shipped late last month? | tools: find_orders | notes: Lists each late order by number with its promised and actual ship dates; says so when there are none. | key: x4_1"
+  },
+  {
+    "entry": {
+      "key": "x4_2",
+      "prompt": "Where is order A-17?",
+      "group": "Orders",
+      "notes": null,
+      "expectations": { "tools": ["lookup_order", "find_orders"], "contains": ["A-17"], "not_contains": ["I cannot"] }
+    },
+    "line": "Where is order A-17? | tools: lookup_order, find_orders | contains: A-17 | not_contains: I cannot | key: x4_2"
+  },
+  {
+    "entry": {
+      "key": "x12_30",
+      "prompt": "Cancel my subscription",
+      "group": "Explored",
+      "notes": "Asks which plan / says how to cancel",
+      "expectations": {}
+    },
+    "line": "Cancel my subscription | notes: Asks which plan / says how to cancel | key: x12_30"
+  }
+]

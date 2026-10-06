@@ -90,8 +90,11 @@ module ActionAgent
       }
     ].freeze
 
-    def initialize(owner:, message: nil, history: [], provider: nil, model: nil, allow_provider_processing: false)
+    # +actor+ is the signed-in user, whose effective provider key the
+    # assistant generates with (see ProviderCredentials).
+    def initialize(owner:, actor: nil, message: nil, history: [], provider: nil, model: nil, allow_provider_processing: false)
       @owner = owner
+      @actor = actor
       @message = message
       @history = history
       @provider = provider
@@ -107,7 +110,7 @@ module ActionAgent
 
     def configuration
       {
-        providers: DEFAULT_MODELS.map { |id, model| { id: id, configured: provider_configured?(id), default_model: model } },
+        providers: DEFAULT_MODELS.map { |id, model| { id: id, configured: configuration_provider_configured?(id), default_model: model } },
         defaults: { provider: nil, model: nil },
         processing: { consent_required: true, disclosure: PROCESSING_DISCLOSURE },
         connections: connections,
@@ -278,10 +281,16 @@ module ActionAgent
 
     def provider_options(provider)
       @provider_options ||= {}
-      @provider_options[provider] ||= begin
-        host = ActionAgent.provider_credentials(@owner, provider)
-        (host.presence || ProviderKey.for_owner(@owner).find_by(provider: provider)&.generation_options || {}).symbolize_keys
-      end
+      @provider_options[provider] ||=
+        ProviderCredentials.resolve(owner: @owner, actor: @actor, provider: provider).options.symbolize_keys
+    end
+
+    # The configuration lists a provider whose credentials cannot be
+    # resolved as not configured; a request for it fails in #validate!.
+    def configuration_provider_configured?(provider)
+      provider_configured?(provider)
+    rescue ProviderCredentials::Unresolved
+      false
     end
 
     def provider_configured?(provider)

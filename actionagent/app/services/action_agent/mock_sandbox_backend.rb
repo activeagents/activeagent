@@ -10,7 +10,7 @@ module ActionAgent
       @sandboxes = {}
     end
 
-    def create_sandbox(session, instance_tier: nil)
+    def create_sandbox(session, instance_tier: nil, boot_config: nil)
       tier = instance_tier || SandboxInstanceTier.free_tier
       name = "mock-sandbox-#{SecureRandom.hex(4)}"
 
@@ -39,6 +39,8 @@ module ActionAgent
         # Which variables would be set, never their values.
         @sandboxes[name][:environment_keys] = session.runtime_environment.keys
         @sandboxes[name][:mcp_url] = "http://127.0.0.1:8080/activeagents/mcp"
+        # The spec it would have booted with, secret names without values.
+        @sandboxes[name][:boot_config] = SandboxBootSpec.wrap(boot_config).redacted if boot_config
       end
 
       @sandboxes[name]
