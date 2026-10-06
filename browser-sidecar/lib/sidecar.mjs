@@ -13,6 +13,7 @@ import { NavigationGuard } from './navigation-guard.mjs';
 import { NetworkPolicy } from './network-policy.mjs';
 import { PAGE_FLUSH_MS, Recorder } from './recorder.mjs';
 import { Screencast } from './screencast.mjs';
+import { exportStorageState } from './storage-state.mjs';
 import { VERSION } from './version.mjs';
 
 const VIEWPORT = { width: 1280, height: 800 };
@@ -171,6 +172,7 @@ export async function startSidecar(config, dependencies = {}) {
   }
 
   await installNetworkPolicy(context, policy);
+  if (config.storageState) await context.setStorageState(config.storageState);
   const guard = new NavigationGuard({ policy, log });
   guard.attach(context);
   const recorder = config.recording ? new Recorder({ recording: config.recording, log }) : null;
@@ -191,7 +193,13 @@ export async function startSidecar(config, dependencies = {}) {
   });
   let hosts = new Set();
   const liveOrigins = new Set(config.live?.origins ?? []);
-  const server = createHttpServer({ rules: () => ({ token: config.token, hosts, liveOrigins }), gateway, version: VERSION, live: live?.server });
+  const server = createHttpServer({
+    rules: () => ({ token: config.token, hosts, liveOrigins }),
+    gateway,
+    version: VERSION,
+    live: live?.server,
+    storageState: () => exportStorageState(context, config.appOrigin),
+  });
 
   let closing = null;
   let finished;

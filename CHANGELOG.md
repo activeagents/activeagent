@@ -163,6 +163,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   backend implements `changed_files`, `read_file` and `resume_boot`, and the
   `:mock` backend none of them. `read_file` refuses a path outside the
   checkout before the backend sees it.
+  backend implements none of them, and `:local` implements `start_browser` and
+  `stop_browser`. `read_file` refuses a path outside the checkout before the
+  backend sees it.
 - **Boot a checkout that does not bundle the engine** (`actionagent`). An
   `app_runtime` sandbox of a Rails app whose `Gemfile.lock` locks no
   `actionagent` now installs it first: the dashboard's own engine version (or
@@ -533,6 +536,104 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   of the checkout commit it reads against its id. The OAuth connect callback
   records the user who connected. Run `rails g action_agent:install` and
   `rails db:migrate` for the `draft_pull_requests` table.
+- **Store browser events on session recordings, and read any session as a
+  timeline** (`actionagent`). `POST <mount>/api/session_recordings/:id/events`
+  takes a batch of `rrweb`, `console` and `marker` events under the
+  `recording_events` key, authenticated by the recording's ingest token
+  (`SessionRecording#issue_ingest_token!`, stored as a digest, expiring with
+  the recording or its sandbox) or by a dashboard session that owns the
+  recording. Each batch's clock offset is applied, so events are stored in
+  server time, and an event more than a day before the batch's `sent_at` is
+  refused. Batches over `ActionAgent.recording_limits` answer 413 and are
+  counted as dropped. The engine adds `recording_events` to the app's
+  `filter_parameters`. `GET .../events?after=` reads them back in time order.
+  `GET <mount>/api/session_recordings/:id/timeline` and
+  `GET <mount>/api/sessions/{context,run,scenario_result}/:id/timeline` return
+  message, LLM, tool and browser lanes, derived when read from runs, messages,
+  generations and telemetry spans. An agent's browser tool calls are recorded
+  as `action` events with typed values masked. A recording can belong to a
+  conversation (`agent_context_id`) and records its `source`. Deleting a
+  recording asks the permission checker about `:manage_recordings`. Adds
+  migration `create_active_agent_recording_events`.
+- **Run a browser per checkout sandbox** (`actionagent`,
+  `@activeagents/browser-sidecar`). `POST <mount>/api/sandboxes/:id/browser`
+  (`mode: "headless"` or `"headed"`, optional `capabilities`) starts one,
+  `GET` shows it and `DELETE` stops it. While it runs, every agent run and
+  evaluation against the sandbox reaches it as the MCP server
+  `browser:<session_id>`, and the toolbox's own `browser_*` tools are left
+  out so no tool name is offered twice. A run whose browser stopped after it
+  was queued fails before generation. Each browser records into a session
+  recording of its own: rrweb with input values and `contenteditable` text
+  masked, console errors and markers, posted gzipped to the recording's
+  ingest, which now accepts `Content-Encoding: gzip`. Deleting a sandbox
+  stops its browser before expiring it, and a browser stops itself 30
+  seconds before its sandbox expires, so the recording keeps its last
+  events. Starting asks the quota checker about `:browser_minutes`; each
+  stop, including the sandbox's expiry and the reaper, reports the minutes
+  used, counted to when the browser stopped itself at the latest. In a
+  multi-tenant install both are asked about the sandbox's account. `:local`
+  runs the new `@activeagents/browser-sidecar` npm package (in
+  `browser-sidecar/`, outside the gem, at the engine's version): Chromium
+  with a fresh profile over a pipe, Playwright MCP behind a bearer token and
+  `Host`/`Origin` checks, every connection through a proxy in the sidecar
+  that refuses loopback, link-local and private addresses but the app's
+  (after redirects too), and top-level navigation pinned to the sandbox app,
+  with a tab that a redirect takes elsewhere closed. Install it with
+  `bin/rails action_agent:browser:install` and check the machine with
+  `bin/rails action_agent:browser:doctor`; `ActionAgent.browser_sidecar_path`
+  runs a checkout of it instead. The browser token is encrypted like the
+  runtime token, never serialized, and masked in recordings and MCP tool
+  output. The sidecar also builds as an OCI image. Adds migration
+  `add_browser_to_active_agent_sandbox_sessions`.
+- **Report quantities to the usage recorder** (`actionagent`).
+  `ActionAgent.record_usage(owner, kind, quantity)` passes the quantity to a
+  `usage_recorder` that takes a third argument; one that takes two is still
+  called as `(owner, kind)`.
+- **Explore a project's app with the engine's explorer agent**
+  (`actionagent`). `POST <mount>/api/projects/:id/explorations` (and
+  **Explore the app** on the Project page) asks the quota checker about the
+  new `:exploration` kind (402 and nothing started on a denial), gives the
+  project's ready sandbox a browser, records `:exploration` once and walks
+  the app within a budget of minutes, browser steps and an optional cost
+  (15 minutes and 150 steps by default). The explorer is an agent run of a
+  project-owned agent, traced and recorded: it is offered an allowlist of
+  the browser's tools pinned to the app, `sign_in(secret_ref:)`,
+  `read_last_email(to:)`, `propose_candidate` (verdicts against the target
+  agent's real tools, provenance with the pages, steps and recording range
+  filled in server-side) and `finish`. Browser results are scrubbed of the
+  project's secrets and cut to 24,000 characters each. Running out of
+  budget or of conversation room, or Stop and review, moves the exploration
+  to review with its candidates; a crash fails it and keeps them.
+- **Sign a project's browser in without a model seeing the credentials**
+  (`actionagent`, `@activeagents/browser-sidecar`). A project secret now has
+  a `kind`: `env` (as before), `sign_in` (login URL, login, password and
+  optional field selectors) or `storage_state` (a saved browser sign-in).
+  Only `env` secrets reach the sandbox's environment, the two sign-in names
+  are refused for `env` secrets, and the password and a saved sign-in's
+  session values are scrubbed on their own. `sign_in` types the credentials
+  from the Rails process, never logging them, and answers only whether the
+  browser left the login form, or `unsupported` when the login page has no
+  password field.
+  `<mount>/api/projects/:id/sign_in` sets, checks, saves from the running
+  browser and removes them, asked as `:manage_project_secrets`. The sidecar
+  takes a `storage_state` to start with and answers `GET /storage-state`.
+  Adds migration `add_kind_to_active_agent_project_secrets`.
+- **Read the mail a sandbox app sends** (`actionagent`). Sandbox backends set
+  `ACTION_AGENT_SANDBOX_MAIL_DIR`, which switches the sandbox app's Action
+  Mailer to file delivery, and `ActionAgent::SandboxMail.last_message`
+  reads the newest message for an address through the backend's
+  `read_file` verb.
+- **Mask JSON-escaped secrets** (`actionagent`).
+  `ActionAgent::SecretScrubber.with_encodings` also lists each value as it
+  appears escaped inside a JSON string, so a secret with a quote or a
+  backslash is masked in JSON output too.
+- **Give a project's evaluation runs the sandbox's browser**
+  (`actionagent`). A run started from the project page reaches the
+  sandbox's browser in every replay, starting it headless with the
+  project's saved sign-in when none runs and opening the start URL before
+  each replay, and records the browser in its selection. A browser that
+  cannot start fails the run before any replay, and one the run started is
+  stopped when it ends.
 
 ### Changed
 

@@ -1132,7 +1132,8 @@ module ActionAgent
       self.class.sanitized_environment.merge(databases).merge(plan.env).merge(
         # Merged after the file's env, so a checkout cannot move them.
         SandboxManifest::PATH_ENV => workspace.join("runtime.json").to_s,
-        SESSION_ID_ENV => workspace.basename.to_s
+        SESSION_ID_ENV => workspace.basename.to_s,
+        SandboxMail::DIRECTORY_ENV => SandboxMail::DIRECTORY
       )
     end
 
@@ -2345,7 +2346,8 @@ module ActionAgent
         workdir: dir.to_s,
         stop_at: launch[:stop_at] && (launch[:stop_at].to_f * 1000).floor,
         recording: recording && recording.slice(:url, :token, :batch_events, :batch_bytes),
-        live: launch[:live] && launch[:live].slice(:session_id, :origins)
+        live: launch[:live] && launch[:live].slice(:session_id, :origins),
+        storage_state: launch[:storage_state]
       }.compact
     end
 

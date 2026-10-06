@@ -50,10 +50,12 @@ function rejectUpgrade(socket, status) {
 /**
  * Creates the sidecar's HTTP server:
  *
- *   GET    /health  { status: "ok", version }
- *   POST   /mcp     one JSON-RPC message, answered as JSON (McpGateway)
- *   DELETE /mcp     ends the session named by Mcp-Session-Id
- *   GET    /live    the live view's WebSocket (LiveServer), when `live` is given
+ *   GET    /health         { status: "ok", version }
+ *   POST   /mcp            one JSON-RPC message, answered as JSON (McpGateway)
+ *   DELETE /mcp            ends the session named by Mcp-Session-Id
+ *   GET    /live           the live view's WebSocket (LiveServer), when `live` is given
+ *   GET    /storage-state  the browser's cookies and localStorage for the
+ *                          app's origin, so a sign-in can be kept
  *
  * Every request, and every WebSocket upgrade other than the live view's, is
  * checked by guard.refusal before anything else happens. The live view's
@@ -66,9 +68,10 @@ function rejectUpgrade(socket, status) {
  * @param {{ handle: Function, closeSession: Function }} options.gateway
  * @param {string} options.version
  * @param {{ handleUpgrade: Function } | null} [options.live] a LiveServer
+ * @param {() => Promise<object>} [options.storageState] returns what GET /storage-state answers
  * @returns {import('node:http').Server}
  */
-export function createHttpServer({ rules, gateway, version, live = null }) {
+export function createHttpServer({ rules, gateway, version, live = null, storageState = null }) {
   const server = http.createServer(async (request, response) => {
     const denied = refusal(request, rules());
     if (denied) return respond(response, denied.status, { error: denied.message });
@@ -76,6 +79,9 @@ export function createHttpServer({ rules, gateway, version, live = null }) {
     const path = new URL(request.url, 'http://sidecar').pathname;
     try {
       if (path === '/health' && request.method === 'GET') return respond(response, 200, { status: 'ok', version });
+      if (path === '/storage-state' && request.method === 'GET' && storageState) {
+        return respond(response, 200, { storage_state: await storageState() });
+      }
       if (path !== '/mcp') return respond(response, 404, { error: 'Not found' });
 
       const sessionId = request.headers['mcp-session-id'];

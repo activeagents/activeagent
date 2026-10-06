@@ -12,6 +12,7 @@ import { useActionCable } from '../../../hooks/useActionCable';
 import { navigateTo } from '../../../utils/dashboardPath';
 import { apiErrorMessage } from '../../../utils/codeSessions.mjs';
 import { liveUpdate } from '../../../utils/liveUpdates.mjs';
+import { environmentSecrets } from '../../../utils/explorer.mjs';
 import {
   BOOT_POLL_INTERVAL_MS,
   PREFLIGHT_TONES,
@@ -281,7 +282,7 @@ export default function ProjectDetail({ projectId, onBack, onDeleted }) {
         options={[
           { value: 'overview', label: 'Overview' },
           { value: 'explorations', label: 'Explorations' },
-          { value: 'environment', label: `Environment (${secrets.length})` },
+          { value: 'environment', label: `Environment (${environmentSecrets(secrets).length})` },
         ]}
         value={tab}
         onChange={setTab}
@@ -367,11 +368,11 @@ export default function ProjectDetail({ projectId, onBack, onDeleted }) {
         </>
       )}
 
-      {tab === 'explorations' && <ProjectExplorations projectId={projectId} />}
+      {tab === 'explorations' && <ProjectExplorations projectId={projectId} project={project} />}
 
       {tab === 'environment' && (
         <>
-          <ProjectEnvironment secrets={secrets} onReplace={replaceSecret} onDelete={deleteSecret} error={environmentError} />
+          <ProjectEnvironment secrets={environmentSecrets(secrets)} onReplace={replaceSecret} onDelete={deleteSecret} error={environmentError} />
           {newRows ? (
             <Card>
               <MicroLabel>Add secrets</MicroLabel>

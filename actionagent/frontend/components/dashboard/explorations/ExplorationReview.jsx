@@ -7,6 +7,7 @@ import { navigateTo } from '../../../utils/dashboardPath';
 import { apiErrorMessage } from '../../../utils/codeSessions.mjs';
 import { liveUpdate } from '../../../utils/liveUpdates.mjs';
 import { timeAgo } from '../../../utils/format';
+import { stopReasonText } from '../../../utils/explorer.mjs';
 import {
   EXPLORATION_POLL_INTERVAL_MS, STATUS_TONES, isExplorationActive, keepOpenSelection, preselectedIds, runEstimate, runEstimateText,
 } from '../../../utils/explorations.mjs';
@@ -168,7 +169,7 @@ export default function ExplorationReview({ explorationId, onLoaded }) {
         )}
       </div>
 
-      {exploration.stop_reason && <div style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>Stopped: {exploration.stop_reason}</div>}
+      {exploration.stop_reason && <div style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>{stopReasonText(exploration.stop_reason)}</div>}
       {exploration.error_message && (
         <div style={{ padding: '8px 12px', borderRadius: 8, fontSize: 13, background: 'var(--color-error-soft)', color: 'var(--color-error-text)' }}>
           {exploration.error_message}

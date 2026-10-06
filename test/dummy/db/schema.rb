@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 23) do
+ActiveRecord::Schema[8.0].define(version: 24) do
   create_table "active_agent_agent_contexts", force: :cascade do |t|
     t.string "action_name", null: false
     t.string "agent_name", null: false
@@ -430,6 +430,7 @@ ActiveRecord::Schema[8.0].define(version: 23) do
     t.bigint "user_id"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "kind", default: "env", null: false
     t.index [ "account_id" ], name: "index_active_agent_project_secrets_on_account_id"
     t.index [ "project_id", "name" ], name: "index_active_agent_project_secrets_on_project_id_and_name", unique: true
     t.index [ "user_id" ], name: "index_active_agent_project_secrets_on_user_id"
