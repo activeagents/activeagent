@@ -1,0 +1,4 @@
+eval_gemfile "rails8.gemfile"
+
+# Exercise the 2.x adapter even when the default bundle resolves to 1.x.
+gem "ruby_llm", "~> 2.0"

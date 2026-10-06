@@ -1,7 +1,7 @@
 # The browser sidecar with its Chromium, for a host that runs each sandbox's
 # browser as a container. Built from this directory at the engine's version:
 #
-#   docker build -t ghcr.io/activeagents/browser-sidecar:1.8.1 browser-sidecar
+#   docker build -t ghcr.io/activeagents/browser-sidecar:1.9.0 browser-sidecar
 #
 # The start configuration arrives on stdin (`docker run -i`) or from a file
 # (`serve --config-file /run/secrets/browser.json`). In a container it would

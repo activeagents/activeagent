@@ -115,6 +115,34 @@ end
 
 Valid values are RubyLLM's provider keys — `:openai`, `:anthropic`, `:gemini`, `:vertexai`, `:bedrock`, `:openrouter`, `:ollama`, and so on. Omitting `platform:` keeps RubyLLM's automatic model-based routing. The option applies to embeddings as well as prompts.
 
+### Choosing the OpenAI Protocol
+
+RubyLLM talks to OpenAI over more than one wire protocol. ruby_llm 1.16 used Chat Completions (`POST /v1/chat/completions`). **ruby_llm 2.x defaults to the [Responses API](https://platform.openai.com/docs/api-reference/responses)** (`POST /v1/responses`), so updating the gem moves your OpenAI requests to a different endpoint. ActiveAgent leaves that default alone.
+
+A server that speaks only Chat Completions may not implement `/v1/responses`. That includes OpenAI-compatible servers you reach through `openai_api_base`. Set `protocol:` to keep an agent on Chat Completions; it maps to RubyLLM's own `protocol:` option:
+
+```ruby
+class ProxiedAgent < ApplicationAgent
+  generate_with :ruby_llm, model: "gpt-4o-mini", protocol: :chat_completions
+end
+```
+
+Or in `config/active_agent.yml`:
+
+```yaml
+production:
+  ruby_llm:
+    service: "RubyLLM"
+    model: "gpt-4o-mini"
+    protocol: "chat_completions"
+```
+
+To change it for every agent, set it on RubyLLM instead: `config.openai_protocol = :chat_completions` in `RubyLLM.configure`. A `protocol:` on an agent wins over that setting.
+
+The option works the same way for any RubyLLM provider with more than one protocol. xAI also defaults to `:responses` on ruby_llm 2.x; OpenRouter, Azure and DeepSeek default to `:chat_completions`, and `config.<provider>_protocol` (such as `config.xai_protocol`) changes each provider's default.
+
+Valid values are the protocol names of the RubyLLM provider that serves the model. For OpenAI those are `:responses` and `:chat_completions`; a name the provider doesn't have raises RubyLLM's error, which lists the ones it does. The option applies to prompts, not embeddings. It needs ruby_llm 2.x, because 1.16 has no other protocol to choose: with 1.16 installed the provider raises `ArgumentError` instead of ignoring it. A blank value, such as an unset environment variable in `config/active_agent.yml`, counts as no override.
+
 ## Provider-Specific Parameters
 
 ### Required Parameters
@@ -124,11 +152,12 @@ Valid values are RubyLLM's provider keys — `:openai`, `:anthropic`, `:gemini`,
 ### Routing Parameters
 
 - **`platform`** - Pins which RubyLLM provider serves the model (maps to RubyLLM's `provider:`), e.g. `:vertexai` for Gemini models on Vertex AI. See [Pinning the Platform](#pinning-the-platform)
+- **`protocol`** - Pins which wire protocol carries the request (maps to RubyLLM's `protocol:`), e.g. `:chat_completions` for OpenAI. Needs ruby_llm 2.x. See [Choosing the OpenAI Protocol](#choosing-the-openai-protocol)
 
 ### Sampling Parameters
 
 - **`temperature`** - Controls randomness (0.0 to 1.0)
-- **`max_tokens`** - Maximum number of tokens to generate (passed via RubyLLM's `params:` merge)
+- **`max_tokens`** - Maximum number of tokens to generate (sent as RubyLLM's `max_output_tokens:` on ruby_llm 2.x, and merged into the request through `params:` on 1.16)
 
 ### Client Configuration
 
@@ -194,6 +223,12 @@ class SearchAgent < ApplicationAgent
 end
 ```
 
+## Usage and Stop Reasons
+
+`response.usage` reports the tokens RubyLLM counted: `input_tokens` and `output_tokens`, plus `cached_tokens` (read from the prompt cache), `cache_creation_tokens` (written to it) and `reasoning_tokens` when the provider reports them. RubyLLM counts cached tokens apart from the input, so `input_tokens` leaves them out. `usage` is `nil` when the provider reported no counts. Partial counts are preserved, including cache-only or reasoning-only usage; missing input or output counts read as zero. Streaming reports the same usage fields, merging cumulative counts within each turn and adding usage across tool turns.
+
+`response.finish_reason` says why the model stopped: `end_turn`, `tool_use` (also for a response that calls tools, whatever the API calls its ending), `max_tokens` for a response cut off at the token limit, or `content_filter`. A reason ActiveAgent has no name for is passed through as the provider spelled it, such as Anthropic's `pause_turn`. Only ruby_llm 2.x reports why a response ended. With 1.16, `finish_reason` is `tool_use` when the model called a tool and `end_turn` otherwise, even for a response cut off at `max_tokens`.
+
 ## Streaming
 
 Streaming is supported for models that support it:
@@ -203,6 +238,8 @@ class StreamingAgent < ApplicationAgent
   generate_with :ruby_llm, model: "gpt-4o-mini", stream: true
 end
 ```
+
+For interleaved parallel OpenAI tool calls, use ruby_llm 2.x. ruby_llm 1.16 discards the stream indices and can drop argument fragments when several calls share an event; the adapter can assemble sequential calls on 1.16 but cannot recover fragments the gem discarded.
 
 See [Streaming](/agents/streaming) for ActionCable integration and real-time updates.
 
