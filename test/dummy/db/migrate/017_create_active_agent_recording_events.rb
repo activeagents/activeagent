@@ -1,0 +1,57 @@
+# frozen_string_literal: true
+
+# Recording events: what a browser recorded during a session (rrweb DOM
+# events, console lines, markers, the agent's own browser actions, and human
+# input during a takeover), stored in batches. Each row holds one kind of
+# event from one batch, its payload gzip JSON either inline or attached
+# through Active Storage.
+#
+# Session recordings gain the conversation they belong to, where they came
+# from, the digest and expiry of the token a browser posts events with, and
+# the counters the per-recording caps are checked against.
+#
+# Table names follow ActionAgent.table_name_prefix, the same way as
+# create_active_agent_dashboard_tables.
+class CreateActiveAgentRecordingEvents < ActiveRecord::Migration[7.2]
+  def change
+    prefix = ActionAgent.table_name_prefix
+
+    create_table "#{prefix}recording_events" do |t|
+      t.bigint :session_recording_id, null: false
+      t.string :kind, null: false
+      # The batch's events span this range of server time, once the batch's
+      # clock offset is applied.
+      t.datetime :occurred_from, null: false
+      t.datetime :occurred_to, null: false
+      # Where this row's first event sat in its batch: orders the rows of one
+      # batch that share a start time.
+      t.integer :batch_index, default: 0, null: false
+      # Server receive time minus the client's send time, in milliseconds.
+      t.bigint :clock_offset_ms, default: 0, null: false
+      t.integer :event_count, default: 0, null: false
+      # The payload's size as JSON, before compression.
+      t.integer :byte_size, default: 0, null: false
+      # The limit makes MySQL create a column larger than a 64 KB BLOB.
+      t.binary :payload, limit: 16.megabytes
+      t.bigint :user_id
+      t.bigint :account_id
+      t.timestamps
+      t.index [ :session_recording_id, :occurred_from, :batch_index ]
+      t.index :user_id
+      t.index :account_id
+    end
+
+    change_table "#{prefix}session_recordings" do |t|
+      t.bigint :agent_context_id
+      # "agent" or "dashboard"; null on recordings made before this column.
+      t.string :source
+      t.string :ingest_token_digest
+      t.datetime :ingest_token_expires_at
+      t.integer :event_count, default: 0, null: false
+      t.bigint :event_bytes, default: 0, null: false
+      t.integer :dropped_event_count, default: 0, null: false
+      t.index :agent_context_id
+      t.index :ingest_token_digest, unique: true
+    end
+  end
+end

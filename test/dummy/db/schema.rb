@@ -361,6 +361,25 @@ ActiveRecord::Schema[8.0].define(version: 20) do
     t.index [ "session_recording_id", "sequence" ], name: "index_active_agent_recording_actions_on_recording_and_sequence", unique: true
   end
 
+  create_table "active_agent_recording_events", force: :cascade do |t|
+    t.bigint "account_id"
+    t.integer "batch_index", default: 0, null: false
+    t.integer "byte_size", default: 0, null: false
+    t.bigint "clock_offset_ms", default: 0, null: false
+    t.datetime "created_at", null: false
+    t.integer "event_count", default: 0, null: false
+    t.string "kind", null: false
+    t.datetime "occurred_from", null: false
+    t.datetime "occurred_to", null: false
+    t.binary "payload", limit: 16777216
+    t.bigint "session_recording_id", null: false
+    t.datetime "updated_at", null: false
+    t.bigint "user_id"
+    t.index [ "account_id" ], name: "index_active_agent_recording_events_on_account_id"
+    t.index [ "session_recording_id", "occurred_from", "batch_index" ], name: "idx_on_session_recording_id_occurred_from_batch_ind_123f75800d"
+    t.index [ "user_id" ], name: "index_active_agent_recording_events_on_user_id"
+  end
+
   create_table "active_agent_recording_snapshots", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.integer "file_size_bytes"
@@ -425,17 +444,26 @@ ActiveRecord::Schema[8.0].define(version: 20) do
   create_table "active_agent_session_recordings", force: :cascade do |t|
     t.bigint "account_id"
     t.integer "action_count", default: 0
+    t.bigint "agent_context_id"
     t.bigint "agent_run_id"
     t.datetime "created_at", null: false
+    t.integer "dropped_event_count", default: 0, null: false
     t.integer "duration_ms"
+    t.bigint "event_bytes", default: 0, null: false
+    t.integer "event_count", default: 0, null: false
+    t.string "ingest_token_digest"
+    t.datetime "ingest_token_expires_at"
     t.json "metadata", default: {}
     t.string "name"
     t.bigint "sandbox_session_id"
+    t.string "source"
     t.integer "status", default: 0, null: false
     t.datetime "updated_at", null: false
     t.bigint "user_id"
     t.index [ "account_id" ], name: "index_active_agent_session_recordings_on_account_id"
+    t.index [ "agent_context_id" ], name: "index_active_agent_session_recordings_on_agent_context_id"
     t.index [ "agent_run_id" ], name: "index_active_agent_session_recordings_on_agent_run_id"
+    t.index [ "ingest_token_digest" ], name: "index_active_agent_session_recordings_on_ingest_token_digest", unique: true
     t.index [ "sandbox_session_id" ], name: "index_active_agent_session_recordings_on_sandbox_session_id"
     t.index [ "user_id" ], name: "index_active_agent_session_recordings_on_user_id"
   end
