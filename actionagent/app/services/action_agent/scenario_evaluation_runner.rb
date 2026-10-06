@@ -357,27 +357,22 @@ module ActionAgent
     # report "none of the available tools covers this task" while naming a list
     # the agent's MCP tools were missing from.
     def tool_roster
-      @tool_roster ||= begin
-        definitions = mcp_dispatcher.tool_definitions +
-          AgentToolbox.definitions_for(@evaluation.agent.tools, browser_attached: mcp_dispatcher.browser_attached?)
-
-        definitions.to_h { |definition| [ definition[:name].to_s, definition[:description].to_s ] }
-      end
+      runtime_tools.tools
     end
 
-    # Discovery failures from the roster above, keyed by server. Reading them
-    # requires tool_definitions to have run, which tool_roster does.
+    # Discovery failures from the roster above, keyed by server.
     def mcp_discovery_errors
-      tool_roster
-      mcp_dispatcher.discovery_errors
+      runtime_tools.discovery_errors
     end
 
     # The sandbox's browser is on the roster while it runs, as each replay
     # (Agent#test_execute) reaches it then.
     def mcp_dispatcher
-      @mcp_dispatcher ||= MCPToolDispatcher.new(
-        @evaluation.agent, extra_server_keys: [ sandbox_server_key, sandbox_browser_key ].compact
-      )
+      runtime_tools.dispatcher
+    end
+
+    def runtime_tools
+      @runtime_tools ||= RuntimeToolRoster.new(@evaluation.agent, extra_server_keys: [ sandbox_server_key, sandbox_browser_key ].compact)
     end
 
     def sandbox_browser_key

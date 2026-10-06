@@ -329,6 +329,32 @@ ActiveRecord::Schema[8.0].define(version: 23) do
     t.index [ "agent_id", "name" ], name: "index_active_agent_evaluations_on_agent_id_and_name", unique: true
   end
 
+  create_table "active_agent_explorations", force: :cascade do |t|
+    t.bigint "project_id"
+    t.bigint "evaluation_id"
+    t.bigint "agent_run_id"
+    t.bigint "sandbox_session_id"
+    t.bigint "session_recording_id"
+    t.string "source", default: "external", null: false
+    t.string "status", default: "pending", null: false
+    t.string "start_url"
+    t.string "stop_reason"
+    t.text "error_message"
+    t.datetime "started_at"
+    t.datetime "finished_at"
+    t.json "budget"
+    t.json "usage"
+    t.json "candidates"
+    t.bigint "account_id"
+    t.bigint "user_id"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index [ "account_id" ], name: "index_active_agent_explorations_on_account_id"
+    t.index [ "evaluation_id" ], name: "index_active_agent_explorations_on_evaluation_id"
+    t.index [ "project_id" ], name: "index_active_agent_explorations_on_project_id"
+    t.index [ "user_id" ], name: "index_active_agent_explorations_on_user_id"
+  end
+
   create_table "active_agent_github_connections", force: :cascade do |t|
     t.text "access_token", null: false
     t.bigint "account_id"
