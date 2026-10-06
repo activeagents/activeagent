@@ -1,6 +1,12 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useTheme } from '../../contexts/ThemeContext';
 import { TYPOGRAPHY } from '../../utils/designTokens';
+import {
+  actionCountLabel,
+  fetchAllActions,
+  listLoadOutcome,
+  normalizeAction,
+} from '../../utils/sessionReplay.mjs';
 
 // Playwright-style action replay mode
 const REPLAY_MODE = {
@@ -64,6 +70,8 @@ export default function SessionReplayView({ recordingId: initialRecordingId, onH
   const [selectedRecordingId, setSelectedRecordingId] = useState(initialRecordingId);
   const [recording, setRecording] = useState(null);
   const [actions, setActions] = useState([]);
+  const [actionsTotal, setActionsTotal] = useState(null);
+  const [actionsComplete, setActionsComplete] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -96,18 +104,21 @@ export default function SessionReplayView({ recordingId: initialRecordingId, onH
   }, [selectedRecordingId]);
 
   const loadRecordingsList = async () => {
+    let outcome;
     try {
       const response = await fetch('/api/session_recordings');
-      if (response.ok) {
-        const data = await response.json();
-        setRecordings(data.recordings || []);
-        // Auto-select the first recording if none selected
-        if (!selectedRecordingId && data.recordings?.length > 0) {
-          setSelectedRecordingId(data.recordings[0].id);
-        }
-      }
+      const data = response.ok ? await response.json() : null;
+      outcome = listLoadOutcome({ ok: response.ok, data, selectedId: selectedRecordingId });
     } catch (err) {
       console.error('Failed to load recordings list:', err);
+      outcome = listLoadOutcome({ ok: false, selectedId: selectedRecordingId });
+    }
+
+    setRecordings(outcome.recordings);
+    if (outcome.selectId != null) setSelectedRecordingId(outcome.selectId);
+    if (outcome.stopLoading) {
+      setError(outcome.error);
+      setIsLoading(false);
     }
   };
 
@@ -297,14 +308,16 @@ export default function SessionReplayView({ recordingId: initialRecordingId, onH
       setCurrentActionIndex(0);
       setIsPlaying(false);
 
-      // Load actions separately if we have a recording
       if (data.recording?.id) {
-        const actionsResponse = await fetch(`/api/session_recordings/${data.recording.id}/actions`);
-        if (actionsResponse.ok) {
-          const actionsData = await actionsResponse.json();
-          setActions(actionsData.actions || data.recording.timeline || []);
+        const paged = await fetchAllActions(data.recording.id);
+        if (paged) {
+          setActions(paged.actions);
+          setActionsTotal(paged.total);
+          setActionsComplete(paged.complete);
         } else {
-          setActions(data.recording.timeline || []);
+          setActions((data.recording.timeline || []).map(normalizeAction));
+          setActionsTotal(null);
+          setActionsComplete(true);
         }
       }
     } catch (err) {
@@ -778,7 +791,7 @@ export default function SessionReplayView({ recordingId: initialRecordingId, onH
                 color: 'rgba(255,255,255,0.8)',
               } : {}}
             >
-              Actions ({actions.length})
+              Actions ({actionCountLabel(actions.length, actionsTotal, actionsComplete)})
             </div>
 
             {actions.map((action, idx) => {
