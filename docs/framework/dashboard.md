@@ -942,6 +942,109 @@ runs and evaluations of that agent call the checkout's own tools. The lookup
 is scoped to the agent's owner, so one tenant cannot name another tenant's
 sandbox.
 
+### Opening a draft pull request
+
+A ready checkout sandbox has a **Pull request** card. **Open draft PR** reads
+what the checkout changed since it was cloned and shows:
+
+- every changed file, ticked when it may be published, and the reason when it
+  may not
+- the exact diff of the ticked files
+- the new branch's name, and the pull request's title and description
+
+These are never published, and the dialog names the file and the reason:
+
+- anything under `.github/` (the App asks for no Workflows permission)
+- symlinks, and submodules or nested repositories
+- a file over 1 MB
+- a file holding one of the sandbox's secrets (a stored checkout token, the
+  Claude Code and Codex credentials it runs with, its runtime's MCP token, the
+  OAuth connection's token) or anything shaped like a GitHub token. The value
+  is never shown.
+
+One publish carries at most 300 files and 10 MB of the ticked files. A
+preview reads at most 300 files and 20 MB (counting each file now and in the
+checkout commit), in path order. A file after that is listed as not read and
+cannot be ticked: **Only read paths matching** (`app/**, lib/*.rb`) reads
+the preview again with fewer files. A publish and a patch read only the files
+they were asked for.
+
+Files the repository ignores are not listed at all. A file is published as
+the bytes in the checkout: git's clean conversions do not run, so a
+repository whose `.gitattributes` sets `eol=crlf` or
+`working-tree-encoding`, or a filter such as Git LFS, gets the working-tree
+bytes rather than what `git add` would store. **Open draft PR** in the dialog
+sends each ticked file with the digest it was previewed at, and a file that
+changed since is refused, and the dialog reads the sandbox again. The publish
+then runs in `ActionAgent::DraftPullRequestJob`, from the dashboard's own
+process:
+
+1. It gets a token for the one repository: an installation token limited to
+   Contents and Pull requests write, minted now, or the OAuth connection's
+   token.
+2. It writes a blob per file, a tree on top of the checkout commit's tree,
+   and a commit whose parent is the checkout commit. The commit names no
+   author, so GitHub records it as the token's identity, and signs it for an
+   App.
+3. It creates the branch. A name that already exists on GitHub is refused,
+   and no branch is ever overwritten.
+4. It opens a draft pull request against the branch the sandbox checked out,
+   or the default branch when it checked out a tag or a commit.
+
+No git process ever holds that token. The sandbox backend only lists and
+reads files (`changed_files` and `read_file`, below), and several things can
+rewrite a checkout's `.git/config`, which decides where git sends a request
+and which programs it starts.
+
+**Update draft PR** publishes the ticked files as a new commit on the pull
+request's branch, as a fast-forward that is never forced, with the commit
+message the dialog asks for. The pull request's title and description stay
+as they are. The new commit's tree is the checkout commit's with the ticked
+files on top, so the pull request's diff on GitHub is the diff the dialog
+showed: a file the branch holds that the update leaves out returns to its
+content in the checkout commit, and the dialog names those files. A branch
+with commits the dashboard did not publish is not updated, and neither is a
+branch with no pull request.
+
+GitHub opens no draft pull request in a private repository of an account on
+GitHub Free. The branch is kept, the card links it on GitHub to compare, and
+**Open as a regular pull request** opens a regular one. The dashboard never
+does that on its own. When opening the pull request fails for another
+reason, the branch is kept the same way, and **Open the draft PR again**
+tries once more.
+
+A publish still queued or running 15 minutes after it last moved (its worker
+died, or none picked it up) is marked failed as stalled, and the sandbox can
+publish again.
+
+A publish goes ahead only when:
+
+- `ActionAgent.permission_checker` allows `:publish_pull_request`, asked when
+  the user publishes and again when the job runs
+- the sandbox is ready or running, since the publish reads its live checkout
+- something can write to the repository: the installation the sandbox
+  checked out through, while GitHub serves it with write permissions, or
+  the OAuth connection. The OAuth connection publishes only for the user who
+  connected it (a connection made before the dashboard recorded that user
+  must be connected again), and only with the `repo` scope, or `public_repo`
+  for a public repository. Its commit and pull request then appear as that
+  user.
+
+Where nothing can write, or GitHub refuses the write (403 or 404),
+**Download patch** opens the same dialog to choose filtered and scanned files
+for a patch for `git am` or `git apply`, built without any GitHub token. The
+card reads the pull request's state (open, closed, merged, draft) again at
+most once a minute. No agent tool, toolbox tool or MCP tool publishes. Run
+`rails g action_agent:install` and `rails db:migrate` for the
+`draft_pull_requests` table.
+
+| Endpoint | Does |
+|---|---|
+| `POST <mount>/api/sandboxes/:id/pull_request/preview` | the changed files, each with its refusal or its diff and digest; `allowlist:` limits what may be published to matching paths (`"app/**"`) |
+| `POST <mount>/api/sandboxes/:id/pull_request` | queues a publish of `files: [{ path:, digest: }]` with `title:`, `body:` and `branch:`; `update: true` publishes `files:` onto the last pull request's branch with `message:` as the commit message; `open: true` opens a draft pull request for a branch published without one, and `regular: true` a regular one. A second request while a publish is queued or running answers 409 |
+| `GET <mount>/api/sandboxes/:id/pull_request` | the latest pull request, and whether publishing is available and why not |
+| `GET <mount>/api/sandboxes/:id/pull_request/patch` | the patch of `paths[]`, or of every publishable file when one read covers them all |
+
 ### What a sandbox backend implements
 
 A backend registered in `ActionAgent.sandbox_backends` is a plain class.
@@ -953,8 +1056,8 @@ defines, and `orchestrator.supports?(:verb)` answers whether it defines one:
 | `create_sandbox(session)` | yes | `{ container_name:, url:, mcp_url:, mcp_token: }`. A backend that also takes `boot_config:` is handed a [boot spec](#boot-specs) as a plain Hash, and boots the checkout by it instead of by the checkout's `.activeagents/sandbox.yml` |
 | `status(handle)`, `terminate(handle)`, `list_sandboxes`, `cleanup_expired` | yes | a status hash, true, an array of status hashes, a count |
 | `run_code_session(session, code_session, &on_event)`, `cancel_code_session(session, code_session)` | no | `{ exit_status:, diff: }`, true |
-| `changed_files(session)` | no | `{ base_commit:, files: [{ path:, status:, mode: }] }`: what the checkout changed since it was cloned, read without running the checkout's git hooks, filters or configuration |
-| `read_file(session, path)` | no | the file's current bytes, or nil; a symlink reads as its target. `path` is always relative and inside the checkout |
+| `changed_files(session)` | no | `{ base_commit:, files: [{ path:, status:, mode:, base_mode:, size: }] }`: what the checkout changed since it was cloned, without the files the repository ignores, read without running the checkout's git hooks, filters or configuration (or a submodule's). `base_mode` and `size` are optional |
+| `read_file(session, path, base: false)` | no | the file's current bytes, or with `base: true` its bytes in the commit the checkout was cloned at; nil when nothing is there. A symlink reads as its target. `path` is always relative and inside the checkout, and `base:` is passed only when true. A backend whose `read_file` takes no `base:` cannot read the checkout commit, so it offers no publishing |
 | `start_browser(session, mode:)` | no | `{ mcp_url:, mcp_token: }` for a browser of the sandbox's own; `mode` is `:headless` or `:headed` |
 | `stop_browser(session)` | no | true, also when none was running |
 | `resume_boot(session, from:)` | no | what `create_sandbox` returns, after re-running a failed boot it kept from the step named `from` (nil for the step that failed). A backend that also takes `boot_config:` is handed the spec to continue with |
@@ -964,10 +1067,12 @@ defines, and `orchestrator.supports?(:verb)` answers whether it defines one:
 `session` is the `ActionAgent::SandboxSession`, and `handle` is the
 `container_name` that `create_sandbox` returned. Calling a verb the backend
 does not define raises `SandboxOrchestrator::UnsupportedBackendError`. The
-engine's `:local` backend defines `resume_boot`, `boot_status` and
-`boot_log`, and takes `boot_config:`. The `:mock` backend takes
-`boot_config:` and records it without the secrets' values. Neither defines
-the other optional verbs from `changed_files` down.
+engine's `:local` backend defines `changed_files` and `read_file`, and
+`resume_boot`, `boot_status` and `boot_log`, and takes `boot_config:`. It
+reads the checkout commit object by object and refuses any object that does
+not hash to its id, since the checkout's object store is the sandbox's to
+write. The `:mock` backend takes `boot_config:` and records it without the
+secrets' values, and defines none of the optional verbs.
 
 ### Running against a sandbox without editing the agent
 

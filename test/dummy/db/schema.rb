@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 20) do
+ActiveRecord::Schema[8.0].define(version: 23) do
   create_table "active_agent_agent_contexts", force: :cascade do |t|
     t.string "action_name", null: false
     t.string "agent_name", null: false
@@ -222,6 +222,37 @@ ActiveRecord::Schema[8.0].define(version: 20) do
     t.index [ "account_id" ], name: "index_active_agent_code_sessions_on_account_id"
     t.index [ "sandbox_session_id" ], name: "index_active_agent_code_sessions_on_sandbox_session_id"
     t.index [ "user_id" ], name: "index_active_agent_code_sessions_on_user_id"
+  end
+
+  create_table "active_agent_draft_pull_requests", force: :cascade do |t|
+    t.bigint "account_id"
+    t.string "base_branch"
+    t.string "base_commit", null: false
+    t.text "body"
+    t.string "branch", null: false
+    t.text "commit_message"
+    t.string "compare_url"
+    t.datetime "created_at", null: false
+    t.string "credential_kind"
+    t.boolean "draft"
+    t.string "error_code"
+    t.text "error_message"
+    t.json "files"
+    t.string "head_commit"
+    t.datetime "last_checked_at"
+    t.integer "number"
+    t.string "operation", default: "create", null: false
+    t.string "repository", null: false
+    t.bigint "sandbox_session_id", null: false
+    t.string "state"
+    t.string "status", default: "queued", null: false
+    t.string "title", null: false
+    t.datetime "updated_at", null: false
+    t.string "url"
+    t.bigint "user_id"
+    t.index [ "account_id" ], name: "index_active_agent_draft_pull_requests_on_account"
+    t.index [ "sandbox_session_id" ], name: "index_active_agent_draft_pull_requests_on_sandbox_session"
+    t.index [ "user_id" ], name: "index_active_agent_draft_pull_requests_on_user"
   end
 
   create_table "active_agent_evaluation_runs", force: :cascade do |t|

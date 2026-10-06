@@ -100,6 +100,12 @@ ActionAgent::Engine.routes.draw do
           post :cancel
         end
       end
+      # A pull request opened from the checkout's changes, its preview, and
+      # the patch to download instead.
+      resource :pull_request, only: [ :show, :create ], controller: "draft_pull_requests" do
+        post :preview
+        get :patch
+      end
     end
 
     # Tool inventory — auto-detected from the tool roster each generation

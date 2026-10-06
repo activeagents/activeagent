@@ -373,6 +373,25 @@ class ActionAgentInstallGeneratorTest < Rails::Generators::TestCase
     %w[input_requests agents].each { |name| connection&.drop_table("#{prefix}#{name}", if_exists: true) }
   end
 
+  test "the draft pull requests migration creates the table a publish is recorded in" do
+    run_generator [ "--skip-routes" ]
+    assert_migration "db/migrate/create_active_agent_draft_pull_requests.rb"
+    prefix = "draft_pr_probe_"
+    connection = ActiveRecord::Base.connection
+    ActionAgent.table_name_prefix = prefix
+
+    run_migration("create_active_agent_draft_pull_requests", :CreateActiveAgentDraftPullRequests)
+
+    %i[sandbox_session_id repository base_branch branch base_commit head_commit title body files operation status error_code
+       error_message credential_kind number url compare_url state draft last_checked_at user_id account_id].each do |column|
+      assert connection.column_exists?("#{prefix}draft_pull_requests", column), column
+    end
+    assert connection.index_exists?("#{prefix}draft_pull_requests", :sandbox_session_id)
+  ensure
+    ActionAgent.table_name_prefix = "active_agent_"
+    connection&.drop_table("#{prefix}draft_pull_requests", if_exists: true)
+  end
+
   test "a missing numbered template directory emits nothing" do
     ActionAgent::InstallGenerator.numbered_migrations_path = File.join(destination_root, "no-such-directory")
 

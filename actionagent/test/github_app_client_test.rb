@@ -130,4 +130,50 @@ class GithubAppClientTest < ActiveSupport::TestCase
     assert_nil ActionAgent::GithubClient.new("ghu_user").organization_membership("acme")
     assert_raises(ActionAgent::GithubClient::Error) { ActionAgent::GithubClient.new("ghu_user").organization_membership("../repos") }
   end
+
+  test "a validation failure's messages follow GitHub's own in the error" do
+    stub_request(:post, "https://api.github.com/repos/acme/shop/pulls").to_return(
+      status: 422, body: { message: "Validation Failed", errors: [ { resource: "PullRequest", message: "A pull request already exists for acme:fix." } ] }.to_json
+    )
+
+    error = assert_raises(ActionAgent::GithubClient::Error) do
+      ActionAgent::GithubClient.new("ghs_writer").create_pull_request("acme/shop", title: "t", body: nil, head: "fix", base: "main", draft: true)
+    end
+    assert_equal 422, error.status
+    assert_equal "GitHub answered 422 (Validation Failed: A pull request already exists for acme:fix.)", error.message
+    assert_equal [ { "resource" => "PullRequest", "message" => "A pull request already exists for acme:fix." } ], error.errors
+  end
+
+  test "an error carries no validation errors when GitHub's answer has none" do
+    stub_request(:get, "https://api.github.com/repos/acme/shop/pulls/3").to_return(status: 502, body: "<html>Bad gateway</html>")
+
+    error = assert_raises(ActionAgent::GithubClient::Error) { ActionAgent::GithubClient.new("ghs_reader").pull_request("acme/shop", 3) }
+
+    assert_equal [ 502, [] ], [ error.status, error.errors ]
+    assert_equal "GitHub answered 502", error.message
+  end
+
+  test "Git Data API calls name only a repository, a branch and object ids GitHub could have issued" do
+    client = ActionAgent::GithubClient.new("ghs_writer")
+
+    [ "acme", "acme/..", "acme/.", "../acme/shop", "acme/shop/extra", nil ].each do |repository|
+      assert_raises(ActionAgent::GithubClient::Error, repository.inspect) { client.branch_head(repository, "main") }
+    end
+    assert_raises(ActionAgent::GithubClient::Error) { client.commit_tree("acme/shop", "HEAD") }
+    assert_raises(ActionAgent::GithubClient::Error) { client.create_commit("acme/shop", message: "m", tree: "a" * 40, parents: [ "../x" ]) }
+
+    ref = stub_request(:get, "https://api.github.com/repos/acme/shop/git/ref/heads/feature/caf%C3%A9%20x").to_return(status: 404, body: "{}")
+    assert_nil client.branch_head("acme/shop", "feature/café x")
+    assert_requested ref
+  end
+
+  test "a fast-forward is a non-forced PATCH of the branch" do
+    patch = stub_request(:patch, "https://api.github.com/repos/acme/shop/git/refs/heads/activeagent/fix")
+      .with(body: { sha: "f" * 40, force: false }.to_json, headers: { "Authorization" => "Bearer ghs_writer" })
+      .to_return(status: 200, body: { ref: "refs/heads/activeagent/fix" }.to_json)
+
+    ActionAgent::GithubClient.new("ghs_writer").fast_forward_branch("acme/shop", "activeagent/fix", "f" * 40)
+
+    assert_requested patch
+  end
 end
