@@ -136,20 +136,59 @@ module ActionAgent
 
     # What a sandbox backend clones for an app_runtime session: repository,
     # ref, clone URL and the credentials to fetch it. Nil for any other
-    # sandbox type. Carries the owner's GitHub token, so it goes to the
-    # backend and never into a response.
+    # sandbox type, and when the checkout is no longer available. Carries a
+    # GitHub token, so it goes to the backend and never into a response.
+    #
+    # Reading it never calls GitHub. A checkout through the OAuth connection
+    # carries the connection's stored token. One through a GitHub App
+    # installation carries a token only on the object #mint_checkout_spec!
+    # was called on, and +token+ is nil anywhere else.
     #
     # @return [Hash, nil]
     def checkout_spec
       return nil unless app_runtime?
+      return @minted_checkout_spec if @minted_checkout_spec
 
-      github_connection&.checkout_spec(repository, ref: repository_ref)
+      if github_installation_id
+        installation = checkout_installation
+        installation&.repository(repository) && installation.checkout_spec(repository, ref: repository_ref)
+      else
+        github_connection&.checkout_spec(repository, ref: repository_ref)
+      end
+    end
+
+    # Mints the token a GitHub App checkout is fetched with, and keeps the
+    # spec on this object, so #checkout_spec answers with it from here on.
+    # SandboxProvisionJob calls this once per provision, hands this same
+    # object to the backend, and scrubs the same value from what the boot
+    # reports. The token is never stored. A checkout through the OAuth
+    # connection mints nothing and returns #checkout_spec.
+    #
+    # @raise [GithubClient::InstallationUnavailable] when GitHub reports the installation removed or suspended
+    # @return [Hash, nil]
+    def mint_checkout_spec!
+      return checkout_spec unless app_runtime? && github_installation_id
+      return @minted_checkout_spec if @minted_checkout_spec
+
+      installation = checkout_installation
+      return nil unless installation&.repository(repository)
+
+      @minted_checkout_spec = installation.checkout_spec!(repository, ref: repository_ref)
     end
 
     # The GitHub connection whose selection this session's checkout comes
-    # from.
+    # from, when it does not come from a GitHub App installation.
     def github_connection
       owners_record(GithubConnection)
+    end
+
+    # The owner's GitHub App installation this session's checkout comes from,
+    # or nil when it comes from the OAuth connection or the installation was
+    # unlinked.
+    def checkout_installation
+      return nil if github_installation_id.nil?
+
+      owners_record(GithubInstallation.where(id: github_installation_id))
     end
 
     # Environment the backend passes into an app_runtime checkout, so the
@@ -263,6 +302,9 @@ module ActionAgent
         mcp_servers: Array(mcp_servers),
         repository: repository,
         repository_ref: repository_ref,
+        # How a checkout reaches GitHub: "app" (a GitHub App installation) or
+        # "oauth" (the OAuth connection).
+        checkout_source: app_runtime? ? (github_installation_id ? "app" : "oauth") : nil,
         # The key an agent adds to its mcp_servers to use this runtime's
         # tools; nil until the backend has reported the endpoint.
         runtime_server_key: runtime_mcp_url.present? ? runtime_server_key : nil,
@@ -302,25 +344,43 @@ module ActionAgent
     # read, so a member's personal provider key never reaches a sandbox,
     # which every member of the account shares.
     def owners_record(scope)
+      owners_records(scope).first
+    end
+
+    # Every record of the owner's in +scope+, found the same way.
+    def owners_records(scope)
       scope = scope.all
       scope = scope.merge(scope.klass.owned_rows)
       case scope.klass.owner_association
-      when :account then account_id && scope.find_by(account_id: account_id)
-      when :user then user_id && scope.find_by(user_id: user_id)
-      else scope.first
+      when :account then account_id ? scope.where(account_id: account_id) : scope.none
+      when :user then user_id ? scope.where(user_id: user_id) : scope.none
+      else scope
       end
     end
 
+    # A repository selected on one of the owner's GitHub App installations is
+    # checked out through that installation, ahead of the OAuth connection,
+    # so the checkout gets a short-lived token limited to that repository.
+    # Installations count only while a GitHub App is configured, since
+    # nothing else can mint their tokens.
     def repository_available
       return if repository.blank?
 
-      connection = github_connection
-      if connection.nil?
-        errors.add(:repository, "needs a GitHub connection (Settings -> Integrations)")
-      elsif (repo = connection.repository(repository))
+      installations = ActionAgent.github_app_configured? ? owners_records(GithubInstallation).order(:id).to_a : []
+      installation = installations.find { |candidate| candidate.usable? && candidate.repository(repository) }
+      connection = github_connection unless installation
+      repo = installation&.repository(repository) || connection&.repository(repository)
+
+      if repo
+        self.github_installation_id = installation&.id
         # Canonical spelling, and the default branch unless a ref was asked for.
         self.repository = repo["full_name"]
         self.repository_ref = repository_ref.presence || repo["default_branch"]
+      elsif installations.any? { |candidate| candidate.repository(repository) }
+        errors.add(:repository, "is selected on a GitHub App installation that was removed or suspended: " \
+          "reinstall the GitHub App, or Check again once it is unsuspended, in Settings -> Integrations")
+      elsif connection.nil? && installations.empty?
+        errors.add(:repository, "needs a GitHub connection (Settings -> Integrations)")
       else
         errors.add(:repository, "is not one of the repositories selected in Settings -> Integrations")
       end

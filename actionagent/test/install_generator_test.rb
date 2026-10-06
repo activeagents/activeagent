@@ -297,6 +297,27 @@ class ActionAgentInstallGeneratorTest < Rails::Generators::TestCase
     end
   end
 
+  test "the GitHub App installations migration makes installation_id unique and links sandbox sessions to a row" do
+    run_generator [ "--skip-routes" ]
+    assert_migration "db/migrate/add_github_app_installations.rb"
+    prefix = "github_app_probe_"
+    connection = ActiveRecord::Base.connection
+    connection.create_table("#{prefix}sandbox_sessions", force: true) { |t| t.string :session_id }
+    ActionAgent.table_name_prefix = prefix
+
+    run_migration("add_github_app_installations", :AddGithubAppInstallations)
+
+    assert connection.index_exists?("#{prefix}github_installations", :installation_id, unique: true)
+    %i[github_account_id github_account_login github_account_type repository_selection permissions repositories
+       suspended_at removed_at user_id account_id].each do |column|
+      assert connection.column_exists?("#{prefix}github_installations", column), column
+    end
+    assert connection.column_exists?("#{prefix}sandbox_sessions", :github_installation_id)
+  ensure
+    ActionAgent.table_name_prefix = "active_agent_"
+    %w[github_installations sandbox_sessions].each { |name| connection&.drop_table("#{prefix}#{name}", if_exists: true) }
+  end
+
   test "a missing numbered template directory emits nothing" do
     ActionAgent::InstallGenerator.numbered_migrations_path = File.join(destination_root, "no-such-directory")
 

@@ -5,9 +5,10 @@ import test, { after, before } from 'node:test';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { build } from 'esbuild';
 
-// RepoPicker, ProviderKeysCard and the Settings API Keys tab, bundled with
-// esbuild and rendered to static markup. Effects do not run in a server
-// render, so each renders from its props alone and fetches nothing.
+// RepoPicker, ProviderKeysCard, the GitHub App section and the Settings API
+// Keys tab, bundled with esbuild and rendered to static markup. Effects do
+// not run in a server render, so each renders from its props alone and
+// fetches nothing.
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 // Under node_modules, so the bundle's react imports resolve to the dashboard's own install.
@@ -30,13 +31,14 @@ before(async () => {
         import RepoPicker from './components/dashboard/RepoPicker.jsx';
         import ProviderKeysCard, { useProviderKeyEditor } from './components/dashboard/ProviderKeysCard.jsx';
         import SettingsView from './components/dashboard/SettingsView.jsx';
+        import GithubAppSection from './components/dashboard/GithubAppSection.jsx';
 
         function ProviderKeys({ providerKeys, scope, editable }) {
           const editor = useProviderKeyEditor({ onKeysChanged: async () => {}, onError: () => {}, scope });
           return React.createElement(ProviderKeysCard, { providerKeys, editor, scope, editable });
         }
 
-        const views = { RepoPicker, ProviderKeys, SettingsView };
+        const views = { RepoPicker, ProviderKeys, SettingsView, GithubAppSection };
         export const render = (name, props) =>
           renderToStaticMarkup(React.createElement(ThemeProvider, null, React.createElement(views[name], props)));
       `,
@@ -190,4 +192,47 @@ test('the API Keys tab keeps its tab button, key name field and provider keys ca
   assert.match(html, /placeholder="Key name \(e\.g\. production\)"/);
   assert.match(html, /\+ Create New Key/);
   assert.match(html, /Provider API Keys/);
+});
+
+const appSection = (app) => render('GithubAppSection', { app, onChanged() {}, onError() {}, onNotice() {} });
+const buttons = (html) => [...html.matchAll(/<(?:button|a)[^>]*>([^<]+)<\/(?:button|a)>/g)].map(([, text]) => text);
+
+test('with no App configured and no manifest flow, the GitHub App section renders nothing', () => {
+  assert.equal(appSection({ configured: false, manifest_available: false, installations: [] }), '');
+  assert.equal(appSection(undefined), '');
+});
+
+test('a self-hosted dashboard with no App is offered the manifest flow', () => {
+  const html = appSection({ configured: false, manifest_available: true, installations: [] });
+  assert.match(html, /Use a GitHub App/);
+  assert.match(html, /placeholder="Organization \(optional\)"/);
+  assert.deepEqual(buttons(html), ['Create GitHub App']);
+});
+
+test('a configured App offers the install and lists each installation with its actions', () => {
+  const html = appSection({
+    configured: true,
+    manifest_available: true,
+    installations: [
+      { id: 1, account_login: 'acme', account_type: 'Organization', status: 'active', settings_url: 'https://github.com/organizations/acme/settings/installations/7', repositories: [{ full_name: 'acme/shop' }] },
+      { id: 2, account_login: 'octocat', account_type: 'User', status: 'removed', settings_url: 'https://github.com/settings/installations/8', repositories: [] },
+    ],
+  });
+
+  assert.match(html, /href="\/api\/github_installations\/install"/);
+  assert.doesNotMatch(html, /Create GitHub App/, 'no manifest offer once an App is configured');
+  assert.match(html, /@acme · organization/);
+  assert.match(html, /1 selected for sandboxes/);
+  assert.match(html, /@octocat · user/);
+  assert.match(html, /Removed from GitHub: reinstall or unlink/);
+  assert.deepEqual(buttons(html), [
+    'Install the GitHub App',
+    'Choose repositories', 'Access on GitHub', 'Unlink',
+    'Check again', 'Access on GitHub', 'Unlink',
+  ]);
+});
+
+test('a configured App with nothing linked says so', () => {
+  const html = appSection({ configured: true, manifest_available: false, installations: [] });
+  assert.match(html, /No installation is linked yet/);
 });

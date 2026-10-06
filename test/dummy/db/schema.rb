@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 15) do
+ActiveRecord::Schema[8.0].define(version: 20) do
   create_table "active_agent_agent_contexts", force: :cascade do |t|
     t.string "action_name", null: false
     t.string "agent_name", null: false
@@ -312,6 +312,25 @@ ActiveRecord::Schema[8.0].define(version: 15) do
     t.index [ "user_id" ], name: "index_active_agent_github_connections_on_user_id"
   end
 
+  create_table "active_agent_github_installations", force: :cascade do |t|
+    t.bigint "account_id"
+    t.datetime "created_at", null: false
+    t.bigint "github_account_id", null: false
+    t.string "github_account_login", null: false
+    t.string "github_account_type", null: false
+    t.bigint "installation_id", null: false
+    t.json "permissions"
+    t.datetime "removed_at"
+    t.json "repositories"
+    t.string "repository_selection"
+    t.datetime "suspended_at"
+    t.datetime "updated_at", null: false
+    t.bigint "user_id"
+    t.index [ "account_id" ], name: "index_active_agent_github_installations_on_account"
+    t.index [ "installation_id" ], name: "index_active_agent_github_installations_on_installation", unique: true
+    t.index [ "user_id" ], name: "index_active_agent_github_installations_on_user"
+  end
+
   create_table "active_agent_provider_keys", force: :cascade do |t|
     t.bigint "account_id"
     t.string "api_key"
@@ -380,6 +399,7 @@ ActiveRecord::Schema[8.0].define(version: 15) do
     t.datetime "created_at", null: false
     t.text "error_message"
     t.datetime "expires_at"
+    t.bigint "github_installation_id"
     t.datetime "last_activity_at"
     t.integer "max_runs", default: 10
     t.json "mcp_servers", default: []
@@ -397,6 +417,7 @@ ActiveRecord::Schema[8.0].define(version: 15) do
     t.integer "total_tokens", default: 0
     t.datetime "updated_at", null: false
     t.bigint "user_id"
+    t.index [ "github_installation_id" ], name: "index_active_agent_sandbox_sessions_on_github_installation"
     t.index [ "session_id" ], name: "index_active_agent_sandbox_sessions_on_session_id", unique: true
     t.index [ "user_id" ], name: "index_active_agent_sandbox_sessions_on_user_id"
   end

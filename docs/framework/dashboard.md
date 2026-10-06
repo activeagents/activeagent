@@ -641,10 +641,100 @@ false` to leave the facade serving agents and schema tools only.
 
 ## GitHub connections and checkout sandboxes
 
-Settings -> **Integrations** connects the owner's GitHub account over OAuth.
-The owner then chooses which repositories the workspace may use. Register a
-[GitHub OAuth app](https://github.com/settings/developers) whose callback URL
-is `<mount>/api/github_connection/callback` (for example
+Settings -> **Integrations** gives checkout sandboxes access to GitHub
+repositories in one of two ways, and an install can offer both:
+
+- **A GitHub App installation.** An admin installs the dashboard's GitHub
+  App on the repositories they choose. Each checkout then gets its own token,
+  valid for an hour and limited to that one repository and to reading its
+  contents. Nothing stores the token.
+- **An OAuth connection.** One person connects their GitHub account, and
+  checkouts use that person's token, which carries the `repo` scope and does
+  not expire.
+
+In both, the owner then chooses which repositories the workspace may use, and
+the selection only keeps repositories GitHub itself lists. When a repository
+is selected both ways, its checkouts go through the installation.
+
+### A GitHub App
+
+Settings -> Integrations -> **Create GitHub App** registers the App for you
+on a single-tenant dashboard. It posts a manifest to GitHub (under your
+account, or under an organization you name), and GitHub returns to the
+dashboard, which shows the new App's id, slug, client id, client secret and
+private key once, with the lines to add to your configuration. The dashboard
+stores none of them. A multi-tenant platform registers its App per
+environment instead, and the button is not offered. The manifest goes to
+GitHub as a form post from the browser, so a host app whose content security
+policy sets `form-action` must allow `https://github.com`.
+
+To register it by hand, create a [GitHub App](https://github.com/settings/apps/new)
+with:
+
+- callback URL `<mount>/api/github_installations/callback` (for example
+  `https://example.com/activeagents/api/github_installations/callback`)
+- **Request user authorization (OAuth) during installation** turned on
+- **Redirect on update** turned on, so GitHub also returns after an
+  installation that already exists is reconfigured
+- repository permissions Contents (read and write), Pull requests (read and
+  write) and Metadata (read), and the organization permission Members (read)
+- no webhook, and no Workflows, Administration or Secrets permission
+
+Then configure it, and restart the dashboard:
+
+```ruby
+ActionAgent.configure do |config|
+  config.github_app_id = Rails.application.credentials.dig(:github_app, :id)
+  config.github_app_slug = Rails.application.credentials.dig(:github_app, :slug)
+  config.github_app_client_id = Rails.application.credentials.dig(:github_app, :client_id)
+  config.github_app_client_secret = Rails.application.credentials.dig(:github_app, :client_secret)
+  config.github_app_private_key = Rails.application.credentials.dig(:github_app, :private_key)
+end
+```
+
+Unset, each setting falls back to `GITHUB_APP_ID`, `GITHUB_APP_SLUG`,
+`GITHUB_APP_CLIENT_ID`, `GITHUB_APP_CLIENT_SECRET` and
+`GITHUB_APP_PRIVATE_KEY`. A private key written on one line with `\n` for
+its line breaks is read correctly. The dashboard offers the App once all five
+are set (`ActionAgent.github_app_configured?`).
+
+**Install the GitHub App** sends the admin to GitHub to pick the account and
+repositories. GitHub then returns to the callback, and the dashboard links the
+installation to the owner only when:
+
+- the return carries a state that this browser session issued to the
+  signed-in user, and a code from the App's user authorization (a return
+  missing either, such as an install started on GitHub itself or a return
+  from reconfiguring an installation that already existed, is sent through
+  the App's user authorization first), and
+- the installation appears in `GET /user/installations` for the authorizing
+  GitHub user, and that user is the user account it is installed on, or an
+  active admin of its organization.
+
+The authorizing user's token is used for those checks and then dropped. An
+installation is linked to one owner at most, and one owner may link several
+(a personal account and an organization, say). When a member asks an
+organization owner to approve the install, nothing is linked: once an owner
+of the organization approves it on GitHub, that owner links it from Settings.
+**Unlink** removes the installation from the dashboard; the App stays
+installed on GitHub. To link it again, choose **Install the GitHub App**,
+pick the account the App is installed on, and save its configuration on
+GitHub, which returns to the dashboard when the App has **Redirect on
+update** turned on. If GitHub does not return, uninstall the App from that
+account on GitHub and install it again from Settings.
+
+When GitHub refuses a token because the installation was removed or
+suspended, the dashboard marks the installation, and starting a sandbox from
+it asks for a reinstall. **Check again** on a marked installation asks
+GitHub once more, and the mark clears as soon as GitHub mints a token for it,
+as it does again once a suspended installation is unsuspended. An App
+uninstalled from an account comes back as a new installation when it is
+installed again; unlink the old one.
+
+### An OAuth connection
+
+Register a [GitHub OAuth app](https://github.com/settings/developers) whose
+callback URL is `<mount>/api/github_connection/callback` (for example
 `https://example.com/activeagents/api/github_connection/callback`), then
 configure it:
 
@@ -659,15 +749,20 @@ end
 
 Unset, both settings fall back to `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET`.
 The token is encrypted at rest like a provider key and is never returned to
-the browser. The selection only keeps repositories GitHub lists for that
-token.
+the browser.
+
+### Starting a sandbox
 
 **Start sandbox** on a selected repository creates an `app_runtime` sandbox
 session. A sandbox backend (see `ActionAgent.sandbox_backends`) does the
 following for that session:
 
 1. Reads `sandbox_session.checkout_spec`, which holds `repository`, `ref`,
-   `clone_url`, `username` and `token`, and clones it.
+   `clone_url`, `username` and `token`, and clones it. For a checkout through
+   a GitHub App installation, `SandboxProvisionJob` mints the token once,
+   just before it calls `create_sandbox`, and only the session object passed
+   to `create_sandbox` carries it. A backend reads the spec from that object;
+   a copy of the session loaded from the database carries no token.
 2. Boots the app. If the app mounts this engine, its MCP facade serves the
    app's agents and schema tools.
 3. Returns `mcp_url:` (and, when the facade needs one, `mcp_token:`, a
@@ -1327,7 +1422,7 @@ end
 | Action | Asked by |
 |---|---|
 | `:manage_credentials` | storing, testing and deleting an organization provider credential (`POST /api/provider_keys`, `POST /api/provider_keys/test`, `DELETE /api/provider_keys/:provider`), and storing or testing a member's personal Ollama host; a member's other personal keys need no permission |
-| `:manage_github` | connecting GitHub, choosing its repositories, and disconnecting it (`GET /api/github_connection/connect` and `/callback`, `PATCH` and `DELETE /api/github_connection`) |
+| `:manage_github` | connecting GitHub, choosing its repositories, and disconnecting it (`GET /api/github_connection/connect` and `/callback`, `PATCH` and `DELETE /api/github_connection`); installing and linking the GitHub App, listing and choosing an installation's repositories, and unlinking it (`GET /api/github_installations/install` and `/callback`, `GET /api/github_installations/:id/repositories`, `PATCH` and `DELETE /api/github_installations/:id`); creating the App from a manifest (`POST /api/github_app_manifest`, `GET /api/github_app_manifest/callback`) |
 | `:manage_api_keys` | creating and revoking dashboard API keys (`POST /api/api_keys`, `DELETE /api/api_keys/:id`) |
 | `:publish_pull_request` | reserved: opening a pull request from a sandbox |
 | `:answer_input_request` | reserved: answering a run's request for input |
@@ -1340,8 +1435,10 @@ The list is `ActionAgent::PERMISSION_ACTIONS`. `ActionAgent.permitted?(user,
 action, subject)` asks the checker the same way the endpoints do, and raises
 `ArgumentError` for an action outside the list. Reading a setting is not a
 privileged action, so the `GET` endpoints that list keys or the connection
-are not checked. The connect and callback navigations return a refusal to
-Settings (`?github=forbidden`) rather than as JSON.
+are not checked. Listing an installation's repositories is: the installation
+can reach repositories a member cannot see on GitHub. The connect, install and callback navigations return a
+refusal to Settings (`?github=forbidden` or `?github_app=forbidden`) rather
+than as JSON.
 
 Unset, anyone who passes authentication may perform every action, which
 suits a single-user install. In multi-tenant mode that is every member of
