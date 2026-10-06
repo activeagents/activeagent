@@ -28,8 +28,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Fix Anthropic structured output mapping** (`activeagent`). Preserve caller
   `output_config` and ignore unsupported response formats.
-- **Fix Anthropic JSON emulation with thinking enabled** (`activeagent`).
-  Reattach the opening brace to the final text block.
+- **Fix Anthropic JSON emulation on current models and with thinking**
+  (`activeagent`). `json_object` requests reach current Claude models
+  without a prefill, which they refuse with or without thinking, and so do
+  requests with thinking on. The JSON is read from the answer, inside a code
+  fence or not, and a retry drops an unparseable answer rather than ending on
+  it. Claude 4.5 and earlier models keep the lead-in while thinking is off.
 - **Prevent Anthropic response fields from leaking into replayed requests**
   (`activeagent`). Keep only request-supported message fields.
 - **Name conflicting gems in provider load errors** (`activeagent`). Name
