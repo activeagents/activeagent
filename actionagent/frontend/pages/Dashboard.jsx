@@ -427,9 +427,18 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
         return (
           <SessionReplayView
             onHandoff={(handoffData) => {
-              // When user takes over, navigate to sandbox with handoff state
-              showNotification('Taking over session...', 'info');
-              navigateTo('sandbox');
+              // The agent stopped on a page only a person may finish (payment,
+              // a login code). Open that page for them; the recording keeps
+              // what the agent already entered.
+              const state = handoffData?.handoff_state || {};
+              if (state.url) window.open(state.url, '_blank', 'noopener,noreferrer');
+              const entered = Object.entries(state.form_values || {}).map(([k, v]) => `${k}: ${v}`).join(' · ');
+              showNotification(
+                state.url
+                  ? `Taking over in a new tab${entered ? ` — already entered: ${entered}` : ''}`
+                  : 'Taking over session...',
+                'info'
+              );
             }}
             onClose={() => navigateTo('list')}
           />

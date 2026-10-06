@@ -72,4 +72,33 @@ class TemplatesTest < ActionDispatch::IntegrationTest
     playwright = JSON.parse(response.body)["servers"].find { |server| server["key"] == "playwright" }
     assert_includes playwright["configured_by"], "Browser Probe"
   end
+
+  test "the Playwright demo template names the published Playwright MCP package" do
+    ActionAgent::AgentTemplate.seed_defaults!
+    server = ActionAgent::AgentTemplate.find_by!(slug: "playwright-mcp-demo").mcp_servers.first.to_h.transform_keys(&:to_s)
+
+    assert_equal "npx", server["command"]
+    assert_equal [ "-y", "@playwright/mcp@latest" ], server["args"]
+  end
+
+  # The conference demo: registers in the platform's browser, stops at
+  # payment, hands the page to a person.
+  test "the conference ticket template drives the browser and can hand off before paying" do
+    ActionAgent::AgentTemplate.seed_defaults!
+    template = ActionAgent::AgentTemplate.find_by!(slug: "conference-ticket")
+
+    assert_includes template.tools, "playwright_mcp"
+    tool_names = ActionAgent::AgentToolbox.definitions_for(template.tools).map { |tool| tool[:name] }
+    assert_includes tool_names, "request_handoff"
+    assert_includes tool_names, "browser_navigate"
+    assert_match(/Never enter payment details/, template.instructions)
+    assert_match(/call request_handoff/, template.instructions)
+
+    post "/activeagents/api/templates/#{template.id}/use", params: { name: "SF Ruby Ticket Agent" }
+
+    assert_response :created
+    agent = JSON.parse(response.body)["agent"]
+    assert_equal template.tools, agent["tools"]
+    assert_equal template.instructions, agent["instructions"]
+  end
 end

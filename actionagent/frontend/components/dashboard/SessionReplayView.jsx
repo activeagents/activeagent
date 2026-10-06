@@ -505,6 +505,41 @@ export default function SessionReplayView({ recordingId: initialRecordingId, onH
         </div>
       </div>
 
+      {/* Where the agent stopped for a person, and what it had entered */}
+      {recording.handoff_state && (
+        <div
+          style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            alignItems: 'baseline',
+            gap: '6px 20px',
+            padding: '10px 24px',
+            borderTop: darkMode ? '1px solid rgba(255,255,255,0.1)' : '1px solid #e5e7eb',
+            fontSize: '13px',
+            color: darkMode ? 'rgba(255,255,255,0.7)' : '#4b5563',
+          }}
+        >
+          <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '11px', letterSpacing: '0.08em', textTransform: 'uppercase', color: '#ef4444' }}>
+            Handoff
+          </span>
+          {recording.handoff_state.url && (
+            <a
+              href={recording.handoff_state.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ color: '#ef4444', wordBreak: 'break-all' }}
+            >
+              {recording.handoff_state.url}
+            </a>
+          )}
+          {Object.entries(recording.handoff_state.form_values || {}).map(([field, value]) => (
+            <span key={field}>
+              <span style={{ opacity: 0.6 }}>{field}:</span> {String(value)}
+            </span>
+          ))}
+        </div>
+      )}
+
       {/* Main Content */}
       <div
         className={darkMode ? '' : 'flex h-[500px]'}
