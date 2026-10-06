@@ -4,6 +4,7 @@ import GithubIntegrationCard from './GithubIntegrationCard';
 import ClaudeCodeIntegrationCard from './ClaudeCodeIntegrationCard';
 import CodexIntegrationCard from './CodexIntegrationCard';
 import ProviderKeysCard, { useProviderKeyEditor } from './ProviderKeysCard';
+import { providerKeysPath } from '../../utils/providerKeys.mjs';
 
 const TAB_IDS = ['profile', 'api-keys', 'integrations', 'notifications', 'billing'];
 
@@ -17,6 +18,9 @@ function initialQuery() {
 
 export default function SettingsView({ user, account }) {
   const { darkMode, toggleDarkMode } = useTheme();
+  // With personal keys on, the API Keys tab manages the signed-in user's own
+  // provider keys; the organization's are on the Organization page.
+  const [providerKeyScope] = useState(() => (window.ACTIVE_AGENT_DASHBOARD?.meta?.personalProviderKeys ? 'personal' : undefined));
   const [{ tab: firstTab, github: githubCallback }] = useState(initialQuery);
   const [activeTab, setActiveTab] = useState(firstTab);
   // Bumped when the Claude Code card changes, so the GitHub card re-reads
@@ -39,7 +43,7 @@ export default function SettingsView({ user, account }) {
     try {
       const [keysRes, providersRes] = await Promise.all([
         fetch('/api/api_keys'),
-        fetch('/api/provider_keys'),
+        fetch(providerKeysPath('/api/provider_keys', providerKeyScope)),
       ]);
       if (!keysRes.ok || !providersRes.ok) throw new Error('Failed to load keys');
       const keysData = await keysRes.json();
@@ -52,13 +56,13 @@ export default function SettingsView({ user, account }) {
     } finally {
       setKeysLoaded(true);
     }
-  }, []);
+  }, [providerKeyScope]);
 
   useEffect(() => {
     if (activeTab === 'api-keys' && !keysLoaded) loadKeys();
   }, [activeTab, keysLoaded, loadKeys]);
 
-  const providerKeyEditor = useProviderKeyEditor({ onKeysChanged: loadKeys, onError: setKeysError });
+  const providerKeyEditor = useProviderKeyEditor({ onKeysChanged: loadKeys, onError: setKeysError, scope: providerKeyScope });
 
   const createApiKey = async () => {
     if (!newKeyName.trim() || creatingKey) return;
@@ -342,7 +346,7 @@ export default function SettingsView({ user, account }) {
             )}
           </div>
 
-          <ProviderKeysCard providerKeys={providerKeys} editor={providerKeyEditor} />
+          <ProviderKeysCard providerKeys={providerKeys} editor={providerKeyEditor} scope={providerKeyScope} />
         </div>
       )}
 

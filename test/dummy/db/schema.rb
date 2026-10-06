@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 14) do
+ActiveRecord::Schema[8.0].define(version: 15) do
   create_table "active_agent_agent_contexts", force: :cascade do |t|
     t.string "action_name", null: false
     t.string "agent_name", null: false
@@ -318,9 +318,12 @@ ActiveRecord::Schema[8.0].define(version: 14) do
     t.datetime "created_at", null: false
     t.string "credential", null: false
     t.string "provider", null: false
+    t.string "scope_key", default: "organization", null: false
+    t.bigint "set_by_id"
     t.datetime "updated_at", null: false
     t.bigint "user_id"
     t.index [ "account_id", "provider" ], name: "index_active_agent_provider_keys_on_account_id_and_provider"
+    t.index [ "account_id", "scope_key", "provider" ], name: "index_active_agent_provider_keys_on_scope", unique: true
     t.index [ "user_id", "provider" ], name: "index_active_agent_provider_keys_on_user_id_and_provider"
   end
 

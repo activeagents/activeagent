@@ -181,6 +181,11 @@ ActionAgent::Engine.routes.draw do
     # against a plan answers through ActionAgent.usage_resolver, and a bare
     # mount reports unlimited rather than 404.
     resource :usage, only: [ :show ], controller: "usage"
+
+    # The Organization view's Team Members table. The host lists them
+    # through ActionAgent.members_resolver; without one it is the signed-in
+    # user alone.
+    resources :members, only: [ :index ]
   end
 
   # The account's agents presented as an authenticated MCP server (tools +
