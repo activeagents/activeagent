@@ -15,8 +15,15 @@ module ActionAgent
       end
 
       # POST /api/api_keys
+      #
+      # The key records the user who created it, so a call made with an
+      # account's key acts as that user rather than as the whole account.
       def create
-        api_key = owned(ApiKey).create!(name: params.require(:name))
+        api_key = owned(ApiKey).new(name: params.require(:name))
+        api_key.user_id = current_user.id if ActionAgent.user_class.present? && current_user.respond_to?(:id)
+        return unless authorize_action!(:manage_api_keys, api_key)
+
+        api_key.save!
 
         render json: {
           api_key: serialize(api_key).merge(token: api_key.token)
@@ -25,7 +32,10 @@ module ActionAgent
 
       # DELETE /api/api_keys/:id
       def destroy
-        owned(ApiKey).find(params[:id]).destroy!
+        api_key = owned(ApiKey).find(params[:id])
+        return unless authorize_action!(:manage_api_keys, api_key)
+
+        api_key.destroy!
         head :no_content
       end
 

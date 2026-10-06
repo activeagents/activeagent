@@ -48,6 +48,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   are native. Instructions are sent as `system` messages, and provider defaults
   such as thinking mode are left unchanged. Thinking is billed and disables
   sampling parameters; prompts can opt out with `thinking: { type: "disabled" }`.
+- **Ship dashboard migrations as numbered templates** (`actionagent`).
+  `rails g action_agent:install` also emits every
+  `templates/migrations/NNN_<name>.rb.erb` in the generator, in number order and
+  after the other dashboard migrations, skipping any whose name `db/migrate`
+  already holds. A new engine migration is one new template file.
+- **Ask the host before privileged dashboard actions** (`actionagent`).
+  `ActionAgent.permission_checker = ->(user, action, subject) { ... }` is asked
+  before a provider credential is stored, tested or deleted
+  (`:manage_credentials`), before GitHub is connected, its repositories chosen
+  or it is disconnected (`:manage_github`), and before an API key is created or
+  revoked (`:manage_api_keys`). A denial answers 403, except that the GitHub
+  connect and callback navigations return to Settings instead. The remaining
+  actions in `ActionAgent::PERMISSION_ACTIONS` are reserved for features that
+  need them. Unset, every action is allowed as before, which in multi-tenant
+  mode means every member of a tenant may perform every action; the engine
+  logs a warning at boot in that case. A checker that raises denies; in
+  multi-tenant mode a nil answer or a missing user also denies.
+- **Record who created an API key** (`actionagent`). A key created in Settings
+  stores the signed-in user beside its owner, and an MCP call made with an
+  account's key runs as that user. Keys created earlier have no creator and
+  behave as before.
+- **Declare optional sandbox backend verbs** (`actionagent`).
+  `SandboxOrchestrator` dispatches `changed_files`, `read_file`,
+  `start_browser`, `stop_browser` and `resume_boot` to a backend that defines
+  them, and `supports?` is false for one that does not. Their signatures are
+  documented on the orchestrator and in the dashboard guide; the `:mock` and
+  `:local` backends implement none of them. `read_file` refuses a path outside
+  the checkout before the backend sees it.
+
+### Changed
+
+- **Announce run and sandbox changes without their content** (`actionagent`).
+  The Action Cable messages on `agent_run_<id>`, `agent_runs_<agent_id>` and
+  `sandbox_<session_id>` are now `{ type, id, status }`; a subscriber reads
+  the run or sandbox back over the JSON API. Nothing is broadcast when the host
+  has not loaded Action Cable. A host channel or client that read `run`,
+  `sandbox`, `task`, `error` or `provider` from these messages must refetch.
 
 ### Fixed
 
