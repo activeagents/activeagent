@@ -136,6 +136,32 @@ module ActiveAgent
       agent.resume_prompt(checkpoint:, answers:)
     end
 
+    # Queues {#resume_now} for background execution on the agent's
+    # generation job, which runs the action again from its arguments, params
+    # and actor.
+    #
+    # The checkpoint and answers become job arguments, stored by the queue
+    # backend for as long as the job lives. A `:secret` answer is therefore
+    # refused: resume a generation that waits on a secret inside your own
+    # job, which reads the answer from where your app keeps it.
+    #
+    # @param checkpoint [Hash] the paused response's checkpoint
+    # @param answers [Hash{String => Object}] an answer per paused tool call
+    #   id; `false` declines
+    # @param options [Hash] job options (queue, priority, wait, etc.)
+    # @return [Object] enqueued job instance
+    # @raise [InputRequest::ResumeError] before enqueueing, when an answer is
+    #   missing, does not fit its request, or answers a `:secret` request
+    # @raise [RuntimeError] if agent was accessed before queueing
+    def resume_later(checkpoint:, answers:, **options)
+      if InputRequest::Resume.new(checkpoint:, answers:).secret_answers.any?
+        ::Kernel.raise InputRequest::ResumeError, "resume_later cannot carry the answer to a :secret request, because job " \
+          "arguments are stored with the job. Call resume_now from your own job, reading the answer from where your app keeps it."
+      end
+
+      enqueue_generation :resume_now, options, resume: { "checkpoint" => checkpoint.as_json, "answers" => answers.as_json }
+    end
+
     # Generates a preview of the prompt without executing generation.
     #
     # Processes the agent action and renders the prompt configuration as
@@ -186,10 +212,11 @@ module ActiveAgent
     #
     # @param generation_method [Symbol, String]
     # @param options [Hash]
+    # @param job_arguments [Hash] further keyword arguments for the job
     # @return [Object] enqueued job
     # @raise [RuntimeError] when agent already processed to prevent data loss
     # @api private
-    def enqueue_generation(generation_method, options = {})
+    def enqueue_generation(generation_method, options = {}, **job_arguments)
       if processed?
         ::Kernel.raise "You've accessed the agent before asking to " \
           "generate it later, so you may have made local changes that would " \
@@ -201,7 +228,7 @@ module ActiveAgent
           "method*, or 3. use a custom Active Job instead of #prompt_later."
       else
         agent_class.generation_job.set(options).perform_later(
-          agent_class.name, action_name.to_s, generation_method.to_s, args: args, kwargs: kwargs
+          agent_class.name, action_name.to_s, generation_method.to_s, args: args, kwargs: kwargs, **job_arguments
         )
       end
     end

@@ -196,6 +196,7 @@ module ActiveAgent
         self.tool_turns         = 0
         self.instrumentation_enabled = kwargs.delete(:instrumentation) != false
         self.generation_action_name  = kwargs.delete(:action_name)
+        self.tool_approvals          = normalize_tool_approvals(kwargs.delete(:requires_approval))
         self.input_request_resume    = kwargs.delete(:input_request_resume)
         self.announce_input_requests = kwargs.delete(:announce_input_requests) != false
         self.options            = options_klass.new(kwargs.extract!(*options_klass.keys))
@@ -275,7 +276,10 @@ module ActiveAgent
       # @param kwargs [Hash] tool arguments
       # @return [Object] the tool's result, or an {MCPBridge::ErrorResult} for
       #   a call that failed on an MCP server
+      # @raise [ActiveAgent::InputRequest::UnsupportedProviderError] when the
+      #   tool needs approval and the provider's tool loop never asked for it
       def call_tool_function(name, **kwargs)
+        assert_approval_gate_reached!(name)
         return mcp_call_tool(name, **kwargs) if mcp_owns_tool?(name)
 
         result = isolate_undispatched_tool_call { tools_function.call(name, **kwargs) }

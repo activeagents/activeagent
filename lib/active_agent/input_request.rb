@@ -20,8 +20,9 @@ module ActiveAgent
   # Answering `false` declines a request of any kind: the tool is not
   # dispatched again and the model reads {DECLINED_RESULT} as its result.
   #
-  # `options`, `schema` and `metadata` are stored in their JSON form, so a
-  # request survives a round trip through {#to_h} and {.from_h} unchanged.
+  # `options`, `schema`, `arguments` and `metadata` are stored in their JSON
+  # form, so a request survives a round trip through {#to_h} and {.from_h}
+  # unchanged.
   #
   # @example A tool that asks before acting
   #   def issue_refund(order_id:, amount:)
@@ -31,7 +32,7 @@ module ActiveAgent
   #
   #     Refund.create!(order_id:, amount:)
   #   end
-  class InputRequest < Data.define(:kind, :prompt, :options, :schema, :tool_call_id, :tool_name, :metadata)
+  class InputRequest < Data.define(:kind, :prompt, :options, :schema, :tool_call_id, :tool_name, :arguments, :metadata)
     KINDS = %i[text choice confirm secret].freeze
 
     # What the model reads for a declined request.
@@ -221,10 +222,12 @@ module ActiveAgent
     # @param schema [Hash, nil] a JSON Schema describing the answer
     # @param tool_call_id [String, nil] set by the provider
     # @param tool_name [String, nil] set by the provider
+    # @param arguments [Hash, nil] the arguments the model called the tool
+    #   with; set by the provider
     # @param metadata [Hash] anything the host wants to keep with the request
     # @raise [ArgumentError] for an unknown kind, a blank prompt, or a choice
     #   without options
-    def initialize(kind:, prompt:, options: nil, schema: nil, tool_call_id: nil, tool_name: nil, metadata: {})
+    def initialize(kind:, prompt:, options: nil, schema: nil, tool_call_id: nil, tool_name: nil, arguments: nil, metadata: {})
       kind = kind.to_s.to_sym
       raise ArgumentError, "Unknown input request kind #{kind.inspect}; expected one of #{KINDS.join(", ")}" unless KINDS.include?(kind)
       raise ArgumentError, "An input request needs a prompt" if prompt.blank?
@@ -237,6 +240,7 @@ module ActiveAgent
         schema: schema&.as_json,
         tool_call_id: tool_call_id&.to_s,
         tool_name: tool_name&.to_s,
+        arguments: arguments&.as_json,
         metadata: (metadata || {}).as_json
       )
     end
@@ -245,10 +249,11 @@ module ActiveAgent
     #
     # @param id [String]
     # @param name [String]
+    # @param arguments [Hash, nil]
     # @return [InputRequest]
     # @api private
-    def for_tool_call(id:, name:)
-      self.class.new(**attributes.merge(tool_call_id: id, tool_name: name))
+    def for_tool_call(id:, name:, arguments: nil)
+      self.class.new(**attributes.merge(tool_call_id: id, tool_name: name, arguments:))
     end
 
     # @return [Boolean]
