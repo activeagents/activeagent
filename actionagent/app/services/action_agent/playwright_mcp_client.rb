@@ -6,7 +6,14 @@ module ActionAgent
   class PlaywrightMCPClient < MCPClient
     DEFAULT_URL = ENV.fetch("PLAYWRIGHT_MCP_URL", "http://host.orb.internal:8931/mcp")
 
+    # @raise [Error] in a multi-tenant install, where one browser would be
+    #   shared by every tenant's runs
     def self.instance
+      if ActionAgent.multi_tenant?
+        raise Error, "The shared Playwright MCP server is not used in a multi-tenant install; " \
+          "a run gets a browser from its sandbox"
+      end
+
       @instance ||= new
     end
 

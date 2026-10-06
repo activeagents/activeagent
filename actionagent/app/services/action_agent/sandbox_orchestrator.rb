@@ -311,17 +311,39 @@ module ActionAgent
     end
 
     # Starts a browser for +sandbox_session+, one per sandbox, and returns how
-    # an agent reaches it over MCP.
+    # an agent reaches it over MCP. The backend reads the rest of what it
+    # needs from sandbox_session.browser_launch (see SandboxSession): the
+    # token the browser's MCP endpoint is to expect, the app it may open,
+    # optional tool groups, when to stop, and where to post its recording.
     #
     # @param mode [Symbol] one of BROWSER_MODES
     # @return [Hash] at least { mcp_url:, mcp_token: }: where the browser's
-    #   MCP server answers, and the bearer token it expects (nil for none)
+    #   MCP server answers, and the bearer token it expects (nil for none);
+    #   optionally live_url:, where a person can watch it
     # @raise [ArgumentError] for a mode outside BROWSER_MODES
-    # @raise [UnsupportedBackendError] when the backend does not implement it
+    # @raise [UnsupportedBackendError] when the backend does not implement it,
+    #   or cannot run a browser in +mode+ (see #browser_modes)
     def start_browser(sandbox_session, mode: :headless)
       raise ArgumentError, "Unknown browser mode #{mode.inspect}" unless BROWSER_MODES.include?(mode)
 
-      @backend.public_send(adapter_method(:start_browser), sandbox_session, mode: mode)
+      method = adapter_method(:start_browser)
+      unless browser_modes.include?(mode)
+        raise UnsupportedBackendError, "The #{backend_name} sandbox backend cannot show a browser window; start the browser headless"
+      end
+
+      @backend.public_send(method, sandbox_session, mode: mode)
+    end
+
+    # The BROWSER_MODES the backend can start a browser in: what its own
+    # #browser_modes answers, or every mode for a backend that does not say.
+    # Empty when it cannot start a browser at all.
+    #
+    # @return [Array<Symbol>]
+    def browser_modes
+      return [] unless supports?(:start_browser)
+      return BROWSER_MODES.dup unless @backend.respond_to?(:browser_modes)
+
+      BROWSER_MODES & Array(@backend.browser_modes).map(&:to_sym)
     end
 
     # Stops +sandbox_session+'s browser. True, also when none was running.

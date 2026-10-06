@@ -339,17 +339,36 @@ module ActionAgent
       browser_select_option browser_press_key render_ui
     ] + INPUT_FUNCTIONS).freeze
 
+    # The group whose tools drive the process-wide browser
+    # (PlaywrightMCPClient), and those tools. A run against a sandbox with a
+    # running browser gets that browser's tools instead, and a multi-tenant
+    # install never offers or calls these: every tenant's runs would share
+    # one browser.
+    SHARED_BROWSER_GROUP = "playwright_mcp"
+    SHARED_BROWSER_FUNCTIONS = DEFINITIONS.fetch(SHARED_BROWSER_GROUP).map { |definition| definition[:name] }.freeze
+
     # Hosts browse_page may fetch — the platform's own trusted docs.
     BROWSE_ALLOWED_HOSTS = %w[docs.activeagents.ai].freeze
 
     class << self
       # Tool definitions for the subset of an agent's enabled tools that have
-      # server-side implementations. Never request_secret, whatever the list
-      # names.
-      def definitions_for(tool_names)
-        Array(tool_names).flat_map do |name|
-          DEFINITIONS[name.to_s] || schema_tool_definitions(name.to_s)
+      # server-side implementations. The shared browser's are left out when
+      # +browser_attached+ (the run reaches its sandbox's browser, which
+      # serves tools of the same names) or when shared_browser? is false.
+      # Never request_secret, whatever the list names.
+      def definitions_for(tool_names, browser_attached: false)
+        names = Array(tool_names).map(&:to_s)
+        names -= [ SHARED_BROWSER_GROUP ] if browser_attached || !shared_browser?
+
+        names.flat_map do |name|
+          DEFINITIONS[name] || schema_tool_definitions(name)
         end.reject { |definition| definition[:name].to_s == REQUEST_SECRET_DEFINITION[:name] }
+      end
+
+      # Whether runs may use the process-wide browser: never in a
+      # multi-tenant install.
+      def shared_browser?
+        !ActionAgent.multi_tenant?
       end
 
       def function?(name)
@@ -374,6 +393,9 @@ module ActionAgent
       # instead of re-running the side effect.
       def call(name, **kwargs)
         return { error: "Unknown tool: #{name}" } unless function?(name)
+        if SHARED_BROWSER_FUNCTIONS.include?(name.to_s) && !shared_browser?
+          return { error: "#{name} needs a browser: start the browser of the sandbox this agent runs against" }
+        end
 
         # Who the call is for is never one of the call's arguments: it comes
         # off here, before a tool sees them. That keeps a built-in from

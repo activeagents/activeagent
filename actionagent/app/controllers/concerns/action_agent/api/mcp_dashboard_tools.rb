@@ -852,17 +852,18 @@ module ActionAgent
       # Every credential the owner holds, masked out of each tool's output:
       # this key's token, provider keys (the organization's and every
       # member's personal key), the GitHub token, each checkout sandbox's
-      # runtime token, and the values of projects' secrets with their
-      # encodings, which an app tool can echo into a recorded output. None of
-      # them belongs in these payloads; this keeps one that leaked into a
-      # recorded output or a trace from being handed on. A failed lookup
-      # masks nothing rather than failing the call.
+      # runtime and browser tokens, and the values of projects' secrets with
+      # their encodings, which an app tool can echo into a recorded output.
+      # None of them belongs in these payloads; this keeps one that leaked
+      # into a recorded output or a trace from being handed on. A failed
+      # lookup masks nothing rather than failing the call.
       def dashboard_tool_secrets
         @dashboard_tool_secrets ||= [
           @api_key&.token,
           *ProviderCredentials.secrets_for(current_owner, limit: SECRET_LOOKUP_LIMIT),
           *owned(GithubConnection).limit(SECRET_LOOKUP_LIMIT).pluck(:access_token),
           *owned(SandboxSession).where.not(runtime_mcp_token: nil).order(id: :desc).limit(SECRET_LOOKUP_LIMIT).pluck(:runtime_mcp_token),
+          *owned(SandboxSession).where.not(browser_token: nil).order(id: :desc).limit(SECRET_LOOKUP_LIMIT).pluck(:browser_token),
           *project_secret_values
         ].compact
       rescue StandardError => e

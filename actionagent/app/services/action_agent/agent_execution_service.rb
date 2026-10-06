@@ -645,9 +645,12 @@ module ActionAgent
     # sub-run is a real AgentRun with its own trace.
     # One dispatcher per run, so every tool call shares the MCP sessions the
     # first call opens. A run given a checkout sandbox (an evaluation or a
-    # runner run against it) reaches that runtime too.
+    # runner run against it) reaches that runtime too, and the sandbox's
+    # browser when it was running as the run was created.
     def mcp_dispatcher
-      @mcp_dispatcher ||= MCPToolDispatcher.new(@agent_record, extra_server_keys: [ @run.try(:sandbox_server_key) ].compact)
+      @mcp_dispatcher ||= MCPToolDispatcher.new(
+        @agent_record, extra_server_keys: [ @run.try(:sandbox_server_key), @run.try(:browser_server_key) ].compact
+      )
     end
 
     # How many rows of each credential the recording secrets are read from.
@@ -659,7 +662,7 @@ module ActionAgent
 
     # The credentials the run's owner holds, scrubbed from the browser
     # actions the run records: provider keys, the GitHub token, and the
-    # runtime token of the sandbox the run reaches.
+    # runtime and browser tokens of the sandbox the run reaches.
     def recording_secrets
       sandbox_id = @run.try(:sandbox_id)
       sandbox = sandbox_id && SandboxSession.for_owner(owner).find_by(session_id: sandbox_id)
@@ -667,6 +670,7 @@ module ActionAgent
         *ProviderKey.for_owner(owner).limit(RECORDING_SECRET_LOOKUP_LIMIT).pluck(:credential, :api_key).flatten,
         *GithubConnection.for_owner(owner).limit(RECORDING_SECRET_LOOKUP_LIMIT).pluck(:access_token),
         sandbox&.runtime_mcp_token,
+        sandbox&.browser_token,
         *owner_provider_options(requested_provider).values_at(:access_token, :api_key)
       ].compact
     end
@@ -936,12 +940,19 @@ module ActionAgent
     # rest. Without the first half a tool the agent declares is never offered to
     # the model, which then answers from memory instead of calling it. Memoized
     # because listing a server's tools is a request to that server.
+    #
+    # A run that reaches its sandbox's browser gets the browser's tools from
+    # the MCP half only: the toolbox's browser tools have the same names, and
+    # a provider refuses a tool list that names one twice.
     def tool_schema_halves
       @tool_schema_halves ||=
         if provider == :mock
           [ [], [] ]
         else
-          [ mcp_dispatcher.tool_definitions, AgentToolbox.definitions_for(@agent_record.tools) + secret_request_definitions ]
+          [
+            mcp_dispatcher.tool_definitions,
+            AgentToolbox.definitions_for(@agent_record.tools, browser_attached: mcp_dispatcher.browser_attached?) + secret_request_definitions
+          ]
         end
     end
 

@@ -31,6 +31,23 @@ module ActionAgent
     # mcp_servers lists them: "sandbox:<session_id>".
     RUNTIME_SERVER_PREFIX = "sandbox:"
 
+    # MCP server keys naming a checkout sandbox's browser:
+    # "browser:<session_id>". A run reaches one only through the sandbox it
+    # runs against (MCPToolDispatcher's extra_server_keys), never through an
+    # agent's saved servers.
+    BROWSER_SERVER_PREFIX = "browser:"
+
+    # A browser runs without a window, or with one a person can watch.
+    BROWSER_MODES = %w[headless headed].freeze
+    BROWSER_STATUSES = %w[starting running stopped failed].freeze
+    # Optional Playwright MCP tool groups a browser may be started with.
+    BROWSER_CAPABILITIES = %w[testing vision pdf].freeze
+    # A browser stops on its own this long before its session expires, so the
+    # last events it records are posted while its recording still takes them:
+    # SessionRecording#ingest_token_valid? refuses every post once the session
+    # has expired.
+    BROWSER_STOP_LEAD = 30.seconds
+
     # Free tier limits
     FREE_TIER_LIMITS = {
       max_runs: 10,
@@ -46,6 +63,21 @@ module ActionAgent
     APP_RUNTIME_SESSION_DURATION = 2.hours
 
     encrypts :runtime_mcp_token if ActionAgent.encrypt_credentials
+    encrypts :browser_token if ActionAgent.encrypt_credentials
+
+    # What a backend's start_browser needs beyond the session's own columns,
+    # set by SandboxBrowser for that one call and never stored. Carries
+    # secrets, so it goes to the backend and nowhere else:
+    #
+    #   token         the bearer token the browser's MCP endpoint is to expect
+    #   app_url       the sandbox app the browser may open
+    #   capabilities  BROWSER_CAPABILITIES to enable
+    #   stop_at       when the browser stops on its own (browser_stops_at)
+    #   recording     where to post recorded events: { url:, token:,
+    #                 batch_events:, batch_bytes: }, or nil to record nothing
+    #
+    # @return [Hash, nil]
+    attr_accessor :browser_launch
 
     # Validations
     validates :session_id, presence: true, uniqueness: true
@@ -54,6 +86,8 @@ module ActionAgent
     validates :repository_ref, length: { maximum: 255 }, format: { without: /\A-|\s|\.\./, message: "is not a valid git ref" },
       allow_blank: true
     validate :repository_available, on: :create, if: :app_runtime?
+    validates :browser_mode, inclusion: { in: BROWSER_MODES }, allow_nil: true
+    validates :browser_status, inclusion: { in: BROWSER_STATUSES }, allow_nil: true
 
     # Callbacks
     before_validation :generate_session_id, on: :create
@@ -75,6 +109,21 @@ module ActionAgent
 
     def self.runtime_server_key?(key)
       key.to_s.start_with?(RUNTIME_SERVER_PREFIX)
+    end
+
+    def self.browser_server_key?(key)
+      key.to_s.start_with?(BROWSER_SERVER_PREFIX)
+    end
+
+    # The MCP catalog entry for a sandbox's browser, looked up among +owner+'s
+    # sessions only. Nil unless the session and its browser are running.
+    #
+    # @return [Hash, nil]
+    def self.browser_server_entry(key, owner:)
+      return nil unless browser_server_key?(key)
+
+      session = for_owner(owner).find_by(session_id: key.to_s.delete_prefix(BROWSER_SERVER_PREFIX))
+      session&.browser_server_entry
     end
 
     # The MCP catalog entry for a checkout sandbox's app runtime, looked up
@@ -122,6 +171,78 @@ module ActionAgent
         transport: "streamable_http",
         url: runtime_mcp_url,
         headers: runtime_mcp_token.present? ? { "Authorization" => "Bearer #{runtime_mcp_token}" } : {}
+      }
+    end
+
+    def browser_server_key
+      "#{BROWSER_SERVER_PREFIX}#{session_id}"
+    end
+
+    def browser_running?
+      browser_status == "running" && browser_mcp_url.present? && active?
+    end
+
+    # This session's browser as an MCP catalog entry, the shape
+    # MCPToolDispatcher reaches servers through, or nil unless it is running.
+    # Carries the browser's token, so it is for the dispatcher only.
+    #
+    # @return [Hash, nil]
+    def browser_server_entry
+      return nil unless browser_running?
+
+      {
+        key: browser_server_key,
+        name: "Browser (#{repository} sandbox)",
+        description: "The browser of the sandbox booted from #{repository}",
+        transport: "streamable_http",
+        url: browser_mcp_url,
+        headers: browser_token.present? ? { "Authorization" => "Bearer #{browser_token}" } : {}
+      }
+    end
+
+    # When the browser stops on its own: BROWSER_STOP_LEAD before the session
+    # expires.
+    #
+    # @return [Time, nil]
+    def browser_stops_at
+      expires_at && expires_at - BROWSER_STOP_LEAD
+    end
+
+    # The minutes the browser has run, from its start to +at+ or to
+    # browser_stops_at if that is sooner, rounded up to a whole minute and at
+    # least 1; 0 when it never started. Capped so that a reaper running late
+    # does not count time the browser was no longer running.
+    #
+    # @return [Integer]
+    def browser_minutes(at = Time.current)
+      return 0 unless browser_started_at
+
+      stopped_at = [ at, browser_stops_at ].compact.min
+      [ ((stopped_at - browser_started_at) / 60.0).ceil, 1 ].max
+    end
+
+    # Who this session's browser minutes are metered against: the tenant in a
+    # multi-tenant install, the owner ApplicationController#current_owner
+    # resolves and the quota checker is asked about, and the session's owner
+    # otherwise.
+    def metering_owner
+      return owner unless ActionAgent.multi_tenant?
+
+      account_class = ActionAgent.account_class.to_s.safe_constantize
+      account_class.find_by(id: account_id) if account_class && account_id
+    end
+
+    # The browser for an API response: never its token or its MCP endpoint.
+    #
+    # @return [Hash]
+    def browser_summary
+      {
+        mode: browser_mode,
+        status: browser_status,
+        started_at: browser_started_at&.iso8601,
+        # The key an agent run reaches the browser by; nil unless it runs.
+        server_key: browser_running? ? browser_server_key : nil,
+        live_url: browser_running? ? browser_live_url : nil
       }
     end
 
@@ -343,11 +464,26 @@ module ActionAgent
     # marked it ready since. Acting on the stale copy would neither clear the
     # endpoint it recorded (nil -> nil writes nothing) nor see the handle to
     # terminate, leaving the booted sandbox running.
+    #
+    # Its browser is stopped first while the session is still live, so the
+    # browser's last recorded events are accepted (SandboxBrowser.stop_before_expiry).
+    # When that cannot be done, it stops being reachable the same way as the
+    # runtime, its minutes are counted here (SandboxBrowser.finish!), and the
+    # cleanup job stops it.
     def expire!
+      SandboxBrowser.stop_before_expiry(self)
       with_lock { update!(status: :expired, runtime_mcp_url: nil, runtime_mcp_token: nil) }
+      SandboxBrowser.finish!(self)
       # A checkout with no handle may still have a boot behind it (its job
       # died mid-boot, say); the cleanup job asks the backend for it.
       SandboxCleanupJob.perform_later(id) if cloud_run_job_id.present? || app_runtime?
+    end
+
+    # The browser token never leaves the model, whatever serializes it.
+    def serializable_hash(options = nil)
+      options = (options || {}).dup
+      options[:except] = Array(options[:except]).map(&:to_s) | %w[browser_token]
+      super(options)
     end
 
     # Summary for API responses
@@ -374,7 +510,8 @@ module ActionAgent
         runtime_server_key: runtime_mcp_url.present? ? runtime_server_key : nil,
         # Why provisioning failed. Scrubbed of the session's secrets when
         # SandboxProvisionJob stored it.
-        error_message: error_summary
+        error_message: error_summary,
+        browser: browser_summary
       }
     end
 

@@ -359,7 +359,7 @@ module ActionAgent
     def tool_roster
       @tool_roster ||= begin
         definitions = mcp_dispatcher.tool_definitions +
-          AgentToolbox.definitions_for(@evaluation.agent.tools)
+          AgentToolbox.definitions_for(@evaluation.agent.tools, browser_attached: mcp_dispatcher.browser_attached?)
 
         definitions.to_h { |definition| [ definition[:name].to_s, definition[:description].to_s ] }
       end
@@ -372,8 +372,16 @@ module ActionAgent
       mcp_dispatcher.discovery_errors
     end
 
+    # The sandbox's browser is on the roster while it runs, as each replay
+    # (Agent#test_execute) reaches it then.
     def mcp_dispatcher
-      @mcp_dispatcher ||= MCPToolDispatcher.new(@evaluation.agent, extra_server_keys: [ sandbox_server_key ].compact)
+      @mcp_dispatcher ||= MCPToolDispatcher.new(
+        @evaluation.agent, extra_server_keys: [ sandbox_server_key, sandbox_browser_key ].compact
+      )
+    end
+
+    def sandbox_browser_key
+      sandbox_session.browser_server_key if sandbox_session&.browser_running?
     end
 
     # A run whose every declared MCP server failed discovery scored an agent
