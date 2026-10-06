@@ -170,7 +170,7 @@ jobs:
             echo "::error::Could not tell whether ${image} is published: ${output}"
             exit 1
           fi
-      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-qemu-action@v4
         if: steps.version.outputs.published != 'true'
       - uses: docker/setup-buildx-action@v3
         if: steps.version.outputs.published != 'true'
