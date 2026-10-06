@@ -493,6 +493,17 @@ module ActionAgent
     # @return [Integer]
     attr_accessor :browser_start_timeout
 
+    # Origins, besides the one a browser is started from, whose dashboard
+    # pages may open its live view, such as "http://127.0.0.1:3000" when the
+    # dashboard is also reached that way. A live view's WebSocket refuses
+    # every other Origin.
+    # @return [Array<String>]
+    attr_writer :browser_live_origins
+
+    def browser_live_origins
+      Array(@browser_live_origins).map(&:to_s)
+    end
+
     # The Claude Code executable a sandbox backend runs headless sessions
     # with. The :local backend runs it on the dashboard's machine.
     # @return [String]
@@ -1095,6 +1106,7 @@ module ActionAgent
       @node_command = "node"
       @npm_command = "npm"
       @browser_start_timeout = 60
+      @browser_live_origins = []
       @claude_code_command = "claude"
       @claude_code_permission_mode = "acceptEdits"
       @claude_code_max_turns = nil

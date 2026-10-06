@@ -98,7 +98,8 @@ module ActionAgent
       # GET /api/sandboxes
       # List available sandbox types and sample tasks, and the caller's own
       # sandboxes (?sandbox_type= narrows them), with what the Settings ->
-      # Integrations view needs to offer Claude Code sessions in a checkout.
+      # Integrations view needs to offer Claude Code sessions and a browser
+      # in a checkout.
       def index
         render json: {
           sandbox_types: SandboxSession::SANDBOX_TYPES,
@@ -110,6 +111,7 @@ module ActionAgent
           codex_sessions_supported: codex_sessions_supported?,
           pull_requests_supported: pull_requests_supported?,
           codex_connected: owned(ProviderKey).where(provider: "codex").any? { |key| key.runtime_environment.present? },
+          browser_modes: browser_modes,
           **claude_code_status
         }
       end
@@ -346,6 +348,15 @@ module ActionAgent
       rescue StandardError, LoadError => e
         Rails.logger.warn("[ActionAgent] sandbox backend unavailable: #{e.message}")
         false
+      end
+
+      # The modes a checkout's browser can start in on the configured
+      # backend (SandboxBrowser): none when it runs no browsers, or cannot be
+      # loaded.
+      def browser_modes
+        SandboxOrchestrator.new.browser_modes.map(&:to_s)
+      rescue StandardError, LoadError
+        []
       end
 
       def codex_sessions_supported?
