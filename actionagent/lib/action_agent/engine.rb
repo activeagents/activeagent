@@ -61,14 +61,19 @@ module ActionAgent
     # directory to the host app's asset paths is what lets a plain
     # `mount ActionAgent::Engine` work without the host running a
     # JavaScript build — or having a JavaScript build at all.
-    # Provider credentials and API keys are posted to the dashboard in the
-    # clear and encrypted at rest — filtering keeps them out of the request
-    # logs in between, where the gem would otherwise print them verbatim.
+    # Provider credentials, API keys and answers to a run's requests for
+    # input (a secret among them) are posted to the dashboard in the clear
+    # and encrypted at rest — filtering keeps them out of the request logs
+    # in between, where the gem would otherwise print them verbatim.
+    # `answer` and `value` match whole names only, at any depth, so a host
+    # param or model attribute such as `values` or `default_value` is not
+    # filtered with them.
     initializer "action_agent.filter_parameters" do |app|
-      # The last filter is RecordingEventIngest::BATCH_KEY: a batch carries
-      # page content and console output. It matches the key exactly, so a
-      # host parameter that merely contains those words is still logged.
-      app.config.filter_parameters += [ :credential, :api_key, :access_token, /\Arecording_events\z/ ]
+      # The last two filters: RecordingEventIngest::BATCH_KEY, a batch that carries
+      # page content and console output, and an input request's answer. Each
+      # matches its key exactly, so a host parameter that merely contains those
+      # words is still logged.
+      app.config.filter_parameters += [ :credential, :api_key, :access_token, /\Arecording_events\z/, /\A(?:answer|value)\z/i ]
     end
 
     # This engine's constants are spelled the way Zeitwerk's own inflector
