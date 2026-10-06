@@ -456,6 +456,39 @@ class ProjectsApiTest < ActionDispatch::IntegrationTest
 
   # --- secrets --------------------------------------------------------------
 
+  test "a person cannot store a value as one the setup assistant set, which would go unmasked" do
+    stub_supported_repository
+    post BASE, params: { repository: "acme/shop", secrets: [ { name: "STRIPE_SECRET_KEY", value: SECRET, source: "setup_assistant" } ] },
+      as: :json
+    assert_response :unprocessable_entity
+    assert_equal "invalid_source", JSON.parse(response.body)["code"]
+    assert_equal 0, ActionAgent::Project.count
+
+    project = create_project!
+    put "#{BASE}/#{project.id}/secrets", params: { secrets: [ { name: "STRIPE_SECRET_KEY", value: SECRET, source: "setup_assistant" } ] },
+      as: :json
+    assert_response :unprocessable_entity
+    put "#{BASE}/#{project.id}/secrets/STRIPE_SECRET_KEY", params: { value: SECRET, source: "setup_assistant" }, as: :json
+    assert_response :unprocessable_entity
+    assert_equal 0, project.secrets.count
+
+    put "#{BASE}/#{project.id}/secrets/STRIPE_SECRET_KEY", params: { value: SECRET, source: "entered" }, as: :json
+    assert_response :success
+  end
+
+  test "a value the setup assistant set is listed with its value, since it is not secret" do
+    project = create_project!
+    project.assign_secret(name: "STRIPE_SECRET_KEY", value: SECRET).save!
+    project.assign_secret(name: "RAILS_LOG_LEVEL", value: "debug", source: "setup_assistant").save!
+
+    get "#{BASE}/#{project.id}/secrets"
+
+    listed = JSON.parse(response.body)["secrets"].index_by { |secret| secret["name"] }
+    assert_equal [ "setup_assistant", "debug" ], listed["RAILS_LOG_LEVEL"].values_at("source", "value")
+    assert_not listed["STRIPE_SECRET_KEY"].key?("value")
+    assert_no_secret_in(response.body)
+  end
+
   test "the Environment tab lists names, sources and setters, never values, with warnings on save" do
     project = create_project!
 
@@ -1085,7 +1118,11 @@ class ProjectsApiTest < ActionDispatch::IntegrationTest
     post BASE, params: { repository: "acme/shop", name: name,
                          secrets: secrets.map { |key, value| { name: key, value: value } } }, as: :json
     assert_response :created, response.body
-    ActionAgent::Project.find(JSON.parse(response.body).dig("project", "id"))
+    project = ActionAgent::Project.find(JSON.parse(response.body).dig("project", "id"))
+    # These tests cover the projects API; the setup assistant a failed boot
+    # starts on its own is covered by project_setup_test.rb.
+    project.update_setup_settings!("auto" => false)
+    project
   end
 
   def raw_value(secret)

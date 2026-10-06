@@ -333,26 +333,6 @@ module ActionAgent
       owners_record(ProviderKey.where(provider: runner))&.runtime_environment || {}
     end
 
-    # The values this session's sandbox holds that must never leave it: the
-    # checkout token where one is stored, the Claude Code and Codex
-    # credentials it hands its checkout, and its runtime's MCP token. Reads
-    # without minting.
-    #
-    # @return [Array<String>]
-    def secret_values
-      spec = begin
-        checkout_spec
-      rescue StandardError
-        nil
-      end
-      [
-        spec&.dig(:token),
-        *runtime_environment.values,
-        *runtime_environment(runner: "codex").values,
-        runtime_mcp_token
-      ].compact.map(&:to_s).uniq
-    end
-
     # The values of the secrets of the project this checkout was booted for,
     # with their encodings (Project#scrub_values), for scrubbing whatever the
     # sandbox outputs. Empty for a sandbox no project booted, on an install
@@ -367,6 +347,27 @@ module ActionAgent
     rescue StandardError => e
       Rails.logger.warn("[ActionAgent] sandbox #{session_id}: could not read its project's secrets: #{e.class}")
       []
+    end
+
+    # The values this session's sandbox holds that must never leave it: the
+    # checkout token where one is stored, the Claude Code and Codex
+    # credentials it hands its checkout, its runtime's MCP token, and the
+    # secrets of the project it was booted for. Reads without minting.
+    #
+    # @return [Array<String>]
+    def secret_values
+      spec = begin
+        checkout_spec
+      rescue StandardError
+        nil
+      end
+      [
+        spec&.dig(:token),
+        *runtime_environment.values,
+        *runtime_environment(runner: "codex").values,
+        runtime_mcp_token,
+        *project_scrub_values
+      ].compact.map(&:to_s).uniq
     end
 
     # Check if session is still valid

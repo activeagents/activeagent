@@ -2,9 +2,12 @@
 
 module ActionAgent
   # The runtime manifest: how a booted checkout tells the sandbox backend
-  # where its MCP facade answers and which bearer token opens it.
+  # where its MCP facade answers and which bearer token opens it, and which
+  # of the app's models an assistant could be given tools over.
   #
-  #   { "mcp_path": "/activeagents/mcp", "mcp_token": "aa_..." }
+  #   { "mcp_path": "/activeagents/mcp", "mcp_token": "aa_...",
+  #     "models": [{ "name": "Reservation", "table": "reservations",
+  #                  "columns": [{ "name": "status", "type": "string" }] }] }
   #
   # The checked-out app writes it with `bin/rails action_agent:sandbox:manifest`
   # (it mounts this engine, so the task ships with it), and a backend reads it
@@ -18,8 +21,23 @@ module ActionAgent
   module SandboxManifest
     # Where the manifest task writes, when set; stdout otherwise.
     PATH_ENV = "ACTION_AGENT_SANDBOX_MANIFEST"
+    MAX_MODELS = 200
+    MAX_COLUMNS = 150
+    # The namespaces of models an app gets from Rails and these gems rather
+    # than writes itself.
+    FRAMEWORK_NAMESPACES = %w[ActionAgent:: SolidAgent:: ActiveAgent:: ActiveStorage:: ActionText:: ActionMailbox:: ActiveRecord::].freeze
     # The dashboard API key the manifest hands out, created once per checkout.
     KEY_NAME = "Checkout sandbox runtime"
+    # Column names that look like they hold a credential:
+    # ActiveAgent::SchemaTools::SECRET_COLUMNS, or the same pattern under a
+    # framework release that predates the constant, which an app can bundle
+    # beside this engine.
+    SECRET_COLUMNS =
+      if defined?(ActiveAgent::SchemaTools) && ActiveAgent::SchemaTools.const_defined?(:SECRET_COLUMNS, false)
+        ActiveAgent::SchemaTools::SECRET_COLUMNS
+      else
+        /password|digest|token|secret|api_key|otp|encrypted|ssn/i
+      end
 
     class Error < StandardError; end
 
@@ -44,7 +62,44 @@ module ActionAgent
 
       key = api_key(sandbox_owner(ActionAgent::ApiKey))
       sync_agents(agent_classes || checkout_agent_classes, sandbox_owner(ActionAgent::Agent))
-      { "mcp_path" => "#{mount}/mcp", "mcp_token" => key.token }
+      { "mcp_path" => "#{mount}/mcp", "mcp_token" => key.token, "models" => app_models }
+    end
+
+    # The app's own models under app/models that have a table, each with its
+    # columns but +id+ and those that look like secrets (SECRET_COLUMNS), at
+    # most MAX_MODELS models of MAX_COLUMNS columns. Empty when they cannot
+    # be loaded, which is reported on stderr.
+    #
+    # @return [Array<Hash>] [{ "name" =>, "table" =>, "columns" => [{ "name" =>, "type" => }] }]
+    def app_models(root = Rails.root.join("app", "models"))
+      return [] unless defined?(ActiveRecord::Base) && root.directory?
+
+      begin
+        Rails.autoloaders.main.eager_load_dir(root.to_s)
+      rescue StandardError, ScriptError => e
+        warn "[ActionAgent] sandbox manifest: could not load app/models: #{e.class}: #{e.message}"
+      end
+
+      roots = [ root.to_s, File.realpath(root) ].uniq.map { |dir| "#{dir.chomp("/")}/" }
+      models = ActiveRecord::Base.descendants.select { |klass| app_model?(klass, roots) }.sort_by(&:name).first(MAX_MODELS)
+      models.filter_map do |klass|
+        columns = klass.columns.reject { |column| column.name == "id" || SECRET_COLUMNS.match?(column.name) }
+        { "name" => klass.name, "table" => klass.table_name,
+          "columns" => columns.first(MAX_COLUMNS).map { |column| { "name" => column.name, "type" => column.type.to_s } } }
+      rescue StandardError => e
+        warn "[ActionAgent] sandbox manifest: could not read #{klass.name}'s columns: #{e.class}: #{e.message}"
+        nil
+      end
+    end
+
+    def app_model?(klass, roots)
+      return false if klass.name.blank? || klass.abstract_class? || klass.name.include?("HABTM_")
+      return false if FRAMEWORK_NAMESPACES.any? { |namespace| klass.name.start_with?(namespace) }
+
+      file, = Object.const_source_location(klass.name)
+      file && roots.any? { |dir| file.start_with?(dir) || File.realpath(file).start_with?(dir) } && klass.table_exists?
+    rescue NameError, SystemCallError, ActiveRecord::ActiveRecordError
+      false
     end
 
     # The checkout's own dashboard API key for the facade. Reused across
@@ -125,10 +180,12 @@ module ActionAgent
       end
     end
 
-    # Reads a manifest a checkout wrote.
+    # Reads a manifest a checkout wrote. Its "models" are kept as far as they
+    # have the shape .app_models gives them: an entry that does not is
+    # dropped, and a manifest written before the list existed has none.
     #
     # @param json [String]
-    # @return [Hash{String => String}] with "mcp_path" and "mcp_token"
+    # @return [Hash] with "mcp_path", "mcp_token" and "models"
     def parse(json)
       data = JSON.parse(json.to_s)
       raise Error, "the manifest is not a JSON object" unless data.is_a?(Hash)
@@ -141,9 +198,23 @@ module ActionAgent
       token = data["mcp_token"]
       raise Error, "the manifest's mcp_token is not a string" unless token.nil? || token.is_a?(String)
 
-      { "mcp_path" => path, "mcp_token" => token }
+      { "mcp_path" => path, "mcp_token" => token, "models" => parse_models(data["models"]) }
     rescue JSON::ParserError => e
       raise Error, "the manifest is not JSON (#{e.message.truncate(120)})"
+    end
+
+    def parse_models(value)
+      Array(value).first(MAX_MODELS).filter_map do |entry|
+        next unless entry.is_a?(Hash) && SandboxBootSpec::MODEL_NAME.match?(entry["name"].to_s)
+
+        columns = Array(entry["columns"]).first(MAX_COLUMNS).filter_map do |column|
+          next unless column.is_a?(Hash) && SandboxBootSpec::COLUMN_NAME.match?(column["name"].to_s)
+          next if SECRET_COLUMNS.match?(column["name"])
+
+          { "name" => column["name"], "type" => column["type"].to_s.truncate(32) }
+        end
+        { "name" => entry["name"], "table" => entry["table"].to_s.truncate(128), "columns" => columns }
+      end
     end
   end
 end

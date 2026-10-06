@@ -4,23 +4,29 @@ module ActionAgent
   # An environment variable a project's sandbox boots with, such as the
   # app's own STRIPE_SECRET_KEY.
   #
-  # The value is encrypted at rest and never rendered back to the client.
-  # A boot hands it to the steps that run the repository's code (setup,
-  # manifest and start, see Project#boot_spec), and every log, error and
-  # code-session event of the project's sandboxes is scrubbed of it.
+  # The value is encrypted at rest. A boot hands it to the steps that run
+  # the repository's code (setup, manifest and start, see
+  # Project#boot_spec). A secret's value is never rendered back to the
+  # client, and every log, error and code-session event of the project's
+  # sandboxes is scrubbed of it. A value the setup assistant set is not
+  # secret, so it is shown and not scrubbed.
   #
-  # A secret has one of two sources:
+  # A secret has one of three sources:
   #
-  #   entered           a value someone typed into the project's secrets form
+  #   entered           a value someone typed in: into the project's secrets
+  #                     form, or as the answer to the setup assistant's
+  #                     request_secret
   #   organization_key  the owner's stored provider key for +provider+,
   #                     resolved at boot and never copied here. Taking it
   #                     needs the consent of whoever set the secret, because
   #                     the repository's code can read it.
+  #   setup_assistant   a value that is not secret, set by the setup
+  #                     assistant's set_env (see ProjectSetup)
   class ProjectSecret < ApplicationRecord
     include Ownable
     owned_by :account, :user
 
-    SOURCES = %w[entered organization_key].freeze
+    SOURCES = %w[entered organization_key setup_assistant].freeze
     # The variables "Use the organization's key" is offered for, with the
     # stored provider key each one reads.
     ORGANIZATION_KEY_PROVIDERS = {
@@ -80,6 +86,11 @@ module ActionAgent
       source == "organization_key"
     end
 
+    # Whether the value is not secret: one the setup assistant set.
+    def plain?
+      source == "setup_assistant"
+    end
+
     # The value a boot sets the variable to: the entered value, or the
     # owner's stored provider key.
     #
@@ -115,16 +126,22 @@ module ActionAgent
       end
     end
 
+    # The secret as the Environment tab lists it. Only a value that is not
+    # secret (#plain?) is included, so a person can see what the setup
+    # assistant set.
+    #
     # @param setters [Hash{Integer => Object}] users by id, for set_by
     def as_summary(setters = {})
       setter = set_by_id && setters[set_by_id]
-      {
+      summary = {
         name: name,
         source: source,
         provider: provider,
         set_by: setter && { id: setter.id, name: self.class.display_name(setter) },
         updated_at: updated_at&.iso8601
       }
+      summary[:value] = value if plain?
+      summary
     end
 
     def self.display_name(user)

@@ -456,7 +456,10 @@ module ActionAgent
         # boots the app, and reports where its MCP facade answers (and the
         # bearer token it expects) so agents can use the checkout's tools.
         mcp_url: result[:mcp_url],
-        mcp_token: result[:mcp_token]
+        mcp_token: result[:mcp_token],
+        # The models its manifest lists (SandboxManifest.app_models), when the
+        # backend reports them.
+        app_models: result[:app_models]
       }
     end
 

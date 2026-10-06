@@ -9,7 +9,26 @@ module ActionAgent
     # :manage_project_secrets is always asked about a ProjectSecret, and
     # :manage_credentials about the ProviderKey a secret hands over.
     module ProjectSecretAuthorization
+      # The sources a person may give a secret. A value that is not secret
+      # (ProjectSecret source "setup_assistant") is set only by the setup
+      # assistant.
+      PERSON_SECRET_SOURCES = %w[entered organization_key].freeze
+
       private
+
+      # Whether every one of +entries+ names a source a person may give, or
+      # none. Renders 422 first when not.
+      def secret_sources_allowed!(entries)
+        refused = entries.find do |entry|
+          source = entry.respond_to?(:permit) || entry.is_a?(Hash) ? entry[:source] || entry["source"] : nil
+          source.present? && !PERSON_SECRET_SOURCES.include?(source.to_s)
+        end
+        return true if refused.nil?
+
+        render json: { error: "A secret's source must be one of #{PERSON_SECRET_SOURCES.join(", ")}", code: "invalid_source" },
+          status: :unprocessable_entity
+        false
+      end
 
       # Setting +secret+ needs :manage_project_secrets. A secret that takes
       # the organization's stored provider key also needs

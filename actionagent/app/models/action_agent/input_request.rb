@@ -160,8 +160,12 @@ module ActionAgent
     #   - multi-tenant: only the run's actor answers a request that records
     #     one (`requested_by_id`), because the run acts as that person
     #   - single-tenant: anyone may answer
+    #
+    # The handler of a `secret` request can refuse on top of that (see
+    # SecretRequests).
     def answerable_by?(user)
       return false if ActionAgent.multi_tenant? && user.nil?
+      return false unless SecretRequests.answerable_by?(self, user)
       return ActionAgent.permitted?(user, :answer_input_request, self) if ActionAgent.permission_checker
       return true unless ActionAgent.multi_tenant? && requested_by_id
 

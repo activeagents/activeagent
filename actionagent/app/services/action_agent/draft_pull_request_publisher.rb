@@ -34,6 +34,11 @@ module ActionAgent
   # the files of its last publish on top, so its diff on GitHub is the diff
   # the dialog showed. An update that leaves out a file published earlier
   # returns that file to its content in the checkout commit.
+  #
+  # A publisher can also be given generated files: content the dashboard
+  # writes itself (a project's sandbox.yml, its evaluation suite) and offers
+  # beside the sandbox's own changes, compared with the checkout commit and
+  # filtered and scanned the same way.
   class DraftPullRequestPublisher
     # A publish, preview or patch that cannot go ahead. +code+ is a word the
     # dashboard acts on:
@@ -90,7 +95,8 @@ module ActionAgent
 
     # A changed file, its content now and in the checkout commit, and why it
     # is refused (a FILE_REFUSALS key), or nil when it may be published.
-    ChangedFile = Struct.new(:path, :status, :mode, :base_mode, :size, :content, :base_content, :refusal, keyword_init: true) do
+    ChangedFile = Struct.new(:path, :status, :mode, :base_mode, :size, :content, :base_content, :refusal, :generated,
+      keyword_init: true) do
       def publishable? = refusal.nil?
       def deleted? = status == "deleted"
 
@@ -173,11 +179,14 @@ module ActionAgent
     attr_reader :sandbox
 
     # +user+ is who publishes: the OAuth connection writes only for the user
-    # who connected it.
-    def initialize(sandbox, user: nil, orchestrator: nil)
+    # who connected it. +generated_files+ maps a checkout path to the content
+    # the dashboard offers for it, in place of anything the sandbox wrote
+    # there.
+    def initialize(sandbox, user: nil, orchestrator: nil, generated_files: {})
       @sandbox = sandbox
       @user = user
       @orchestrator = orchestrator || SandboxOrchestrator.new
+      @generated_files = generated_files.to_h.transform_keys(&:to_s)
     end
 
     def repository
@@ -202,11 +211,12 @@ module ActionAgent
       Refused.new("The sandbox is #{state}. Publishing reads its live checkout, so start a new sandbox to publish", code: "not_live")
     end
 
-    # The files the sandbox changed, each filtered, read and scanned.
-    # +allowlist+ holds the patterns a path must match to be published
-    # (File.fnmatch patterns, where "dir/**" matches everything under dir);
-    # nil allows every path. +paths+ names the only files to list and read;
-    # nil lists every changed file.
+    # The files the sandbox changed, and the generated files that differ
+    # from the checkout commit, each filtered, read and scanned. +allowlist+
+    # holds the patterns a path must match to be published (File.fnmatch
+    # patterns, where "dir/**" matches everything under dir, or a Regexp the
+    # whole path must match); nil allows every path. +paths+ names the only
+    # files to list and read; nil lists every changed file.
     #
     # Files are read in path order until MAX_FILES are read or
     # READ_BUDGET_BYTES is spent, and those after are refused as not_read.
@@ -224,6 +234,7 @@ module ActionAgent
       wanted = paths&.to_set
       files = Array(listing[:files]).filter_map do |entry|
         next if wanted && !wanted.include?(entry[:path].to_s)
+        next if @generated_files.key?(entry[:path].to_s)
 
         file = ChangedFile.new(
           path: entry[:path].to_s, status: entry[:status].to_s, mode: entry[:mode], base_mode: entry[:base_mode], size: entry[:size]
@@ -231,6 +242,15 @@ module ActionAgent
         file.refusal = path_refusal(file.path, allowlist) || kind_refusal(file)
         file
       end
+
+      files += @generated_files.filter_map do |path, content|
+        next if wanted && !wanted.include?(path)
+
+        file = ChangedFile.new(path: path, mode: "100644", content: content.to_s.b, size: content.to_s.bytesize, generated: true)
+        file.refusal = path_refusal(path, allowlist)
+        file
+      end
+      files.sort_by!(&:path)
 
       secrets = scan_values
       budget = READ_BUDGET_BYTES
@@ -250,6 +270,24 @@ module ActionAgent
       raise
     rescue StandardError => e
       Rails.logger.warn("[ActionAgent] could not read the changes of sandbox #{sandbox.session_id}: #{e.class}: #{e.message}")
+      raise Refused.new("The sandbox's changes could not be read: #{e.message}", code: "unreadable")
+    end
+
+    # The paths of the files the sandbox changed since the checkout commit,
+    # listed by the backend and not read: what #changes would consider
+    # before the generated files are added.
+    #
+    # @raise [Refused]
+    # @return [Array<String>]
+    def changed_paths
+      refusal = read_refusal
+      raise refusal if refusal
+
+      Array(@orchestrator.changed_files(sandbox)[:files]).map { |entry| entry[:path].to_s }
+    rescue Refused
+      raise
+    rescue StandardError => e
+      Rails.logger.warn("[ActionAgent] could not list the changes of sandbox #{sandbox.session_id}: #{e.class}: #{e.message}")
       raise Refused.new("The sandbox's changes could not be read: #{e.message}", code: "unreadable")
     end
 
@@ -322,13 +360,13 @@ module ActionAgent
 
     # A patch of the publishable files named by +paths+ (all of them when
     # nil), for `git am` or `git apply`. Built from the backend's reads,
-    # with no GitHub token.
+    # with no GitHub token. +allowlist+ is #changes'.
     #
     # @raise [Refused] when a named file is refused or unchanged, or, without
     #   +paths+, when the changes are more than one read covers
     # @return [String] binary-encoded
-    def patch(paths: nil, title: nil, body: nil)
-      changes = self.changes(paths: paths)
+    def patch(paths: nil, title: nil, body: nil, allowlist: nil)
+      changes = self.changes(paths: paths, allowlist: allowlist)
       files = if paths.nil?
         if changes.files.any? { |file| file.refusal == "not_read" }
           raise Refused.new("The sandbox changed more files than one patch reads (#{MAX_FILES} files, " \
@@ -413,13 +451,20 @@ module ActionAgent
     private
 
     # +file+ with its contents read and scanned, or nil when it no longer
-    # differs from the checkout commit.
+    # differs from the checkout commit. A generated file's content is its
+    # own, and its status follows from the checkout commit's.
     def read_contents(file, secrets)
       return file.tap { file.refusal = "too_large" } if file.size.to_i > MAX_FILE_BYTES
 
       begin
-        file.content = @orchestrator.read_file(sandbox, file.path) unless file.deleted?
-        file.base_content = @orchestrator.read_file(sandbox, file.path, base: true) unless file.status == "added"
+        if file.generated
+          file.base_content = @orchestrator.read_file(sandbox, file.path, base: true)
+          file.status = file.base_content.nil? ? "added" : "modified"
+          file.base_mode = file.base_content.nil? ? nil : "100644"
+        else
+          file.content = @orchestrator.read_file(sandbox, file.path) unless file.deleted?
+          file.base_content = @orchestrator.read_file(sandbox, file.path, base: true) unless file.status == "added"
+        end
       rescue StandardError => e
         Rails.logger.info("[ActionAgent] could not read #{file.path} from sandbox #{sandbox.session_id}: #{e.message}")
         return file.tap { file.refusal = "unreadable" }
@@ -441,7 +486,10 @@ module ActionAgent
       return nil if allowlist.nil?
 
       flags = File::FNM_PATHNAME | File::FNM_DOTMATCH | File::FNM_EXTGLOB
-      allowlist.any? { |pattern| File.fnmatch?(glob(pattern), path, flags) } ? nil : "not_allowed"
+      allowed = allowlist.any? do |pattern|
+        pattern.is_a?(Regexp) ? pattern.match?(path) : File.fnmatch?(glob(pattern), path, flags)
+      end
+      allowed ? nil : "not_allowed"
     end
 
     # +pattern+ as File.fnmatch reads it, with a trailing "/**" matching
