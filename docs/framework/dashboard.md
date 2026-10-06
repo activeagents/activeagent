@@ -2271,7 +2271,7 @@ end
 | `:publish_pull_request` | reserved: opening a pull request from a sandbox |
 | `:answer_input_request` | answering or declining a paused run's request for input (`POST /api/input_requests/:id/answer` and `/decline`, and the MCP `input_requests_answer` tool) |
 | `:manage_project_secrets` | setting, replacing and removing a project's secrets (`POST /api/projects` with `secrets`, `PUT /api/projects/:id/secrets`, `PUT` and `DELETE /api/projects/:id/secrets/:name`), changing the ref they are handed to (`PATCH /api/projects/:id` with `default_ref`) and deleting a project that has them (`DELETE /api/projects/:id`). Always asked about a `ProjectSecret` |
-| `:take_over_browser` | reserved: driving a run's browser by hand |
+| `:take_over_browser` | issuing a ticket to take over a sandbox's browser (`POST /api/sandboxes/:id/browser/tickets` with `mode: "control"`) |
 | `:manage_recordings` | deleting a session recording (`DELETE /api/session_recordings/:id`) |
 | `:replace_scenarios` | creating an evaluation or merging scenarios into one over the MCP facade (`evaluations_create`, `scenarios_merge`), asked as the API key's user |
 

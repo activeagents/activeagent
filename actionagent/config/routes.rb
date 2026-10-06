@@ -100,8 +100,10 @@ ActionAgent::Engine.routes.draw do
           post :cancel
         end
       end
-      # The checkout's browser (SandboxBrowser).
-      resource :browser, only: [ :show, :create, :destroy ], controller: "sandbox_browsers"
+      # The checkout's browser (SandboxBrowser), and tickets into its live view.
+      resource :browser, only: [ :show, :create, :destroy ], controller: "sandbox_browsers" do
+        resources :tickets, only: [ :create ], controller: "sandbox_browser_tickets"
+      end
 
       # A pull request opened from the checkout's changes, its preview, and
       # the patch to download instead.

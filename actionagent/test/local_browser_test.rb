@@ -55,6 +55,7 @@ class LocalBrowserTest < ActiveSupport::TestCase
 
     assert_match %r{\Ahttp://127\.0\.0\.1:\d+/mcp\z}, result[:mcp_url]
     assert_equal TOKEN, result[:mcp_token]
+    assert_not result.key?(:live_url), "no live view was asked for"
     record = sidecar_record(sandbox)
     assert_equal TOKEN, record.dig("config", "token")
     assert_equal "http://127.0.0.1:4100", record.dig("config", "app_url")
@@ -81,6 +82,16 @@ class LocalBrowserTest < ActiveSupport::TestCase
 
     assert_gone record["pid"], record["child_pid"]
     assert_not workspace(sandbox).exist?
+  end
+
+  test "a browser started with a live view is told its session and origins, and reports where viewers connect" do
+    sandbox = booted_sandbox
+    sandbox.browser_launch[:live] = { session_id: sandbox.session_id, origins: [ "http://localhost:3000" ] }
+
+    result = @backend.start_browser(sandbox, mode: :headless)
+
+    assert_equal({ "session_id" => sandbox.session_id, "origins" => [ "http://localhost:3000" ] }, sidecar_record(sandbox).dig("config", "live"))
+    assert_equal "ws://127.0.0.1:#{URI(result[:mcp_url]).port}/live", result[:live_url]
   end
 
   test "stopping the browser stops its process group and removes its directory, and leaves the sandbox" do

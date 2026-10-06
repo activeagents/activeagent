@@ -8,6 +8,7 @@ require "test_helper"
 # backend is a double that records what it is asked.
 class SandboxBrowserTest < ActionDispatch::IntegrationTest
   MCP_URL = "http://127.0.0.1:4200/mcp"
+  LIVE_URL = "ws://127.0.0.1:4200/live"
 
   class BrowserBackend
     class << self
@@ -34,7 +35,7 @@ class SandboxBrowserTest < ActionDispatch::IntegrationTest
       error = self.class.start_error
       raise error.call(sandbox.browser_launch) if error
 
-      { mcp_url: MCP_URL, mcp_token: sandbox.browser_launch[:token] }
+      { mcp_url: MCP_URL, mcp_token: sandbox.browser_launch[:token], live_url: (LIVE_URL if sandbox.browser_launch[:live]) }
     end
 
     # Also notes whether the sandbox and its browser's recording were still
@@ -52,7 +53,7 @@ class SandboxBrowserTest < ActionDispatch::IntegrationTest
     ActionAgent::SessionRecording.delete_all
     ActionAgent::SandboxSession.delete_all
     BrowserBackend.reset!
-    @saved = %i[sandbox_backends sandbox_service quota_checker usage_recorder execution_enabled].index_with do |name|
+    @saved = %i[sandbox_backends sandbox_service quota_checker usage_recorder execution_enabled browser_live_origins].index_with do |name|
       ActionAgent.public_send(name)
     end
     ActionAgent.sandbox_backends = { "browser" => BrowserBackend.name }
@@ -75,7 +76,7 @@ class SandboxBrowserTest < ActionDispatch::IntegrationTest
     assert_response :created, response.body
     @sandbox.reload
     expected = { "mode" => "headless", "status" => "running", "server_key" => "browser:#{@sandbox.session_id}",
-                 "started_at" => @sandbox.browser_started_at.iso8601, "live_url" => nil }
+                 "started_at" => @sandbox.browser_started_at.iso8601, "live_url" => LIVE_URL }
     assert_equal expected, response.parsed_body["browser"]
     assert_equal "running", @sandbox.browser_status
     assert_equal MCP_URL, @sandbox.browser_mcp_url
@@ -95,6 +96,35 @@ class SandboxBrowserTest < ActionDispatch::IntegrationTest
     assert recording.ingest_token_valid?(launch.dig(:recording, :token))
     assert_equal ActionAgent::RecordingEvent.limits.slice(:batch_events, :batch_bytes), launch[:recording].slice(:batch_events, :batch_bytes)
     assert_nil @sandbox.browser_launch, "the launch settings are not kept"
+  end
+
+  test "the live view may be opened from the dashboard the browser was started from, and from the configured origins" do
+    ActionAgent.browser_live_origins = [ "http://127.0.0.1:3000/activeagents", "https://dash.example:443", "not an origin" ]
+
+    post browser_path, as: :json
+
+    assert_response :created, response.body
+    _verb, _session_id, _mode, launch = BrowserBackend.calls.sole
+    assert_equal({ session_id: @sandbox.session_id, origins: [ "http://www.example.com", "http://127.0.0.1:3000", "https://dash.example" ] },
+      launch[:live])
+    assert_equal LIVE_URL, @sandbox.reload.browser_live_url
+  end
+
+  test "a browser started without dashboard origins has no live view" do
+    ActionAgent::SandboxBrowser.start(@sandbox, mode: "headless")
+
+    _verb, _session_id, _mode, launch = BrowserBackend.calls.sole
+    assert_nil launch[:live]
+    assert_nil @sandbox.reload.browser_summary[:live_url]
+  end
+
+  test "the sandbox listing says which modes a browser can start in" do
+    get "/activeagents/api/sandboxes", params: { sandbox_type: "app_runtime" }
+    assert_equal %w[headless headed], response.parsed_body["browser_modes"]
+
+    BrowserBackend.modes = [ :headless ]
+    get "/activeagents/api/sandboxes", params: { sandbox_type: "app_runtime" }
+    assert_equal %w[headless], response.parsed_body["browser_modes"]
   end
 
   test "the browser token is encrypted at rest and never serialized or shown" do

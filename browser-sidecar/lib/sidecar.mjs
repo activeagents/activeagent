@@ -2,13 +2,17 @@ import { mkdtemp, realpath, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import { ControlLock } from './control-lock.mjs';
 import { startEgressProxy } from './egress-proxy.mjs';
 import { acceptedHosts } from './guard.mjs';
 import { createHttpServer } from './http-server.mjs';
+import { LiveServer } from './live-server.mjs';
+import { TicketVerifier, ticketKey } from './live-ticket.mjs';
 import { McpGateway } from './mcp-gateway.mjs';
 import { NavigationGuard } from './navigation-guard.mjs';
 import { NetworkPolicy } from './network-policy.mjs';
 import { PAGE_FLUSH_MS, Recorder } from './recorder.mjs';
+import { Screencast } from './screencast.mjs';
 import { VERSION } from './version.mjs';
 
 const VIEWPORT = { width: 1280, height: 800 };
@@ -87,6 +91,25 @@ export function mcpConfig(config, outputDir) {
 }
 
 /**
+ * Starts streaming `context` to the live view's viewers (LiveServer), with
+ * one person at a time able to take control of it.
+ *
+ * @param {object} config a parsed configuration with `live` set
+ * @param {import('playwright').BrowserContext} context
+ * @param {{ recorder: Recorder | null, log: (message: string) => void }} options
+ * @returns {Promise<{ server: LiveServer, lock: ControlLock, screencast: Screencast }>}
+ */
+async function startLiveView(config, context, { recorder, log }) {
+  const lock = new ControlLock({ graceMs: config.live.releaseGraceMs });
+  const verifier = new TicketVerifier({ key: ticketKey(config.token), sessionId: config.live.sessionId });
+  let server = null;
+  const screencast = new Screencast({ context, log, onFrame: (frame) => server?.frame(frame), onPageChange: () => server?.pageChanged() });
+  server = new LiveServer({ verifier, lock, screencast, log, onMarker: (data) => recorder?.marker(data) });
+  await screencast.attach();
+  return { server, lock, screencast };
+}
+
+/**
  * Starts the browser and its MCP endpoint, and returns once the endpoint
  * listens. Chromium gets a fresh profile directory and is driven over a pipe
  * (Playwright's --remote-debugging-pipe), so no debugging port is opened.
@@ -152,15 +175,23 @@ export async function startSidecar(config, dependencies = {}) {
   guard.attach(context);
   const recorder = config.recording ? new Recorder({ recording: config.recording, log }) : null;
   await recorder?.attach(context);
+  const live = config.live ? await startLiveView(config, context, { recorder, log }) : null;
 
   const gateway = new McpGateway({
     connect: () => connect(mcpConfig(config, outputDir), async () => context),
     policy,
     guard,
     snapshotDir: await realpath(outputDir),
+    lock: live?.lock,
+    agentWaitMs: config.live?.agentWaitMs,
+    afterCall: (name, args) => {
+      // Playwright MCP numbers tabs from 0 in the order they opened, as context.pages() lists them.
+      if (live && name === 'browser_tabs' && args?.action === 'select' && Number.isInteger(args.index)) void live.screencast.followIndex(args.index);
+    },
   });
   let hosts = new Set();
-  const server = createHttpServer({ rules: () => ({ token: config.token, hosts }), gateway, version: VERSION });
+  const liveOrigins = new Set(config.live?.origins ?? []);
+  const server = createHttpServer({ rules: () => ({ token: config.token, hosts, liveOrigins }), gateway, version: VERSION, live: live?.server });
 
   let closing = null;
   let finished;
@@ -174,6 +205,8 @@ export async function startSidecar(config, dependencies = {}) {
       if (reason) log(`stopping: ${reason}`);
       server.close();
       server.closeAllConnections();
+      live?.server.close();
+      await live?.screencast.close();
       await gateway.closeAll();
       // The pages hand over the rrweb events they hold, then the context
       // closes before the recorder, so the recording gets the closing markers.

@@ -10,8 +10,11 @@ import test from 'node:test';
 import { gunzipSync } from 'node:zlib';
 
 import { chromium } from 'playwright';
+import { WebSocket } from 'ws';
 
+import { TAKEOVER_META } from '../lib/control-lock.mjs';
 import { parseConfig } from '../lib/config.mjs';
+import { signTicket, ticketKey } from '../lib/live-ticket.mjs';
 import { NetworkPolicy } from '../lib/network-policy.mjs';
 import { startSidecar } from '../lib/sidecar.mjs';
 
@@ -255,4 +258,112 @@ test('a page redirected off the app is closed, and no tool shows any part of it'
   }
 
   assert.match(text(await mcp.call('browser_navigate', { url: '/' })), /heading "Orders"/, 'the browser goes on to open the app');
+});
+
+test('watch live and take over: frames of the page on screen, input from the person in control, agent calls held meanwhile', { skip }, async (t) => {
+  const dashboard = 'http://dashboard.test:3000';
+  const typed = 'typed-in-the-live-view';
+  const app = await fixtureApp(() => '/');
+  const batches = [];
+  const ingest = await listen((request, response) => {
+    const chunks = [];
+    request.on('data', (chunk) => chunks.push(chunk));
+    request.on('end', () => {
+      batches.push(JSON.parse(gunzipSync(Buffer.concat(chunks)).toString()));
+      response.writeHead(201);
+      response.end('{}');
+    });
+  });
+  const workdir = await mkdtemp(join(tmpdir(), 'sidecar-live-'));
+  const cwd = process.cwd();
+  const config = parseConfig({
+    token: TOKEN,
+    app_url: origin(app),
+    workdir,
+    recording: { url: `${origin(ingest)}/events`, token: `aarec_${'r'.repeat(32)}` },
+    live: { session_id: 'live-session', origins: [dashboard], agent_wait_ms: 200, release_grace_ms: 200 },
+  });
+  const sidecar = await startSidecar(config, { log: () => {} });
+  t.after(async () => {
+    await sidecar.close();
+    process.chdir(cwd);
+    app.close();
+    ingest.close();
+    await rm(workdir, { recursive: true, force: true });
+  });
+
+  const mcp = mcpClient(`http://127.0.0.1:${sidecar.port}/mcp`);
+  await mcp.initialize();
+  await untilAppOpened(mcp);
+
+  const ws = new WebSocket(`ws://127.0.0.1:${sidecar.port}/live`, { origin: dashboard });
+  const received = [];
+  ws.on('message', (data) => received.push(JSON.parse(data.toString())));
+  await new Promise((resolve, reject) => {
+    ws.on('open', resolve);
+    ws.on('error', reject);
+  });
+  const latest = async (type, predicate = () => true) => {
+    for (let attempt = 0; attempt < 100; attempt += 1) {
+      const found = received.findLast((message) => message.type === type && predicate(message));
+      if (found) return found;
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+    throw new Error(`no ${type} message`);
+  };
+  const iat = Math.floor(Date.now() / 1000);
+  ws.send(JSON.stringify({
+    type: 'auth',
+    ticket: signTicket(ticketKey(TOKEN), { v: 1, sid: 'live-session', sub: '1', name: 'Ada', mode: 'control', iat, exp: iat + 30, jti: 'smoke-ticket-0123456789' }),
+  }));
+
+  assert.equal((await latest('ready')).control.held, false);
+  const frame = await latest('frame');
+  assert.ok(Buffer.from(frame.data, 'base64').subarray(0, 2).equals(Buffer.from([0xff, 0xd8])), 'a frame is a JPEG');
+  assert.deepEqual([frame.width, frame.height], [1280, 800]);
+
+  const center = text(await mcp.call('browser_evaluate', {
+    function: "() => { const box = document.querySelector('[contenteditable]').getBoundingClientRect(); return `center ${box.x + box.width / 2} ${box.y + box.height / 2}`; }",
+  })).match(/center ([\d.]+) ([\d.]+)/);
+  const point = { x: Number(center[1]) / frame.width, y: Number(center[2]) / frame.height };
+
+  ws.send(JSON.stringify({
+    type: 'take_control',
+    ticket: signTicket(ticketKey(TOKEN), { v: 1, sid: 'live-session', sub: '1', name: 'Ada', mode: 'control', iat, exp: iat + 30, jti: 'smoke-ticket-control-0123456789' }),
+  }));
+  assert.equal((await latest('control')).mine, true);
+
+  const refused = await mcp.call('browser_navigate', { url: '/' });
+  assert.equal(refused.isError, true, 'an agent call that changes the page is held, then refused');
+  assert.match(text(refused), /Ada is driving this browser by hand/);
+  assert.equal(refused._meta[TAKEOVER_META].held_by, 'Ada');
+  assert.match(text(await mcp.call('browser_snapshot')), /heading "Orders"/, 'a call that only looks goes ahead');
+
+  ws.send(JSON.stringify({ type: 'mouse', action: 'down', ...point, button: 'left', clickCount: 1 }));
+  ws.send(JSON.stringify({ type: 'mouse', action: 'up', ...point, button: 'left', clickCount: 1 }));
+  for (const key of 'ab') {
+    ws.send(JSON.stringify({ type: 'key', action: 'down', key, code: `Key${key.toUpperCase()}` }));
+    ws.send(JSON.stringify({ type: 'key', action: 'up', key, code: `Key${key.toUpperCase()}` }));
+  }
+  ws.send(JSON.stringify({ type: 'text', text: typed }));
+  await new Promise((resolve) => setTimeout(resolve, 300));
+
+  ws.send(JSON.stringify({ type: 'hand_back' }));
+  assert.equal((await latest('control', (state) => !state.held)).held, false);
+  const entered = text(await mcp.call('browser_evaluate', { function: "() => document.querySelector('[contenteditable]').textContent" }));
+  assert.ok(entered.includes(`ab${typed}`), `the person's clicks and keys reached the page: ${entered}`);
+
+  const opened = await mcp.call('browser_tabs', { action: 'new', url: '/' });
+  assert.notEqual(opened.isError, true, 'once handed back, the agent drives again');
+  assert.equal((await latest('page', (message) => message.page?.tabs === 2)).page.tab, 2, 'the live view follows the new tab');
+  await mcp.call('browser_tabs', { action: 'select', index: 0 });
+  assert.equal((await latest('page', (message) => message.page?.tab === 1)).page.tabs, 2, 'and the tab the agent selects');
+
+  ws.close();
+  await sidecar.close();
+
+  const events = batches.flatMap((batch) => batch.recording_events);
+  const takeovers = events.filter((event) => event.kind === 'marker' && event.data.source === 'human');
+  assert.deepEqual(takeovers.map((event) => [event.data.label, event.data.user.name]), [['takeover_started', 'Ada'], ['takeover_ended', 'Ada']]);
+  assert.ok(!JSON.stringify(batches).includes(typed), 'what the person typed is masked in the recording');
 });

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useTheme } from '../../contexts/ThemeContext';
 import { dashboardPath } from '../../utils/dashboardPath';
+import BrowserPanel from './BrowserPanel';
 import CodeSessionPanel, { StatusBadge } from './CodeSessionPanel';
 import DraftPullRequestPanel from './DraftPullRequestPanel';
 import GithubAppSection from './GithubAppSection';
@@ -62,7 +63,7 @@ export default function GithubIntegrationCard({ callbackStatus, appCallbackStatu
   );
   const [sandboxes, setSandboxes] = useState([]); // the caller's app_runtime sandbox summaries, newest first
   // What the configured backend and the owner's credentials allow:
-  // { codeSessions, claudeCode }, from GET /api/sandboxes.
+  // { codeSessions, claudeCode, codex, browserModes }, from GET /api/sandboxes.
   const [sandboxSupport, setSandboxSupport] = useState(null);
   const [sandboxErrors, setSandboxErrors] = useState({}); // repository full_name -> message
   const [launching, setLaunching] = useState(null);
@@ -98,6 +99,7 @@ export default function GithubIntegrationCard({ callbackStatus, appCallbackStatu
         claudeCode: claudeCodeAuth(data),
         codex: { supported: data.codex_sessions_supported === true, connected: data.codex_connected === true },
         pullRequests: data.pull_requests_supported === true,
+        browserModes: Array.isArray(data.browser_modes) ? data.browser_modes : [],
       });
     } catch (e) {
       setError(e.message);
@@ -291,7 +293,7 @@ export default function GithubIntegrationCard({ callbackStatus, appCallbackStatu
 
   const errorText = darkMode ? 'text-red-400' : 'text-red-600';
   // One sandbox: its status, what it failed with, how an agent uses it, and
-  // (once ready) Claude Code sessions in its checkout. Under a repository it
+  // (once ready) Claude Code sessions in its checkout and its browser. Under a repository it
   // sits below a divider; listed on its own it names its repository.
   const renderSandbox = (sandbox, { standalone = false } = {}) => {
     const { label, tone } = sandboxStatus(sandbox.status);
@@ -358,6 +360,7 @@ export default function GithubIntegrationCard({ callbackStatus, appCallbackStatu
           <p className={`text-xs ${muted}`}>The configured sandbox backend cannot run Claude Code sessions.</p>
         )}
         {ready && sandboxSupport?.pullRequests && <DraftPullRequestPanel sandbox={sandbox} />}
+        {ready && sandboxSupport?.browserModes.length > 0 && <BrowserPanel sandbox={sandbox} modes={sandboxSupport.browserModes} />}
       </div>
     );
   };

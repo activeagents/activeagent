@@ -11,7 +11,9 @@
 //     "workdir": "/path",                   where the profile, uploads and output directories go
 //     "stop_at": 1767225600000,             when to shut down on its own (epoch ms or ISO 8601)
 //     "chromium_sandbox": true,             false where Chromium's own sandbox cannot run (some containers)
-//     "recording": { "url": "...", "token": "...", "batch_events": 1000, "batch_bytes": 1048576 }
+//     "recording": { "url": "...", "token": "...", "batch_events": 1000, "batch_bytes": 1048576 },
+//     "live": { "session_id": "...", "origins": ["http://localhost:3000"],
+//               "agent_wait_ms": 20000, "release_grace_ms": 10000 }
 //   }
 
 export const MODES = ['headless', 'headed'];
@@ -22,6 +24,12 @@ export const CAPABILITIES = ['testing', 'vision', 'pdf'];
 export const MIN_TOKEN_LENGTH = 32;
 const DEFAULT_BATCH_EVENTS = 1000;
 const DEFAULT_BATCH_BYTES = 1024 * 1024;
+// How long an agent's browser call waits for a person to hand control back
+// before it is refused. The dashboard gives up on a tool call after 60
+// seconds, so the wait ends well before that.
+const DEFAULT_AGENT_WAIT_MS = 20_000;
+export const MAX_AGENT_WAIT_MS = 45_000;
+const DEFAULT_RELEASE_GRACE_MS = 10_000;
 
 export class ConfigError extends Error {}
 
@@ -70,6 +78,44 @@ function recording(value) {
     token: token(value.token, 'recording.token'),
     batchEvents: positiveInteger(value.batch_events, 'recording.batch_events', DEFAULT_BATCH_EVENTS),
     batchBytes: positiveInteger(value.batch_bytes, 'recording.batch_bytes', DEFAULT_BATCH_BYTES),
+  };
+}
+
+function nonNegativeInteger(value, name, fallback, max) {
+  if (value === undefined || value === null) return fallback;
+  if (!Number.isInteger(value) || value < 0 || value > max) fail(`${name} must be an integer from 0 to ${max}`);
+  return value;
+}
+
+// Returns `value` as the Origin header a browser sends for it:
+// "HTTP://127.1:3000/" is "http://127.0.0.1:3000".
+function origin(value) {
+  let url;
+  try {
+    url = new URL(value);
+  } catch {
+    fail('live.origins must be a list of http(s) origins');
+  }
+  const bare = url.pathname === '/' && url.search === '' && url.hash === '' && url.username === '' && url.password === '';
+  if ((url.protocol !== 'http:' && url.protocol !== 'https:') || !bare) {
+    fail('live.origins must be a list of http(s) origins, such as http://localhost:3000');
+  }
+  return url.origin;
+}
+
+function live(value) {
+  if (value === undefined || value === null) return null;
+  if (typeof value !== 'object' || Array.isArray(value)) fail('live must be an object');
+  if (typeof value.session_id !== 'string' || value.session_id === '') fail('live.session_id must name the sandbox session');
+  if (!Array.isArray(value.origins) || value.origins.length === 0 || value.origins.some((entry) => typeof entry !== 'string')) {
+    fail('live.origins must be a list of http(s) origins');
+  }
+
+  return {
+    sessionId: value.session_id,
+    origins: [...new Set(value.origins.map(origin))],
+    agentWaitMs: nonNegativeInteger(value.agent_wait_ms, 'live.agent_wait_ms', DEFAULT_AGENT_WAIT_MS, MAX_AGENT_WAIT_MS),
+    releaseGraceMs: positiveInteger(value.release_grace_ms, 'live.release_grace_ms', DEFAULT_RELEASE_GRACE_MS),
   };
 }
 
@@ -125,5 +171,6 @@ export function parseConfig(input) {
     chromiumSandbox: raw.chromium_sandbox !== false,
     stopAt: stopAt(raw.stop_at),
     recording: recording(raw.recording),
+    live: live(raw.live),
   };
 }
