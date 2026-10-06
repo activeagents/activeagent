@@ -202,6 +202,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   generated keys skip ignoring case, and `key_prefix:`, a namespace in front
   of every generated key. A prefix with no letters or digits a key can use
   raises `ParseError`. Keys a paste names are unchanged.
+- **Pause a generation to ask the user, and resume it with the answer**
+  (`activeagent`). A tool returns an `ActiveAgent::InputRequest` (`:text`,
+  `:choice`, `:confirm` or `:secret`); the turn's other calls finish, nothing
+  is sent back to the model, and the response is `awaiting_input?` with
+  `input_requests` and a JSON-safe `checkpoint`. `Generation#resume_now(checkpoint:,
+  answers:)`, on the generation that paused or on one built the same way,
+  restores the conversation and dispatches each paused call again with its
+  answer readable through `input_answer` / `InputRequest.answer_for`; `false`
+  declines without running the tool. A `:secret` answer is scrubbed from tool
+  results, telemetry tool spans and tool errors. Pauses publish
+  `input_requested.active_agent` and run `on_input_request` callbacks; a
+  delegated agent that pauses returns `{ error: "input_required" }` to its
+  caller instead, without announcing the pause. Supported by the Anthropic and
+  OpenAI Chat Completions tool loops; under OpenAI Responses and RubyLLM a tool
+  that asks raises `InputRequest::UnsupportedProviderError`.
+- **Let a dashboard run stop to ask a person, and continue with the answer**
+  (`actionagent`). A paused run is `awaiting_input`, with one
+  `ActionAgent::InputRequest` per paused tool call (migration `016`, emitted by
+  `rails g action_agent:install`). The request's owner is copied from the run's
+  agent, and its answer and the pause's checkpoint are encrypted at rest. The
+  `ask` tools (`ask_user`, `request_approval`) raise `text`, `choice` and
+  `confirm` requests. An agent's `approval_required_tools` holds a listed
+  tool's call until a person approves it, and changing the list makes the
+  agent's evaluations stale. `request_secret` is reserved for agents the
+  engine defines. `GET /api/input_requests` lists requests without their
+  answers. `POST /api/input_requests/:id/answer` and `/decline` check
+  `:answer_input_request` (with no checker, a multi-tenant install lets only
+  the run's actor answer), are refused while execution is disabled, and
+  return 409 for a settled or expired request and 422 for an invalid answer.
+  A `confirm` request is approved by `true` and declined by `false`. Once a
+  pause is settled, `AgentResumeJob` resumes the same run under its trace id.
+  MCP `run_<slug>` returns a paused run's request ids, and
+  `input_requests_list` and `input_requests_answer` (text and choice only)
+  join the MCP facade. `config.input_request_ttl` (one day by default) bounds
+  how long a request waits, and `InputRequestExpiryJob`, which a host
+  schedules, fails the runs whose requests expired unread.
 
 ### Changed
 
@@ -275,6 +311,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   approval; `mcp_strategy: :server` with one raises `ArgumentError`. Such
   servers now connect from your app and need `gem "mcp"`; set
   `require_approval: "never"` to keep one with the provider.
+- **Add the `awaiting_input` run status** (`actionagent`). `AgentRun` status
+  `5` is a run waiting on its input requests: neither `in_progress?` nor
+  `finished?`, never picked up again by `AgentExecutionJob`, and cancellable
+  with `cancel!`, which also cancels its pending requests. A client that treats
+  every status other than `pending` and `running` as finished must handle it.
+- **Filter `answer` and `value` from request logs** (`actionagent`). The engine
+  adds them to the host's `filter_parameters`, beside `credential`, `api_key`
+  and `access_token`, matching only parameters named exactly `answer` or
+  `value`, at any depth. Rails also copies `filter_parameters` into Active
+  Record's `filter_attributes`, so a host model attribute named `answer` or
+  `value` shows as `[FILTERED]` in `inspect` and in logged SQL binds.
 
 ### Fixed
 

@@ -232,6 +232,36 @@ module ActionAgent
           }
         }
       ],
+      # Asking a person mid-run. Each call pauses the run until the answer
+      # arrives (ActionAgent::InputRequest), so AgentExecutionService routes
+      # them, and they are NOT in FUNCTIONS below.
+      "ask" => [
+        {
+          name: "ask_user",
+          description: "Ask the user a question and wait for the answer before continuing. Pass options to have them " \
+            "pick one of a fixed set of answers. Use when you need information only the user has.",
+          parameters: {
+            type: "object",
+            properties: {
+              question: { type: "string", description: "The question, as the user should read it" },
+              options: { type: "array", items: { type: "string" }, description: "Answers to choose from; omit for a free-text answer" }
+            },
+            required: [ "question" ]
+          }
+        },
+        {
+          name: "request_approval",
+          description: "Ask the user to approve an action before you take it, and wait for their decision. Call it before " \
+            "any step with side effects the user has not already agreed to. Returns approved: true, or an error when declined.",
+          parameters: {
+            type: "object",
+            properties: {
+              action: { type: "string", description: "What you want to do, in one sentence the user can approve or decline" }
+            },
+            required: [ "action" ]
+          }
+        }
+      ],
       # Memory tools mirror solid_agent's HasMemory contract. They are NOT in
       # FUNCTIONS below — execution is subject-bound, so AgentExecutionService
       # routes them to the run's AgentMemory instead of this module.
@@ -263,6 +293,28 @@ module ActionAgent
       ]
     }.freeze
 
+    # Asks the user for a secret, such as an API key, delivered to the agent's
+    # server-side handler (ActionAgent::SecretRequests) and never to the
+    # model. Offered only to an agent with a registered handler, never
+    # through an agent's tools list, so it is not in DEFINITIONS.
+    REQUEST_SECRET_DEFINITION = {
+      name: "request_secret",
+      description: "Ask the user for a secret value, such as an API key or a password. The value is handed to the " \
+        "system without you ever seeing it; you receive only confirmation that it was provided.",
+      parameters: {
+        type: "object",
+        properties: {
+          name: { type: "string", description: "The secret's name, e.g. STRIPE_API_KEY" },
+          prompt: { type: "string", description: "What to tell the user about the value you need" }
+        },
+        required: [ "name", "prompt" ]
+      }
+    }.freeze
+
+    # The tools that pause a run to ask a person, routed by
+    # AgentExecutionService.
+    INPUT_FUNCTIONS = %w[ask_user request_approval request_secret].freeze
+
     # Function name => implementation method, for routing tool calls.
     FUNCTIONS = {
       "fetch_url" => :fetch_url,
@@ -281,22 +333,23 @@ module ActionAgent
 
     # Stateful tools whose results must never be replayed from cache — and
     # render_ui, whose result is the call itself, so there is nothing to
-    # replay.
-    UNCACHED_FUNCTIONS = %w[
+    # replay, and the tools whose result is a person's answer.
+    UNCACHED_FUNCTIONS = (%w[
       browser_navigate browser_snapshot browser_click browser_type browser_fill_form
       browser_select_option browser_press_key render_ui
-    ].freeze
+    ] + INPUT_FUNCTIONS).freeze
 
     # Hosts browse_page may fetch — the platform's own trusted docs.
     BROWSE_ALLOWED_HOSTS = %w[docs.activeagents.ai].freeze
 
     class << self
       # Tool definitions for the subset of an agent's enabled tools that have
-      # server-side implementations.
+      # server-side implementations. Never request_secret, whatever the list
+      # names.
       def definitions_for(tool_names)
         Array(tool_names).flat_map do |name|
           DEFINITIONS[name.to_s] || schema_tool_definitions(name.to_s)
-        end
+        end.reject { |definition| definition[:name].to_s == REQUEST_SECRET_DEFINITION[:name] }
       end
 
       def function?(name)

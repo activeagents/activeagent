@@ -231,6 +231,9 @@ module ActionAgent
         actor: replay_actor,
         runtime_sandbox: sandbox_server_key
       )
+      # A replay has nobody to answer, so a paused run ends here as an error.
+      paused = agent_run.awaiting_input?
+      agent_run.cancel!("Paused for input during an evaluation replay") if paused
 
       Evals::Replay.new(
         answer: agent_run.output,
@@ -238,13 +241,28 @@ module ActionAgent
         duration_ms: agent_run.calculated_duration_ms,
         input_tokens: agent_run.input_tokens,
         output_tokens: agent_run.output_tokens,
-        error: agent_run.failed? ? agent_run.error_message.presence || "run failed" : nil,
+        error: replay_error(agent_run, paused),
         cost: ModelPricing.estimate(model: spec.model, provider: spec.provider, input_tokens: agent_run.input_tokens,
                                     output_tokens: agent_run.output_tokens),
         metadata: { "agent_run_id" => agent_run.id }
       )
     end
 
+    def replay_error(agent_run, paused)
+      return "paused for input" if paused
+
+      agent_run.failed? ? agent_run.error_message.presence || "run failed" : nil
+    end
+
+    # The caller a replay runs on behalf of: the evaluation's owner, when the
+    # install owns agents per user. A run with no caller reads, through any
+    # host scope, as "no access" — every tool answers empty and the suite
+    # grades an agent that never saw a row — so the person the evaluation
+    # belongs to is the right default, as the key's owner is over MCP. An
+    # account is who is billed, not who is allowed (see Api::BaseController
+    # #agent_actor), so a multi-tenant install replays unattributed unless a
+    # host adapter (ActionAgent.scenario_evaluation_adapter_resolver) runs
+    # the suite itself.
     def replay_actor
       self.class.replay_actor_for(owner)
     end

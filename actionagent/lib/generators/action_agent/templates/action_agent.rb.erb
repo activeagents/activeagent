@@ -104,7 +104,8 @@ ActionAgent.configure do |config|
   #
   # Who may perform the dashboard's privileged actions: storing provider
   # credentials (:manage_credentials), connecting GitHub (:manage_github),
-  # creating and revoking API keys (:manage_api_keys), and the rest of
+  # creating and revoking API keys (:manage_api_keys), answering a paused
+  # run's request for input (:answer_input_request), and the rest of
   # ActionAgent::PERMISSION_ACTIONS. Called with the signed-in user, the
   # action and the record it applies to; true allows, false denies with a
   # 403. Unset, anyone who passes authentication may do all of them. With
@@ -121,7 +122,7 @@ ActionAgent.configure do |config|
 
   # ==========================================================================
   # Provider keys and members
-  # ==========================================================================
+  # ===================================================================
   #
   # Agent runs, the evaluation judge and the assistant use the account's
   # provider keys (Settings -> API Keys, or the Organization page) before
@@ -156,6 +157,16 @@ ActionAgent.configure do |config|
   #   account.members.map { |user| { id: user.id, name: user.name, email: user.email, role: user.role } }
   # }
   # config.member_invite_url = "/team/invitations/new"
+=======
+  # Input requests
+  # ==========================================================================
+  #
+  # How long a paused run's request for input waits for an answer. A later
+  # answer is refused with a 409, and the run fails. Schedule
+  # ActionAgent::InputRequestExpiryJob to fail the runs whose requests
+  # nobody answers or looks at.
+  #
+  # config.input_request_ttl = 1.day
 
   # ==========================================================================
   # Host integration

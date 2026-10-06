@@ -61,6 +61,7 @@ require "solid_agent"
 require "action_agent/version"
 require "action_agent/engine"
 require "action_agent/compatibility"
+require "action_agent/secret_requests"
 
 # Dashboard engine for visualizing telemetry data and managing agents.
 #
@@ -347,14 +348,19 @@ module ActionAgent
     # request gets HTTP 403, and a denied GitHub connect or callback returns
     # to Settings.
     #
+    # For :answer_input_request the subject is the InputRequest, whose
+    # `requested_by_id` is the id of the user the paused run acts for.
+    #
     #   config.permission_checker = ->(user, action, subject) {
-    #     user.present? && (user.admin? || action == :answer_input_request)
+    #     user.present? && (user.admin? ||
+    #       action == :answer_input_request && subject.requested_by_id.in?([ nil, user.id ]))
     #   }
     #
     # Unset means everyone who can reach the dashboard may do everything,
     # which is what a single-user install wants. In multi-tenant mode it means
-    # every member of a tenant may do everything, and the engine logs a
-    # warning at boot (see {.warn_about_unchecked_permissions}).
+    # every member of a tenant may do everything except answer a request for
+    # input another member's run raised (InputRequest#answerable_by?), and the
+    # engine logs a warning at boot (see {.warn_about_unchecked_permissions}).
     # @return [Proc, nil]
     attr_accessor :permission_checker
 
@@ -617,6 +623,13 @@ module ActionAgent
     # means nothing is ever deleted.
     # @return [ActiveSupport::Duration, Proc, nil]
     attr_accessor :trace_retention
+
+    # How long a run's request for input waits for an answer. Past it, the
+    # request expires and its run fails, once an answer, the request list,
+    # the run's page or InputRequestExpiryJob reaches it. One day by default;
+    # nil lets a request wait until it is answered or its run is cancelled.
+    # @return [ActiveSupport::Duration, nil]
+    attr_accessor :input_request_ttl
 
     # Whether API keys and provider credentials are encrypted at rest with
     # Active Record Encryption. On by default, which requires the host app
@@ -1057,6 +1070,7 @@ module ActionAgent
       @table_name_prefix = "active_agent_"
       @agent_polymorphic_name = nil
       @encrypt_credentials = true
+      @input_request_ttl = 1.day
       @github_client_id = nil
       @github_client_secret = nil
       @github_oauth_scopes = "repo read:user"
