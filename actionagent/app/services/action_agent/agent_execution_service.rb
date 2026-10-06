@@ -376,13 +376,15 @@ module ActionAgent
           request_handoff(**kwargs.slice(:reason, :url, :form_values, :instructions))
         else
           # A tool one of the agent's own MCP servers serves is called there;
-          # AgentToolbox answers the rest.
+          # AgentToolbox answers the rest. A browser tool call is recorded on
+          # the run's session recording either way.
           # `actor:` comes from the run, never from kwargs (see
           # ACTOR_KEYWORDS): it is who the run is for, not what it is about.
           # A browser action is also written to the run's session recording,
           # so the run plays back in Session Replay and can hand off.
-          mcp_dispatcher.call(name, kwargs) ||
-            recording_browser_action(name, kwargs) { AgentToolbox.call(name, actor: actor, **kwargs) }
+          browser_recorder.intercept(tool_name: name.to_s, parameters: kwargs) do
+            mcp_dispatcher.call(name, kwargs) || AgentToolbox.call(name, actor: actor, **kwargs)
+          end
         end
       rescue StandardError => e
         Rails.logger.warn("[AgentExecutionService] Tool #{name} failed: #{e.class} - #{e.message}")
@@ -442,35 +444,14 @@ module ActionAgent
       Array(@agent_record.tools).map(&:to_s).include?("playwright_mcp")
     end
 
-    # The run's recording, opened on the first browser action. Nil for agents
-    # without the browser tools, and when recording itself fails: a run never
-    # fails because its replay could not be written.
-    def browser_recording
-      return nil unless browser_tools_enabled?
-
-      @browser_recording ||= MCPRecordingMiddleware.new(agent_run: @run)
-    rescue StandardError => e
-      Rails.logger.warn("[AgentExecutionService] session recording unavailable: #{e.message}")
-      nil
-    end
-
-    def recording_browser_action(name, kwargs)
-      middleware = MCPRecordingMiddleware::PLAYWRIGHT_TOOLS.key?(name.to_s) ? browser_recording : nil
-      return yield unless middleware
-
-      # The middleware reads parameters the way an MCP server sends them, by
-      # string key.
-      middleware.intercept(tool_name: name.to_s, parameters: kwargs.deep_stringify_keys) { yield }
-    end
-
     def request_handoff(reason: nil, url: nil, form_values: nil, instructions: nil)
       unless browser_tools_enabled?
         return { error: "request_handoff needs the browser tools (playwright_mcp) enabled on this agent" }
       end
       return { error: "request_handoff needs the url of the page the person continues on" } if url.blank?
 
-      middleware = browser_recording
-      return { error: "request_handoff could not open the run's session recording" } unless middleware
+      middleware = browser_recorder
+      return { error: "request_handoff could not open the run's session recording" } unless middleware.recording
 
       reason = reason.to_s.strip.presence || "a step only a person can take"
       values = handoff_form_values(form_values)
@@ -501,8 +482,10 @@ module ActionAgent
       end.presence
     end
 
+    # Closes the run's recording when the run recorded anything. A run whose
+    # tools never touched the browser has no recording, and gets none here.
     def finish_browser_recording
-      @browser_recording&.complete!
+      @browser_recorder&.complete! if @browser_recorder&.recording_started?
     rescue StandardError => e
       Rails.logger.warn("[AgentExecutionService] could not complete the session recording: #{e.message}")
     end
@@ -520,6 +503,27 @@ module ActionAgent
     # runner run against it) reaches that runtime too.
     def mcp_dispatcher
       @mcp_dispatcher ||= MCPToolDispatcher.new(@agent_record, extra_server_keys: [ @run.try(:sandbox_server_key) ].compact)
+    end
+
+    # How many rows of each credential the recording secrets are read from.
+    RECORDING_SECRET_LOOKUP_LIMIT = 50
+
+    def browser_recorder
+      @browser_recorder ||= MCPRecordingMiddleware.new(agent_run: @run, secrets: -> { recording_secrets })
+    end
+
+    # The credentials the run's owner holds, scrubbed from the browser
+    # actions the run records: provider keys, the GitHub token, and the
+    # runtime token of the sandbox the run reaches.
+    def recording_secrets
+      sandbox_id = @run.try(:sandbox_id)
+      sandbox = sandbox_id && SandboxSession.for_owner(owner).find_by(session_id: sandbox_id)
+      [
+        *ProviderKey.for_owner(owner).limit(RECORDING_SECRET_LOOKUP_LIMIT).pluck(:credential, :api_key).flatten,
+        *GithubConnection.for_owner(owner).limit(RECORDING_SECRET_LOOKUP_LIMIT).pluck(:access_token),
+        sandbox&.runtime_mcp_token,
+        *owner_provider_options(requested_provider).values_at(:access_token, :api_key)
+      ].compact
     end
 
     # Splits the offered schemas the way `tool_schemas` assembles them, so the

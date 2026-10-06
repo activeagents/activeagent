@@ -17,7 +17,8 @@ module ActionAgent
     # the page's CSRF token with every mutating request (frontend
     # utils/apiFetch.mjs). Endpoints that authenticate with a bearer token
     # instead — the telemetry ingest endpoint (Api::TracesController), the
-    # evaluation report collector (Api::EvaluationReportsController) and the
+    # evaluation report collector (Api::EvaluationReportsController), a
+    # recording's event ingest (Api::RecordingEventIngestController) and the
     # MCP facade (Api::MCPController) — are exempt.
     class BaseController < ActionAgent::ApplicationController
       # Rails 8.2 verifies forgery protection from the browser's Sec-Fetch-Site
@@ -84,6 +85,22 @@ module ActionAgent
       # multi-tenant install; every trace otherwise.
       def owned_traces
         ActionAgent.trace_model.for_account(current_account)
+      end
+
+      # The recordings the caller may open: those the caller owns, plus those
+      # made inside a sandbox the caller owns. The second clause is what
+      # keeps recordings created before the owner column was written
+      # reachable.
+      def reachable_recordings
+        scope = owned(SessionRecording)
+        return scope if SessionRecording.owner_association.nil?
+
+        scope.or(SessionRecording.where(sandbox_session_id: owned(SandboxSession).select(:id)))
+      end
+
+      # What a session timeline may reach on the caller's behalf.
+      def timeline_scope
+        SessionTimeline::Scope.new(agents: owner_agents, traces: owned_traces, recordings: reachable_recordings)
       end
 
       # The caller an agent run executes on behalf of.
