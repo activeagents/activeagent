@@ -5,8 +5,9 @@ import { ICONS, TYPOGRAPHY } from '../../utils/designTokens';
 import { dashboardNavSections } from '../../utils/dashboardRoutes.mjs';
 
 // features: what the server enabled on this dashboard (dashboardFeatures);
-// a view it turned off has no nav item.
-export default function Sidebar({ currentView, onNavigate, agentCount, account, user, gemVersion, features = {} }) {
+// a view it turned off has no nav item. pendingInputCount: the requests for
+// input waiting for an answer, undefined when none are.
+export default function Sidebar({ currentView, onNavigate, agentCount, pendingInputCount, account, user, gemVersion, features = {} }) {
   const { darkMode } = useTheme();
   const [showAccountMenu, setShowAccountMenu] = useState(false);
   const menuRef = useRef(null);
@@ -25,14 +26,20 @@ export default function Sidebar({ currentView, onNavigate, agentCount, account, 
   const accountName = account?.name || 'My Workspace';
   const userName = user?.name || user?.email?.split('@')[0] || 'User';
 
-  const badges = { agentCount };
+  const badges = { agentCount, pendingInputCount };
+  const badgeFor = (item) => {
+    const value = item.badge ? badges[item.badge] : undefined;
+    return item.badgeTone === 'attention' && !value ? undefined : value;
+  };
   const sections = dashboardNavSections(features).map((section) => ({
     ...section,
     items: section.items.map((item) => ({
       id: item.view,
       label: item.label,
       icon: item.glyph ?? ICONS.nav[item.icon],
-      badge: item.badge ? badges[item.badge] : undefined,
+      badge: badgeFor(item),
+      badgeTone: item.badgeTone,
+      badgeTitle: item.badgeTitle,
     })),
   }));
 
@@ -74,7 +81,18 @@ export default function Sidebar({ currentView, onNavigate, agentCount, account, 
         </span>
         <span className="font-medium">{item.label}</span>
       </div>
-      {item.badge !== undefined && (
+      {item.badge !== undefined && item.badgeTone === 'attention' && (
+        <span
+          data-testid={`nav-badge-${item.id}`}
+          className="px-2 py-0.5 text-xs rounded-full font-semibold"
+          title={`${item.badge} ${item.badgeTitle || ''}`.trim()}
+          aria-label={`${item.badge} ${item.badgeTitle || ''}`.trim()}
+          style={{ backgroundColor: 'var(--color-warning-soft)', color: 'var(--color-warning-text)' }}
+        >
+          {item.badge}
+        </span>
+      )}
+      {item.badge !== undefined && item.badgeTone !== 'attention' && (
         <span
           className="px-2 py-0.5 text-xs rounded-full"
           style={{
