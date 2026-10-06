@@ -146,7 +146,7 @@ module ActionAgent
         )
       when "click"
         @recording_service.click(
-          selector: parameters["ref"] || parameters["selector"],
+          selector: parameters["ref"] || parameters["target"] || parameters["selector"],
           screenshot: screenshot,
           metadata: metadata.merge(
             element: parameters["element"],
@@ -155,7 +155,7 @@ module ActionAgent
         )
       when "type"
         @recording_service.type(
-          selector: parameters["ref"] || parameters["selector"],
+          selector: parameters["ref"] || parameters["target"] || parameters["selector"],
           text: parameters["text"],
           screenshot: screenshot,
           metadata: metadata
@@ -180,12 +180,12 @@ module ActionAgent
         )
       when "hover"
         @recording_service.hover(
-          selector: parameters["ref"] || parameters["selector"],
+          selector: parameters["ref"] || parameters["target"] || parameters["selector"],
           screenshot: screenshot
         )
       when "select"
         @recording_service.select_option(
-          selector: parameters["ref"] || parameters["selector"],
+          selector: parameters["ref"] || parameters["target"] || parameters["selector"],
           values: parameters["values"] || [],
           screenshot: screenshot
         )
@@ -210,7 +210,7 @@ module ActionAgent
         # Generic recording for other actions
         @recording&.record_action!(
           action_type: action_type,
-          selector: parameters["ref"] || parameters["selector"],
+          selector: parameters["ref"] || parameters["target"] || parameters["selector"],
           value: parameters.to_json,
           screenshot: screenshot,
           metadata: metadata

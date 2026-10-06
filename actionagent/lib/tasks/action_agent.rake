@@ -6,6 +6,39 @@ namespace :action_agent do
     ActionAgent::AgentTemplate.seed_defaults!
     puts "Agent template library: #{ActionAgent::AgentTemplate.count} templates"
   end
+
+  # Sample data a workspace can show before it has run anything of its own.
+  # On a multi-tenant install name the workspace: ACCOUNT_ID=<id> (or
+  # USER_ID=<id> where agents belong to users).
+  namespace :sample do
+    desc "Seed the conference-ticket sample: an agent, a week of runs and traces, a replayable handoff, and an evaluation history"
+    task conference_ticket: :environment do
+      ActionAgent::AgentTemplate.seed_defaults!
+      agent = ActionAgent::SampleData::ConferenceTicket.seed!(owner: action_agent_sample_owner)
+      traces = ActionAgent.trace_model.where(agent_id: agent.id).count
+      evaluation = agent.evaluations.find_by(name: ActionAgent::SampleData::ConferenceTicket::EVALUATION_NAME)
+      puts "Conference ticket sample: agent ##{agent.id} (#{agent.slug})"
+      puts "  #{agent.agent_runs.count} runs, #{traces} traces, " \
+           "#{ActionAgent::SessionRecording.where(agent_run_id: agent.agent_runs.select(:id)).count} session recording"
+      puts "  evaluation \"#{evaluation&.name}\": #{evaluation&.evaluation_runs&.count} runs over #{evaluation&.scenarios&.count} scenarios"
+    end
+
+    desc "Remove the conference-ticket sample and everything it created"
+    task clear: :environment do
+      removed = ActionAgent::SampleData::ConferenceTicket.clear!(owner: action_agent_sample_owner)
+      puts removed.zero? ? "No conference ticket sample to remove" : "Conference ticket sample removed"
+    end
+  end
+end
+
+# The workspace the sample belongs to, from ACCOUNT_ID or USER_ID; nil on a
+# single-user install.
+def action_agent_sample_owner
+  if ENV["ACCOUNT_ID"].present?
+    ActionAgent.account_class.to_s.constantize.find(ENV["ACCOUNT_ID"])
+  elsif ENV["USER_ID"].present?
+    ActionAgent.user_class.to_s.constantize.find(ENV["USER_ID"])
+  end
 end
 
 namespace :action_agent do

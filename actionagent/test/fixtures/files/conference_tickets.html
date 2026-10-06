@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Example Ruby Conference · Tickets</title>
+</head>
+<body>
+  <main>
+    <h1>Example Ruby Conference · Tickets</h1>
+    <p>Two days of talks. Pick a ticket, tell us who is coming, then pay.</p>
+
+    <form id="registration" action="#payment" method="get">
+      <fieldset>
+        <legend>Ticket</legend>
+        <label><input type="radio" name="ticket" value="both-days" checked> Both days, $500</label>
+        <label><input type="radio" name="ticket" value="community-day"> Community day, $500</label>
+      </fieldset>
+
+      <fieldset>
+        <legend>Attendee</legend>
+        <label for="name">Name</label>
+        <input id="name" name="name" type="text" autocomplete="name">
+        <label for="email">Email</label>
+        <input id="email" name="email" type="email" autocomplete="email">
+        <label for="company">Company</label>
+        <input id="company" name="company" type="text" autocomplete="organization">
+      </fieldset>
+
+      <button type="submit">Register</button>
+    </form>
+
+    <section id="payment">
+      <h2>Payment</h2>
+      <p>Only the ticket's owner enters these.</p>
+      <label for="card">Card number</label>
+      <input id="card" name="card" type="text" inputmode="numeric" autocomplete="cc-number">
+      <label for="expiry">Expiry</label>
+      <input id="expiry" name="expiry" type="text" autocomplete="cc-exp">
+      <button type="button">Pay $500</button>
+    </section>
+  </main>
+</body>
+</html>

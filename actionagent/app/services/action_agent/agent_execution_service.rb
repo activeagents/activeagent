@@ -173,6 +173,7 @@ module ActionAgent
         raise
       ensure
         record_trace(root_span)
+        finish_browser_recording
       end
     end
 
@@ -363,12 +364,17 @@ module ActionAgent
           }
         when "call_agent"
           call_agent(slug: kwargs[:slug], message: kwargs[:message])
+        when "request_handoff"
+          request_handoff(**kwargs.slice(:reason, :url, :form_values, :instructions))
         else
           # A tool one of the agent's own MCP servers serves is called there;
           # AgentToolbox answers the rest.
           # `actor:` comes from the run, never from kwargs (see
           # ACTOR_KEYWORDS): it is who the run is for, not what it is about.
-          mcp_dispatcher.call(name, kwargs) || AgentToolbox.call(name, actor: actor, **kwargs)
+          # A browser action is also written to the run's session recording,
+          # so the run plays back in Session Replay and can hand off.
+          mcp_dispatcher.call(name, kwargs) ||
+            recording_browser_action(name, kwargs) { AgentToolbox.call(name, actor: actor, **kwargs) }
         end
       rescue StandardError => e
         Rails.logger.warn("[AgentExecutionService] Tool #{name} failed: #{e.class} - #{e.message}")
@@ -406,6 +412,92 @@ module ActionAgent
     end
 
     private
+
+    # -- Browser runs: recording and handoff ---------------------------------
+    #
+    # An agent with the +playwright_mcp+ tools drives the platform's browser.
+    # Its browser tool calls are written to a SessionRecording tied to the run,
+    # so Session Replay plays the run back; and when the page asks for
+    # something only a person may give, the agent calls +request_handoff+,
+    # which stores the page URL and the values entered so far on that
+    # recording. Session Replay's Take Over Session then opens that page for
+    # the person — the agent registers, the person pays.
+
+    # At most this many entered values are kept, each clipped to this length.
+    HANDOFF_FORM_VALUE_LIMIT = 40
+    HANDOFF_FORM_VALUE_LENGTH = 200
+    # A value under a key that looks like a secret is never stored: a person
+    # checks what the agent filled in, not what the agent must never see.
+    HANDOFF_SECRET_KEY = /card|cvc|cvv|expir|password|passcode|secret|token|otp|ssn|iban|account.?number/i
+
+    def browser_tools_enabled?
+      Array(@agent_record.tools).map(&:to_s).include?("playwright_mcp")
+    end
+
+    # The run's recording, opened on the first browser action. Nil for agents
+    # without the browser tools, and when recording itself fails: a run never
+    # fails because its replay could not be written.
+    def browser_recording
+      return nil unless browser_tools_enabled?
+
+      @browser_recording ||= MCPRecordingMiddleware.new(agent_run: @run)
+    rescue StandardError => e
+      Rails.logger.warn("[AgentExecutionService] session recording unavailable: #{e.message}")
+      nil
+    end
+
+    def recording_browser_action(name, kwargs)
+      middleware = MCPRecordingMiddleware::PLAYWRIGHT_TOOLS.key?(name.to_s) ? browser_recording : nil
+      return yield unless middleware
+
+      # The middleware reads parameters the way an MCP server sends them, by
+      # string key.
+      middleware.intercept(tool_name: name.to_s, parameters: kwargs.deep_stringify_keys) { yield }
+    end
+
+    def request_handoff(reason: nil, url: nil, form_values: nil, instructions: nil)
+      unless browser_tools_enabled?
+        return { error: "request_handoff needs the browser tools (playwright_mcp) enabled on this agent" }
+      end
+      return { error: "request_handoff needs the url of the page the person continues on" } if url.blank?
+
+      middleware = browser_recording
+      return { error: "request_handoff could not open the run's session recording" } unless middleware
+
+      reason = reason.to_s.strip.presence || "a step only a person can take"
+      values = handoff_form_values(form_values)
+      middleware.capture_for_handoff(url: url.to_s, form_values: values)
+      middleware.recording_service.handoff(reason: reason, url: url.to_s, instructions: instructions.presence)
+      recording = middleware.recording_service.recording
+      @run.add_log("Handoff requested: #{reason} at #{url}")
+
+      {
+        handed_off: true,
+        recording_id: recording.id,
+        url: url.to_s,
+        reason: reason,
+        form_values: values,
+        message: "Stopped before #{reason}. A person continues from Session Replay → Take Over Session. " \
+                 "Take no further browser actions; report where you stopped and what you entered."
+      }
+    end
+
+    def handoff_form_values(values)
+      return nil unless values.respond_to?(:to_h)
+
+      values.to_h.first(HANDOFF_FORM_VALUE_LIMIT).each_with_object({}) do |(key, value), kept|
+        next if key.to_s.match?(HANDOFF_SECRET_KEY)
+        next unless value.is_a?(String) || value.is_a?(Numeric) || value == true || value == false
+
+        kept[key.to_s] = value.to_s.byteslice(0, HANDOFF_FORM_VALUE_LENGTH).to_s.scrub
+      end.presence
+    end
+
+    def finish_browser_recording
+      @browser_recording&.complete!
+    rescue StandardError => e
+      Rails.logger.warn("[AgentExecutionService] could not complete the session recording: #{e.message}")
+    end
 
     # Maximum agent-to-agent delegation depth for the call_agent tool. A
     # thread-local counter guards it because the sub-agent runs synchronously
