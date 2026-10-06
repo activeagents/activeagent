@@ -263,6 +263,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   of the checkout commit it reads against its id. The OAuth connect callback
   records the user who connected. Run `rails g action_agent:install` and
   `rails db:migrate` for the `draft_pull_requests` table.
+- **Answer input requests in the dashboard** (`actionagent`). The
+  Interactions nav item shows how many requests are waiting, and Interactions
+  opens with a Needs input lane listing them. The runner keeps a paused run in
+  flight, shows its requests inline, and after each answer polls the same run
+  until its reply arrives. A `?run=` link opens a run that way. One card
+  answers every kind: a text field or option buttons (through Generative UI),
+  Approve and Decline beside a `confirm` request's arguments, and a password
+  field for a `secret`, marked `data-aa-secret` and emptied once sent. The
+  Tools tab has an Approval switch per enabled tool that writes the agent's
+  `approval_required_tools`, using the `approval_names` the roster endpoint
+  now returns for each row.
 
 ### Changed
 

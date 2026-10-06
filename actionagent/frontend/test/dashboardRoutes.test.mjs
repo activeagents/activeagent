@@ -212,7 +212,9 @@ const EXPECTED_NAV = [
   ]],
   ['observability', 'Observability', [
     ['traces', 'Traces', { icon: 'traces' }],
-    ['interactions', 'Interactions', { icon: 'interactions' }],
+    ['interactions', 'Interactions', {
+      icon: 'interactions', badge: 'pendingInputCount', badgeTone: 'attention', badgeTitle: 'requests waiting for an answer',
+    }],
     ['tools', 'Tools', { icon: 'tools' }],
     ['mcp', 'MCP Services', { icon: 'mcp' }],
     ['metrics', 'Metrics', { icon: 'metrics' }],

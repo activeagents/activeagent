@@ -146,6 +146,7 @@ export default function AgentEditor({ agent, meta, onSave, onDelete, onRun, onDu
     appearance: agent.appearance || {},
     instruction_sets: agent.instructionSets || agent.instruction_sets || [],
     tools: agent.tools || [],
+    approval_required_tools: agent.approvalRequiredTools || agent.approval_required_tools || [],
     mcp_servers: agent.mcpServers || agent.mcp_servers || [],
     model_config: agent.modelConfig || agent.model_config || { temperature: 0.7 },
     status: agent.status || 'draft'
@@ -171,6 +172,7 @@ export default function AgentEditor({ agent, meta, onSave, onDelete, onRun, onDu
       appearance: agent.appearance || {},
       instruction_sets: agent.instructionSets || agent.instruction_sets || [],
       tools: agent.tools || [],
+      approval_required_tools: agent.approvalRequiredTools || agent.approval_required_tools || [],
       mcp_servers: agent.mcpServers || agent.mcp_servers || [],
       model_config: agent.modelConfig || agent.model_config || { temperature: 0.7 },
       status: agent.status || 'draft'

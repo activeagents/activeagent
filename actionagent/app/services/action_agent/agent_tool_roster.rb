@@ -33,6 +33,14 @@ module ActionAgent
   # capabilities and the schema tools, +mcp_servers+ for services and their
   # per-server allow-lists (an entry with no +tools+ key offers everything
   # the server serves).
+  #
+  # Every tool row, and every tool a service lists, carries +approval_names+:
+  # the names Agent#approval_required_tools takes for it, which are the names
+  # the model calls it by. A capability names each function it exposes, and
+  # a schema or MCP tool its own name. The list is empty for a row whose
+  # calls the dashboard cannot hold for approval: the input tools, which ask
+  # on their own, and a tool the agent class declares in code, which its
+  # class runs.
   class AgentToolRoster
     AGENT_DEFINED = "agent_defined"
     DASHBOARD = "dashboard"
@@ -167,7 +175,8 @@ module ActionAgent
         usage_row(by_name[name]).merge(
           name: name,
           description: by_name[name]&.dig(:description),
-          enabled: allowed.nil? || allowed.include?(name)
+          enabled: allowed.nil? || allowed.include?(name),
+          approval_names: [ name ]
         )
       end
     end
@@ -200,7 +209,8 @@ module ActionAgent
           # window may still show it being called, but that is history. A
           # tool the agent class declares in code is offered by the class.
           enabled: schema ? saved_tools.include?(name) : true,
-          editable: schema
+          editable: schema,
+          approval_names: schema ? [ name ] : []
         )
       end
     end
@@ -222,15 +232,20 @@ module ActionAgent
           source: DASHBOARD,
           description: Agent::TOOL_DESCRIPTIONS[capability],
           enabled: saved_tools.include?(capability),
-          editable: true
+          editable: true,
+          approval_names: capability_functions(capability) - AgentToolbox::INPUT_FUNCTIONS
         )
       end
+    end
+
+    def capability_functions(capability)
+      AgentToolbox::DEFINITIONS[capability]&.map { |definition| definition[:name].to_s } || []
     end
 
     # A capability is one checkbox over the several functions it exposes
     # ("memory" is save_memory + recall_memory), so its usage is their sum.
     def capability_usage(capability)
-      names = (AgentToolbox::DEFINITIONS[capability]&.map { |definition| definition[:name].to_s } || []) + [ capability ]
+      names = capability_functions(capability) + [ capability ]
       rows = detected.select { |tool| names.include?(tool[:name]) }
       return nil if rows.empty?
 
