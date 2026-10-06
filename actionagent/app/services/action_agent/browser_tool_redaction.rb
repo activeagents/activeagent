@@ -1,9 +1,9 @@
 # frozen_string_literal: true
 
 module ActionAgent
-  # Masks what a browser tool call typed: the `text` of `browser_type`, the
-  # `promptText` of `browser_handle_dialog` and each field `value` of
-  # `browser_fill_form`. MCPRecordingMiddleware applies it before an agent's
+  # Masks what a browser tool call typed: the `text` of `browser_type` and
+  # `browser_press_sequentially`, the `promptText` of `browser_handle_dialog`
+  # and each field `value` of `browser_fill_form`. MCPRecordingMiddleware applies it before an agent's
   # browser action is stored, and SessionTimeline before a tool call is
   # shown.
   #
@@ -13,7 +13,9 @@ module ActionAgent
   module BrowserToolRedaction
     MASK = "[REDACTED]"
     # The argument that holds what each single-value typing tool typed.
-    TYPED_ARGUMENTS = { "browser_type" => "text", "browser_handle_dialog" => "promptText" }.freeze
+    TYPED_ARGUMENTS = {
+      "browser_type" => "text", "browser_press_sequentially" => "text", "browser_handle_dialog" => "promptText"
+    }.freeze
     TYPING_TOOLS = [ *TYPED_ARGUMENTS.keys, "browser_fill_form" ].freeze
     # Shorter typed values are masked in the arguments but not searched for
     # in other text, where they would mask unrelated characters.

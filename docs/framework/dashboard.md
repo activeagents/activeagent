@@ -1086,8 +1086,9 @@ defines, and `orchestrator.supports?(:verb)` answers whether it defines one:
 | `run_code_session(session, code_session, &on_event)`, `cancel_code_session(session, code_session)` | no | `{ exit_status:, diff: }`, true |
 | `changed_files(session)` | no | `{ base_commit:, files: [{ path:, status:, mode:, base_mode:, size: }] }`: what the checkout changed since it was cloned, without the files the repository ignores, read without running the checkout's git hooks, filters or configuration (or a submodule's). `base_mode` and `size` are optional |
 | `read_file(session, path, base: false)` | no | the file's current bytes, or with `base: true` its bytes in the commit the checkout was cloned at; nil when nothing is there. A symlink reads as its target. `path` is always relative and inside the checkout, and `base:` is passed only when true. A backend whose `read_file` takes no `base:` cannot read the checkout commit, so it offers no publishing |
-| `start_browser(session, mode:)` | no | `{ mcp_url:, mcp_token: }` for a browser of the sandbox's own; `mode` is `:headless` or `:headed` |
+| `start_browser(session, mode:)` | no | `{ mcp_url:, mcp_token: }`, optionally `live_url:`, for a browser of the sandbox's own; `mode` is `:headless` or `:headed`, and `session.browser_launch` carries the rest (see [Browser sessions](./browser-sessions#for-backend-authors)) |
 | `stop_browser(session)` | no | true, also when none was running |
+| `browser_modes` | no | the modes `start_browser` can run in; a backend without it is asked for either |
 | `resume_boot(session, from:)` | no | what `create_sandbox` returns, after re-running a failed boot it kept from the step named `from` (nil for the step that failed). A backend that also takes `boot_config:` is handed the spec to continue with |
 | `boot_status(session)` | no | `{ mode:, kind:, failed_step:, kept:, resumable_steps:, steps: [{ name:, status:, started_at:, finished_at:, duration_ms:, detail: }] }`, or nil when it holds nothing for the session. `resumable_steps`, the names `resume_boot` accepts as `from`, is optional |
 | `boot_log(session, step:, offset:, limit:, secrets:)` | no | `{ step:, offset:, next_offset:, size:, eof:, text: }`, one page of a step's log scrubbed of the session's secrets and of `secrets`, or nil when the step has no log |
@@ -1095,12 +1096,14 @@ defines, and `orchestrator.supports?(:verb)` answers whether it defines one:
 `session` is the `ActionAgent::SandboxSession`, and `handle` is the
 `container_name` that `create_sandbox` returned. Calling a verb the backend
 does not define raises `SandboxOrchestrator::UnsupportedBackendError`. The
-engine's `:local` backend defines `changed_files` and `read_file`, and
-`resume_boot`, `boot_status` and `boot_log`, and takes `boot_config:`. It
-reads the checkout commit object by object and refuses any object that does
-not hash to its id, since the checkout's object store is the sandbox's to
-write. The `:mock` backend takes `boot_config:` and records it without the
-secrets' values, and defines none of the optional verbs.
+engine's `:local` backend defines `changed_files` and `read_file`,
+`start_browser`, `stop_browser` and `browser_modes` (which [Browser
+sessions](./browser-sessions) describes), and `resume_boot`, `boot_status`
+and `boot_log`, and takes `boot_config:`. It reads the checkout commit object
+by object and refuses any object that does not hash to its id, since the
+checkout's object store is the sandbox's to write. The `:mock` backend takes
+`boot_config:` and records it without the secrets' values, and defines none
+of the optional verbs.
 
 ### Running against a sandbox without editing the agent
 
@@ -1924,7 +1927,9 @@ log. A batch authenticates with either:
   `SessionRecording#issue_ingest_token!` returns it and stores only its
   digest. It is accepted for that recording alone, cannot read anything back,
   and stops working when it expires (two hours by default), when the
-  recording completes, or when the recording's sandbox stops;
+  recording completes, or when the recording's sandbox stops. A batch sent
+  this way may be gzipped, with `Content-Encoding: gzip`, as a sandbox's
+  browser sends it; it is inflated no further than `batch_bytes`;
 - a dashboard session with its CSRF token, for a recording the user owns.
 
 A batch is stored whole or not at all. It answers 422 when it holds a kind a
@@ -1954,8 +1959,8 @@ When an agent calls one of the Playwright browser tools in
 `ActionAgent::MCPRecordingMiddleware::PLAYWRIGHT_TOOLS` (navigating, clicking,
 typing, filling forms, taking snapshots and the like), the call is stored as
 an `action` event on its run's recording, which the first call starts with
-`source: "agent"`. Other browser tools, such as `browser_tabs` and
-`browser_console_messages`, are not recorded. Typed values are masked and the
+`source: "agent"`. Listing console messages or network requests is not
+recorded. Typed values are masked and the
 owner's credentials are scrubbed before anything is stored. A failure to
 record is logged and leaves the tool's result unchanged.
 

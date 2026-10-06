@@ -18,23 +18,38 @@ module ActionAgent
   # session or agent run, created on the first browser call. Failing to
   # record is logged and never changes the call's result or exception.
   class MCPRecordingMiddleware
-    # Map of Playwright MCP tool names to our action types
+    # The browser tools of Playwright MCP, as the browser sidecar pins it, and
+    # the action type each is recorded as. Listing console messages or
+    # network requests is not recorded.
     PLAYWRIGHT_TOOLS = {
       "browser_navigate" => "navigate",
+      "browser_navigate_back" => "navigate",
+      "browser_navigate_forward" => "navigate",
+      "browser_reload" => "navigate",
+      "browser_tabs" => "navigate",
       "browser_click" => "click",
+      "browser_check" => "click",
+      "browser_uncheck" => "click",
+      "browser_mouse_click_xy" => "click",
       "browser_type" => "type",
+      "browser_press_sequentially" => "type",
       "browser_fill_form" => "form_fill",
       "browser_press_key" => "key_press",
+      "browser_keydown" => "key_press",
+      "browser_keyup" => "key_press",
       "browser_snapshot" => "snapshot",
       "browser_take_screenshot" => "snapshot",
       "browser_hover" => "hover",
+      "browser_mouse_move_xy" => "hover",
       "browser_select_option" => "select",
       "browser_file_upload" => "file_upload",
       "browser_handle_dialog" => "dialog",
       "browser_evaluate" => "evaluate",
       "browser_wait_for" => "wait",
       "browser_drag" => "drag",
-      "browser_scroll" => "scroll"
+      "browser_drop" => "drag",
+      "browser_mouse_drag_xy" => "drag",
+      "browser_mouse_wheel" => "scroll"
     }.freeze
 
     ERROR_LIMIT = 1000

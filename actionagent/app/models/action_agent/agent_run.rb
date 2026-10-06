@@ -36,6 +36,11 @@ module ActionAgent
     # the server, after it checked the caller owns that sandbox, and
     # stripped from anything a client sends, as the actor is.
     SANDBOX_PARAM = "_sandbox_server"
+    # The key of that sandbox's browser ("browser:<session_id>"), recorded
+    # when the browser was running as the run was created, so a run whose
+    # browser stops before it executes fails rather than running without
+    # it. Set and stripped like SANDBOX_PARAM.
+    BROWSER_PARAM = "_sandbox_browser"
 
     # +input_params+ with the caller recorded alongside them.
     #
@@ -50,7 +55,8 @@ module ActionAgent
     # @param actor [Object, nil] the caller
     # @return [Hash]
     def self.params_with_actor(params, actor)
-      params = (params || {}).to_h.except(ACTOR_PARAM, ACTOR_PARAM.to_sym, SANDBOX_PARAM, SANDBOX_PARAM.to_sym)
+      params = (params || {}).to_h.except(ACTOR_PARAM, ACTOR_PARAM.to_sym, SANDBOX_PARAM, SANDBOX_PARAM.to_sym,
+        BROWSER_PARAM, BROWSER_PARAM.to_sym)
       gid = actor.respond_to?(:to_global_id) ? actor.to_global_id.to_s : nil
       gid ? params.merge(ACTOR_PARAM => gid) : params
     rescue StandardError => e
@@ -84,6 +90,14 @@ module ActionAgent
     # The session id of that sandbox, for a summary.
     def sandbox_id
       sandbox_server_key&.delete_prefix(SandboxSession::RUNTIME_SERVER_PREFIX)
+    end
+
+    # The "browser:<session_id>" key of that sandbox's browser, when it was
+    # running as the run was created, or nil.
+    # @return [String, nil]
+    def browser_server_key
+      key = input_params[BROWSER_PARAM] if input_params.is_a?(Hash)
+      key.to_s.presence if sandbox_server_key && SandboxSession.browser_server_key?(key)
     end
 
     # Whether this run knows who it is for. A run with a recorded actor that

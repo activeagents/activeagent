@@ -263,6 +263,43 @@ class RecordingEventIngestTest < ActionDispatch::IntegrationTest
     assert_equal 2, @recording.recording_events.sum(:event_count)
   end
 
+  # --- gzip ---------------------------------------------------------------
+
+  def post_gzipped(body, encoding: "gzip")
+    post events_path, params: body, headers: {
+      "Authorization" => "Bearer #{@token}", "Content-Type" => "application/json", "Content-Encoding" => encoding
+    }
+  end
+
+  test "a gzipped batch, as a sandbox's browser sends it, is inflated and stored" do
+    post_gzipped ActiveSupport::Gzip.compress(batch([ rrweb, { kind: "marker", timestamp: now_ms, data: { label: "navigated" } } ]))
+
+    assert_response :created
+    assert_equal 2, response.parsed_body["stored"]
+    assert_equal %w[marker rrweb], @recording.recording_events.order(:kind).pluck(:kind)
+  end
+
+  test "a gzipped batch that inflates past the byte cap is refused without inflating it all" do
+    ActionAgent.recording_limits = { batch_bytes: 1_000 }
+
+    post_gzipped ActiveSupport::Gzip.compress(batch([ rrweb(now_ms, { "text" => "x" * 100_000 }) ]))
+
+    assert_response 413
+    assert_equal "recording_limit", response.parsed_body["code"]
+    assert_equal 0, @recording.recording_events.count
+  end
+
+  test "a body that is not gzip, or another encoding, is refused" do
+    post_gzipped batch([ rrweb ])
+    assert_response :bad_request
+
+    post_gzipped batch([ rrweb ]), encoding: "br"
+    assert_response :unsupported_media_type
+
+    post_gzipped batch([ rrweb ]), encoding: "identity"
+    assert_response :created
+  end
+
   # --- clocks -------------------------------------------------------------
 
   test "a batch from a client clock ten minutes behind is stored in server time" do
