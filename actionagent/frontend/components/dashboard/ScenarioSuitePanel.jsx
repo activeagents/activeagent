@@ -563,7 +563,18 @@ export default function ScenarioSuitePanel({
             </span>
           </div>
           {fixItems.length > 0 ? (
-            <FixList items={fixItems} columns={columns} agentName={agentName} onNavigate={navigateTo} onOpenScenario={openScenario} run={run} results={results} />
+            <FixList
+              items={fixItems}
+              columns={columns}
+              agentName={agentName}
+              onNavigate={navigateTo}
+              onOpenScenario={openScenario}
+              run={run}
+              results={results}
+              evaluation={evaluation}
+              runNumber={runNumber}
+              scenarios={scenarios}
+            />
           ) : (
             <Empty style={{ border: '1px solid var(--color-border-light)', borderRadius: 10, padding: '14px 12px' }}>
               {running ? '[ ] scoring…' : '[+] nothing to fix'}

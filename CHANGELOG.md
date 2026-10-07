@@ -39,6 +39,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   The MCP facade gains `catalogs_list`, `catalogs_import` and
   `catalog_set_run`, and `action_agent:catalogs:import`, `:export` and
   `:run` rake tasks do the same from a shell.
+- **Copy fix prompt** (`actionagent`). Every What-to-fix card on an
+  evaluation run has a *Copy fix prompt* button that puts a Markdown brief
+  on the clipboard for a coding harness: the agent, evaluation and run by
+  name and id, the fault and recommendation or the judge's instruction
+  change, the tools and MCP server involved, each scenario's prompt,
+  expectations, tool calls, diagnosis and answer, where to look in the
+  agent, and the `evaluations_run`, `evaluation_runs_get` and
+  `evaluation_runs_compare` calls that prove the fix, with the evaluation
+  id, scenario keys and models filled in.
 - **Active Storage as one engine option** (`actionagent`). `config.active_storage`
   decides whether the dashboard attaches files anywhere: run attachments, a
   recording's snapshots and oversized event payloads, and scenario catalogs.
