@@ -1464,7 +1464,8 @@ run, never a credential:
 | `code_sessions_supported` | the backend runs sessions, and runs them in this mode |
 
 The dashboard assistant's configuration reports the same under
-`connections.claude_code` (`supported`, `connected`, `auth`, `login`).
+`connections.claude_code` (`supported`, `connected`, `auth`, `login`, and
+`sandboxes` in `sandbox_login` mode).
 
 ## Local checkout sandboxes
 

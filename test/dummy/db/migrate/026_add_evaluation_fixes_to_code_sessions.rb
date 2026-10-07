@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+# Links a Claude Code session to the evaluation fix it implements (the run,
+# the fix card, the follow-up it retries) and to the run that verified it,
+# and records which user signed in to Claude Code inside a sandbox.
 class AddEvaluationFixesToCodeSessions < ActiveRecord::Migration[7.2]
   def change
     sessions = "#{ActionAgent.table_name_prefix}code_sessions"
@@ -7,7 +10,8 @@ class AddEvaluationFixesToCodeSessions < ActiveRecord::Migration[7.2]
     add_column sessions, :evaluation_run_id, :bigint
     add_column sessions, :verification_run_id, :bigint
     add_column sessions, :previous_code_session_id, :bigint
-    add_column sessions, :fix_item, :json
+    # jsonb on PostgreSQL and json elsewhere, like the dashboard tables.
+    add_column sessions, :fix_item, connection.adapter_name.to_s.downcase.include?("postgres") ? :jsonb : :json
     add_column sessions, :credential_mode, :string
     add_column sessions, :verification_error, :text
     add_index sessions, :evaluation_run_id

@@ -8,7 +8,7 @@ const directory = fileURLToPath(new URL('..', import.meta.url));
 const bundle = `${directory}/node_modules/.cache/login-${process.pid}.mjs`;
 const sandbox = { session_id: 'fixture', status: 'ready', repository: 'fixture/support' };
 const item = { kind: 'fault', fault: 'expected_tool_not_called', scenario_keys: ['lookup'], models: ['mock/demo'] };
-let window, views, login, requests;
+let window, views, login, requests, fixes;
 before(async () => {
   ({ window } = new JSDOM('<!doctype html><body></body>', { url: 'http://localhost/settings' }));
   for (const key of ['window', 'document', 'navigator', 'localStorage']) Object.defineProperty(globalThis, key, { value: key === 'window' ? window : window[key], configurable: true, writable: true });
@@ -22,7 +22,7 @@ before(async () => {
     let body;
     if (url === '/api/provider_keys') body = { provider_keys: [] };
     if (url.startsWith('/api/sandboxes?')) body = { sandboxes: [sandbox], claude_code_auth: 'sandbox_login', claude_code_connected: !!login.logged_in };
-    if (url.endsWith('/fixes')) body = { project: { id: 1 }, sandboxes: [sandbox], code_sessions: [], supported: true, auth_mode: 'sandbox_login' };
+    if (url.endsWith('/fixes')) body = fixes || { project: { id: 1 }, sandboxes: [sandbox], code_sessions: [], supported: true, auth_mode: 'sandbox_login' };
     if (url.endsWith('/claude_login')) {
       if (method === 'POST') login = { status: 'awaiting_code', logged_in: false, authorize_url: 'https://claude.ai/oauth/authorize?client_id=fixture' };
       if (method === 'DELETE') login = { status: 'disconnected', logged_in: false };
@@ -37,9 +37,10 @@ before(async () => {
     import Settings from './components/dashboard/ClaudeCodeIntegrationCard.jsx';
     import Fix from './components/dashboard/evaluations/ImplementFixButton.jsx';
     export { act };
-    export function mount(node, name, props) {
+    export function mount(node, name, props, copies = 1) {
       const root = createRoot(node);
-      root.render(React.createElement(ThemeProvider, null, React.createElement(name === 'settings' ? Settings : Fix, props)));
+      const View = name === 'settings' ? Settings : Fix;
+      root.render(React.createElement(ThemeProvider, null, ...Array.from({ length: copies }, (_, i) => React.createElement(View, { key: i, ...props }))));
       return root;
     }`, resolveDir: directory, loader: 'jsx' }, bundle: true, write: false, platform: 'node', format: 'esm', external: ['react', 'react-dom', 'react-dom/client'], logLevel: 'error' });
   mkdirSync(`${directory}/node_modules/.cache`, { recursive: true }); writeFileSync(bundle, outputFiles[0].text);
@@ -60,7 +61,7 @@ for (const name of ['settings', 'fix']) test(`${name} shares the login protocol,
   const node = document.body.appendChild(document.createElement('div')); let mounted;
   await views.act(async () => { mounted = views.mount(node, name, { item, evaluation: { id: 1, name: 'Support' }, run: { id: 7 } }); });
   try {
-    if (name === 'fix') await click(button(node, 'Implement with Claude Code'));
+    if (name === 'fix') await click(await waitFor(() => button(node, 'Implement with Claude Code')));
     await waitFor(() => button(node, 'Sign in with your Claude subscription'));
     await click(button(node, 'Sign in with your Claude subscription'));
     const input = await waitFor(() => node.querySelector('input[placeholder="Paste the code from Claude"]'));
@@ -78,4 +79,19 @@ for (const name of ['settings', 'fix']) test(`${name} shares the login protocol,
     assert.equal(localStorage.getItem('claude_login_code'), null);
     assert.equal(requests.filter((request) => request.method === 'POST' && request.url.endsWith('/code_sessions')).length, 0);
   } finally { await views.act(async () => mounted.unmount()); node.remove(); }
+});
+
+test('the cards of one run share one workspace load, and stay hidden where a fix cannot run', async () => {
+  login = { status: 'disconnected', logged_in: false };
+  for (const [workspace, shown] of [[null, true], [{ project: null, sandboxes: [], code_sessions: [], supported: true, auth_mode: 'api_key' }, false], [{ project: { id: 1 }, sandboxes: [], code_sessions: [], supported: false, auth_mode: 'api_key' }, false]]) {
+    requests = []; fixes = workspace;
+    const node = document.body.appendChild(document.createElement('div')); let mounted;
+    await views.act(async () => { mounted = views.mount(node, 'fix', { item, evaluation: { id: 1, name: 'Support' }, run: { id: 7 } }, 3); });
+    try {
+      await waitFor(() => requests.length > 0);
+      await views.act(() => new Promise((resolve) => setTimeout(resolve, 20)));
+      assert.equal(requests.filter((request) => request.url.endsWith('/fixes')).length, 1);
+      assert.equal(node.querySelectorAll('[data-testid="implement-fix"]').length, shown ? 3 : 0);
+    } finally { await views.act(async () => mounted.unmount()); node.remove(); fixes = null; }
+  }
 });

@@ -9,6 +9,21 @@ const sameFix = (left, right) => left?.kind === right?.kind && (right?.kind === 
   && [...(left?.scenario_keys || [])].sort().join('\0') === [...(right?.scenario_keys || [])].sort().join('\0')
   && (!(right?.models || []).length || [...(left?.models || [])].sort().join('\0') === [...right.models].sort().join('\0'));
 
+// Every fault and instruction card on a run loads the same fix workspace, so
+// cards that load it at the same time share one request.
+const pending = new Map();
+const loadFixWorkspace = (endpoint) => {
+  if (!pending.has(endpoint)) {
+    pending.set(endpoint, (async () => {
+      const response = await fetch(endpoint);
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || 'Could not load the fix workspace.');
+      return data;
+    })().finally(() => pending.delete(endpoint)));
+  }
+  return pending.get(endpoint);
+};
+
 export default function ImplementFixButton({ item, evaluation, run }) {
   const [open, setOpen] = useState(false);
   const [context, setContext] = useState(null);
@@ -18,9 +33,7 @@ export default function ImplementFixButton({ item, evaluation, run }) {
   const [sessionId, setSessionId] = useState(null);
   const endpoint = `/api/evaluations/${evaluation?.id}/runs/${run?.id}/fixes`;
   const load = useCallback(async () => {
-    const response = await fetch(endpoint);
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(data.error || 'Could not load the fix workspace.');
+    const data = await loadFixWorkspace(endpoint);
     setContext(data);
     setSandboxId((current) => current || data.sandboxes?.find((sandbox) => sandbox.status === 'ready')?.session_id || '');
     return data;
@@ -38,6 +51,9 @@ export default function ImplementFixButton({ item, evaluation, run }) {
   }, [load, open, evaluation?.id, run?.id]);
   if (!evaluation?.id || !run?.id || !['fault', 'instruction'].includes(item.kind)) return null;
   const sessions = (context?.code_sessions || []).filter((session) => sameFix(session.fix_item, item));
+  // Without a checkout project, or a backend that can refresh one, the fix
+  // cannot be implemented or verified here: Copy fix prompt is the way.
+  if (!open && sessions.length === 0 && (!context?.project || !context?.supported)) return null;
   const session = sessions.find((candidate) => candidate.id === sessionId) || sessions[0];
   const sandbox = context?.sandboxes?.find((candidate) => candidate.session_id === (session?.sandbox_session_id || sandboxId));
   const active = session && (['queued', 'running'].includes(session.status) || (session.status === 'succeeded' && session.diff && !session.verification?.error && !['complete', 'failed'].includes(session.verification?.status)));
