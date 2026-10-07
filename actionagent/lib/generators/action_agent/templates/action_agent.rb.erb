@@ -238,6 +238,21 @@ ActionAgent.configure do |config|
   # config.capture_dashboard_sessions = false
 
   # ==========================================================================
+  # Active Storage
+  # ==========================================================================
+  #
+  # The dashboard attaches files in a few places: the files uploaded with a
+  # run, a session recording's snapshots and oversized event payloads, and a
+  # scenario catalog's YAML. By default (:auto) it uses Active Storage when
+  # this app has it loaded and migrated, and otherwise keeps the
+  # metadata-only form of each feature. true requires it (boot raises
+  # without it); false never attaches. The service names one from
+  # config/storage.yml; unset, attachments use the app's default service.
+  #
+  # config.active_storage = :auto
+  # config.active_storage_service = :recordings
+
+  # ==========================================================================
   # Sandboxes
   # ==========================================================================
   #

@@ -38,6 +38,7 @@ module ActionAgent
       NAMES = %w[
         evaluations_list evaluations_get evaluations_create scenarios_merge explorations_submit evaluations_run
         evaluation_runs_get evaluation_runs_compare traces_search traces_get input_requests_list input_requests_answer
+        catalogs_list catalogs_import catalog_set_run
       ].freeze
 
       # The kinds input_requests_answer answers. An approval and a secret are
@@ -344,6 +345,49 @@ module ActionAgent
             },
             required: [ "input_request_id", "answer" ]
           }
+        },
+        {
+          name: "catalogs_list",
+          description: "The owner's scenario catalogs: YAML catalogs of evaluation scenarios, each a set of products " \
+                       "(an agent or a project under test) with named sets of scenarios, with their keys, sources, " \
+                       "digests and counts.",
+          inputSchema: { type: "object", properties: {} }
+        },
+        {
+          name: "catalogs_import",
+          description: "Import a scenario catalog from its YAML document (`catalog:`, `products:` with `sets:` of " \
+                       "`scenarios:`; a suite document with `groups:` is one product). Products, sets and scenarios are " \
+                       "matched by key and replaced, so importing the same document twice changes nothing. A product's " \
+                       "`agent:` names one of the owner's agents; `repository:` or `project:` names a project. Needs the " \
+                       "replace_scenarios permission.",
+          inputSchema: {
+            type: "object",
+            properties: {
+              document: { type: "string", description: "The catalog as YAML" },
+              name: { type: "string", description: "The catalog key when the document sets no `catalog:`" }
+            },
+            required: [ "document" ]
+          }
+        },
+        {
+          name: "catalog_set_run",
+          description: "Run one set of a catalog as an evaluation of the agent under test: the product's agent, the " \
+                       "agent given, or a project's agent, against that project's running sandbox and browser when " \
+                       "project_id is given (boot the project on the dashboard first). The run comes back pending; poll " \
+                       "evaluation_runs_get with the evaluation's id.",
+          inputSchema: {
+            type: "object",
+            properties: {
+              catalog: { type: "string", description: "The catalog's key" },
+              product: { type: "string", description: "The product's key" },
+              set: { type: "string", description: "The set's key" },
+              agent: { type: "string", description: "The agent to run against, by id, slug or name; the product's own when omitted" },
+              project_id: { type: "integer", description: "A project whose booted app and browser every replay reaches" },
+              keys: { type: "array", items: { type: "string" }, description: "Replay only these scenarios, by key" },
+              models: { type: "array", items: { type: "string" }, description: "Candidate models to compare; the agent's own model when omitted" }
+            },
+            required: %w[catalog product set]
+          }
         }
       ].freeze
 
@@ -384,6 +428,9 @@ module ActionAgent
         when "traces_get" then traces_get_tool
         when "input_requests_list" then input_requests_list_tool
         when "input_requests_answer" then input_requests_answer_tool
+        when "catalogs_list" then catalogs_list_tool
+        when "catalogs_import" then catalogs_import_tool
+        when "catalog_set_run" then catalog_set_run_tool
         end
       end
 
@@ -892,6 +939,86 @@ module ActionAgent
 
       def dashboard_evaluations
         Evaluation.joins(:agent).where(agent: owner_agents)
+      end
+
+      # The owner's scenario catalogs, as GET /api/scenario_catalogs lists them.
+      def catalogs_list_tool
+        catalogs = owned(ScenarioCatalog).ordered.includes(products: { sets: :scenarios }).limit(MAX_LIST_LIMIT)
+        {
+          catalogs: catalogs.map { |catalog| ScenarioCatalogSerializer.summary(catalog) },
+          storage_available: ScenarioCatalog.attachments_available?
+        }
+      end
+
+      # Imports a catalog document as POST /api/scenario_catalogs does: the
+      # owner's agents and projects resolve the products' targets.
+      def catalogs_import_tool
+        document = required_tool_argument!(:document).to_s
+        raise ToolError, "document is larger than #{ScenarioCatalog::MAX_BYTES} bytes" if document.bytesize > ScenarioCatalog::MAX_BYTES
+
+        authorize_catalog_write!(ScenarioCatalog.new)
+        catalog = ScenarioCatalogImport.new(
+          owner: current_owner, document: document, name: tool_argument(:name).to_s.presence,
+          source_kind: "api", agents: owner_agents, projects: owned(Project)
+        ).call
+
+        {
+          catalog: ScenarioCatalogSerializer.summary(catalog),
+          products: catalog.products.map do |product|
+            { key: product.key, agent: product.agent&.name, project_id: product.project_id,
+              sets: product.sets.map { |set| { key: set.key, scenario_count: set.scenarios.size } } }
+          end
+        }
+      rescue ScenarioCatalogImport::Invalid => e
+        raise ToolError, e.message
+      end
+
+      # Runs one set as POST /api/scenario_catalogs/:id/sets/:set_id/run
+      # does, gated as evaluations_run is. A project's sandbox must already
+      # be running: booting one is a dashboard action, not a tool's.
+      def catalog_set_run_tool
+        catalog = owned(ScenarioCatalog).find_by(key: required_tool_argument!(:catalog).to_s) ||
+          raise(ToolError, "No catalog #{tool_argument(:catalog).inspect}; catalogs_list names them")
+        product = catalog.products.find_by(key: required_tool_argument!(:product).to_s) ||
+          raise(ToolError, "No product #{tool_argument(:product).inspect} in catalog #{catalog.key}")
+        set = product.sets.find_by(key: required_tool_argument!(:set).to_s) ||
+          raise(ToolError, "No set #{tool_argument(:set).inspect} in product #{product.key}")
+        authorize_catalog_write!(catalog)
+
+        project = tool_argument(:project_id).present? ? owned(Project).find_by(id: tool_argument(:project_id)) : nil
+        raise ToolError, "No project #{tool_argument(:project_id)}" if tool_argument(:project_id).present? && project.nil?
+        agent = tool_argument(:agent).present? ? resolve_tool_agent!(tool_argument(:agent)) : nil
+        agent ||= project&.target_agent || product.target_agent(owner_agents)
+        raise ToolError, "Choose the agent to run against (agent) or a project (project_id)" if agent.nil?
+        raise ToolError, OBSERVED_AGENT_REFUSAL if agent.observed?
+        raise MCPController::McpError.new("Agent execution is disabled on this dashboard") unless ActionAgent.execution_enabled?
+        if (denial = ActionAgent.quota_denial(current_owner, :execution)).present?
+          raise MCPController::McpError.new(denial.is_a?(Hash) ? denial[:message] || denial["message"] : denial)
+        end
+        if project && project.current_sandbox_session.nil?
+          raise ToolError, "Project #{project.name} has no running sandbox: boot it on the dashboard first"
+        end
+
+        selection = evaluation_run_selection(tool_arguments).except(:scenario_ids, :group)
+        run = set.run!(agent: agent, project: project, mount_url: "#{request.base_url}#{request.script_name}", **selection)
+
+        {
+          set: set.reload.summary,
+          evaluation: { id: run.evaluation_id, name: run.evaluation.name },
+          run: EvaluationSerializer.run_summary(run, number: EvaluationSerializer.run_number(run.evaluation, run))
+            .merge(selection: run.selection),
+          background: true
+        }
+      rescue ScenarioSet::NoAgent => e
+        raise ToolError, e.message
+      end
+
+      def authorize_catalog_write!(catalog)
+        return if ActionAgent.permitted?(current_user, :replace_scenarios, catalog)
+
+        raise MCPController::McpError.new(
+          "This key's user may not change scenario catalogs (replace_scenarios)", MCPController::JSONRPC_FORBIDDEN
+        )
       end
 
       def find_tool_evaluation!

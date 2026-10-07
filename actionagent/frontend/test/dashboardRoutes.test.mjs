@@ -244,6 +244,7 @@ const EXPECTED_NAV = [
     ['mcp', 'MCP Services', { icon: 'mcp' }],
     ['metrics', 'Metrics', { icon: 'metrics' }],
     ['evaluations', 'Evaluations', { icon: 'evaluations' }],
+    ['catalogs', 'Catalogs', { icon: 'evaluations' }],
     ['sessions', 'Sessions', { icon: 'replay', also: ['replay'] }],
   ]],
   ['workspace', 'Workspace', [
