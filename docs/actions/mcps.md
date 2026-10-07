@@ -25,6 +25,7 @@ All providers accept `mcps:`. 🟩 means the provider runs a remote `url:` serve
 | **OpenAI** (Chat Completions) | 🟦             | 🟦                 | |
 | **OpenAI** (Responses API)    | 🟩             | 🟦                 | |
 | **OpenRouter**                | 🟦             | 🟦                 | |
+| **Opper**                     | 🟦             | 🟦                 | |
 | **Requesty**                  | 🟦             | 🟦                 | |
 | **RubyLLM**                   | 🟦             | 🟦                 | |
 
