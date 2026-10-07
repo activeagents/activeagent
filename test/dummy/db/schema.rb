@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 24) do
+ActiveRecord::Schema[8.0].define(version: 25) do
   create_table "active_agent_agent_contexts", force: :cascade do |t|
     t.string "action_name", null: false
     t.string "agent_name", null: false
@@ -193,6 +193,22 @@ ActiveRecord::Schema[8.0].define(version: 24) do
     t.datetime "updated_at", null: false
     t.bigint "user_id"
     t.index [ "token" ], name: "index_active_agent_api_keys_on_token", unique: true
+  end
+
+  create_table "active_agent_catalog_scenarios", force: :cascade do |t|
+    t.bigint "scenario_set_id", null: false
+    t.string "key", null: false
+    t.text "prompt", null: false
+    t.text "notes"
+    t.json "expectations"
+    t.json "tags"
+    t.json "params"
+    t.boolean "production_only", default: false, null: false
+    t.boolean "enabled", default: true, null: false
+    t.integer "position"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index [ "scenario_set_id", "key" ], name: "idx_on_scenario_set_id_key_a39d203ecf", unique: true
   end
 
   create_table "active_agent_code_sessions", force: :cascade do |t|
@@ -573,6 +589,59 @@ ActiveRecord::Schema[8.0].define(version: 24) do
     t.index [ "project_id" ], name: "index_active_agent_sandbox_sessions_on_project_id"
     t.index [ "session_id" ], name: "index_active_agent_sandbox_sessions_on_session_id", unique: true
     t.index [ "user_id" ], name: "index_active_agent_sandbox_sessions_on_user_id"
+  end
+
+  create_table "active_agent_scenario_catalogs", force: :cascade do |t|
+    t.string "key", null: false
+    t.string "name", null: false
+    t.text "description"
+    t.string "source_kind", default: "upload", null: false
+    t.string "source_path"
+    t.string "digest"
+    t.text "document"
+    t.datetime "synced_at"
+    t.string "synced_digest"
+    t.json "metadata"
+    t.bigint "account_id"
+    t.bigint "user_id"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index [ "account_id" ], name: "index_active_agent_scenario_catalogs_on_account_id"
+    t.index [ "key" ], name: "index_active_agent_scenario_catalogs_on_key"
+    t.index [ "user_id" ], name: "index_active_agent_scenario_catalogs_on_user_id"
+  end
+
+  create_table "active_agent_scenario_products", force: :cascade do |t|
+    t.bigint "scenario_catalog_id", null: false
+    t.string "key", null: false
+    t.string "name", null: false
+    t.text "description"
+    t.bigint "agent_id"
+    t.bigint "project_id"
+    t.string "agent_name"
+    t.integer "position"
+    t.json "metadata"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index [ "agent_id" ], name: "index_active_agent_scenario_products_on_agent_id"
+    t.index [ "project_id" ], name: "index_active_agent_scenario_products_on_project_id"
+    t.index [ "scenario_catalog_id", "key" ], name: "idx_on_scenario_catalog_id_key_2062a9535b", unique: true
+  end
+
+  create_table "active_agent_scenario_sets", force: :cascade do |t|
+    t.bigint "scenario_product_id", null: false
+    t.string "key", null: false
+    t.string "name", null: false
+    t.text "description"
+    t.json "judge"
+    t.json "criteria"
+    t.json "metadata"
+    t.bigint "evaluation_id"
+    t.integer "position"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index [ "evaluation_id" ], name: "index_active_agent_scenario_sets_on_evaluation_id"
+    t.index [ "scenario_product_id", "key" ], name: "idx_on_scenario_product_id_key_dec134b9c6", unique: true
   end
 
   create_table "active_agent_session_recordings", force: :cascade do |t|

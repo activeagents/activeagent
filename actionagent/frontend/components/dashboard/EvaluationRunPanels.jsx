@@ -8,7 +8,9 @@ import {
 } from '../../utils/evaluationRuns.mjs';
 import ModelScorecard from './evaluations/ModelScorecard';
 import ModelComparisonTable from './evaluations/ModelComparisonTable';
+import CopyFixPromptButton, { dashboardUrl } from './evaluations/CopyFixPromptButton';
 import ReplayLink from './replay/ReplayLink';
+import { fixPromptMarkdown } from '../../utils/fixPrompt.mjs';
 
 // The panels a scenario suite's expanded body is built from — Models, the
 // scenario matrix and a scenario's drill-down, What to fix — plus the
@@ -741,7 +743,9 @@ export function ScenarioDetail({ scenario, run, columns, resultsByKey, running, 
 // ---------------------------------------------------------------------------
 // WHAT TO FIX
 
-export function FixList({ items, columns = [], agentName, onNavigate, onOpenScenario, run = null, results = [] }) {
+export function FixList({
+  items, columns = [], agentName, onNavigate, onOpenScenario, run = null, results = [], evaluation = null, runNumber = null, scenarios = [],
+}) {
   // Which model cohort the list is read for. A fault one model keeps
   // making is that model's to fix — more instruction, a different tool —
   // so the list narrows to what the runner attributed to it, counted for
@@ -752,6 +756,15 @@ export function FixList({ items, columns = [], agentName, onNavigate, onOpenScen
   const attributed = filterable ? withModelBreakdown(items, results, (result) => labelForResult(run, result)) : items;
   const visible = fixItemsForModel(attributed, selected);
   const counts = filterable ? fixItemCountsByModel(attributed, columns) : {};
+
+  // The Markdown brief a card copies for a coding harness: the card as
+  // shown (so a model-scoped card briefs that model alone), the scenarios
+  // it names with their prompts, expectations and results, and the MCP
+  // calls that prove the fix.
+  const promptFor = (item) => fixPromptMarkdown({
+    item, evaluation, run, runNumber, results, scenarios, agentName,
+    dashboardUrl: dashboardUrl(), labelFor: (result) => labelForResult(run, result),
+  });
 
   const scopeFor = (item) => {
     const scenarios = plural((item.scenario_keys || []).length, 'scenario');
@@ -859,14 +872,13 @@ export function FixList({ items, columns = [], agentName, onNavigate, onOpenScen
             {item.note && (
               <div style={{ fontSize: 12, lineHeight: '18px', color: 'var(--color-text-secondary)', textWrap: 'pretty' }}>{item.note}</div>
             )}
-            {item.action && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 'auto', paddingTop: 2, flexWrap: 'wrap' }}>
-                {item.action.path && (
-                  <Button size="sm" onClick={() => onNavigate?.(item.action.path)}>{item.action.label}</Button>
-                )}
-                {item.action.hint && <span style={{ ...mono(11), whiteSpace: 'nowrap' }}>{item.action.hint}</span>}
-              </div>
-            )}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 'auto', paddingTop: 2, flexWrap: 'wrap' }}>
+              {item.action?.path && (
+                <Button size="sm" onClick={() => onNavigate?.(item.action.path)}>{item.action.label}</Button>
+              )}
+              {item.action?.hint && <span style={{ ...mono(11), whiteSpace: 'nowrap' }}>{item.action.hint}</span>}
+              <CopyFixPromptButton build={() => promptFor(item)} style={{ marginLeft: 'auto' }} />
+            </div>
           </div>
         );
       })}

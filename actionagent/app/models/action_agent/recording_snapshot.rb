@@ -5,15 +5,15 @@ module ActionAgent
     belongs_to :session_recording
     belongs_to :recording_action, optional: true
 
-    # Guarded: a host app created with --skip-active-storage (or --minimal)
-    # has no has_one_attached, and the gem depends on railties rather than
-    # rails, so it may not even have the gem to require. Without this the
-    # engine dies during eager load at boot.
-    has_one_attached :file if defined?(ActiveStorage)
+    # Per ActionAgent.active_storage: a host app created with
+    # --skip-active-storage (or --minimal) has no has_one_attached, and the
+    # gem depends on railties rather than rails, so it may not even have the
+    # gem to require; a host may also switch attachments off.
+    has_one_attached :file, **ActionAgent.attachment_options if ActionAgent.active_storage_macros?
 
-    # Whether file attachment is available in this host app.
+    # Whether a snapshot's file can be stored in this host app.
     def self.attachments_available?
-      defined?(ActiveStorage) && method_defined?(:file)
+      ActionAgent.active_storage_available? && method_defined?(:file)
     end
 
     SNAPSHOT_TYPES = %w[screenshot dom full_page].freeze

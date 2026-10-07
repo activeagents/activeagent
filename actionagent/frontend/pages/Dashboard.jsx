@@ -22,6 +22,7 @@ import SettingsView from '../components/dashboard/SettingsView';
 import DashboardAssistant from '../components/dashboard/DashboardAssistant';
 import ProjectsView from '../components/dashboard/ProjectsView';
 import ExplorationsView from '../components/dashboard/ExplorationsView';
+import ScenarioCatalogsView from '../components/dashboard/ScenarioCatalogsView';
 import { ThemeProvider, useTheme } from '../contexts/ThemeContext';
 import { TimeWindowProvider } from '../contexts/TimeWindowContext';
 import { useInputRequests } from '../hooks/useInputRequests';
@@ -373,6 +374,7 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
     ),
     evaluations: () => <EvaluationsView />,
     projects: () => <ProjectsView visit={visit} />,
+    catalogs: () => <ScenarioCatalogsView visit={visit} />,
     sessions: () => <SessionsView agents={agents} user={user} />,
     exploration: () => <ExplorationsView visit={visit} />,
     replay: () => (replaySession ? (

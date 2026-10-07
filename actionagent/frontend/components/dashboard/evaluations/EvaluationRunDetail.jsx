@@ -13,6 +13,8 @@ import ModelScorecard from './ModelScorecard';
 import ModelComparisonTable from './ModelComparisonTable';
 import SpendStrip from './SpendStrip';
 import CriteriaFooter from './CriteriaFooter';
+import CopyFixPromptButton, { dashboardUrl } from './CopyFixPromptButton';
+import { samplingFixPromptMarkdown } from '../../../utils/fixPrompt.mjs';
 
 // One run of a sampling evaluation, opened from its runs list: what it cost
 // (the agent's side apart from the judge's), a scorecard per model cohort,
@@ -63,7 +65,10 @@ function ScoreCell({ stats }) {
   );
 }
 
-function FixCard({ item }) {
+function FixCard({ item, evaluation = null, run = null, number = null }) {
+  const prompt = () => samplingFixPromptMarkdown({
+    item, evaluation, run, runNumber: number, agentName: evaluation?.agent?.name, dashboardUrl: dashboardUrl(),
+  });
   return (
     <div
       data-testid="fix-item"
@@ -92,12 +97,11 @@ function FixCard({ item }) {
           ))}
         </div>
       )}
-      {item.action && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 'auto' }}>
-          {item.action.path && <Button size="sm" onClick={() => navigateTo(item.action.path)}>{item.action.label}</Button>}
-          {item.action.hint && <span style={{ ...mono(), whiteSpace: 'nowrap' }}>{item.action.hint}</span>}
-        </div>
-      )}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 'auto', flexWrap: 'wrap' }}>
+        {item.action?.path && <Button size="sm" onClick={() => navigateTo(item.action.path)}>{item.action.label}</Button>}
+        {item.action?.hint && <span style={{ ...mono(), whiteSpace: 'nowrap' }}>{item.action.hint}</span>}
+        <CopyFixPromptButton build={prompt} style={{ marginLeft: 'auto' }} />
+      </div>
     </div>
   );
 }
@@ -368,7 +372,7 @@ export default function EvaluationRunDetail({
         </div>
         {items.length ? (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 12 }}>
-            {items.map((item) => <FixCard key={item.kind} item={item} />)}
+            {items.map((item) => <FixCard key={item.kind} item={item} evaluation={evaluation} run={run} number={number} />)}
           </div>
         ) : (
           <Empty style={{ border: '1px solid var(--color-border-light)', borderRadius: 10, padding: '14px 12px', color: 'var(--color-success-text)' }}>

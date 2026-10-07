@@ -531,6 +531,86 @@ suite holds is updated.
 The MCP facade's `scenarios_merge` tool does exactly this for a coding
 harness (see the [dashboard guide](/framework/dashboard#writing-a-suite-from-your-harness)).
 
+## Catalogs
+
+A suite describes one agent. A catalog describes every agent a team ships:
+its **products**, each with the **sets** of scenarios that product must
+answer. The document is YAML that lives in the repository next to the agents
+it tests, so the prompts are versioned with the code rather than typed into
+a dashboard:
+
+```yaml
+catalog: support_desk
+name: Support Desk
+description: What the support agents are expected to handle
+products:
+  - key: triage
+    name: Triage agent
+    agent: TriageAgent            # the agent this product's sets run against
+    sets:
+      - key: smoke
+        name: Smoke
+        judge:
+          kind: rules
+        scenarios:
+          - key: refund_request
+            prompt: A customer asks for a refund on order 1042.
+            expect:
+              tools: [lookup_order]
+              contains: [refund]
+            notes: Looks the order up before answering.
+            tags: [billing]
+            params:
+              locale: en
+      - key: production
+        name: Production data
+        scenarios:
+          - key: open_tickets
+            prompt: Which open tickets mention a refund?
+            production_only: true
+  - key: billing
+    name: Billing agent
+    sets:
+      - key: smoke
+        scenarios:
+          - key: invoice_copy
+            prompt: Send me a copy of my last invoice.
+            expect:
+              tools: [send_invoice]
+```
+
+Every product, set and scenario has a `key`; a scenario also needs a
+`prompt`. A scenario takes the same `expect`, `notes` and `production_only`
+as a suite's, plus free-form `tags` and `params` that the runner carries
+through to the results. A set may name a `judge` (`kind`, `model`) and
+`criteria`, which become the evaluation's when the set is run. Keys the
+format does not define (`owner_team`, `repository`, …) are kept as
+`metadata` on the catalog, product or set they sit on.
+
+```ruby
+catalog = ActiveAgent::Evals::Catalog.load("config/evals/support_desk.yml")
+catalog.products.map(&:key)                      # => ["triage", "billing"]
+catalog.set(:triage, :smoke).scenarios.size      # => 2
+catalog.scenarios(product: :triage, include_production_only: false)
+
+suite = catalog.suite_for(:triage, :smoke)       # a Suite named "support_desk/triage/smoke"
+ActiveAgent::Evals::Runner.new(suite.all_scenarios, ...)
+```
+
+`Catalog.load` takes several paths and `Catalog.new` several documents:
+later ones layer over earlier ones by key, so a team-wide catalog can be
+narrowed or extended by a local file the way `Suite.load` layers suites. A
+suite document (`suite:` and `groups:`) loads as a catalog of one product
+whose sets are its groups, so existing suites need no rewrite.
+
+`Catalog#to_yaml` writes the canonical document (keys in a fixed order,
+empty values dropped) and `Catalog#digest` is the SHA-256 of that text, so
+two copies of a catalog can be compared without diffing them. The mounted
+dashboard stores catalogs in its own tables, writes the canonical document
+to Active Storage and runs one set at a time as an evaluation of the
+product's agent; see
+[Scenario catalogs](/framework/dashboard#scenario-catalogs).
+
 ## Running a host application's agent from the mounted dashboard
 
 The engine normally replays scenarios with `ActionAgent::Agent#test_execute`.

@@ -243,6 +243,18 @@ ActionAgent::Engine.routes.draw do
       end
     end
 
+    # Scenario catalogs: YAML catalogs of scenarios (products, sets), imported
+    # from a document, a file or a connected repository, exported as YAML,
+    # synced to Active Storage, and run one set at a time as an evaluation.
+    resources :scenario_catalogs, only: [ :index, :show, :create, :update, :destroy ] do
+      member do
+        get :export
+        post :sync
+        post "sets/:set_id/run", action: :run_set, as: :run_set
+        post "sets/:set_id/materialize", action: :materialize_set, as: :materialize_set
+      end
+    end
+
     # Credentials: dashboard API keys (token shown once on create) and the
     # owner's own LLM provider credentials, both encrypted at rest.
     resources :api_keys, only: [ :index, :create, :destroy ]

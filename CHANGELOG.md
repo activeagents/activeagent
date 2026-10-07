@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.9.0] - 2026-10-06
+## [1.9.0] - 2026-10-07
 
 Releases `activeagent` and `actionagent` 1.9.0 from one tag. A minor release.
 The dashboard gains **Projects**: a GitHub repository boots in a checkout
@@ -25,18 +25,73 @@ generation can pause to ask the user and require approval before a tool runs;
 the RubyLLM provider reports cache and reasoning tokens, streams tool-call
 fragments correctly, carries usage and stop reason for streamed turns and
 takes a `protocol:` option on ruby_llm 2.x; the flat `json_schema`
-response_format is accepted by every provider. Carries the 1.8.2 owner fix.
+response_format is accepted by every provider. Evaluation scenarios can live
+in a YAML **catalog** of products and sets in the repository, imported from a
+connected repository at a ref, written to Active Storage and run one set at a
+time as an evaluation that records the catalog version it tested; every
+What-to-fix card copies a Markdown fix brief for a coding harness; and
+Active Storage is one engine option (`config.active_storage`). Carries the
+1.8.2 owner fix.
 
 Upgrading: run `bin/rails generate action_agent:install --skip` and
 `bin/rails db:migrate`. The generator adds the migrations an install lacks,
 now shipped as numbered templates: input requests, recording events, sandbox
-browsers, projects and their secrets, GitHub App installations, explorations
-and draft pull requests. `AgentRun` gains the `awaiting_input` status, which
+browsers, projects and their secrets, GitHub App installations, explorations,
+draft pull requests and scenario catalogs. `AgentRun` gains the
+`awaiting_input` status, which
 a client that treats every status other than `pending` and `running` as
 finished must handle. Session Replay is now **Sessions** in the sidebar.
 
 ### Added
 
+- **Scenario catalogs** (`activeagent`). `ActiveAgent::Evals::Catalog` reads a
+  YAML document of products, each with sets of scenarios, from one or more
+  files (`Catalog.load`) or strings (`Catalog.parse`), layering later
+  documents over earlier ones by key as `Suite.load` does. A suite document
+  (`suite:` and `groups:`) loads as a catalog of one product whose sets are
+  its groups. `catalog.scenarios(product:, set:, keys:,
+  include_production_only:)` narrows the scenarios, `suite_for(product, set)`
+  hands one set to the `Runner` as a `Suite` named `catalog/product/set`,
+  `to_yaml` writes the canonical document and `digest` is its SHA-256. A
+  `Scenario` now carries free-form `tags` and `params` from the document.
+- **Scenario catalogs on the dashboard** (`actionagent`). The Catalogs page and
+  `/api/scenario_catalogs` import a catalog from pasted YAML, an uploaded
+  file or a connected repository at a ref (`.activeagents/evals/*.yml` by
+  default), store it as `scenario_catalogs`, `scenario_products`,
+  `scenario_sets` and `catalog_scenarios` records under the owner (install
+  generator migration 025), export the canonical YAML, and write it to
+  Active Storage once per digest when the engine has it, with a pull that
+  restores the records from the stored document. Running a set materializes
+  it as an evaluation of the product's agent named `catalog/product/set`,
+  refreshing scenarios by key with removed ones disabled, and queues a run
+  whose `selection.catalog` and the evaluation's `config.catalog` name the
+  catalog, product, set and document digest, so results, traces and
+  recordings resolve to the version they tested. A set may run against a
+  project instead: its sandbox boots at the project's checkout ref and every
+  replay reaches the app and its browser, which is how a branch's acceptance
+  set runs from the dashboard. Importing and running need the
+  `replace_scenarios` permission; a run is gated as an evaluation run is.
+  The MCP facade gains `catalogs_list`, `catalogs_import` and
+  `catalog_set_run`, and `action_agent:catalogs:import`, `:export` and
+  `:run` rake tasks do the same from a shell.
+- **Copy fix prompt** (`actionagent`). Every What-to-fix card on an
+  evaluation run has a *Copy fix prompt* button that puts a Markdown brief
+  on the clipboard for a coding harness: the agent, evaluation and run by
+  name and id, the fault and recommendation or the judge's instruction
+  change, the tools and MCP server involved, each scenario's prompt,
+  expectations, tool calls, diagnosis and answer, where to look in the
+  agent, and the `evaluations_run`, `evaluation_runs_get` and
+  `evaluation_runs_compare` calls that prove the fix, with the evaluation
+  id, scenario keys and models filled in.
+- **Active Storage as one engine option** (`actionagent`). `config.active_storage`
+  decides whether the dashboard attaches files anywhere: run attachments, a
+  recording's snapshots and oversized event payloads, and scenario catalogs.
+  `:auto` (the default) uses Active Storage when the host has it loaded and
+  migrated, `true` requires it and raises `ActionAgent::ConfigurationError`
+  at boot without it, `false` never attaches. `config.active_storage_service`
+  names the `config/storage.yml` service those attachments go to. The
+  models' `defined?(ActiveStorage)` guards now read the option, and the
+  unused `config.storage_service` accessor is gone.
 - **Hand a browser run to a person** (`actionagent`). Agents with the
   `playwright_mcp` tools gain `request_handoff`: the agent calls it when a
   page asks for something only its owner may give (payment details, a login
