@@ -725,6 +725,131 @@ leaves archived evaluations out unless `?archived=1`, returns
 carries its `agent_version` (`id`, `number`, `release_digest`, `revision`,
 `release`) and `version_state` (`current`, `earlier` or `unrecorded`).
 
+## Scenario catalogs
+
+An evaluation's scenarios can be typed into the dashboard. A **catalog** keeps
+them out of it: one YAML document, versioned in the repository with the agents
+it tests, holding every **product** a team ships and the **sets** of scenarios
+each product must answer (the format is in the
+[evaluations guide](/framework/evaluations#catalogs)). The Catalogs page
+imports such documents, keeps them as records the dashboard can edit and
+diff, writes them back to Active Storage, and runs one set at a time as an
+evaluation, so the prompts, the results, the traces and the recordings of a
+run all point at the same versioned document.
+
+```yaml
+# .activeagents/evals/support_desk.yml
+catalog: support_desk
+name: Support Desk
+products:
+  - key: triage
+    agent: Triage                # a dashboard agent, by name
+    sets:
+      - key: smoke
+        scenarios:
+          - key: refund_request
+            prompt: A customer asks for a refund on order 1042.
+            expect:
+              tools: [lookup_order]
+      - key: release_acceptance
+        scenarios:
+          - key: new_refund_flow
+            prompt: Refund order 1042 and tell me when the money arrives.
+            expect:
+              contains: [business days]
+```
+
+**Importing.** The page's Import form takes the document pasted as text or
+uploaded as a file, or reads it from a connected repository: pick the
+repository, a ref (its default branch when left blank) and a path, which is
+the `.activeagents/evals` directory by default and may name one file.
+Every `.yml` directly under that directory becomes a catalog; the import
+records where it came from as `source_kind` (`upload`, `repository` or
+`api`) and `source_path` (`owner/name@ref:path` for a repository). A
+catalog is identified by its `catalog:` key under the owner, so importing
+the same document again updates it in place: products, sets and scenarios
+are matched by key, kept ones keep their records, missing ones are
+removed, and the catalog's `digest` (the SHA-256 of the canonical document)
+says whether anything changed. A product's `agent` is resolved by name among
+the owner's agents; a product may instead carry a `project` (a Project's id
+or name) or a `repository`, which resolves to the project checked out from
+it, so the set runs against that project's sandbox by default.
+
+**Running a set.** Each set row shows its target and a Run button. Running
+materializes the set as an evaluation of the target agent named
+`catalog/product/set` (the set's `judge` and `criteria` become the
+evaluation's), replaces its scenarios by key the way
+[Refreshing a suite](/framework/evaluations#refreshing-a-suite) describes
+with `on_removed: :disable`, so earlier results still resolve, and queues a
+run through the same job, selection, scoring and report pages as any
+scenario evaluation. The evaluation's `config.catalog` and the run's
+`selection.catalog` record the catalog id and key, the product and set
+keys, the set id and the document digest at the time of the run. The
+evaluation stays, with its runs, when the catalog is deleted.
+
+A set can also run against a [project](#projects): choose the project as
+the target, and the run boots its sandbox when none is running (at the
+project's checkout ref), replays every scenario against the booted app and
+its browser, and gathers the sandbox's telemetry as the run's traces.
+That is how a branch is acceptance-tested from the dashboard rather than
+from a terminal: the branch adds or changes the acceptance set in its own
+`.activeagents/evals` file, the reviewer imports the catalog from the
+repository at the branch's ref, points the project's checkout ref at the
+branch, and runs the set. The results page shows each scenario's verdict,
+its trace and its recording, and `evaluation_runs_compare` (or the Compare
+view) sets them against the run of the previous version of the set.
+
+**Active Storage.** When the engine has Active Storage
+(`config.active_storage`, see [Attach files](#attach-files)), every import
+writes the canonical YAML to it as `<key>.yml`, once per digest, and the
+catalog's summary carries `synced`, `synced_at` and `storage_available`.
+"Write to storage" writes a catalog edited since, and "Restore from storage"
+replaces the records with the stored document, so the catalog survives a
+database that is rebuilt from its blobs and can be fetched from the storage
+service by other tooling. Without Active Storage the catalog lives in the
+database alone and the sync actions answer `422` with `code: "no_storage"`.
+"Export YAML" downloads the canonical document from the records either way.
+
+**Permissions and gates.** Importing, re-importing, deleting, syncing,
+materializing and running a set change evaluation scenarios, so each needs
+the `replace_scenarios` [permission](#permissions); reading needs none.
+Importing from a repository the GitHub connection has not selected needs
+`manage_github`, as reading one for a project does. A run is checked as
+`POST /api/evaluations/:id/run` is: the execution switch and the owner's
+execution quota, and an observed agent is refused.
+
+**The API.** `GET /api/scenario_catalogs` lists the owner's catalogs with
+`storage_available`; `POST /api/scenario_catalogs` imports a `document`,
+a `file`, or a `repository` with `ref` and `path`, and answers the imported
+catalogs with their products, sets and scenarios; `GET`, `PATCH` (a new
+`document` or `file`, or `catalog: { name, description }`) and `DELETE
+/api/scenario_catalogs/:id`; `GET /api/scenario_catalogs/:id/export` for
+the YAML; `POST /api/scenario_catalogs/:id/sync` with `direction=push`
+(the default) or `pull`; `POST /api/scenario_catalogs/:id/sets/:set_id/materialize`
+with an optional `agent_id`; and
+`POST /api/scenario_catalogs/:id/sets/:set_id/run` with `agent_id` or
+`project_id` (plus `confirm` for a project whose boot wants it), and
+`models[]`, `keys[]`, `browser` and `sandbox_id` as for an evaluation,
+answering `202` with the set, its evaluation and the pending run. A set
+whose product names no agent answers `422` with `code: "no_target"`.
+
+The same operations are MCP tools for a coding harness (`catalogs_list`,
+`catalogs_import`, `catalog_set_run`, see
+[the MCP facade](#evaluations-and-telemetry-from-your-coding-harness)) and
+rake tasks for a deploy or a cron:
+
+```bash
+bin/rails action_agent:catalogs:import FILE=.activeagents/evals/support_desk.yml   # ACCOUNT_ID= or USER_ID= for the owner
+bin/rails action_agent:catalogs:export KEY=support_desk FILE=tmp/support_desk.yml
+bin/rails action_agent:catalogs:run KEY=support_desk PRODUCT=triage SET=smoke       # AGENT_ID= or PROJECT_ID= to override the target
+```
+
+The tables (`scenario_catalogs`, `scenario_products`, `scenario_sets` and
+`catalog_scenarios`, under the engine's table prefix) come from the install
+generator's migration `025_create_active_agent_scenario_catalogs`; a host
+installed before it runs `bin/rails generate action_agent:install` again to
+pick it up.
+
 ## The MCP facade
 
 The dashboard is itself an MCP server: `POST <mount>/mcp` speaks Streamable
@@ -780,6 +905,9 @@ calls.
 | `traces_get` | One trace by id, OpenTelemetry trace id or its first 8 characters: spans, tool calls with their arguments and results, tokens, estimated cost and failed spans |
 | `input_requests_list` | The pending [input requests](#input-requests) of the key's runs, newest first, in the API's shape; `run_id` filters to one run |
 | `input_requests_answer` | Answers a `text` or `choice` request as the key's caller, under the same permission check as the API. A `confirm` or `secret` request is refused with an error that points to the dashboard |
+| `catalogs_list` | The owner's [scenario catalogs](#scenario-catalogs): each with its products, sets, scenario count, digest and whether its document is in Active Storage |
+| `catalogs_import` | Imports a catalog `document` (YAML) under the key's owner, resolving each product's `agent` by name among the owner's agents. Re-importing the same key updates products, sets and scenarios in place. Needs the `replace_scenarios` permission |
+| `catalog_set_run` | Runs one set (`catalog`, `product`, `set` keys) as an evaluation named `catalog/product/set`, against the product's agent, an `agent` (slug or id) or a `project_id` whose sandbox is already running; `models`, `keys`, `browser` and `sandbox_id` narrow the run as `evaluations_run` does. Gated like `evaluations_run` |
 
 A typical loop: `evaluations_run`, poll `evaluation_runs_get` until the run is
 `complete`, read the fix items and a failing result's trace with

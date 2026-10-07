@@ -69,6 +69,7 @@ export const DASHBOARD_ROUTES = [
   { view: 'assistant', match: exact('/assistant'), path: '/assistant', enabled: assistantEnabled },
   { view: 'traces', match: prefix('/traces'), path: '/traces' },
   { view: 'metrics', match: prefix('/metrics'), path: '/metrics' },
+  { view: 'catalogs', match: prefix('/catalogs'), path: '/catalogs' },
   { view: 'interactions', match: prefix('/interactions'), path: '/interactions' },
   { view: 'tools', match: prefix('/tools'), path: '/tools' },
   {
@@ -148,6 +149,7 @@ export const DASHBOARD_NAV = [
       { view: 'mcp', label: 'MCP Services', icon: 'mcp' },
       { view: 'metrics', label: 'Metrics', icon: 'metrics' },
       { view: 'evaluations', label: 'Evaluations', icon: 'evaluations' },
+      { view: 'catalogs', label: 'Catalogs', icon: 'evaluations' },
       { view: 'sessions', label: 'Sessions', icon: 'replay', also: ['replay'] },
     ],
   },
