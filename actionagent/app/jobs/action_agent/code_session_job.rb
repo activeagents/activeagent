@@ -57,6 +57,9 @@ module ActionAgent
       end
 
       finish(code_session, outcome.to_h, result_event, secrets)
+      if code_session.succeeded? && code_session.evaluation_run_id && code_session.diff.present?
+        VerifyEvaluationFixJob.perform_later(code_session.id)
+      end
     rescue StandardError => e
       message = SecretScrubber.scrub(e.message.to_s, secrets || safe_secrets(code_session))
       Rails.logger.error("Code session #{code_session_id} failed: #{message}")

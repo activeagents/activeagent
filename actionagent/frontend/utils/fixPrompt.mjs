@@ -172,9 +172,10 @@ const verifyLines = ({ evaluation, run, runNumber, keys = [], models = [], dashb
 // `labelFor` maps a result to its model column (defaults to the model
 // name); `dashboardUrl` is the mounted dashboard's absolute URL.
 export const fixPromptMarkdown = ({
-  item, evaluation = null, run = null, runNumber = null, results = [], scenarios = [], agentName = null, dashboardUrl = '', labelFor,
+  item, evaluation = null, run = null, runNumber = null, results = [], scenarios = [], agentName = null, dashboardUrl = '', labelFor, target = 'dashboard',
 } = {}) => {
   if (!item) return '';
+  if (target === 'sandbox') dashboardUrl = '';
   const base = trimSlash(dashboardUrl);
   const keys = uniq(item.scenario_keys || []);
   const models = modelLabels(item, run);
@@ -225,7 +226,15 @@ export const fixPromptMarkdown = ({
     lines.push(`- On the dashboard: **${item.action.label}**${item.action.hint ? ` (${item.action.hint})` : ''}${base && item.action.path ? ` ${base}${item.action.path.startsWith('/') ? '' : '/'}${item.action.path}` : ''}.`);
   }
 
-  lines.push('', ...verifyLines({ evaluation, run, runNumber, keys, models, dashboardUrl }));
+  if (target === 'sandbox') {
+    lines.push('', '- Find the agent in app/agents/ and its prompt views in app/views/agents/.', '', '## Verify', '',
+      '1. Change the agent, not the scenarios or their expectations.',
+      '2. Run the relevant tests in this checkout. Do not commit or push.',
+      `3. The dashboard will re-run these scenarios when you finish: ${keys.join(', ')}; models: ${models.join(', ')}.`,
+      '', 'Summarize your changes. Do not read or copy the sandbox’s Claude credentials.');
+  } else {
+    lines.push('', ...verifyLines({ evaluation, run, runNumber, keys, models, dashboardUrl }));
+  }
   return `${lines.join('\n')}\n`;
 };
 

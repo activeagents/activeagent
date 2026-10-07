@@ -385,11 +385,12 @@ module ActionAgent
       # SandboxSession#runtime_environment finds the credential it hands a
       # checkout: a provider key is account-owned before user-owned.
       def claude_code_status
-        status = ClaudeCodeAuth.status(owned(ProviderKey))
+        status = ClaudeCodeAuth.status(owned(ProviderKey), sandboxes: listed_sandboxes, user_id: current_user&.id)
         {
           claude_code_auth: status[:mode],
           claude_code_connected: status[:connected],
-          claude_code_login: status[:login]
+          claude_code_login: status[:login],
+          claude_code_sandboxes: status[:sandboxes]
         }.compact
       end
 
