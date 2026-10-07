@@ -699,6 +699,24 @@ tell an honest gap from an invented answer: `expected_tool_not_called` carries
 supplied, and `ungrounded_answer` is the same finding for a scenario that
 names no expected tool.
 
+**Copy fix prompt.** Every What-to-fix card, on a scenario suite's run and
+on a sampling run's, has a *Copy fix prompt* button that puts a Markdown
+brief on the clipboard, ready to paste into Claude Code, Codex, Cursor or
+any other coding harness. The brief is built from what the card shows and
+nothing else: the agent and evaluation by name and id with a link to the
+run; the fault and the card's recommendation, or the judge's proposed
+instruction change; the tools the card names and the MCP server that
+serves them, with whether it is enabled for the agent; each scenario the
+card speaks for, with its prompt, expectations and notes, and for every
+replay that carried the fault the tools it called, the diagnosis, the
+answer (the first 600 characters) and the result id; where to look in the
+agent; and how to prove the fix, as the `evaluations_run`,
+`evaluation_runs_get` and `evaluation_runs_compare` calls on the
+dashboard's MCP facade, with the evaluation id, scenario keys and models
+filled in, or the equivalent `POST /api/evaluations/:id/run`. A card
+filtered to one model briefs that model alone. The first six scenarios are
+briefed in full; any beyond are listed by key.
+
 The parsing, scoring, diagnosis and report are the framework's
 [`ActiveAgent::Evals`](/framework/evaluations); the engine adds the
 persistence, the job, the API and the UI. An app can run the same
