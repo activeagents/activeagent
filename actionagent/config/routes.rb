@@ -100,6 +100,9 @@ ActionAgent::Engine.routes.draw do
           post :cancel
         end
       end
+      resource :claude_login, only: [ :show, :create, :destroy ], controller: "claude_logins" do
+        post :code
+      end
       # The checkout's browser (SandboxBrowser), and tickets into its live view.
       resource :browser, only: [ :show, :create, :destroy ], controller: "sandbox_browsers" do
         resources :tickets, only: [ :create ], controller: "sandbox_browser_tickets"
@@ -112,6 +115,7 @@ ActionAgent::Engine.routes.draw do
         get :patch
       end
     end
+    get "evaluations/:evaluation_id/runs/:run_id/fixes", to: "evaluation_fixes#index"
 
     # Projects: a repository booted in a checkout sandbox and evaluated,
     # with the secrets its boot needs (names only in responses).

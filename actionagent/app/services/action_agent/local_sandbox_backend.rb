@@ -48,6 +48,7 @@ module ActionAgent
   # ActionAgent.claude_code_auth = :local_login no credential is passed at
   # all: Claude Code runs on the machine's own login.
   class LocalSandboxBackend
+    include LocalSandboxClaudeLogin
     class Error < RuntimeError; end
 
     HANDLE_PREFIX = "local-"
@@ -588,6 +589,45 @@ module ActionAgent
       %w[claude_code codex]
     end
 
+    # Restart only the app runtime; keep the checkout, databases and login.
+    # The fresh manifest and readiness probe prove the changed source has
+    # loaded before the dashboard queues verification. The restart gets the
+    # time a boot gets. If the app does not come back, the sandbox is failed
+    # rather than left ready with nothing listening.
+    def refresh_runtime(sandbox)
+      stopped = false
+      workspace, app = checkout_workspace!(sandbox)
+      state = read_state(workspace)
+      raise Error, "The sandbox is stopping" if state["terminating"]
+      spec = sandbox.project&.boot_spec(sandbox)
+      plan = if state.dig("boot", "mode") == "spec" && spec
+        spec_plan(spec, Array(state.dig("boot", "locked_gems")).to_set)
+      else
+        config_plan(Config.load(app), secrets: spec&.step_environment || {})
+      end
+      env = boot_environment(workspace, (state["database_env"] || {}).transform_values(&:to_s), plan)
+      port = state.fetch("port")
+      env["PORT"] = port.to_s
+      secrets = sandbox_secrets(sandbox, {})
+      reset_boot(ActionAgent.local_sandbox_boot_timeout)
+      deadline = deadline_after(@boot_timeout)
+      pid = state["pid"]
+      stop_groups([ pid ]) if pid && group_identity(pid, sandbox.session_id, state) == :ours
+      stopped = true
+      manifest = run_manifest!(workspace, plan.manifest, env, deadline, secrets)
+      server_pid, waiter = start_server(workspace, plan.start.command, env, port)
+      wait_until_ready!(workspace, port, manifest, server_pid, waiter, deadline, secrets, step: plan.start, boot_deadline: deadline)
+      sandbox.update!(runtime_mcp_url: "http://127.0.0.1:#{port}#{manifest['mcp_path']}", runtime_mcp_token: manifest["mcp_token"])
+      true
+    rescue StandardError => e
+      stop_groups([ server_pid ]) if server_pid
+      if stopped
+        message = SecretScrubber.scrub("The app did not restart after the change: #{e.message}", secrets || [])
+        sandbox.update!(status: :failed, error_message: message.truncate(1000))
+      end
+      raise
+    end
+
     # Runs a coding agent headless in the sandbox's checkout, yielding each
     # stream-json event (a Hash, already scrubbed of the sandbox's secrets)
     # as it arrives.
@@ -603,7 +643,13 @@ module ActionAgent
       runner = code_session.try(:runner) || "claude_code"
       raise Error, "Unsupported code runner: #{runner}" unless code_runners.include?(runner)
 
-      credentials = session_credentials(sandbox, runner: runner)
+      subscription = runner == "claude_code" && code_session.try(:credential_mode) == "sandbox_login"
+      if subscription
+        unless sandbox.claude_login_user_id.present? && sandbox.claude_login_user_id == code_session.user_id && claude_login_status(sandbox)[:logged_in]
+          raise Error, "Sign in to this sandbox with your own Claude subscription before starting a session"
+        end
+      end
+      credentials = subscription ? {} : session_credentials(sandbox, runner: runner)
       secrets = sandbox_secrets(sandbox, credentials)
       argv = runner == "codex" ? codex_argv(code_session) : claude_argv(code_session)
       database_env = read_state(workspace)["database_env"]
@@ -621,12 +667,17 @@ module ActionAgent
       # own, in the workspace. With the machine's own login it must use the
       # user's: that is where `claude /login` left the credentials (HOME,
       # which the sanitized environment keeps, or the keychain).
-      if runner == "codex"
+      if subscription
+        env = env.merge(sandbox_login_environment(workspace))
+        forbidden = env.keys.grep(/\A(?:ANTHROPIC_|CLAUDE_CODE_OAUTH_TOKEN\z)/)
+        raise Error, "Subscription sessions cannot contain Anthropic credential environment variables" if forbidden.any?
+      elsif runner == "codex"
         env["CODEX_HOME"] = workspace.join("codex").to_s
         FileUtils.mkdir_p(workspace.join("codex"), mode: 0o700)
       elsif !ClaudeCodeAuth.local_login?
-        env["CLAUDE_CONFIG_DIR"] = workspace.join("claude").to_s
-        FileUtils.mkdir_p(workspace.join("claude"), mode: 0o700)
+        config = workspace.join(ClaudeCodeAuth.sandbox_login? ? "claude-api" : "claude")
+        env["CLAUDE_CONFIG_DIR"] = config.to_s
+        FileUtils.mkdir_p(config, mode: 0o700)
       end
 
       run_claude(workspace, code_session, argv, env, secrets, runner: runner, &on_event)
@@ -715,6 +766,7 @@ module ActionAgent
       raise Error, "The checkout changed more than #{MAX_CHANGED_FILES} files" if listed.size > MAX_CHANGED_FILES
 
       files = listed.filter_map do |path|
+        next if SandboxCredentialPaths.protected?(path)
         next unless checkout_path?(path)
 
         base_mode = base_modes[path]
@@ -746,6 +798,7 @@ module ActionAgent
     #   id
     # @return [String, nil] binary-encoded bytes
     def read_file(sandbox, path, base: false)
+      raise Error, "Claude configuration is never read through the checkout API" if SandboxCredentialPaths.protected?(path)
       workspace, app = checkout_workspace!(sandbox)
       raise Error, "#{path.inspect} is not a path inside the checkout" unless checkout_path?(path)
 
@@ -2203,12 +2256,13 @@ module ActionAgent
       if filter_drivers?(app, env, git)
         return "(diff not recorded: the checkout's git config defines filter drivers, which would run commands)"
       end
-      capture(env, [ *git, "add", "--intent-to-add", "--all" ], chdir: app, limit: 64 * 1024, timeout: GIT_TIMEOUT)
+      exclusions = SandboxCredentialPaths.pathspecs
+      capture(env, [ *git, "add", "--intent-to-add", "--all", "--", ".", *exclusions ], chdir: app, limit: 64 * 1024, timeout: GIT_TIMEOUT)
 
       base = read_state(workspace)["checkout_commit"]
       base = "HEAD" unless base.is_a?(String) && COMMIT_ID.match?(base)
       diff = ->(commit) do
-        capture(env, [ *git, "diff", "--no-color", "--no-ext-diff", "--no-textconv", "--ignore-submodules=dirty", commit, "--" ],
+        capture(env, [ *git, "diff", "--no-color", "--no-ext-diff", "--no-textconv", "--ignore-submodules=dirty", commit, "--", ".", *exclusions ],
           chdir: app, limit: MAX_DIFF_BYTES, timeout: GIT_TIMEOUT)
       end
       output, status = diff.call(base)
@@ -2595,6 +2649,8 @@ module ActionAgent
       identities = recorded.index_with { |pid| group_identity(pid, session_id, state) }
       stop_groups(recorded.select { |pid| identities[pid] == :ours })
       stop_escaped(session_id)
+
+      logout_claude_workspace(workspace) if state["claude_login_pid"] || ClaudeCodeAuth.sandbox_login?
 
       left = recorded.select { |pid| identities[pid] != :stranger && group_alive?(pid) }
       if left.any?

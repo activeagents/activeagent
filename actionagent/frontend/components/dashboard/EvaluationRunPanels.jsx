@@ -9,6 +9,7 @@ import {
 import ModelScorecard from './evaluations/ModelScorecard';
 import ModelComparisonTable from './evaluations/ModelComparisonTable';
 import CopyFixPromptButton, { dashboardUrl } from './evaluations/CopyFixPromptButton';
+import ImplementFixButton from './evaluations/ImplementFixButton';
 import ReplayLink from './replay/ReplayLink';
 import { fixPromptMarkdown } from '../../utils/fixPrompt.mjs';
 
@@ -878,6 +879,7 @@ export function FixList({
               )}
               {item.action?.hint && <span style={{ ...mono(11), whiteSpace: 'nowrap' }}>{item.action.hint}</span>}
               <CopyFixPromptButton build={() => promptFor(item)} style={{ marginLeft: 'auto' }} />
+              <ImplementFixButton item={item} evaluation={evaluation} run={run} />
             </div>
           </div>
         );

@@ -59,7 +59,7 @@ function useClasses() {
 // a draft pull request. Shows the pull request this sandbox opened (polled
 // while a publish runs), the buttons that open the dialog, and the patch to
 // download when publishing is not available.
-export default function DraftPullRequestPanel({ sandbox }) {
+export default function DraftPullRequestPanel({ sandbox, codeSession = null }) {
   const base = `/api/sandboxes/${encodeURIComponent(sandbox.session_id)}/pull_request`;
   const [status, setStatus] = useState(null); // { pull_request, publishing }
   const [error, setError] = useState(null);
@@ -129,6 +129,7 @@ export default function DraftPullRequestPanel({ sandbox }) {
       />
       {dialog && (
         <DraftPullRequestDialog
+          codeSession={codeSession}
           sandbox={sandbox}
           pullRequest={pullRequest}
           publishing={publishing}
@@ -227,7 +228,7 @@ export function PullRequestCard({ pullRequest, publishing, error, opening, onOpe
 // Reads the preview, then publishes what the user chose: the stateful half
 // of the dialog. A publish the server refuses because a file changed since
 // the preview reads the preview again.
-function DraftPullRequestDialog({ sandbox, pullRequest, publishing, mode, onClose, onPublished }) {
+function DraftPullRequestDialog({ sandbox, pullRequest, publishing, mode, onClose, onPublished, codeSession }) {
   const base = `/api/sandboxes/${encodeURIComponent(sandbox.session_id)}/pull_request`;
   const update = mode === 'update';
   const [preview, setPreview] = useState(null);
@@ -275,7 +276,7 @@ function DraftPullRequestDialog({ sandbox, pullRequest, publishing, mode, onClos
       const res = await fetch(base, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(publishRequestBody({ files: preview?.files, selection, title, body, branch, message, allowlist, update })),
+        body: JSON.stringify({ ...publishRequestBody({ files: preview?.files, selection, title, body, branch, message, allowlist, update }), ...(codeSession && !update ? { code_session_id: codeSession.id } : {}) }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {

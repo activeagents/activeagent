@@ -749,7 +749,7 @@ class LocalSandboxBackendTest < ActiveSupport::TestCase
     assert(env.values.none? { |value| value.include?(CLAUDE_CREDENTIAL) })
   end
 
-  test "claude_code_auth is :api_key by default and takes only :api_key or :local_login" do
+  test "claude_code_auth defaults to :api_key and accepts the three supported modes" do
     configuration = ActionAgent.instance_variables.index_with { |name| ActionAgent.instance_variable_get(name) }
     ActionAgent.reset!
     assert_equal :api_key, ActionAgent.claude_code_auth
@@ -757,8 +757,10 @@ class LocalSandboxBackendTest < ActiveSupport::TestCase
     ActionAgent.claude_code_auth = "local_login"
     assert_equal :local_login, ActionAgent.claude_code_auth
     error = assert_raises(ArgumentError) { ActionAgent.claude_code_auth = :setup_token }
-    assert_match(/must be :api_key or :local_login/, error.message)
+    assert_match(/must be :api_key, :local_login or :sandbox_login/, error.message)
     assert_equal :local_login, ActionAgent.claude_code_auth
+    ActionAgent.claude_code_auth = :sandbox_login
+    assert_equal :sandbox_login, ActionAgent.claude_code_auth
   ensure
     configuration&.each { |name, value| ActionAgent.instance_variable_set(name, value) }
   end

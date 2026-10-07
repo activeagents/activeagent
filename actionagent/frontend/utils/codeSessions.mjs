@@ -637,8 +637,9 @@ export const CLAUDE_CODE_POLICY_URL = 'https://code.claude.com/docs/en/legal-and
 export const claudeCodeAuth = (data) => {
   const login = isObject(data?.claude_code_login) ? data.claude_code_login : {};
   const localLogin = data?.claude_code_auth === CLAUDE_CODE_LOCAL_LOGIN;
+  const sandboxLogin = data?.claude_code_auth === 'sandbox_login';
   return {
-    mode: localLogin ? CLAUDE_CODE_LOCAL_LOGIN : CLAUDE_CODE_API_KEY,
+    mode: sandboxLogin ? 'sandbox_login' : localLogin ? CLAUDE_CODE_LOCAL_LOGIN : CLAUDE_CODE_API_KEY,
     connected: data?.claude_code_connected === true,
     loggedIn: localLogin && login.logged_in === true,
     authMethod: localLogin && typeof login.auth_method === 'string' && login.auth_method ? login.auth_method : null,
@@ -657,6 +658,8 @@ export const claudeCodeAuth = (data) => {
 //   loginHint    the command to run on this machine, when logged out
 export const claudeCodeCardState = (auth, keyRow) => {
   if (!auth) return { view: 'loading', status: 'Loading…', tone: 'neutral', keyForm: false, needsReplacing: false, loginHint: null };
+
+  if (auth.mode === 'sandbox_login') return { view: 'sandbox_login', status: 'Your subscription, inside each sandbox', tone: 'neutral', keyForm: true, needsReplacing: keyRow?.needs_replacing === true, loginHint: null };
 
   if (auth.mode === CLAUDE_CODE_LOCAL_LOGIN) {
     const how = auth.authMethod ? ` (${auth.authMethod})` : '';
@@ -696,6 +699,7 @@ export const claudeCodeCardState = (auth, keyRow) => {
 // Nothing known yet reads as not connected: the server refuses then anyway.
 export const claudeCodeNotConnectedHint = (auth) => {
   if (auth?.connected === true) return null;
+  if (auth?.mode === 'sandbox_login') return { text: 'Sign in with your Claude subscription in this sandbox, or connect an Anthropic API key.', loginHint: null, after: null };
   if (auth?.mode === CLAUDE_CODE_LOCAL_LOGIN) {
     return { text: 'Claude Code is not logged in on this machine. Run', loginHint: CLAUDE_CODE_LOGIN_COMMAND, after: 'as the user the dashboard runs as.' };
   }

@@ -20,6 +20,7 @@ module ActionAgent
     # straight after a percent-escape (`%3Aghs_…` in an encoded URL) or a
     # name (`GITHUB_TOKEN_ghs_…`) is masked too.
     GITHUB_TOKEN = /gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{30,}/
+    CLAUDE_TOKEN = /sk-ant-(?:oat|ort|api)[A-Za-z0-9_-]+/
 
     module_function
 
@@ -30,7 +31,7 @@ module ActionAgent
       secrets = Array(secrets).compact.map(&:to_s).select { |secret| secret.length >= MIN_SECRET_LENGTH }.uniq
 
       # Longest first, so a secret that contains another is masked whole.
-      pattern = Regexp.union(*secrets.sort_by { |secret| -secret.length }, GITHUB_TOKEN)
+      pattern = Regexp.union(*secrets.sort_by { |secret| -secret.length }, GITHUB_TOKEN, CLAUDE_TOKEN)
       deep_scrub(value, pattern)
     end
 

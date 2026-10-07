@@ -57,6 +57,7 @@ module ActionAgent
       end
 
       finish(code_session, outcome.to_h, result_event, secrets)
+      verify(code_session)
     rescue StandardError => e
       message = SecretScrubber.scrub(e.message.to_s, secrets || safe_secrets(code_session))
       Rails.logger.error("Code session #{code_session_id} failed: #{message}")
@@ -64,6 +65,17 @@ module ActionAgent
     end
 
     private
+
+    # A fix session that changed the checkout is verified next. If that
+    # cannot even be queued, the error is the session's, so the sandbox is
+    # not left waiting for a verification that will never come.
+    def verify(code_session)
+      return unless code_session.succeeded? && code_session.evaluation_run_id && code_session.diff.present?
+
+      VerifyEvaluationFixJob.perform_later(code_session.id)
+    rescue StandardError => e
+      code_session.update_columns(verification_error: "Verification could not be queued: #{e.class}")
+    end
 
     def start(code_session)
       now = Time.current

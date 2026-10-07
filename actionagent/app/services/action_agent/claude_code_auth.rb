@@ -14,8 +14,8 @@ module ActionAgent
   #              LocalSandboxBackend.claude_login_status). The dashboard never
   #              sees that credential.
   #
-  # Anthropic does not let third-party products store or route requests
-  # through Claude.ai subscription credentials, so there is no third mode:
+  # :sandbox_login is the user's login inside the unmodified CLI. Only the
+  # CLI holds its credential; the dashboard relays a one-use login code.
   # https://code.claude.com/docs/en/legal-and-compliance.md
   module ClaudeCodeAuth
     module_function
@@ -29,6 +29,12 @@ module ActionAgent
       mode == "local_login"
     end
 
+    def sandbox_login?
+      mode == "sandbox_login"
+    end
+
+    LOGIN_VERBS = %i[start_claude_login submit_claude_login_code claude_login_status claude_logout].freeze
+
     # Why +orchestrator+'s backend cannot run Claude Code sessions with the
     # configured authentication, or nil. A machine's own login is the
     # dashboard user's, so only a backend running sessions as that user, on
@@ -36,6 +42,15 @@ module ActionAgent
     # find no login or need it copied there, which is what this mode exists
     # to never do.
     def backend_refusal(orchestrator)
+      if sandbox_login?
+        unless LOGIN_VERBS.all? { |verb| orchestrator.supports?(verb) }
+          return "The #{orchestrator.backend_name} backend does not implement sandbox Claude login (#{LOGIN_VERBS.join(', ')})"
+        end
+        unless orchestrator.local? || ActionAgent.claude_code_hosted_login_enabled
+          return "Hosted Claude subscription login is disabled; the operator must review the hosting requirements and enable it explicitly"
+        end
+        return
+      end
       return unless local_login?
       return if orchestrator.local?
 
@@ -53,12 +68,15 @@ module ActionAgent
     # +provider_keys+: booleans and the login's method, never a credential.
     #
     # @return [Hash] { mode:, connected:, login: } (login for :local_login only)
-    def status(provider_keys)
+    def status(provider_keys, sandboxes: [], user_id: nil)
       if local_login?
         # Only the :local backend uses the login, and no other one needs
         # this machine's CLI asked about it.
         login = local_backend? ? LocalSandboxBackend.claude_login_status : LocalSandboxBackend::LOGGED_OUT
         { mode: mode, connected: login[:logged_in], login: login.slice(:logged_in, :auth_method) }
+      elsif sandbox_login?
+        sessions = Array(sandboxes).map { |sandbox| sandbox_status(sandbox, user_id: user_id) }
+        { mode: mode, connected: api_key_connected?(provider_keys) || sessions.any? { |row| row[:logged_in] }, sandboxes: sessions }
       else
         { mode: mode, connected: api_key_connected?(provider_keys) }
       end
@@ -73,7 +91,15 @@ module ActionAgent
 
     # Why a Claude Code session cannot start in +sandbox+ for want of
     # credentials, or nil.
-    def credential_refusal(sandbox)
+    def credential_refusal(sandbox, user_id: nil)
+      if sandbox_login?
+        if (refusal = login_owner_refusal(sandbox, user_id: user_id))
+          return refusal
+        end
+        return if credential_mode(sandbox, user_id: user_id)
+
+        return "Sign in with your own Claude subscription in this sandbox, or connect an Anthropic API key"
+      end
       if local_login?
         return if LocalSandboxBackend.claude_login_status[:logged_in]
 
@@ -81,6 +107,46 @@ module ActionAgent
       elsif sandbox.runtime_environment.blank?
         "Claude Code is not connected: connect an Anthropic API key in Settings -> Integrations first"
       end
+    end
+
+    # Why +user_id+ may run nothing in +sandbox+ under :sandbox_login, or nil.
+    # Every session runs as the same OS user beside the signed-in member's
+    # CLAUDE_CONFIG_DIR, so while one member's login is there no one else's
+    # session, on any runner or credential, may run in that checkout.
+    def login_owner_refusal(sandbox, user_id: nil)
+      return unless sandbox_login?
+      owner = sandbox.try(:claude_login_user_id)
+      return if owner.nil? || (user_id.present? && owner == user_id)
+
+      "Another member is signed in to Claude Code in this sandbox; start your own sandbox"
+    end
+
+    def credential_mode(sandbox, user_id: nil)
+      return mode unless sandbox_login?
+      return if login_owner_refusal(sandbox, user_id: user_id)
+      if user_id.present? && sandbox.claude_login_user_id == user_id
+        login = SandboxOrchestrator.new.claude_login_status(sandbox)
+        return "sandbox_login" if login[:logged_in] && login[:auth_method] == "claude.ai"
+      end
+      "api_key" if sandbox.runtime_environment.present?
+    rescue LocalSandboxBackend::Error, SandboxOrchestrator::UnsupportedBackendError
+      "api_key" if sandbox.runtime_environment.present?
+    end
+
+    def sandbox_status(sandbox, user_id: nil)
+      mine = user_id.present? && sandbox.claude_login_user_id == user_id
+      login = if mine && sandbox.ready? && sandbox.active? && !backend_refusal(SandboxOrchestrator.new)
+        SandboxOrchestrator.new.claude_login_status(sandbox).slice(:logged_in, :auth_method)
+      else
+        { logged_in: false, auth_method: nil }
+      end
+      login = { logged_in: false, auth_method: nil } unless login[:logged_in] && login[:auth_method] == "claude.ai"
+      fallback = sandbox.runtime_environment.present? && !login_owner_refusal(sandbox, user_id: user_id) ? "api_key" : nil
+      login.merge(session_id: sandbox.session_id, owned_by_you: mine,
+        credential_mode: login[:logged_in] ? "sandbox_login" : fallback)
+    rescue StandardError
+      { session_id: sandbox.session_id, logged_in: false, auth_method: nil, owned_by_you: mine,
+        credential_mode: sandbox.runtime_environment.present? && !login_owner_refusal(sandbox, user_id: user_id) ? "api_key" : nil }
     end
   end
 end
