@@ -591,8 +591,11 @@ module ActionAgent
 
     # Restart only the app runtime; keep the checkout, databases and login.
     # The fresh manifest and readiness probe prove the changed source has
-    # loaded before the dashboard queues verification.
+    # loaded before the dashboard queues verification. The restart gets the
+    # time a boot gets. If the app does not come back, the sandbox is failed
+    # rather than left ready with nothing listening.
     def refresh_runtime(sandbox)
+      stopped = false
       workspace, app = checkout_workspace!(sandbox)
       state = read_state(workspace)
       raise Error, "The sandbox is stopping" if state["terminating"]
@@ -606,16 +609,22 @@ module ActionAgent
       port = state.fetch("port")
       env["PORT"] = port.to_s
       secrets = sandbox_secrets(sandbox, {})
-      deadline = deadline_after(60)
+      reset_boot(ActionAgent.local_sandbox_boot_timeout)
+      deadline = deadline_after(@boot_timeout)
       pid = state["pid"]
       stop_groups([ pid ]) if pid && group_identity(pid, sandbox.session_id, state) == :ours
+      stopped = true
       manifest = run_manifest!(workspace, plan.manifest, env, deadline, secrets)
       server_pid, waiter = start_server(workspace, plan.start.command, env, port)
       wait_until_ready!(workspace, port, manifest, server_pid, waiter, deadline, secrets, step: plan.start, boot_deadline: deadline)
       sandbox.update!(runtime_mcp_url: "http://127.0.0.1:#{port}#{manifest['mcp_path']}", runtime_mcp_token: manifest["mcp_token"])
       true
-    rescue StandardError
+    rescue StandardError => e
       stop_groups([ server_pid ]) if server_pid
+      if stopped
+        message = SecretScrubber.scrub("The app did not restart after the change: #{e.message}", secrets || [])
+        sandbox.update!(status: :failed, error_message: message.truncate(1000))
+      end
       raise
     end
 

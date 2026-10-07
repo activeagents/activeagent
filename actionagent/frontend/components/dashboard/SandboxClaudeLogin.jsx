@@ -28,6 +28,12 @@ async function request(base, method = 'GET', body) {
   return data.login;
 }
 
+export const signInEnded = (status) => {
+  if (status === 'expired') return 'This sign-in expired. Start again to get a fresh authorization page.';
+  if (status === 'completed') return 'Claude Code signed in, but not with a Claude subscription. Start again and choose your Claude.ai account.';
+  return 'Sign-in did not finish. Start again to retry.';
+};
+
 export default function SandboxClaudeLogin({ sandbox, onConnected, onChange }) {
   const base = `/api/sandboxes/${encodeURIComponent(sandbox.session_id)}/claude_login`;
   const [login, setLogin] = useState(null);
@@ -63,8 +69,11 @@ export default function SandboxClaudeLogin({ sandbox, onConnected, onChange }) {
           onChange?.(); connectedCallback.current?.();
           return;
         }
-        if (['expired', 'cancelled', 'failed'].includes(value.status)) {
-          setError(value.status === 'expired' ? 'This sign-in expired. Start again to get a fresh authorization page.' : 'Sign-in did not finish. Start again to retry.');
+        // Every state but the three a sign-in moves through is an end: one
+        // without a login (logged_in was handled above) is a failure, and
+        // polling on would only ask the CLI again and again.
+        if (!['starting', 'awaiting_code', 'submitted'].includes(value.status)) {
+          setError(signInEnded(value.status));
           setBusy(false);
           return;
         }

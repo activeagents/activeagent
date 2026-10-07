@@ -65,7 +65,9 @@ module ActionAgent
           unless session.evaluation_run_id && session.verification_run&.complete?
             raise DraftPullRequestPublisher::Refused.new("Wait for this fix's verification before publishing", code: "not_live")
           end
-          record.body = [ record.body.presence, EvaluationFixComparison.new(session).pull_request_body(mount: "#{request.base_url}#{request.script_name}") ].compact.join("\n\n")
+          room = DraftPullRequest::MAX_BODY_CHARACTERS - (record.body.present? ? record.body.length + 2 : 0)
+          section = EvaluationFixComparison.new(session).pull_request_body(mount: "#{request.base_url}#{request.script_name}", limit: room)
+          record.body = [ record.body.presence, section.presence ].compact.join("\n\n")
         end
         assign_owner(record)
         return unless authorize_action!(:publish_pull_request, record)

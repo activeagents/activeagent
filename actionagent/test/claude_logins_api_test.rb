@@ -5,7 +5,7 @@ require "test_helper"
 class ClaudeLoginsApiTest < ActionDispatch::IntegrationTest
   class Backend < ActionAgent::LocalSandboxBackend
     class << self
-      attr_accessor :calls
+      attr_accessor :calls, :status
     end
     def start_claude_login(sandbox)
       self.class.calls << [ :start, sandbox.id ]
@@ -15,7 +15,7 @@ class ClaudeLoginsApiTest < ActionDispatch::IntegrationTest
       self.class.calls << [ :submit, sandbox.id ]
       { status: "connected", logged_in: true, auth_method: "claude.ai" }
     end
-    def claude_login_status(*) = { status: "connected", logged_in: true, auth_method: "claude.ai" }
+    def claude_login_status(*) = self.class.status || { status: "connected", logged_in: true, auth_method: "claude.ai" }
     def claude_logout(sandbox) = self.class.calls << [ :logout, sandbox.id ]
   end
 
@@ -41,6 +41,7 @@ class ClaudeLoginsApiTest < ActionDispatch::IntegrationTest
   end
 
   def teardown
+    Backend.status = nil
     @saved.each { |key, value| ActionAgent.public_send("#{key}=", value) }
   end
 
@@ -74,9 +75,44 @@ class ClaudeLoginsApiTest < ActionDispatch::IntegrationTest
     assert_response :forbidden
     assert_empty Backend.calls
     assert_nil ActionAgent::ClaudeCodeAuth.credential_mode(@sandbox, user_id: @user.id)
+    # Not even the account's API key: the session would run beside the other
+    # member's CLAUDE_CONFIG_DIR as the same OS user.
     ActionAgent::ProviderKey.create!(provider: "claude_code", credential: "sk-ant-api03-accountFixture", account_id: @account.id)
-    assert_equal "api_key", ActionAgent::ClaudeCodeAuth.credential_mode(@sandbox, user_id: @user.id)
+    assert_nil ActionAgent::ClaudeCodeAuth.credential_mode(@sandbox, user_id: @user.id)
+    assert_match(/Another member is signed in/, ActionAgent::ClaudeCodeAuth.credential_refusal(@sandbox, user_id: @user.id))
+    assert_nil ActionAgent::ClaudeCodeAuth.sandbox_status(@sandbox, user_id: @user.id)[:credential_mode]
     assert_equal "sandbox_login", ActionAgent::ClaudeCodeAuth.credential_mode(@sandbox, user_id: @other.id)
+    @sandbox.update!(claude_login_user_id: nil)
+    assert_equal "api_key", ActionAgent::ClaudeCodeAuth.credential_mode(@sandbox, user_id: @user.id)
+  end
+
+  test "no other member's session of any runner runs beside a personal login" do
+    @sandbox.update!(claude_login_user_id: @other.id)
+    ActionAgent::ProviderKey.create!(provider: "claude_code", credential: "sk-ant-api03-accountFixture", account_id: @account.id)
+    %w[claude_code codex].each do |runner|
+      post "/activeagents/api/sandboxes/#{@sandbox.session_id}/code_sessions", params: { prompt: "Read the other login", runner: runner }, as: :json
+      assert_response :unprocessable_entity, runner
+      assert_match(/Another member is signed in/, response.parsed_body["error"])
+    end
+    assert_equal 0, @sandbox.code_sessions.count
+  end
+
+  test "a sign-in that ended without a login stops holding the sandbox" do
+    @sandbox.update!(claude_login_user_id: @other.id)
+    Backend.status = { status: "awaiting_code", logged_in: false, auth_method: nil }
+    post path
+    assert_response :conflict
+    Backend.status = { status: "completed", logged_in: false, auth_method: nil }
+    post path
+    assert_response :conflict, "a completed CLI may hold another kind of credential until logout"
+    Backend.status = { status: "expired", logged_in: false, auth_method: nil }
+    post path
+    assert_response :accepted, response.body
+    assert_equal @user.id, @sandbox.reload.claude_login_user_id
+    get path
+    assert_response :success
+    assert_nil @sandbox.reload.claude_login_user_id
+    assert_equal "expired", response.parsed_body.dig("login", "status")
   end
 
   test "a running session prevents changing its authentication" do

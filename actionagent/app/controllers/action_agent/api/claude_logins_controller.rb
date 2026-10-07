@@ -3,21 +3,32 @@
 module ActionAgent
   module Api
     class ClaudeLoginsController < BaseController
+      DISCONNECTED = { status: "disconnected", logged_in: false, auth_method: nil }.freeze
+      # Where a sign-in stops without a login and without leaving the CLI's
+      # config behind. "completed" is not one: a CLI that completed with
+      # another kind of account still holds that credential until logout.
+      ENDED = %w[expired failed cancelled disconnected].freeze
+
       before_action :require_owner!
       before_action :require_execution_enabled!
       before_action :set_sandbox
 
+      # Polled while the sign-in dialog is open, so it takes no lock: the
+      # fix verification holds the sandbox's row while the runtime restarts.
       def show
-        @sandbox.with_lock do
-          return render json: { login: { status: "disconnected", logged_in: false, auth_method: nil } } unless mine?
-          render json: { login: orchestrator.claude_login_status(@sandbox) }
-        end
+        return render json: { login: DISCONNECTED } unless mine?
+
+        login = orchestrator.claude_login_status(@sandbox)
+        # A sign-in that ended without a login leaves no credential behind
+        # (the supervisor removes the config), so it stops holding the sandbox.
+        @sandbox.update_columns(claude_login_user_id: nil) if ended?(login)
+        render json: { login: login }
       end
 
       def create
         login = nil
         @sandbox.with_lock do
-          unless @sandbox.claude_login_user_id.nil? || mine?
+          unless @sandbox.claude_login_user_id.nil? || mine? || ended?(orchestrator.claude_login_status(@sandbox))
             return render json: { error: "This sandbox has another member's login. Start your own sandbox or use the account API key." }, status: :conflict
           end
           return busy if @sandbox.code_sessions.where(status: [ :queued, :running ]).exists?
@@ -45,7 +56,7 @@ module ActionAgent
           orchestrator.claude_logout(@sandbox)
           @sandbox.update!(claude_login_user_id: nil)
         end
-        render json: { login: { status: "disconnected", logged_in: false, auth_method: nil } }
+        render json: { login: DISCONNECTED }
       end
 
       rescue_from LocalSandboxBackend::Error, SandboxOrchestrator::UnsupportedBackendError do
@@ -73,6 +84,7 @@ module ActionAgent
       end
 
       def mine? = @sandbox.claude_login_user_id == current_user.id
+      def ended?(login) = !login[:logged_in] && ENDED.include?(login[:status].to_s)
       def orchestrator = @orchestrator ||= SandboxOrchestrator.new
       def forbidden = render(json: { error: "This login belongs to another user" }, status: :forbidden)
       def busy = render(json: { error: "Wait for the running code session before changing its login" }, status: :conflict)

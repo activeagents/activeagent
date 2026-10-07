@@ -13,6 +13,10 @@ module ActionAgent
     # running an agent.
     class CodeSessionsController < BaseController
       include EvaluationRunStarting
+
+      # How long an unverified fix holds its checkout (see #busy_session).
+      VERIFICATION_HOLD = 1.hour
+
       before_action :require_owner!
       before_action :require_execution_enabled!, only: [ :create ]
       before_action :set_sandbox
@@ -134,6 +138,9 @@ module ActionAgent
           return "The #{orchestrator.backend_name} sandbox backend cannot run #{label} sessions"
         end
 
+        if (refusal = ClaudeCodeAuth.login_owner_refusal(sandbox, user_id: current_user&.id))
+          return refusal
+        end
         if runner == "codex"
           return "Codex is not connected: connect an OpenAI API key in Settings -> Integrations first" if sandbox.runtime_environment(runner: runner).blank?
           return
@@ -142,10 +149,13 @@ module ActionAgent
       end
 
       # The session of this sandbox that is queued or running, if any: one
-      # checkout, one Claude Code at a time.
+      # checkout, one Claude Code at a time. A fix whose verification has not
+      # finished holds the checkout too, so no edit lands under the run that
+      # is meant to verify it, but only for VERIFICATION_HOLD: a worker lost
+      # mid-run must not lock the sandbox until it expires.
       def busy_session
         @sandbox.code_sessions.where(status: [ :queued, :running ]).first ||
-          @sandbox.code_sessions.where.not(evaluation_run_id: nil).recent.detect do |session|
+          @sandbox.code_sessions.where.not(evaluation_run_id: nil).where(finished_at: VERIFICATION_HOLD.ago..).recent.detect do |session|
             session.succeeded? && session.diff.present? && session.verification_error.blank? &&
               (session.verification_run_id.nil? || session.verification_run&.status.in?(%w[pending running]))
           end
