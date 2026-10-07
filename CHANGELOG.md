@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Evaluation fault and instruction cards can launch one Claude Code fix in
+  their project's checkout. The dashboard builds the brief, refreshes the
+  runtime after a successful edit, verifies the original scenarios and models,
+  and shows before/after results. Users can retry, run the full suite, or
+  explicitly open a draft PR carrying both runs and the session summary.
+- Opt-in `claude_code_auth = :sandbox_login` exposes the same Claude
+  subscription sign-in in Settings → Integrations and fix cards. The local
+  backend supervises the unmodified CLI's login in a PTY with a one-use code
+  pipe, private sandbox config, user ownership, timeout and logout cleanup.
+  API-key mode remains the default; evaluation providers remain separate.
+
+Upgrading: run `bin/rails generate action_agent:install --skip` and
+`bin/rails db:migrate` to add the code-session evaluation links and sandbox
+login owner. Remote subscription login stays disabled until explicitly enabled
+by the operator and supported by the backend.
+
 ## [1.9.0] - 2026-10-07
 
 Releases `activeagent` and `actionagent` 1.9.0 from one tag. A minor release.

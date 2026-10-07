@@ -296,6 +296,18 @@ ActionAgent.configure do |config|
   #
   # config.claude_code_auth = :local_login
   #
+  # :sandbox_login adds the same subscription sign-in flow to Settings ->
+  # Integrations and evaluation fix cards. Requires current_user_resolver
+  # and an unmodified Claude Code CLI. Credentials stay in one sandbox's
+  # private CLAUDE_CONFIG_DIR, outside its checkout; they are never imported
+  # into ProviderKey. The account API key remains the fallback.
+  # config.claude_code_auth = :sandbox_login
+  # config.claude_code_login_timeout = 300
+  # Remote backends must implement all four login verbs and refresh_runtime.
+  # Keep hosted login disabled until the operator has reviewed Anthropic's
+  # current commercial hosting requirements and configured tenant isolation.
+  # config.claude_code_hosted_login_enabled = false
+  #
   # Expired sandboxes are stopped by `bin/rails action_agent:sandbox:reap`.
   # Schedule it every few minutes.
 

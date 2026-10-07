@@ -57,7 +57,12 @@ module ActionAgent
       stop_browser: %i[stop_browser],
       resume_boot: %i[resume_boot],
       boot_status: %i[boot_status],
-      boot_log: %i[boot_log]
+      boot_log: %i[boot_log],
+      start_claude_login: %i[start_claude_login],
+      submit_claude_login_code: %i[submit_claude_login_code],
+      claude_login_status: %i[claude_login_status],
+      claude_logout: %i[claude_logout],
+      refresh_runtime: %i[refresh_runtime]
     }.freeze
 
     # What #start_browser may be asked for: a browser with no window, or one
@@ -98,6 +103,14 @@ module ActionAgent
     end
 
     attr_reader :backend_name
+
+    # Login adapters return only flow state / the CLI authorize URL. No
+    # credential, terminal output or echoed code may cross this boundary.
+    def start_claude_login(sandbox) = @backend.public_send(adapter_method(:start_claude_login), sandbox)
+    def submit_claude_login_code(sandbox, code) = @backend.public_send(adapter_method(:submit_claude_login_code), sandbox, code)
+    def claude_login_status(sandbox) = @backend.public_send(adapter_method(:claude_login_status), sandbox)
+    def claude_logout(sandbox) = @backend.public_send(adapter_method(:claude_logout), sandbox)
+    def refresh_runtime(sandbox) = @backend.public_send(adapter_method(:refresh_runtime), sandbox)
 
     # Create a new sandbox for the given session
     #
@@ -247,6 +260,12 @@ module ActionAgent
       end
       refusal = ClaudeCodeAuth.backend_refusal(self) unless runner == "codex"
       raise UnsupportedBackendError, refusal if refusal
+      if runner == "claude_code" && code_session.try(:credential_mode) == "sandbox_login"
+        unless sandbox_session.claude_login_user_id.present? && sandbox_session.claude_login_user_id == code_session.user_id &&
+            claude_login_status(sandbox_session).slice(:logged_in, :auth_method) == { logged_in: true, auth_method: "claude.ai" }
+          raise UnsupportedBackendError, "This user's Claude subscription is no longer signed in to this sandbox"
+        end
+      end
 
       @backend.public_send(adapter_method(:code_session), sandbox_session, code_session, &on_event)
     end

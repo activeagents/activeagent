@@ -8,3 +8,5 @@
 @source "./contexts";
 @source "./pages";
 @source "./index.jsx";
+
+.aa-fix-dialog::backdrop { background: rgb(0 0 0 / 50%); backdrop-filter: blur(3px); }

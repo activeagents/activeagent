@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useCallback, useLayoutEffect, useMemo, useRef } from 'react';
 import { useTheme } from '../../contexts/ThemeContext';
+import SandboxClaudeLogin from './SandboxClaudeLogin';
+import FixVerification from './evaluations/FixVerification';
 import { timeAgo } from '../../utils/format';
 import {
   CODE_SESSION_POLL_INTERVAL_MS,
@@ -161,7 +163,8 @@ export default function CodeSessionPanel({ sandbox, claudeCode, codex, onRecheck
         setDetailError(null);
         setDetail({ ...session, events });
         setSessions((list) => upsertBy(list || [], sessionSummary(session), 'id'));
-        if (isCodeSessionSettled(session)) again = false;
+        const verifying = session.evaluation_run_id && session.status === 'succeeded' && session.diff && !session.verification?.error && !['complete', 'failed'].includes(session.verification?.status);
+        if (isCodeSessionSettled(session) && !verifying) again = false;
       } catch (e) {
         if (cancelled) return;
         failures += 1;
@@ -281,6 +284,7 @@ export default function CodeSessionPanel({ sandbox, claudeCode, codex, onRecheck
 
   return (
     <div className={`mt-2 p-3 rounded-lg border space-y-3 ${border}`}>
+      {claudeCode?.mode === 'sandbox_login' && <SandboxClaudeLogin sandbox={sandbox} onChange={onRecheckConnection} />}
       <div className="flex items-center justify-between">
         <p className={`text-sm font-medium ${strong}`}>Code sessions</p>
         <p className={`text-xs ${muted}`}>A session edits this checkout and never commits or pushes. Publishing is a separate step, below.</p>
@@ -472,6 +476,8 @@ function SessionDetail({ session, rows, loaded, detailError, cancelling, onCance
       {session.error_message && (
         <pre className={`${errorBox} whitespace-pre-wrap break-words font-mono max-h-48 overflow-y-auto`}>{session.error_message}</pre>
       )}
+
+      {session.evaluation_run_id && <FixVerification session={session} evaluationId={session.evaluation_id} sandboxId={session.sandbox_session_id} />}
 
       {finished && loaded && (
         <DiffView

@@ -206,14 +206,18 @@ module ActionAgent
     # listing reports it: an API key the owner connected (auth "api_key"), or
     # this machine's own login (auth "local_login", with its status).
     def connections
-      claude_code = ClaudeCodeAuth.status(ProviderKey.for_owner(@owner))
+      claude_code = ClaudeCodeAuth.status(ProviderKey.for_owner(@owner),
+        sandboxes: SandboxSession.for_owner(@owner).where(sandbox_type: "app_runtime").recent.limit(20),
+        user_id: @actor.respond_to?(:id) ? @actor.id : nil)
       {
         github: { supported: true, connected: GithubConnection.for_owner(@owner).exists? },
         claude_code: {
           supported: code_sessions_supported?,
           connected: claude_code[:connected],
           auth: claude_code[:mode],
-          login: claude_code[:login]
+          mode: claude_code[:mode],
+          login: claude_code[:login],
+          sandboxes: claude_code[:sandboxes]
         }.compact,
         coi: { supported: false }
       }

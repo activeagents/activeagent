@@ -96,7 +96,7 @@ export default function GithubIntegrationCard({ callbackStatus, appCallbackStatu
       setSandboxes(data.sandboxes || []);
       setSandboxSupport({
         codeSessions: Boolean(data.code_sessions_supported),
-        claudeCode: claudeCodeAuth(data),
+        claudeCode: { ...claudeCodeAuth(data), sandboxes: data.claude_code_sandboxes || [] },
         codex: { supported: data.codex_sessions_supported === true, connected: data.codex_connected === true },
         pullRequests: data.pull_requests_supported === true,
         browserModes: Array.isArray(data.browser_modes) ? data.browser_modes : [],
@@ -351,7 +351,7 @@ export default function GithubIntegrationCard({ callbackStatus, appCallbackStatu
         {ready && sandboxSupport?.codeSessions && (
           <CodeSessionPanel
             sandbox={sandbox}
-            claudeCode={sandboxSupport.claudeCode}
+            claudeCode={sandboxSupport.claudeCode?.mode === 'sandbox_login' ? { ...sandboxSupport.claudeCode, connected: !!sandboxSupport.claudeCode.sandboxes.find((entry) => entry.session_id === sandbox.session_id)?.credential_mode } : sandboxSupport.claudeCode}
             codex={sandboxSupport.codex}
             onRecheckConnection={loadSandboxes}
           />

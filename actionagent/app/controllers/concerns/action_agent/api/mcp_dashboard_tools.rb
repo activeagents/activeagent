@@ -925,10 +925,7 @@ module ActionAgent
       # fixed, still_failing.
       def comparison_change(before, after)
         return "removed" if after.nil?
-        return after.passed? ? "added_pass" : "added_fail" if before.nil?
-        return after.passed? ? "unchanged_pass" : "regressed" if before.passed?
-
-        after.passed? ? "fixed" : "still_failing"
+        EvaluationFixComparison.change(before, after)
       end
 
       # Fix item links at the facade's absolute mount, since a client has no

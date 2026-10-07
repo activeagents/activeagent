@@ -60,6 +60,13 @@ module ActionAgent
           operation: "create", repository: @sandbox.repository, branch: string_param(:branch).to_s.strip,
           title: string_param(:title).to_s.strip, body: string_param(:body)
         )
+        if params[:code_session_id].present?
+          session = @sandbox.code_sessions.find(params[:code_session_id])
+          unless session.evaluation_run_id && session.verification_run&.complete?
+            raise DraftPullRequestPublisher::Refused.new("Wait for this fix's verification before publishing", code: "not_live")
+          end
+          record.body = [ record.body.presence, EvaluationFixComparison.new(session).pull_request_body(mount: "#{request.base_url}#{request.script_name}") ].compact.join("\n\n")
+        end
         assign_owner(record)
         return unless authorize_action!(:publish_pull_request, record)
 

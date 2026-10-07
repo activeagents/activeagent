@@ -377,7 +377,9 @@ section covers the sandbox and Claude Code options:
 | `claude_code_permission_mode` | `"acceptEdits"` |
 | `claude_code_max_turns` | `nil` (Claude Code's own default) |
 | `claude_code_timeout` | `1800` seconds |
-| `claude_code_auth` | `:api_key` (or `:local_login`, with the `:local` backend only) |
+| `claude_code_auth` | `:api_key` (or `:local_login` for the local machine; `:sandbox_login` for per-user sandbox sign-in) |
+| `claude_code_login_timeout` | `300` seconds (bounded to 1–600) |
+| `claude_code_hosted_login_enabled` | `false`; remote adapters must also implement the login lifecycle |
 
 **[Self-Hosted Dashboard](/framework/self-hosted-observability)** adds
 `ingest_api_key`, `current_account_resolver`, `trace_retention`,
