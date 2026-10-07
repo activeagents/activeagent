@@ -21,6 +21,13 @@ module ActionAgent
         record_process_start(state, pid)
       end
       Process.detach(pid)
+      # Until the supervisor writes its own state, the flow reads as
+      # starting, not as no sign-in at all. Never over a newer state.
+      begin
+        File.write(directory.join("status.json"), JSON.generate(status: "starting"), mode: "wx", perm: 0o600)
+      rescue Errno::EEXIST
+        nil
+      end
       { status: "starting", logged_in: false, auth_method: nil }
     end
 

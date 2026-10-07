@@ -93,6 +93,9 @@ module ActionAgent
     # credentials, or nil.
     def credential_refusal(sandbox, user_id: nil)
       if sandbox_login?
+        if (refusal = login_owner_refusal(sandbox, user_id: user_id))
+          return refusal
+        end
         return if credential_mode(sandbox, user_id: user_id)
 
         return "Sign in with your own Claude subscription in this sandbox, or connect an Anthropic API key"
@@ -106,8 +109,21 @@ module ActionAgent
       end
     end
 
+    # Why +user_id+ may run nothing in +sandbox+ under :sandbox_login, or nil.
+    # Every session runs as the same OS user beside the signed-in member's
+    # CLAUDE_CONFIG_DIR, so while one member's login is there no one else's
+    # session, on any runner or credential, may run in that checkout.
+    def login_owner_refusal(sandbox, user_id: nil)
+      return unless sandbox_login?
+      owner = sandbox.try(:claude_login_user_id)
+      return if owner.nil? || (user_id.present? && owner == user_id)
+
+      "Another member is signed in to Claude Code in this sandbox; start your own sandbox"
+    end
+
     def credential_mode(sandbox, user_id: nil)
       return mode unless sandbox_login?
+      return if login_owner_refusal(sandbox, user_id: user_id)
       if user_id.present? && sandbox.claude_login_user_id == user_id
         login = SandboxOrchestrator.new.claude_login_status(sandbox)
         return "sandbox_login" if login[:logged_in] && login[:auth_method] == "claude.ai"
@@ -125,11 +141,12 @@ module ActionAgent
         { logged_in: false, auth_method: nil }
       end
       login = { logged_in: false, auth_method: nil } unless login[:logged_in] && login[:auth_method] == "claude.ai"
+      fallback = sandbox.runtime_environment.present? && !login_owner_refusal(sandbox, user_id: user_id) ? "api_key" : nil
       login.merge(session_id: sandbox.session_id, owned_by_you: mine,
-        credential_mode: login[:logged_in] ? "sandbox_login" : sandbox.runtime_environment.present? ? "api_key" : nil)
+        credential_mode: login[:logged_in] ? "sandbox_login" : fallback)
     rescue StandardError
       { session_id: sandbox.session_id, logged_in: false, auth_method: nil, owned_by_you: mine,
-        credential_mode: sandbox.runtime_environment.present? ? "api_key" : nil }
+        credential_mode: sandbox.runtime_environment.present? && !login_owner_refusal(sandbox, user_id: user_id) ? "api_key" : nil }
     end
   end
 end

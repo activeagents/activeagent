@@ -47,7 +47,24 @@ module ActionAgent
       run.scenario_results.map { |result| [ result.provider, result.model ].compact_blank.join("/") }.uniq
     end
 
+    # How much of each piece of evidence the brief quotes, at full size. A
+    # card with many scenarios and models, or a retry, shrinks them all
+    # (see #prompt) rather than refusing the card.
+    EXCERPTS = { prompt: 1000, expectations: 1000, diagnosis: 1200, answer: 1000,
+      previous_result: 1500, previous_diff: 5000, previous_results: 3000 }.freeze
+    SCALES = [ 1, 0.5, 0.25, 0.1 ].freeze
+
     def prompt(previous: nil)
+      SCALES.each do |scale|
+        text = brief(previous, EXCERPTS.transform_values { |size| (size * scale).to_i })
+        return text if text.length <= CodeSession::MAX_PROMPT_CHARACTERS
+      end
+      raise Invalid, "This fix has too much context for one session; run the evaluation on fewer scenarios or models"
+    end
+
+    private
+
+    def brief(previous, limit)
       agent = run.evaluation.agent
       name = agent.agent_class_name.presence || agent.telemetry_agent_class
       path = name.to_s.underscore
@@ -63,14 +80,14 @@ module ActionAgent
         label = [ result.provider, result.model ].compact_blank.join("/")
         next unless item["models"].include?(label) || item["models"].include?(result.model)
         lines += [ "", "### #{scenario['key']} · #{label}",
-          "Prompt: #{scenario['prompt'].to_s.truncate(1000)}", "Expectations: #{scenario['expectations'].to_json.truncate(1000)}",
+          "Prompt: #{scenario['prompt'].to_s.truncate(limit[:prompt])}", "Expectations: #{scenario['expectations'].to_json.truncate(limit[:expectations])}",
           "Before: #{result.status} · score #{result.score} · fault #{result.fault}",
-          "Diagnosis: #{result.diagnosis.to_json.truncate(1200)}", "Answer: #{result.output.to_s.truncate(1000)}" ]
+          "Diagnosis: #{result.diagnosis.to_json.truncate(limit[:diagnosis])}", "Answer: #{result.output.to_s.truncate(limit[:answer])}" ]
       end
       if previous
-        lines += [ "", "## Previous attempt", previous.result.to_s.truncate(1500),
-          "Previous diff:", previous.diff.to_s.truncate(5000),
-          "Verification results: #{EvaluationFixComparison.new(previous).rows.to_json.truncate(3000)}" ]
+        lines += [ "", "## Previous attempt", previous.result.to_s.truncate(limit[:previous_result]),
+          "Previous diff:", previous.diff.to_s.truncate(limit[:previous_diff]),
+          "Verification results: #{EvaluationFixComparison.new(previous).rows.to_json.truncate(limit[:previous_results])}" ]
       end
       lines += [ "", "## Verify", "Change the agent, not the scenarios or their expectations.",
         "Run the relevant checkout tests. Do not commit or push.",
@@ -78,10 +95,7 @@ module ActionAgent
         "Do not call dashboard URLs or dashboard MCP tools from this sandbox.",
         "Never read or copy the sandbox's Claude configuration or credentials.",
         "Summarize the change and any remaining limitations." ]
-      # Keep the verification contract even when many results are present.
-      text = lines.compact.join("\n")
-      raise Invalid, "This fix has too much context; choose fewer scenarios" if text.length > CodeSession::MAX_PROMPT_CHARACTERS
-      text
+      lines.compact.join("\n")
     end
   end
 end

@@ -8,7 +8,7 @@ const directory = fileURLToPath(new URL('..', import.meta.url));
 const bundle = `${directory}/node_modules/.cache/login-${process.pid}.mjs`;
 const sandbox = { session_id: 'fixture', status: 'ready', repository: 'fixture/support' };
 const item = { kind: 'fault', fault: 'expected_tool_not_called', scenario_keys: ['lookup'], models: ['mock/demo'] };
-let window, views, login, requests, fixes;
+let window, views, login, requests, fixes, afterCode;
 before(async () => {
   ({ window } = new JSDOM('<!doctype html><body></body>', { url: 'http://localhost/settings' }));
   for (const key of ['window', 'document', 'navigator', 'localStorage']) Object.defineProperty(globalThis, key, { value: key === 'window' ? window : window[key], configurable: true, writable: true });
@@ -28,7 +28,7 @@ before(async () => {
       if (method === 'DELETE') login = { status: 'disconnected', logged_in: false };
       body = { login };
     }
-    if (url.endsWith('/claude_login/code')) { login = { status: 'connected', logged_in: true, auth_method: 'claude.ai' }; body = { login }; }
+    if (url.endsWith('/claude_login/code')) { login = afterCode || { status: 'connected', logged_in: true, auth_method: 'claude.ai' }; body = { login }; }
     return { ok: !!body, status: body ? 200 : 404, json: async () => body || {} };
   };
   const { outputFiles } = await build({ stdin: { contents: `
@@ -94,4 +94,24 @@ test('the cards of one run share one workspace load, and stay hidden where a fix
       assert.equal(node.querySelectorAll('[data-testid="implement-fix"]').length, shown ? 3 : 0);
     } finally { await views.act(async () => mounted.unmount()); node.remove(); fixes = null; }
   }
+});
+
+test('a sign-in that completes without a Claude subscription stops polling and says why', async () => {
+  requests = []; login = { status: 'disconnected', logged_in: false }; afterCode = { status: 'completed', logged_in: false, auth_method: null };
+  const node = document.body.appendChild(document.createElement('div')); let mounted;
+  await views.act(async () => { mounted = views.mount(node, 'settings', {}); });
+  try {
+    await click(await waitFor(() => button(node, 'Sign in with your Claude subscription')));
+    const input = await waitFor(() => node.querySelector('input[placeholder="Paste the code from Claude"]'));
+    await views.act(async () => {
+      Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set.call(input, 'one-use-fixture');
+      input.dispatchEvent(new window.Event('input', { bubbles: true }));
+    });
+    await click(button(node, 'Complete connection'));
+    await waitFor(() => /not with a Claude subscription/.test(node.textContent));
+    const polls = requests.filter((request) => request.method === 'GET' && request.url.endsWith('/claude_login')).length;
+    await views.act(() => new Promise((resolve) => setTimeout(resolve, 1500)));
+    assert.equal(requests.filter((request) => request.method === 'GET' && request.url.endsWith('/claude_login')).length, polls);
+    assert.ok(button(node, 'Start sign-in again'));
+  } finally { await views.act(async () => mounted.unmount()); node.remove(); afterCode = null; }
 });

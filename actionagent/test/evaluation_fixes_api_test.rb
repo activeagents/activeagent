@@ -5,10 +5,14 @@ require "test_helper"
 class EvaluationFixesApiTest < ActionDispatch::IntegrationTest
   class Backend
     class << self
-      attr_accessor :refreshed
+      attr_accessor :refreshed, :refresh_error
     end
     def code_runners = %w[claude_code]
-    def refresh_runtime(sandbox) = self.class.refreshed = sandbox.session_id
+    def refresh_runtime(sandbox)
+      raise self.class.refresh_error if self.class.refresh_error
+
+      self.class.refreshed = sandbox.session_id
+    end
     def run_code_session(*)
       yield({ "type" => "result", "is_error" => false, "result" => "Fixed the lookup." })
       { exit_status: 0, diff: "diff --git a/app/agents/support_agent.rb b/app/agents/support_agent.rb\n+fixed\n" }
@@ -40,6 +44,7 @@ class EvaluationFixesApiTest < ActionDispatch::IntegrationTest
   end
 
   def teardown
+    Backend.refresh_error = nil
     ActionAgent.sandbox_backends = @backends
     ActionAgent.sandbox_service = @service
     ActionAgent.execution_enabled = true
@@ -90,6 +95,10 @@ class EvaluationFixesApiTest < ActionDispatch::IntegrationTest
     assert_includes body, "/runs/#{@run.id}"
     assert_includes body, "/runs/#{verification.id}"
     assert_includes body, "Updated the lookup tool."
+    # Appended to a body the user wrote, it is cut from the end to fit.
+    short = comparison.pull_request_body(mount: "https://dashboard.example/activeagents", limit: 120)
+    assert_operator short.length, :<=, 120
+    assert short.start_with?("## Evaluation fix")
     assert_empty ActionAgent::DraftPullRequest.where(sandbox_session_id: @sandbox.id)
     post sessions_path, params: { evaluation_run_id: @run.id, fix_item: @item, previous_code_session_id: session.id }, as: :json
     assert_response :created, response.body
@@ -119,6 +128,42 @@ class EvaluationFixesApiTest < ActionDispatch::IntegrationTest
     ActionAgent::VerifyEvaluationFixJob.perform_now(session.id)
     assert_match(/no longer running/, session.reload.verification_error)
     assert_nil session.verification_run_id
+  end
+
+  test "a refresh that loses the runtime fails the verification run and frees the checkout" do
+    fix = ActionAgent::EvaluationFix.new(@run, @item)
+    session = ActionAgent::CodeSession.create!(sandbox_session: @sandbox, prompt: fix.prompt, evaluation_run: @run, fix_item: fix.item,
+      status: :succeeded, diff: "diff --git a/x b/x", finished_at: Time.current)
+    Backend.refresh_error = "The app did not answer"
+    ActionAgent::VerifyEvaluationFixJob.perform_now(session.id)
+    session.reload
+    assert_match(/did not answer/, session.verification_error)
+    assert_equal "failed", session.verification_run.status
+    assert_no_enqueued_jobs(only: ActionAgent::EvaluationRunJob)
+    post sessions_path, params: { evaluation_run_id: @run.id, fix_item: @item, previous_code_session_id: session.id }, as: :json
+    assert_response :created, response.body
+  end
+
+  test "an unverified fix holds its checkout for an hour, not until the sandbox expires" do
+    fix = ActionAgent::EvaluationFix.new(@run, @item)
+    session = ActionAgent::CodeSession.create!(sandbox_session: @sandbox, prompt: fix.prompt, evaluation_run: @run, fix_item: fix.item,
+      status: :succeeded, diff: "diff --git a/x b/x", finished_at: Time.current)
+    post sessions_path, params: { prompt: "Another edit" }, as: :json
+    assert_response :conflict
+    session.update!(finished_at: 2.hours.ago)
+    post sessions_path, params: { prompt: "Another edit" }, as: :json
+    assert_response :created, response.body
+  end
+
+  test "a card with long evidence gets a shorter brief instead of a refusal" do
+    @run.scenario_results.first.update!(output: "An answer that goes on. " * 2_000,
+      diagnosis: { fault: "expected_tool_not_called", recommendation: "Call the lookup tool.", evidence: { note: "x" * 20_000 } })
+    previous = ActionAgent::CodeSession.create!(sandbox_session: @sandbox, prompt: "First try", evaluation_run: @run,
+      fix_item: ActionAgent::EvaluationFix.new(@run, @item).item, status: :succeeded, result: "Tried. " * 2_000, diff: "diff --git a/x b/x\n" + "+line\n" * 5_000)
+    prompt = ActionAgent::EvaluationFix.new(@run, @item).prompt(previous: previous)
+    assert_operator prompt.length, :<=, ActionAgent::CodeSession::MAX_PROMPT_CHARACTERS
+    assert_includes prompt, "Change the agent, not the scenarios"
+    assert_includes prompt, "## Previous attempt"
   end
 
   private

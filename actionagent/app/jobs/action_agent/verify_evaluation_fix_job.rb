@@ -8,9 +8,11 @@ module ActionAgent
       session = CodeSession.find_by(id: id)
       return unless session&.succeeded? && session.evaluation_run_id && session.diff.present?
       sandbox = session.sandbox_session
-      # Hold the checkout lock through the refresh and run creation. Session
-      # creation also refuses a verification in progress, so a later edit
-      # cannot race the run that is meant to verify this diff.
+      run = nil
+      # Claim the verification under the checkout's lock: the pending run is
+      # what CodeSessionsController#busy_session waits on, so no later edit
+      # can race it. The restart happens after the lock is released, since
+      # it takes as long as a boot and the lock is a database row lock.
       sandbox.with_lock do
         session.reload
         return if session.verification_run_id
@@ -20,15 +22,16 @@ module ActionAgent
         EvaluationFix.check_scenarios!(session.evaluation_run.evaluation, session.fix_item)
         owner = session.evaluation_run.evaluation.agent.owner
         raise "The sandbox is no longer available to the agent" unless SandboxSession.runtime_server_entry(sandbox.runtime_server_key, owner: owner)
-        orchestrator = SandboxOrchestrator.new
-        orchestrator.refresh_runtime(sandbox)
         selection = { "sandbox_id" => sandbox.session_id, "keys" => session.fix_item.fetch("scenario_keys"), "models" => session.fix_item.fetch("models") }
         run = session.evaluation_run.evaluation.evaluation_runs.create!(status: :pending, selection: selection)
         session.update!(verification_run: run, verification_error: nil)
-        EvaluationRunJob.perform_later(run.evaluation_id, run.id, selection)
       end
+      SandboxOrchestrator.new.refresh_runtime(sandbox)
+      EvaluationRunJob.perform_later(run.evaluation_id, run.id, run.selection)
     rescue StandardError => error
-      session&.update!(verification_error: SecretScrubber.scrub(error.message, session.secrets).truncate(1000))
+      message = SecretScrubber.scrub(error.message, session&.secrets).truncate(1000)
+      run&.update!(status: :failed, error_message: message, completed_at: Time.current)
+      session&.update!(verification_error: message)
     end
   end
 end

@@ -1376,9 +1376,13 @@ end
 ```
 
 The login belongs to the person who connected it (`claude_login_user_id`),
-not the account. Another account member uses their own sandbox login or the
-account's connected Claude Code API key. The UI shows the credential source
-before execution. Signing in does not launch an autonomous batch: each
+not the account. While it is there, no other member's session runs in that
+sandbox, with any runner or credential: every session runs as the same OS
+user beside that login's `CLAUDE_CONFIG_DIR`. Other members start their own
+sandbox, where they sign in themselves or use the account's Claude Code API
+key. A sign-in that expires, fails or is cancelled leaves nothing behind and
+stops holding the sandbox. The UI shows the credential source before
+execution. Signing in does not launch an autonomous batch: each
 explicit implementation or retry starts one code session. Evaluation replays
 continue to use the agent's provider credentials.
 

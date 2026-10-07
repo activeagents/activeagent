@@ -109,8 +109,9 @@ finished must handle. Session Replay is now **Sessions** in the sidebar.
   `claude auth login` under a PTY with the sandbox's own `CLAUDE_CONFIG_DIR`;
   the user authorizes on Claude's site and pastes the one-time code, which is
   written once to the CLI and never stored, logged or returned. The login
-  belongs to that user and that sandbox (`claude_login_user_id`); other
-  members use their own login or the account's API key. Sessions on it get no
+  belongs to that user and that sandbox (`claude_login_user_id`), and no other
+  member's session runs beside it; they use a sandbox of their own, with
+  their own login or the account's API key. Sessions on it get no
   Anthropic credential variables, credential paths are excluded from file
   reads, diffs and draft pull requests, and disconnect, stop and expiry run
   `claude auth logout` and remove the config. Backends without the four login

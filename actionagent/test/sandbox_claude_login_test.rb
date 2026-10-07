@@ -88,10 +88,14 @@ class SandboxClaudeLoginTest < ActiveSupport::TestCase
   end
 
   test "credential directories are excluded even when copied into a repository" do
-    %w[claude/.credentials.json .claude/settings.json nested/claude-home/token nested/.credentials.json].each do |path|
-      assert ActionAgent::SandboxCredentialPaths.protected?(path)
+    %w[claude/.credentials.json claude-home/token Claude-Login/status.json nested/.credentials.json .CREDENTIALS.json].each do |path|
+      assert ActionAgent::SandboxCredentialPaths.protected?(path), path
     end
-    refute ActionAgent::SandboxCredentialPaths.protected?("app/agents/claude_agent.rb")
+    # A repository's own Claude settings and an app's claude/ code are not
+    # credentials: they stay in diffs, file reads and pull requests.
+    %w[app/agents/claude_agent.rb app/services/claude/client.rb .claude/settings.json lib/claude-home/readme.md].each do |path|
+      refute ActionAgent::SandboxCredentialPaths.protected?(path), path
+    end
     assert_equal "[REDACTED]", ActionAgent::SecretScrubber.scrub("sk-ant-oat01-syntheticToken", [])
   end
 

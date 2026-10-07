@@ -31,7 +31,10 @@ module ActionAgent
         counts: rows.group_by { |row| row[:change] }.transform_values(&:size), rows: rows }
     end
 
-    def pull_request_body(mount:)
+    # The before/after section a fix's draft pull request carries, cut to
+    # +limit+ characters from the end (the session summary goes first), so
+    # appending it never pushes a body over DraftPullRequest's maximum.
+    def pull_request_body(mount:, limit: DraftPullRequest::MAX_BODY_CHARACTERS)
       base = @session.evaluation_run
       title = @session.fix_item["quote"].presence || @session.fix_item["fault"].to_s.humanize
       lines = [ "## Evaluation fix", title, "",
@@ -43,7 +46,7 @@ module ActionAgent
         lines << "| #{cells.map { |cell| cell.to_s.gsub('|', '\\|').gsub(/[\r\n]/, ' ') }.join(' | ')} |"
       end
       lines += [ "", "## Session summary", @session.result.to_s, "", "Code session ##{@session.id}. Review the diff and full-suite regressions before merging." ]
-      SecretScrubber.scrub(lines.join("\n"), @session.secrets)
+      SecretScrubber.scrub(lines.join("\n"), @session.secrets).truncate([ limit, 0 ].max, omission: "\n…")
     end
 
     private
