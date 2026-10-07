@@ -7,6 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.9.0] - 2026-10-07
+
+Releases `activeagent` and `actionagent` 1.9.0 from one tag. A minor release.
+The dashboard gains **Projects**: a GitHub repository boots in a checkout
+sandbox with a browser of its own, which a person can watch live and take
+over, and an agent is evaluated against the running app. A browser run can
+stop for a person: `request_handoff` records where the agent stopped and
+Session Replay's **Take Over Session** opens that page. A run can pause to ask
+the user, for an approval or a secret, and resume with the answer. Checkouts
+can go through a GitHub App, provider keys can be personal as well as the
+organization's, the explorer agent proposes scenarios from a project's app,
+and a sandbox can open a draft pull request. The framework gains a DeepSeek
+provider; `mcps:` runs client-side on every provider through `MCPBridge`, with
+`mcp_strategy:` and a cached tool list (needs the optional `mcp` gem); a
+generation can pause to ask the user and require approval before a tool runs;
+the RubyLLM provider reports cache and reasoning tokens, streams tool-call
+fragments correctly, carries usage and stop reason for streamed turns and
+takes a `protocol:` option on ruby_llm 2.x; the flat `json_schema`
+response_format is accepted by every provider. Evaluation scenarios can live
+in a YAML **catalog** of products and sets in the repository, imported from a
+connected repository at a ref, written to Active Storage and run one set at a
+time as an evaluation that records the catalog version it tested; every
+What-to-fix card copies a Markdown fix brief for a coding harness; and
+Active Storage is one engine option (`config.active_storage`). Carries the
+1.8.2 owner fix.
+
+Upgrading: run `bin/rails generate action_agent:install --skip` and
+`bin/rails db:migrate`. The generator adds the migrations an install lacks,
+now shipped as numbered templates: input requests, recording events, sandbox
+browsers, projects and their secrets, GitHub App installations, explorations,
+draft pull requests and scenario catalogs. `AgentRun` gains the
+`awaiting_input` status, which
+a client that treats every status other than `pending` and `running` as
+finished must handle. Session Replay is now **Sessions** in the sidebar.
+
 ### Added
 
 - **Scenario catalogs** (`activeagent`). `ActiveAgent::Evals::Catalog` reads a
@@ -57,37 +92,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   names the `config/storage.yml` service those attachments go to. The
   models' `defined?(ActiveStorage)` guards now read the option, and the
   unused `config.storage_service` accessor is gone.
-
-## [1.9.0] - 2026-10-06
-
-Releases `activeagent` and `actionagent` 1.9.0 from one tag. A minor release.
-The dashboard gains **Projects**: a GitHub repository boots in a checkout
-sandbox with a browser of its own, which a person can watch live and take
-over, and an agent is evaluated against the running app. A browser run can
-stop for a person: `request_handoff` records where the agent stopped and
-Session Replay's **Take Over Session** opens that page. A run can pause to ask
-the user, for an approval or a secret, and resume with the answer. Checkouts
-can go through a GitHub App, provider keys can be personal as well as the
-organization's, the explorer agent proposes scenarios from a project's app,
-and a sandbox can open a draft pull request. The framework gains a DeepSeek
-provider; `mcps:` runs client-side on every provider through `MCPBridge`, with
-`mcp_strategy:` and a cached tool list (needs the optional `mcp` gem); a
-generation can pause to ask the user and require approval before a tool runs;
-the RubyLLM provider reports cache and reasoning tokens, streams tool-call
-fragments correctly, carries usage and stop reason for streamed turns and
-takes a `protocol:` option on ruby_llm 2.x; the flat `json_schema`
-response_format is accepted by every provider. Carries the 1.8.2 owner fix.
-
-Upgrading: run `bin/rails generate action_agent:install --skip` and
-`bin/rails db:migrate`. The generator adds the migrations an install lacks,
-now shipped as numbered templates: input requests, recording events, sandbox
-browsers, projects and their secrets, GitHub App installations, explorations
-and draft pull requests. `AgentRun` gains the `awaiting_input` status, which
-a client that treats every status other than `pending` and `running` as
-finished must handle. Session Replay is now **Sessions** in the sidebar.
-
-### Added
-
 - **Hand a browser run to a person** (`actionagent`). Agents with the
   `playwright_mcp` tools gain `request_handoff`: the agent calls it when a
   page asks for something only its owner may give (payment details, a login
