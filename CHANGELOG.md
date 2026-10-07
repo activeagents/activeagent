@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Active Storage as one engine option** (`actionagent`). `config.active_storage`
+  decides whether the dashboard attaches files anywhere: run attachments, a
+  recording's snapshots and oversized event payloads, and scenario catalogs.
+  `:auto` (the default) uses Active Storage when the host has it loaded and
+  migrated, `true` requires it and raises `ActionAgent::ConfigurationError`
+  at boot without it, `false` never attaches. `config.active_storage_service`
+  names the `config/storage.yml` service those attachments go to. The
+  models' `defined?(ActiveStorage)` guards now read the option, and the
+  unused `config.storage_service` accessor is gone.
+
 ## [1.9.0] - 2026-10-06
 
 Releases `activeagent` and `actionagent` 1.9.0 from one tag. A minor release.

@@ -23,9 +23,10 @@ module ActionAgent
     # the model (images and PDFs as data URIs, text inlined) and the
     # persisted user message keeps a manifest of them.
     #
-    # Guarded like RecordingSnapshot: a host app created with
-    # --skip-active-storage has no has_many_attached to call.
-    has_many_attached :attachments if defined?(ActiveStorage)
+    # Per ActionAgent.active_storage, like RecordingSnapshot: a host app
+    # created with --skip-active-storage has no has_many_attached to call,
+    # and a host may switch attachments off.
+    has_many_attached :attachments, **ActionAgent.attachment_options if ActionAgent.active_storage_macros?
 
     # The key the caller's identity is recorded under in +input_params+.
     # Underscored so it cannot collide with a provider override, and
@@ -108,14 +109,13 @@ module ActionAgent
       input_params.is_a?(Hash) && input_params[ACTOR_PARAM].present?
     end
 
-    # Whether runs can carry files in this host app: Active Storage loaded,
-    # the macro applied, and its tables migrated. Never raises — a host
-    # that skipped `rails active_storage:install` still runs agents, it
-    # just can't attach files to them.
+    # Whether runs can carry files in this host app: Active Storage on per
+    # ActionAgent.active_storage, the macro applied, and its tables
+    # migrated. Never raises — a host that skipped
+    # `rails active_storage:install` still runs agents, it just can't attach
+    # files to them.
     def self.attachments_available?
-      defined?(ActiveStorage) && method_defined?(:attachments) && ActiveStorage::Blob.table_exists?
-    rescue StandardError
-      false
+      ActionAgent.active_storage_available? && method_defined?(:attachments)
     end
 
     # How an attachment reaches the model, by MIME type with a filename
