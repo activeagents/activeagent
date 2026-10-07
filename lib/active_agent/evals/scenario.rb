@@ -20,8 +20,13 @@ module ActiveAgent
     #   @return [Array<String>] substrings or patterns the answer must avoid
     # @!attribute production_only
     #   @return [Boolean] whether a local environment cannot answer with real data
+    # @!attribute tags
+    #   @return [Array<String>] labels a catalog files the scenario under ("billing")
+    # @!attribute params
+    #   @return [Hash] free-form parameters a replay may read; kept as written
     Scenario = Struct.new(:key, :group, :group_name, :prompt, :expected_tools, :expected_patterns,
-                          :forbidden_patterns, :notes, :production_only, :position, keyword_init: true) do
+                          :forbidden_patterns, :notes, :production_only, :position, :tags, :params,
+                          keyword_init: true) do
       # Builds a scenario from a hash — ScenarioParser output, a suite entry, or
       # a persisted record's attributes. Expectations are read from an
       # `expectations`/`expect` sub-hash (`tools`, `contains`, `not_contains`)
@@ -40,7 +45,9 @@ module ActiveAgent
           forbidden_patterns: list(expect["not_contains"] || attrs["not_contains"]),
           notes: attrs["notes"].presence,
           production_only: attrs["production_only"] == true,
-          position: attrs["position"]
+          position: attrs["position"],
+          tags: list(attrs["tags"]),
+          params: (attrs["params"] || {}).to_h.deep_stringify_keys
         )
       end
 
@@ -61,7 +68,7 @@ module ActiveAgent
       end
 
       def to_h
-        super.compact
+        super.compact.reject { |field, value| %i[tags params].include?(field) && value.blank? }
       end
     end
   end

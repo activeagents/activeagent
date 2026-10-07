@@ -1,0 +1,49 @@
+catalog: support_desk
+name: Support Desk
+description: What the support agents are expected to handle
+owner_team: support
+products:
+  - key: triage
+    name: Triage agent
+    description: Routes and answers the support inbox
+    agent: TriageAgent
+    repository: example/support
+    sets:
+      - key: smoke
+        name: Smoke
+        description: The questions every release must answer
+        judge:
+          kind: rules
+        scenarios:
+          - key: refund_request
+            prompt: A customer asks for a refund on order 1042.
+            expect:
+              tools: [lookup_order]
+              contains: [refund]
+            notes: Looks the order up before answering.
+            tags: [billing]
+            params:
+              locale: en
+          - key: angry_customer
+            prompt: I have been waiting three weeks and nobody answers!
+            expect:
+              not_contains: [unfortunately]
+            notes: Apologises and offers a next step.
+      - key: production
+        name: Production data
+        scenarios:
+          - key: open_tickets
+            prompt: Which open tickets mention a refund?
+            expect:
+              tools: [find_tickets]
+            production_only: true
+  - key: billing
+    name: Billing agent
+    sets:
+      - key: smoke
+        name: Smoke
+        scenarios:
+          - key: invoice_copy
+            prompt: Send me a copy of my last invoice.
+            expect:
+              tools: [send_invoice]

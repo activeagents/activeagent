@@ -10,6 +10,7 @@ class McpDashboardToolsTest < ActionDispatch::IntegrationTest
   DASHBOARD_TOOLS = %w[
     evaluations_list evaluations_get evaluations_create scenarios_merge explorations_submit evaluations_run
     evaluation_runs_get evaluation_runs_compare traces_search traces_get input_requests_list input_requests_answer
+    catalogs_list catalogs_import catalog_set_run
   ].freeze
 
   # A trace model whose tenant is its service name, so a multi-tenant scope
@@ -428,10 +429,117 @@ class McpDashboardToolsTest < ActionDispatch::IntegrationTest
     ActionAgent.usage_recorder = ->(_owner, kind) { recorded << kind }
     create_trace(agent_class: "SupportAgent")
 
-    %w[evaluations_list traces_search].each { |tool| structured(call_tool(tool)) }
+    %w[evaluations_list traces_search catalogs_list].each { |tool| structured(call_tool(tool)) }
     structured(call_tool("evaluations_get", { evaluation_id: @suite.id }))
 
     assert_empty recorded
+  end
+
+  CATALOG_DOCUMENT = <<~YAML
+    catalog: support_desk
+    name: Support Desk
+    products:
+      - key: support
+        name: Support agent
+        agent: Support
+        sets:
+          - key: smoke
+            name: Smoke
+            scenarios:
+              - key: order_lookup
+                prompt: Where is order ABC-123?
+                expect:
+                  contains: [shipped]
+              - key: refund
+                prompt: Refund order ABC-123.
+  YAML
+
+  test "catalogs_import stores the catalog under the key's owner and catalogs_list reads it back" do
+    ActionAgent::ScenarioCatalog.delete_all
+
+    imported = structured(call_tool("catalogs_import", { document: CATALOG_DOCUMENT }))
+
+    assert_equal "support_desk", imported.dig("catalog", "key")
+    assert_equal "api", imported.dig("catalog", "source_kind")
+    assert_equal "Support", imported.dig("products", 0, "agent")
+    assert_equal [ { "key" => "smoke", "scenario_count" => 2 } ], imported.dig("products", 0, "sets")
+
+    listed = structured(call_tool("catalogs_list"))
+    assert_equal [ "support_desk" ], listed["catalogs"].map { |catalog| catalog["key"] }
+    assert_equal 2, listed["catalogs"].first["scenario_count"]
+    assert_includes listed, "storage_available"
+
+    body = call_tool("catalogs_import", { document: "catalog: x\nproducts: [{ name: nameless }]" })
+    assert_equal true, body.dig("result", "isError")
+    assert_match(/product has no key/, body.dig("result", "content", 0, "text"))
+    assert_equal(-32602, call_tool("catalogs_import").dig("error", "code"))
+  end
+
+  test "catalog_set_run materializes the set as an evaluation and queues its run" do
+    ActionAgent::ScenarioCatalog.delete_all
+    structured(call_tool("catalogs_import", { document: CATALOG_DOCUMENT }))
+
+    result = nil
+    assert_enqueued_with(job: ActionAgent::EvaluationRunJob) do
+      result = structured(call_tool("catalog_set_run", { catalog: "support_desk", product: "support", set: "smoke", models: [ "mock/alpha" ] }))
+    end
+
+    assert_equal "support_desk/support/smoke", result.dig("evaluation", "name")
+    assert_equal "pending", result.dig("run", "status")
+    assert_equal [ "mock/alpha" ], result.dig("run", "selection", "models")
+    assert_equal "smoke", result.dig("run", "selection", "catalog", "set_key")
+    assert_equal true, result["background"]
+    evaluation = ActionAgent::Evaluation.find(result.dig("evaluation", "id"))
+    assert_equal @agent, evaluation.agent
+    assert_equal %w[order_lookup refund], evaluation.scenarios.ordered.pluck(:key)
+
+    body = call_tool("catalog_set_run", { catalog: "support_desk", product: "support", set: "nightly" })
+    assert_equal true, body.dig("result", "isError")
+    assert_match(/No set "nightly"/, body.dig("result", "content", 0, "text"))
+    body = call_tool("catalog_set_run", { catalog: "nope", product: "support", set: "smoke" })
+    assert_match(/catalogs_list names them/, body.dig("result", "content", 0, "text"))
+  end
+
+  test "catalog_set_run honours the execution switch and quota, and asks for an agent when the product names none" do
+    ActionAgent::ScenarioCatalog.delete_all
+    agentless = CATALOG_DOCUMENT.sub("    agent: Support\n", "")
+    assert_not_includes agentless, "agent: Support"
+    structured(call_tool("catalogs_import", { document: agentless }))
+
+    body = call_tool("catalog_set_run", { catalog: "support_desk", product: "support", set: "smoke" })
+    assert_equal true, body.dig("result", "isError")
+    assert_match(/Choose the agent/, body.dig("result", "content", 0, "text"))
+
+    ActionAgent.execution_enabled = false
+    body = call_tool("catalog_set_run", { catalog: "support_desk", product: "support", set: "smoke", agent: "support" })
+    assert_equal(-32000, body.dig("error", "code"))
+    assert_match(/disabled/, body.dig("error", "message"))
+
+    ActionAgent.execution_enabled = true
+    ActionAgent.quota_checker = ->(_owner, kind) { { message: "Out of runs" } if kind == :execution }
+    body = call_tool("catalog_set_run", { catalog: "support_desk", product: "support", set: "smoke", agent: "support" })
+    assert_equal "Out of runs", body.dig("error", "message")
+    assert_equal 0, ActionAgent::EvaluationRun.count
+
+    ActionAgent.quota_checker = nil
+    result = structured(call_tool("catalog_set_run", { catalog: "support_desk", product: "support", set: "smoke", agent: "support" }))
+    assert_equal @agent.id, ActionAgent::Evaluation.find(result.dig("evaluation", "id")).agent_id
+  end
+
+  test "catalog writes need the replace_scenarios permission; reads do not" do
+    ActionAgent::ScenarioCatalog.delete_all
+    structured(call_tool("catalogs_import", { document: CATALOG_DOCUMENT }))
+    ActionAgent.permission_checker = ->(_user, action, _subject) { action != :replace_scenarios }
+
+    assert_equal 1, structured(call_tool("catalogs_list"))["catalogs"].size
+    body = call_tool("catalogs_import", { document: CATALOG_DOCUMENT.sub("support_desk", "other") })
+    assert_equal(-32003, body.dig("error", "code"))
+    assert_match(/replace_scenarios/, body.dig("error", "message"))
+    body = call_tool("catalog_set_run", { catalog: "support_desk", product: "support", set: "smoke" })
+    assert_equal(-32003, body.dig("error", "code"))
+    assert_equal 1, ActionAgent::ScenarioCatalog.count
+  ensure
+    ActionAgent.permission_checker = nil
   end
 
   private

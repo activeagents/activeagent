@@ -194,7 +194,9 @@ module ActionAgent
           "evaluation_runs_compare, and read a failing result's trace with traces_get (traces_search finds recent " \
           "failures). A run_<slug> call that pauses to ask for input returns its input request ids: " \
           "input_requests_list shows what paused runs are waiting on, and input_requests_answer answers a text or " \
-          "choice request."
+          "choice request. Scenarios kept as a YAML catalog of products and sets (an .activeagents/evals file) are " \
+          "imported with catalogs_import, listed with catalogs_list, and one set is run as an evaluation named " \
+          "catalog/product/set with catalog_set_run (pass project_id to run against a project's running sandbox)."
       end
 
       MESSAGE_INPUT_SCHEMA = {
