@@ -29,15 +29,20 @@ response_format is accepted by every provider. Evaluation scenarios can live
 in a YAML **catalog** of products and sets in the repository, imported from a
 connected repository at a ref, written to Active Storage and run one set at a
 time as an evaluation that records the catalog version it tested; every
-What-to-fix card copies a Markdown fix brief for a coding harness; and
-Active Storage is one engine option (`config.active_storage`). Carries the
-1.8.2 owner fix.
+What-to-fix card copies a Markdown fix brief for a coding harness, or hands
+it to Claude Code in the project's checkout sandbox and verifies the change
+against the same scenarios; a user can sign Claude Code in to a sandbox with
+their own Claude subscription (`claude_code_auth = :sandbox_login`, opt-in);
+and Active Storage is one engine option (`config.active_storage`). Carries
+the 1.8.2 owner fix.
 
 Upgrading: run `bin/rails generate action_agent:install --skip` and
 `bin/rails db:migrate`. The generator adds the migrations an install lacks,
 now shipped as numbered templates: input requests, recording events, sandbox
 browsers, projects and their secrets, GitHub App installations, explorations,
-draft pull requests and scenario catalogs. `AgentRun` gains the
+draft pull requests, scenario catalogs and evaluation fixes (migration 026:
+code sessions linked to the fix they implement, and the sandbox's Claude
+login owner). `AgentRun` gains the
 `awaiting_input` status, which
 a client that treats every status other than `pending` and `running` as
 finished must handle. Session Replay is now **Sessions** in the sidebar.
@@ -83,6 +88,35 @@ finished must handle. Session Replay is now **Sessions** in the sidebar.
   agent, and the `evaluations_run`, `evaluation_runs_get` and
   `evaluation_runs_compare` calls that prove the fix, with the evaluation
   id, scenario keys and models filled in.
+- **Implement a fix with Claude Code** (`actionagent`). On an evaluation of a
+  project's agent, a fault or instruction card's *Implement with Claude Code*
+  starts one Claude Code session in a ready checkout sandbox with a brief the
+  server builds from the card (the sandbox cannot reach the dashboard, so the
+  brief says where the agent lives and that the dashboard verifies). The
+  session records the run and card it fixes (`evaluation_run_id`,
+  `fix_item`). When it succeeds with a diff, the backend restarts the
+  checkout's app runtime (`refresh_runtime`, on `:local`) and the dashboard
+  re-runs exactly the card's scenarios and models against that sandbox
+  (`verification_run_id`). The card shows each scenario before and after,
+  what was fixed and what regressed; *Try again* carries the previous diff and
+  results into a new session, *Re-run the full suite* checks for regressions, and
+  *Open draft PR* includes the comparison and both runs. One click starts one
+  session; nothing launches fixes in batches or on a schedule.
+- **Sign in to Claude Code inside a sandbox** (`actionagent`). With
+  `config.claude_code_auth = :sandbox_login`, a signed-in user connects their
+  own Claude subscription from Settings → Integrations, a sandbox's Claude
+  Code panel or the fix dialog. The `:local` backend runs the unmodified
+  `claude auth login` under a PTY with the sandbox's own `CLAUDE_CONFIG_DIR`;
+  the user authorizes on Claude's site and pastes the one-time code, which is
+  written once to the CLI and never stored, logged or returned. The login
+  belongs to that user and that sandbox (`claude_login_user_id`), and no other
+  member's session runs beside it; they use a sandbox of their own, with
+  their own login or the account's API key. Sessions on it get no
+  Anthropic credential variables, credential paths are excluded from file
+  reads, diffs and draft pull requests, and disconnect, stop and expiry run
+  `claude auth logout` and remove the config. Backends without the four login
+  verbs refuse the mode, and a remote backend also needs
+  `config.claude_code_hosted_login_enabled`. `:api_key` stays the default.
 - **Active Storage as one engine option** (`actionagent`). `config.active_storage`
   decides whether the dashboard attaches files anywhere: run attachments, a
   recording's snapshots and oversized event payloads, and scenario catalogs.

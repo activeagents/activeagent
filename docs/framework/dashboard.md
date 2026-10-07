@@ -1021,7 +1021,7 @@ is refused unless a host adapter replays it.
 ## GitHub connections and checkout sandboxes
 
 Settings -> **Integrations** gives checkout sandboxes access to GitHub
-repositories in one of two ways, and an install can offer both:
+repositories in one of three ways, and an install can offer both:
 
 - **A GitHub App installation.** An admin installs the dashboard's GitHub
   App on the repositories they choose. Each checkout then gets its own token,
@@ -1328,7 +1328,7 @@ or a stored record: runs store only the `sandbox:<session_id>` key.
 
 ### Claude Code
 
-Settings -> Integrations also connects **Claude Code**, in one of two ways,
+Settings -> Integrations also connects **Claude Code**, in one of three ways,
 set by `ActionAgent.claude_code_auth`:
 
 - **`:api_key`** (the default). Paste an Anthropic API key (`sk-ant-api03-…`)
@@ -1358,6 +1358,89 @@ ActionAgent.configure do |config|
 end
 ```
 
+- **`:sandbox_login`**. A signed-in user can connect their own Claude subscription
+  from Settings → Integrations or an evaluation's **Implement with Claude Code**
+  panel. The local backend starts the unmodified `claude auth login` CLI in a
+  PTY. Open its authorization page, authorize on Claude's website, then paste
+  the one-time code into the masked field. The code passes once through an
+  in-memory pipe; it is not stored in a model, log, transcript or flow state.
+  Success requires `claude auth status --json` to report `authMethod: "claude.ai"`.
+
+```ruby
+ActionAgent.configure do |config|
+  config.sandbox_service = :local
+  config.claude_code_auth = :sandbox_login
+  config.claude_code_login_timeout = 300
+  # Configure current_user_resolver for the host's signed-in user.
+end
+```
+
+The login belongs to the person who connected it (`claude_login_user_id`),
+not the account. While it is there, no other member's session runs in that
+sandbox, with any runner or credential: every session runs as the same OS
+user beside that login's `CLAUDE_CONFIG_DIR`. Other members start their own
+sandbox, where they sign in themselves or use the account's Claude Code API
+key. A sign-in that expires, fails or is cancelled leaves nothing behind and
+stops holding the sandbox. The UI shows the credential source before
+execution. Signing in does not launch an autonomous batch: each
+explicit implementation or retry starts one code session. Evaluation replays
+continue to use the agent's provider credentials.
+
+Claude Code owns its credentials in `<sandbox>/claude` (directory `0700`,
+`.credentials.json` `0600`), outside `<sandbox>/app`. The dashboard neither
+reads that file nor imports its tokens. Subscription processes get an isolated
+HOME and no `ANTHROPIC_*` authentication variables, `CLAUDE_CODE_OAUTH_TOKEN`
+or project `apiKeyHelper` override. API fallback uses a separate config.
+Disconnect, stop and expiry log out the CLI and remove its config. Cancellation
+and login timeout terminate the PTY's process group. Credential paths are
+excluded from file reads, diffs and PR publication, including accidental
+copies into the checkout. As with other local checkouts, the local backend
+runs trusted code as the dashboard OS user; it is not a container isolation
+boundary for untrusted tenants.
+
+Custom backends must implement `start_claude_login`,
+`submit_claude_login_code`, `claude_login_status` and `claude_logout`, with the
+same lifecycle and ownership guarantees. Missing verbs fail closed. Remote
+subscription login is disabled by default; the operator must review
+[Anthropic's current hosting requirements](https://code.claude.com/docs/en/legal-and-compliance)
+and provide suitable per-user isolation before setting
+`claude_code_hosted_login_enabled = true`. Do not copy refresh tokens between
+sandboxes or accept `claude setup-token` as a dashboard credential.
+
+### Implement an evaluation fix
+
+On a completed scenario run, **Implement with Claude Code** selects a ready
+checkout of the evaluation's project (or links to Projects to start one),
+connects Claude inline when needed, and launches a bounded server-built brief.
+The brief points to the agent and prompt files, includes the failure evidence,
+and asks for agent changes without editing scenarios or their expectations.
+
+A successful session with a diff queues `VerifyEvaluationFixJob`. The backend
+must implement `refresh_runtime`; the local backend restarts the app and
+checks readiness before replay. Verification runs exactly the fix's scenario
+keys and models against that sandbox. Changed or removed scenario definitions
+are refused, rather than silently changing the test. Further edits in that
+checkout wait for verification. Failures are shown on the card and session.
+
+The review panel compares pass/fail, scores and faults, with fixed and regressed
+counts and links to both runs. **Re-run the full suite** is explicit.
+**Try again** creates a new session using the original brief, previous diff
+and verification results; no persistent CLI process is required. **Open draft
+PR** uses the existing permission and diff-review gates and includes both run
+links, the comparison table and session summary. Verification never publishes
+a PR automatically.
+
+API additions (under the engine mount):
+
+| Endpoint | Behavior |
+| --- | --- |
+| `GET/POST/DELETE /api/sandboxes/:id/claude_login` | Status, start, disconnect the current user's sandbox login |
+| `POST /api/sandboxes/:id/claude_login/code` | Submit `claude_login_code` once; parameters are filtered |
+| `GET /api/evaluations/:id/runs/:run_id/fixes` | Owned project checkouts, authentication state and linked sessions |
+| `POST /api/sandboxes/:id/code_sessions` | Optional `evaluation_run_id`, `fix_item` and `previous_code_session_id`; the server builds the prompt |
+| `POST /api/sandboxes/:id/pull_request` | Optional verified `code_session_id` adds evaluation evidence to the draft description |
+
+
 ::: warning Claude subscription tokens are not accepted
 The dashboard does not store a Claude subscription login: the token
 `claude setup-token` prints (`sk-ant-oat…`) is refused. Anthropic's
@@ -1365,7 +1448,7 @@ The dashboard does not store a Claude subscription login: the token
 say that products built on Claude should use API key authentication, and that
 third-party developers may not collect, store or route requests through
 Claude.ai credentials on their users' behalf. Sign-in to a Claude account must
-go through Anthropic's own flow, which is what `:local_login` relies on.
+go through Anthropic's own flow, which is what `:local_login` and `:sandbox_login` rely on.
 
 A token stored by an earlier version is never handed to a session: the owner
 sees Claude Code as needing an API key (`needs_replacing: true` in
@@ -1378,13 +1461,15 @@ run, never a credential:
 
 | Field | Meaning |
 |---|---|
-| `claude_code_auth` | `"api_key"` or `"local_login"` |
+| `claude_code_auth` | `"api_key"`, `"local_login"` or `"sandbox_login"` |
 | `claude_code_connected` | an API key is stored (`api_key`), or this machine is logged in (`local_login`) |
 | `claude_code_login` | `{ logged_in, auth_method }`, in `local_login` mode only |
+| `claude_code_sandboxes` | In `sandbox_login` mode: per-sandbox login status, ownership and effective credential mode; never tokens |
 | `code_sessions_supported` | the backend runs sessions, and runs them in this mode |
 
 The dashboard assistant's configuration reports the same under
-`connections.claude_code` (`supported`, `connected`, `auth`, `login`).
+`connections.claude_code` (`supported`, `connected`, `auth`, `login`, and
+`sandboxes` in `sandbox_login` mode).
 
 ## Local checkout sandboxes
 

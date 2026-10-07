@@ -77,7 +77,7 @@ module ActionAgent
       # any of them names a nested key (Active Record Encryption adds
       # `input_request.answer`), matches it against the dotted parameter path,
       # where `\Aanswer\z` would no longer find `evaluation.answer`.
-      app.config.filter_parameters += [ :credential, :api_key, :access_token, :password, /\Arecording_events\z/, /(?:\A|\.)(?:answer|value)\z/i ]
+      app.config.filter_parameters += [ :credential, :api_key, :access_token, :password, :claude_login_code, /\Arecording_events\z/, /(?:\A|\.)(?:answer|value)\z/i ]
     end
 
     # The project setup assistant's request_secret answers go to its

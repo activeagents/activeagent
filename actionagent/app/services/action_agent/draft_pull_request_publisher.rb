@@ -81,6 +81,7 @@ module ActionAgent
     PUBLISHABLE_MODES = %w[100644 100755].freeze
     # Why a changed file is refused, as the dialog words it.
     FILE_REFUSALS = {
+      "credential_directory" => "Claude configuration and credentials are never published",
       "excluded" => "files under .github/ are never published",
       "not_allowed" => "not in the files chosen to publish",
       "symlink" => "symlinks are not published",
@@ -482,6 +483,7 @@ module ActionAgent
     end
 
     def path_refusal(path, allowlist)
+      return "credential_directory" if SandboxCredentialPaths.protected?(path)
       return "excluded" if path.split("/").first.to_s.casecmp?(".github")
       return nil if allowlist.nil?
 

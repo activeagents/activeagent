@@ -109,7 +109,7 @@ require "action_agent/secret_requests"
 #
 module ActionAgent
   # What ActionAgent.claude_code_auth may be set to.
-  CLAUDE_CODE_AUTH_MODES = %i[api_key local_login].freeze
+  CLAUDE_CODE_AUTH_MODES = %i[api_key local_login sandbox_login].freeze
 
   # What ActionAgent.provider_key_scope may be set to.
   PROVIDER_KEY_SCOPES = %i[organization personal_override].freeze
@@ -608,17 +608,25 @@ module ActionAgent
     # or stores it; it only asks `claude auth status` whether there is one.
     # That login is the dashboard user's own, so this works with the :local
     # sandbox backend only, and other backends refuse Claude Code sessions.
-    # @return [Symbol] :api_key or :local_login
+    # :sandbox_login lets a signed-in user authorize the unmodified CLI in
+    # one sandbox. Its credentials remain in that sandbox's private CLI
+    # config, outside the checkout, until stop/expiry/disconnect.
+    # @return [Symbol] :api_key, :local_login or :sandbox_login
     attr_reader :claude_code_auth
 
     def claude_code_auth=(value)
       mode = value.to_s.to_sym
       unless CLAUDE_CODE_AUTH_MODES.include?(mode)
-        raise ArgumentError, "ActionAgent.claude_code_auth must be :api_key or :local_login, not #{value.inspect}"
+        raise ArgumentError, "ActionAgent.claude_code_auth must be :api_key, :local_login or :sandbox_login, not #{value.inspect}"
       end
 
       @claude_code_auth = mode
     end
+
+    # Hosted adapters must opt in after the operator has reviewed Anthropic's
+    # hosting terms. :local supports sandbox-scoped login without this flag.
+    attr_accessor :claude_code_hosted_login_enabled
+    attr_accessor :claude_code_login_timeout
 
     # Whether the dashboard may execute agents against real providers.
     # Disable to run the dashboard as a read-only observability surface.
@@ -1227,6 +1235,8 @@ module ActionAgent
       @codex_command = "codex"
       @codex_timeout = 1800
       @claude_code_auth = :api_key
+      @claude_code_hosted_login_enabled = false
+      @claude_code_login_timeout = 300
       @execution_enabled = true
       @run_host_agent_classes = false
       @assistant_enabled = nil

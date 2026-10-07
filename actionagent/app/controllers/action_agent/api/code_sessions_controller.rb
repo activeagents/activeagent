@@ -12,6 +12,11 @@ module ActionAgent
     # is execution — gated, and counted against the host app's quota, like
     # running an agent.
     class CodeSessionsController < BaseController
+      include EvaluationRunStarting
+
+      # How long an unverified fix holds its checkout (see #busy_session).
+      VERIFICATION_HOLD = 1.hour
+
       before_action :require_owner!
       before_action :require_execution_enabled!, only: [ :create ]
       before_action :set_sandbox
@@ -46,10 +51,12 @@ module ActionAgent
           prompt: string_param(:prompt),
           model: string_param(:model).presence,
           runner: runner,
-          # Owned like the sandbox it runs in.
-          user_id: @sandbox.try(:user_id),
+          # Subscription use always belongs to the person who clicked Run.
+          user_id: current_user.respond_to?(:id) ? current_user.id : @sandbox.try(:user_id),
           account_id: @sandbox.try(:account_id)
         )
+        code_session.credential_mode = runner == "claude_code" ? ClaudeCodeAuth.credential_mode(@sandbox, user_id: current_user&.id) : "api_key"
+        attach_fix!(code_session) if params[:evaluation_run_id].present?
         if (error = invalid_request(code_session))
           return render json: { error: error }, status: :unprocessable_entity
         end
@@ -62,6 +69,10 @@ module ActionAgent
         current = nil
         @sandbox.with_lock do
           current = busy_session
+          if !current && (refusal = refusal_for(@sandbox, runner: runner))
+            return render json: { error: refusal }, status: :unprocessable_entity
+          end
+          code_session.credential_mode = ClaudeCodeAuth.credential_mode(@sandbox, user_id: current_user&.id) if runner == "claude_code"
           code_session.save! unless current
         end
         return render json: busy_body(current), status: :conflict if current
@@ -127,22 +138,58 @@ module ActionAgent
           return "The #{orchestrator.backend_name} sandbox backend cannot run #{label} sessions"
         end
 
+        if (refusal = ClaudeCodeAuth.login_owner_refusal(sandbox, user_id: current_user&.id))
+          return refusal
+        end
         if runner == "codex"
           return "Codex is not connected: connect an OpenAI API key in Settings -> Integrations first" if sandbox.runtime_environment(runner: runner).blank?
           return
         end
-        ClaudeCodeAuth.backend_refusal(orchestrator) || ClaudeCodeAuth.credential_refusal(sandbox)
+        ClaudeCodeAuth.backend_refusal(orchestrator) || ClaudeCodeAuth.credential_refusal(sandbox, user_id: current_user&.id)
       end
 
       # The session of this sandbox that is queued or running, if any: one
-      # checkout, one Claude Code at a time.
+      # checkout, one Claude Code at a time. A fix whose verification has not
+      # finished holds the checkout too, so no edit lands under the run that
+      # is meant to verify it, but only for VERIFICATION_HOLD: a worker lost
+      # mid-run must not lock the sandbox until it expires.
       def busy_session
-        @sandbox.code_sessions.where(status: [ :queued, :running ]).first
+        @sandbox.code_sessions.where(status: [ :queued, :running ]).first ||
+          @sandbox.code_sessions.where.not(evaluation_run_id: nil).where(finished_at: VERIFICATION_HOLD.ago..).recent.detect do |session|
+            session.succeeded? && session.diff.present? && session.verification_error.blank? &&
+              (session.verification_run_id.nil? || session.verification_run&.status.in?(%w[pending running]))
+          end
       end
 
       def busy_body(current)
         label = current.runner == "codex" ? "Codex" : "Claude Code"
-        { error: "A #{label} session is already #{current.status} in this sandbox", code_session: current.summary }
+        state = current.succeeded? ? "being verified" : current.status
+        { error: "A #{label} session is already #{state} in this sandbox", code_session: current.summary }
+      end
+
+      def attach_fix!(session)
+        raise EvaluationFix::Invalid, "Evaluation fixes use Claude Code" unless session.runner == "claude_code"
+        scope = EvaluationRun.joins(:evaluation).where(evaluation: Evaluation.where(agent: owner_agents))
+        run = scope.find(params[:evaluation_run_id])
+        project = Project.for_evaluation(run.evaluation)
+        unless project && @sandbox.project_id == project.id
+          raise EvaluationFix::Invalid, "Choose a checkout of this evaluation's project"
+        end
+        evaluation_run_sandbox(run.evaluation, @sandbox.session_id)
+        raise EvaluationFix::Invalid, "The sandbox backend cannot refresh the app runtime for verification" unless SandboxOrchestrator.new.supports?(:refresh_runtime)
+        request_item = params[:fix_item]
+        raise EvaluationFix::Invalid, "Choose a fix card" unless request_item.respond_to?(:permit)
+        fix = EvaluationFix.new(run, request_item.permit(:kind, :fault, :quote, scenario_keys: [], models: []).to_h)
+        previous = @sandbox.code_sessions.find(params[:previous_code_session_id]) if params[:previous_code_session_id].present?
+        if previous && (previous.evaluation_run_id != run.id || previous.fix_item != fix.item || !previous.finished?)
+          raise EvaluationFix::Invalid, "The previous session must implement this same fix"
+        end
+        session.assign_attributes(evaluation_run: run, fix_item: fix.item, previous_code_session: previous,
+          prompt: fix.prompt(previous: previous))
+      end
+
+      rescue_from EvaluationFix::Invalid do |error|
+        render json: { error: error.message }, status: :unprocessable_entity
       end
 
       def invalid_request(code_session)

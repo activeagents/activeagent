@@ -14,6 +14,9 @@ module ActionAgent
     owned_by :user, :account
 
     belongs_to :sandbox_session
+    belongs_to :evaluation_run, optional: true
+    belongs_to :verification_run, class_name: "EvaluationRun", optional: true
+    belongs_to :previous_code_session, class_name: "CodeSession", optional: true
 
     enum :status, { queued: 0, running: 1, succeeded: 2, failed: 3, cancelled: 4 }
 
@@ -104,6 +107,12 @@ module ActionAgent
         prompt: prompt,
         model: model,
         runner: runner,
+        credential_mode: credential_mode,
+        evaluation_run_id: evaluation_run_id,
+        evaluation_id: evaluation_run&.evaluation_id,
+        fix_item: fix_item,
+        verification_run_id: verification_run_id,
+        verification_error: verification_error,
         result: result,
         error_message: error_message,
         num_turns: num_turns,
@@ -129,7 +138,8 @@ module ActionAgent
         events: events.drop(after),
         events_offset: after,
         dropped_events_count: dropped_events_count.to_i,
-        diff: finished? ? diff : nil
+        diff: finished? ? diff : nil,
+        verification: evaluation_run_id ? EvaluationFixComparison.new(self).summary : nil
       )
     end
 
