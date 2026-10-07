@@ -106,6 +106,19 @@ module ActionAgent
         tool_hints: %w[sequentialthinking]
       },
       {
+        key: "parallel",
+        name: "Parallel Search",
+        description: "Searches the web and fetches page excerpts without a Parallel API key; free access is rate limited.",
+        transport: "http",
+        url: "https://search.parallel.ai/mcp",
+        categories: %w[web research],
+        docs_url: "https://docs.parallel.ai/integrations/mcp/search-mcp",
+        sandbox: false,
+        # Generic web_search/web_fetch names can belong to other servers.
+        # The dispatcher learns ownership from this server's tools/list.
+        tool_hints: []
+      },
+      {
         key: "github",
         name: "GitHub",
         description: "Reads and writes GitHub issues, pull requests, and repository contents.",
