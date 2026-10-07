@@ -203,8 +203,10 @@ module ActionAgent
     # sessions are started from that view (see LIMITATIONS).
     #
     # Claude Code is connected by ClaudeCodeAuth's rule, as the sandbox
-    # listing reports it: an API key the owner connected (auth "api_key"), or
-    # this machine's own login (auth "local_login", with its status).
+    # listing reports it: an API key the owner connected (auth "api_key"),
+    # this machine's own login (auth "local_login", with its status), or a
+    # login inside each checkout sandbox (auth "sandbox_login", with the
+    # actor's per-sandbox state under sandboxes).
     def connections
       claude_code = ClaudeCodeAuth.status(ProviderKey.for_owner(@owner),
         sandboxes: SandboxSession.for_owner(@owner).where(sandbox_type: "app_runtime").recent.limit(20),
@@ -215,7 +217,6 @@ module ActionAgent
           supported: code_sessions_supported?,
           connected: claude_code[:connected],
           auth: claude_code[:mode],
-          mode: claude_code[:mode],
           login: claude_code[:login],
           sandboxes: claude_code[:sandboxes]
         }.compact,

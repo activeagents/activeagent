@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 25) do
+ActiveRecord::Schema[8.0].define(version: 26) do
   create_table "active_agent_agent_contexts", force: :cascade do |t|
     t.string "action_name", null: false
     t.string "agent_name", null: false
@@ -215,18 +215,22 @@ ActiveRecord::Schema[8.0].define(version: 25) do
     t.bigint "account_id"
     t.string "claude_session_id"
     t.datetime "created_at", null: false
+    t.string "credential_mode"
     t.text "diff"
     t.integer "dropped_events_count", default: 0, null: false
     t.integer "duration_ms"
     t.text "error_message"
+    t.bigint "evaluation_run_id"
     t.json "events", default: []
     t.datetime "finished_at"
+    t.json "fix_item"
     t.integer "input_tokens"
     t.string "runner", default: "claude_code", null: false
     t.string "runner_session_id"
     t.string "model"
     t.integer "num_turns"
     t.integer "output_tokens"
+    t.bigint "previous_code_session_id"
     t.text "prompt", null: false
     t.text "result"
     t.bigint "sandbox_session_id", null: false
@@ -235,9 +239,13 @@ ActiveRecord::Schema[8.0].define(version: 25) do
     t.decimal "total_cost_usd", precision: 12, scale: 6
     t.datetime "updated_at", null: false
     t.bigint "user_id"
+    t.text "verification_error"
+    t.bigint "verification_run_id"
     t.index [ "account_id" ], name: "index_active_agent_code_sessions_on_account_id"
+    t.index [ "evaluation_run_id" ], name: "index_active_agent_code_sessions_on_evaluation_run_id"
     t.index [ "sandbox_session_id" ], name: "index_active_agent_code_sessions_on_sandbox_session_id"
     t.index [ "user_id" ], name: "index_active_agent_code_sessions_on_user_id"
+    t.index [ "verification_run_id" ], name: "index_active_agent_code_sessions_on_verification_run_id"
   end
 
   create_table "active_agent_draft_pull_requests", force: :cascade do |t|
@@ -561,6 +569,7 @@ ActiveRecord::Schema[8.0].define(version: 25) do
     t.datetime "browser_started_at"
     t.string "browser_status"
     t.text "browser_token"
+    t.bigint "claude_login_user_id"
     t.string "cloud_run_job_id"
     t.string "cloud_run_url"
     t.datetime "created_at", null: false
