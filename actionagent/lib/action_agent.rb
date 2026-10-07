@@ -1,6 +1,9 @@
 # frozen_string_literal: true
 
 module ActionAgent
+  # Raised as the engine loads for a configuration it cannot run with.
+  class ConfigurationError < StandardError; end
+
   class << self
     # Table name prefix for the engine's models. The engine's own
     # migrations create `active_agent_*` tables, so the default matches.
@@ -260,9 +263,68 @@ module ActionAgent
     # @return [Hash, nil]
     attr_accessor :recording_limits
 
-    # Storage service for screenshots/snapshots
-    # @return [Object, nil] Object responding to #signed_url_for and #fetch_snapshot
-    attr_accessor :storage_service
+    # Active Storage in the engine. The engine attaches files in a few
+    # places: the files uploaded with a run (AgentRun attachments), a session
+    # recording's snapshots and oversized event payloads, and a scenario
+    # catalog's YAML. Three settings:
+    #
+    #   :auto   (the default) use Active Storage when the host app has it
+    #           loaded and its tables migrated; otherwise those features keep
+    #           their metadata-only form (runs refuse files, recordings keep
+    #           events inline, catalogs live in the database alone).
+    #   true    require it: the first engine model to load raises
+    #           ConfigurationError when Active Storage is not loaded, so a
+    #           host that depends on attachments finds out at boot.
+    #   false   never attach, even when the host has Active Storage.
+    #
+    # Decided as the models load, so set it in an initializer.
+    # @return [Symbol, Boolean]
+    attr_accessor :active_storage
+
+    # The Active Storage service the engine's attachments are written to, by
+    # its name in config/storage.yml (`:recordings`, `:gcs`). nil, the
+    # default, uses the host's default service. Rails checks the name as the
+    # models load, so a misspelling fails at boot rather than on the first
+    # upload.
+    # @return [Symbol, String, nil]
+    attr_accessor :active_storage_service
+
+    # Whether the engine's models apply their Active Storage macros
+    # (has_one_attached and friends), per +active_storage+.
+    # @raise [ConfigurationError] when the option is true and Active Storage
+    #   is not loaded
+    # @return [Boolean]
+    def active_storage_macros?(loaded: defined?(::ActiveStorage) ? true : false)
+      case active_storage
+      when true
+        return true if loaded
+
+        raise ConfigurationError,
+          "ActionAgent.active_storage is true but Active Storage is not loaded: add `require \"active_storage/engine\"` " \
+          "to config/application.rb and run `bin/rails active_storage:install`, or set the option to :auto or false"
+      when false, nil then false
+      else loaded
+      end
+    end
+
+    # Whether an attachment can be written right now: the macros applied and
+    # the blobs table migrated. Never raises, so a host that skipped
+    # `rails active_storage:install` still runs agents; it just cannot
+    # attach files to them.
+    # @return [Boolean]
+    def active_storage_available?
+      return false unless active_storage_macros?
+
+      ::ActiveStorage::Blob.table_exists?
+    rescue StandardError
+      false
+    end
+
+    # The options the engine's attachment macros are declared with.
+    # @return [Hash]
+    def attachment_options
+      active_storage_service.present? ? { service: active_storage_service.to_sym } : {}
+    end
 
     # Bearer token required in single-tenant mode by the endpoints other
     # applications post to: trace ingest (<mount>/api/traces) and published
@@ -1137,7 +1199,8 @@ module ActionAgent
       @sandbox_service = :mock
       @sandbox_limits = nil
       @recording_limits = nil
-      @storage_service = nil
+      @active_storage = :auto
+      @active_storage_service = nil
       @ingest_api_key = nil
       @base_controller_class = "ActionController::Base" # deprecated no-op
       @model_concerns = []

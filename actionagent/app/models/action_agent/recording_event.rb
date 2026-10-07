@@ -44,9 +44,10 @@ module ActionAgent
 
     belongs_to :session_recording
 
-    # Guarded like RecordingSnapshot: the gem depends on railties, not rails,
-    # so a host may have no Active Storage at all.
-    has_one_attached :payload_file if defined?(ActiveStorage)
+    # Per ActionAgent.active_storage, like RecordingSnapshot: the gem depends
+    # on railties, not rails, so a host may have no Active Storage at all, or
+    # may switch attachments off.
+    has_one_attached :payload_file, **ActionAgent.attachment_options if ActionAgent.active_storage_macros?
 
     validates :kind, inclusion: { in: KINDS }
     validates :occurred_from, :occurred_to, presence: true
@@ -62,12 +63,11 @@ module ActionAgent
       DEFAULT_LIMITS.merge((ActionAgent.recording_limits || {}).to_h.symbolize_keys)
     end
 
-    # Whether payloads can be attached in this host app: Active Storage
-    # loaded, the macro applied, and its tables migrated.
+    # Whether payloads can be attached in this host app: Active Storage on
+    # per ActionAgent.active_storage, the macro applied, and its tables
+    # migrated.
     def self.attachments_available?
-      defined?(ActiveStorage) && method_defined?(:payload_file) && ActiveStorage::Blob.table_exists?
-    rescue StandardError
-      false
+      ActionAgent.active_storage_available? && method_defined?(:payload_file)
     end
 
     # Parses JSON text nested up to MAX_NESTING levels.

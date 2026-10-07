@@ -130,6 +130,22 @@ persisted user message keeps an attachment manifest, so the conversation
 shows the thumbnails afterwards. A host app without Active Storage keeps
 everything else and answers attachment uploads with a clear 422.
 
+Whether the engine attaches anything, here and for recordings and scenario
+catalogs, is one setting. `config.active_storage` is `:auto` by default:
+Active Storage is used when the host has it loaded and its tables migrated,
+and each feature keeps its metadata-only form otherwise. `true` requires it,
+so a host that depends on attachments fails at boot rather than on the first
+upload, and `false` never attaches even when the host has it.
+`config.active_storage_service` names the service from `config/storage.yml`
+the engine's attachments go to, when they should not share the app's default:
+
+```ruby
+ActionAgent.configure do |config|
+  config.active_storage = true
+  config.active_storage_service = :recordings
+end
+```
+
 ![Attachments: a CSV attached to a message, answered with stats and a chart built from its rows](/dashboard/runner-attachments.png)
 
 ![Attachments: an image described by the model, and a PDF summarised into a card](/dashboard/runner-attachments-image.png)
