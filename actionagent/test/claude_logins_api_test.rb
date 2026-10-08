@@ -115,6 +115,24 @@ class ClaudeLoginsApiTest < ActionDispatch::IntegrationTest
     assert_equal "expired", response.parsed_body.dig("login", "status")
   end
 
+  test "a host backend's own error answers with the fixed message, never its text" do
+    @sandbox.update!(claude_login_user_id: nil)
+    Backend.class_eval { alias_method :original_start, :start_claude_login }
+    Backend.define_method(:start_claude_login) { |_sandbox| raise IOError, "container sandbox-1 said: secret detail" }
+    begin
+      post path
+    ensure
+      Backend.class_eval do
+        alias_method :start_claude_login, :original_start
+        remove_method :original_start
+      end
+    end
+    assert_response :unprocessable_entity
+    assert_equal "Claude sign-in could not complete. Check that Claude Code is installed, then start again.", response.parsed_body["error"]
+    refute_includes response.body, "secret detail"
+    assert_nil @sandbox.reload.claude_login_user_id
+  end
+
   test "a running session prevents changing its authentication" do
     @sandbox.update!(claude_login_user_id: @user.id)
     @sandbox.code_sessions.create!(prompt: "A synthetic fix", status: :running)
