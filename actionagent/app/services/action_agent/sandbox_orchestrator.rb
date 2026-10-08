@@ -70,6 +70,8 @@ module ActionAgent
     BROWSER_MODES = %i[headless headed].freeze
 
     class UnsupportedBackendError < StandardError; end
+    # A host-registered backend failed a sign-in verb (see #login_call).
+    class BackendError < StandardError; end
 
     # All backend names available in this install.
     def self.backends
@@ -106,10 +108,12 @@ module ActionAgent
 
     # Login adapters return only flow state / the CLI authorize URL. No
     # credential, terminal output or echoed code may cross this boundary.
-    def start_claude_login(sandbox) = @backend.public_send(adapter_method(:start_claude_login), sandbox)
-    def submit_claude_login_code(sandbox, code) = @backend.public_send(adapter_method(:submit_claude_login_code), sandbox, code)
-    def claude_login_status(sandbox) = @backend.public_send(adapter_method(:claude_login_status), sandbox)
-    def claude_logout(sandbox) = @backend.public_send(adapter_method(:claude_logout), sandbox)
+    # Whatever a host-registered backend raises comes out as BackendError,
+    # which callers rescue along with the local backend's own errors.
+    def start_claude_login(sandbox) = login_call { @backend.public_send(adapter_method(:start_claude_login), sandbox) }
+    def submit_claude_login_code(sandbox, code) = login_call { @backend.public_send(adapter_method(:submit_claude_login_code), sandbox, code) }
+    def claude_login_status(sandbox) = login_call { @backend.public_send(adapter_method(:claude_login_status), sandbox) }
+    def claude_logout(sandbox) = login_call { @backend.public_send(adapter_method(:claude_logout), sandbox) }
     def refresh_runtime(sandbox) = @backend.public_send(adapter_method(:refresh_runtime), sandbox)
 
     # Create a new sandbox for the given session
@@ -451,6 +455,17 @@ module ActionAgent
     end
 
     private
+
+    # Runs a sign-in verb, turning a host-registered backend's own errors
+    # into BackendError. The message is kept for the log; the sign-in
+    # endpoints answer with a fixed one.
+    def login_call
+      yield
+    rescue UnsupportedBackendError, LocalSandboxBackend::Error
+      raise
+    rescue StandardError => e
+      raise BackendError, e.message
+    end
 
     # The backend's method for +verb+, or a clear error naming what it
     # would have to implement.
