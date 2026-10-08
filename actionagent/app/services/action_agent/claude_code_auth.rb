@@ -129,7 +129,7 @@ module ActionAgent
         return "sandbox_login" if login[:logged_in] && login[:auth_method] == "claude.ai"
       end
       "api_key" if sandbox.runtime_environment.present?
-    rescue LocalSandboxBackend::Error, SandboxOrchestrator::UnsupportedBackendError
+    rescue LocalSandboxBackend::Error, SandboxOrchestrator::UnsupportedBackendError, SandboxOrchestrator::BackendError
       "api_key" if sandbox.runtime_environment.present?
     end
 
