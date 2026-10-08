@@ -116,7 +116,9 @@ finished must handle. Session Replay is now **Sessions** in the sidebar.
   reads, diffs and draft pull requests, and disconnect, stop and expiry run
   `claude auth logout` and remove the config. Backends without the four login
   verbs refuse the mode, and a remote backend also needs
-  `config.claude_code_hosted_login_enabled`. `:api_key` stays the default.
+  `config.claude_code_hosted_login_enabled`; what a host-registered backend
+  raises from a login verb comes out as `SandboxOrchestrator::BackendError`
+  and answers with the same fixed message. `:api_key` stays the default.
 - **Active Storage as one engine option** (`actionagent`). `config.active_storage`
   decides whether the dashboard attaches files anywhere: run attachments, a
   recording's snapshots and oversized event payloads, and scenario catalogs.

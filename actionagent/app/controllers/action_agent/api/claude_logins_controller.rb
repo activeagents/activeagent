@@ -59,7 +59,7 @@ module ActionAgent
         render json: { login: DISCONNECTED }
       end
 
-      rescue_from LocalSandboxBackend::Error, SandboxOrchestrator::UnsupportedBackendError do
+      rescue_from LocalSandboxBackend::Error, SandboxOrchestrator::UnsupportedBackendError, SandboxOrchestrator::BackendError do
         # Backend errors may include command output; login endpoints expose
         # a fixed message, never raw exception text.
         render json: { error: "Claude sign-in could not complete. Check that Claude Code is installed, then start again." }, status: :unprocessable_entity
