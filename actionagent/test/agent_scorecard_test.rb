@@ -47,6 +47,22 @@ class ActionAgentAgentScorecardTest < ActiveSupport::TestCase
     assert_equal 2, stats[:eval_not_counted]
   end
 
+  test "the error rate counts failed runs over every run in the window, and is nil with none" do
+    agent = ActionAgent::Agent.create!(name: "Busy", provider: "openai", model: "gpt-4o-mini")
+    3.times { agent.agent_runs.create!(trace_id: SecureRandom.uuid, status: :complete) }
+    agent.agent_runs.create!(trace_id: SecureRandom.uuid, status: :failed)
+    agent.agent_runs.create!(trace_id: SecureRandom.uuid, status: :pending)
+    agent.agent_runs.create!(trace_id: SecureRandom.uuid, status: :failed, created_at: 40.days.ago)
+
+    stats = ActionAgent::AgentScorecard.for_agents([ agent ])[agent.id]
+    assert_equal 5, stats[:runs], "the old failure is outside the window"
+    assert_equal 20.0, stats[:error_rate], "one failure in five; the pending run is neither"
+    assert_equal 60.0, stats[:success_rate]
+
+    quiet = ActionAgent::Agent.create!(name: "Quiet", provider: "openai", model: "gpt-4o-mini")
+    assert_nil ActionAgent::AgentScorecard.for_agents([ quiet ])[quiet.id][:error_rate]
+  end
+
   test "an agent with nothing to count has no evaluation score" do
     agent = ActionAgent::Agent.create!(name: "Quiet", provider: "openai", model: "gpt-4o-mini")
     evaluation(agent, "Empty").evaluation_runs.create!(status: :failed, completed_at: Time.current)

@@ -29,6 +29,7 @@ module ActionAgent
 
       run_counts = windowed.group(:agent_id).count
       completed_counts = windowed.where(status: :complete).group(:agent_id).count
+      failed_counts = windowed.where(status: :failed).group(:agent_id).count
       avg_durations = windowed.where.not(duration_ms: nil).group(:agent_id).average(:duration_ms)
       token_sums = windowed.group(:agent_id).sum("COALESCE(total_tokens, 0)")
       last_runs = AgentRun.where(agent_id: ids).group(:agent_id).maximum(:created_at)
@@ -52,6 +53,9 @@ module ActionAgent
           # Which sources contributed, so the UI can say where numbers came from.
           run_sources: run_sources(runs, traced),
           success_rate: total.positive? ? (succeeded * 100.0 / total).round(1) : nil,
+          # Runs that failed and traces that errored, over the same total; a run
+          # still pending, running or waiting on input is neither.
+          error_rate: total.positive? ? ((failed_counts[id].to_i + traced - stats[:ok].to_i) * 100.0 / total).round(1) : nil,
           avg_duration_ms: blended_duration(avg_durations[id], runs, stats[:avg_duration], traced),
           tokens: token_sums[id].to_i + stats[:tokens].to_i,
           cost: costs[id],

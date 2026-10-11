@@ -58,7 +58,7 @@ module ActionAgent
           # in the editor straight from this response, and an editor seeded
           # from a summary saved empty instructions/tools/model_config over
           # the template's real ones.
-          render json: { agent: agent_json(agent, include_details: true) }, status: :created
+          render json: { agent: agent_json(agent, include_details: true).merge(stats: AgentScorecard.for_agents([ agent ])[agent.id]) }, status: :created
         else
           render json: { errors: agent.errors.full_messages }, status: :unprocessable_entity
         end

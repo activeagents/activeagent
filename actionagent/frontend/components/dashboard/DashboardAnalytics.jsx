@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { PageHeader } from './primitives';
 
 // A date-only string ("2026-08-26") parses as UTC midnight, which
 // toLocaleDateString then shifts back a day for every viewer west of UTC.
@@ -64,24 +65,22 @@ export default function DashboardAnalytics({ onSelectAgent }) {
     : 1;
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Analytics Dashboard</h1>
-          <p className="text-sm text-gray-500">Overview of all your agents' performance</p>
-        </div>
-
-        <select
-          value={period}
-          onChange={(e) => setPeriod(Number(e.target.value))}
-          className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500"
-        >
-          {PERIOD_OPTIONS.map(opt => (
-            <option key={opt.value} value={opt.value}>Last {opt.label}</option>
-          ))}
-        </select>
-      </div>
+    <div className="space-y-4">
+      <PageHeader
+        title="Analytics"
+        actions={(
+          <select
+            value={period}
+            onChange={(e) => setPeriod(Number(e.target.value))}
+            aria-label="Period"
+            style={{ padding: '6px 10px', borderRadius: 8, fontSize: 13, fontFamily: 'inherit', border: '1px solid var(--color-border-strong)', background: 'var(--color-card)', color: 'var(--color-text-primary)', cursor: 'pointer' }}
+          >
+            {PERIOD_OPTIONS.map(opt => (
+              <option key={opt.value} value={opt.value}>Last {opt.label}</option>
+            ))}
+          </select>
+        )}
+      />
 
       {/* Main Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">

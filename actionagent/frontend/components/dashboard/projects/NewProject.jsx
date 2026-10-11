@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Badge, Button, Card, MicroLabel, MONO } from '../primitives';
+import { Badge, Button, Card, MicroLabel, MONO, PageHeader } from '../primitives';
 import RepoPicker from '../RepoPicker';
 import CapabilitiesChecklist from './CapabilitiesChecklist';
 import ProjectSecretsForm from './ProjectSecretsForm';
@@ -151,15 +151,11 @@ export default function NewProject({ onCreated, onCancel }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }} data-testid="new-project">
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }}>
-        <div style={{ flex: 1 }}>
-          <h1 style={{ margin: 0, fontSize: 24, fontWeight: 700, letterSpacing: '-0.01em', color: 'var(--color-text-primary)' }}>New project</h1>
-          <p style={{ margin: '4px 0 0', fontSize: 14, color: 'var(--color-text-secondary)' }}>
-            Boot a repository in a sandbox, installing the engine there when it does not have it, and evaluate an agent against the running app.
-          </p>
-        </div>
-        <Button onClick={onCancel}>Cancel</Button>
-      </div>
+      <PageHeader
+        crumbs={[{ label: 'Projects', onClick: onCancel }]}
+        title="New project"
+        actions={<Button onClick={onCancel}>Cancel</Button>}
+      />
 
       {error && (
         <div style={{ padding: '10px 12px', borderRadius: 8, fontSize: 13, background: 'var(--color-error-soft)', color: 'var(--color-error-text)' }}>{error}</div>

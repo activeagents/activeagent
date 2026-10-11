@@ -117,8 +117,8 @@ test('an open provider key edit and a connection test result survive switching S
     await click(buttonIn(providerRow(container, 'Anthropic'), 'Configure'));
     await type(container.querySelector('input[aria-label="Anthropic API key"]'), 'sk-ant-typed');
 
-    await click(buttonIn(container, 'Profile'));
-    assert.equal(providerRow(container, 'Anthropic'), undefined, 'the Profile tab still shows the provider keys card');
+    await click(buttonIn(container, 'Appearance'));
+    assert.equal(providerRow(container, 'Anthropic'), undefined, 'the Appearance tab still shows the provider keys card');
 
     await click(buttonIn(container, 'API Keys'));
     assert.equal(container.querySelector('input[aria-label="Anthropic API key"]')?.value, 'sk-ant-typed');

@@ -4,10 +4,10 @@ import { clearProviderModels } from '../../utils/providerModels';
 import { effectiveSourceLabel, keyAuditLine, providerKeysPath, providerRowActions } from '../../utils/providerKeys.mjs';
 
 const PROVIDER_META = {
-  openai: { label: 'OpenAI', icon: '🤖', placeholder: 'sk-…' },
-  anthropic: { label: 'Anthropic', icon: '🧠', placeholder: 'sk-ant-…' },
-  openrouter: { label: 'OpenRouter', icon: '🔀', placeholder: 'sk-or-…' },
-  ollama: { label: 'Ollama', icon: '🦙', placeholder: 'http://localhost:11434/v1' },
+  openai: { label: 'OpenAI', placeholder: 'sk-…' },
+  anthropic: { label: 'Anthropic', placeholder: 'sk-ant-…' },
+  openrouter: { label: 'OpenRouter', placeholder: 'sk-or-…' },
+  ollama: { label: 'Ollama', placeholder: 'http://localhost:11434/v1' },
 };
 
 // Returns the state and actions behind ProviderKeysCard: which provider is
@@ -193,7 +193,7 @@ export default function ProviderKeysCard({ providerKeys, editor, scope, editable
             provider, host_based: hostBased, configured, hint,
             api_key_configured: apiKeyConfigured, api_key_hint: apiKeyHint, platform_default: platformDefault,
           } = row;
-          const meta = PROVIDER_META[provider] || { label: provider, icon: '🔑', placeholder: '' };
+          const meta = PROVIDER_META[provider] || { label: provider, placeholder: '' };
           const editing = editingProvider === provider;
           const testResult = testResults[provider];
           const testing = testingProvider === provider;
@@ -208,7 +208,6 @@ export default function ProviderKeysCard({ providerKeys, editor, scope, editable
             <div key={provider} className="p-4 rounded-lg" style={{ backgroundColor: darkMode ? '#252525' : '#f9fafb' }}>
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
-                  <span className="text-xl">{meta.icon}</span>
                   <div>
                     <p className={`font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>{meta.label}</p>
                     <p className={`text-sm ${configured ? (darkMode ? 'text-green-400' : 'text-green-600') : (darkMode ? 'text-gray-400' : 'text-gray-500')}`}>

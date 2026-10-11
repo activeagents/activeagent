@@ -55,6 +55,7 @@ export const ICONS = {
 
   // Navigation items (sidebar)
   nav: {
+    ask: '?',
     agents: '@',
     newAgent: '+',
     demo: '>',
@@ -68,6 +69,7 @@ export const ICONS = {
     mcp: '{}',
     docs: '?',
     github: '*',
+    settings: '*',
   },
 
   // Span types for traces
@@ -165,8 +167,9 @@ export const SPACING = {
 // TYPOGRAPHY
 // ============================================================================
 export const TYPOGRAPHY = {
-  // Use monospace for data display
-  mono: "'SF Mono', 'Fira Code', 'Consolas', monospace",
+  // The dashboard's mono stack, resolved by frontend/tokens.css on the
+  // .aa-dashboard root every importer renders inside.
+  mono: 'var(--font-mono)',
 
   sizes: {
     xs: '10px',

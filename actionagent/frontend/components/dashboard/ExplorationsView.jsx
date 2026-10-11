@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import ExplorationList from './explorations/ExplorationList';
 import ExplorationReview from './explorations/ExplorationReview';
-import { Button, Card } from './primitives';
+import { Button, Card, PageHeader } from './primitives';
 import { dashboardRelativePath, navigateTo } from '../../utils/dashboardPath';
 import { apiErrorMessage } from '../../utils/codeSessions.mjs';
 import { explorationPath, parseExplorationPath } from '../../utils/explorations.mjs';
@@ -51,20 +51,16 @@ export default function ExplorationsView({ visit = 0 }) {
     const project = loaded?.project;
     const evaluation = loaded?.evaluation;
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-          {project ? (
-            <Button size="sm" variant="ghost" onClick={() => navigateTo(projectPath(project.id))} style={{ padding: 0 }}>← {project.name}</Button>
-          ) : (
-            <Button size="sm" variant="ghost" onClick={() => navigateTo('/explorations')} style={{ padding: 0 }}>← Explorations</Button>
-          )}
-          {!project && evaluation && (
-            <Button size="sm" variant="ghost" onClick={() => navigateTo(`/evaluations/${evaluation.id}`)}>Open {evaluation.name}</Button>
-          )}
-        </div>
-        <h1 style={{ margin: 0, fontSize: 24, fontWeight: 700, letterSpacing: '-0.01em', color: 'var(--color-text-primary)' }}>
-          Review candidate scenarios
-        </h1>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <PageHeader
+          crumbs={project
+            ? [{ label: project.name, onClick: () => navigateTo(projectPath(project.id)) }]
+            : [{ label: 'Explorations', onClick: () => navigateTo('/explorations') }]}
+          title="Review candidate scenarios"
+          actions={!project && evaluation ? (
+            <Button size="sm" onClick={() => navigateTo(`/evaluations/${evaluation.id}`)}>Open {evaluation.name}</Button>
+          ) : undefined}
+        />
         <ExplorationReview key={route.explorationId} explorationId={route.explorationId} onLoaded={setLoaded} />
       </div>
     );
@@ -72,12 +68,7 @@ export default function ExplorationsView({ visit = 0 }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <div>
-        <h1 style={{ margin: 0, fontSize: 24, fontWeight: 700, letterSpacing: '-0.01em', color: 'var(--color-text-primary)' }}>Explorations</h1>
-        <p style={{ margin: '4px 0 0', fontSize: 14, color: 'var(--color-text-secondary)' }}>
-          Questions found by walking an app, waiting to be reviewed and accepted into an evaluation.
-        </p>
-      </div>
+      <PageHeader title="Explorations" />
       {error && <div style={{ fontSize: 13, color: 'var(--color-error-text)' }}>{error}</div>}
       {!error && !explorations && <div style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>Loading explorations…</div>}
       {explorations?.length === 0 && (

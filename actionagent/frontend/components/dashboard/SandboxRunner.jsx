@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { LIGHT_INK } from './primitives';
 import AgentAvatar from '../AgentAvatar';
 import { useActionCable } from '../../hooks/useActionCable';
 import { startCheckout } from '../../utils/checkout';
@@ -470,7 +471,7 @@ export default function SandboxRunner({ initialType = 'playwright_mcp', onClose 
   return (
     <div className="h-full flex flex-col bg-gray-50">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4">
+      <div className="bg-white border-b border-gray-200 px-6 py-4" style={LIGHT_INK}>
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <AgentAvatar
@@ -478,10 +479,10 @@ export default function SandboxRunner({ initialType = 'playwright_mcp', onClose 
               appearance={{ hat: 'fedora', hatAccessory: 'theaterMasks', heldItem: 'browser' }}
             />
             <div>
-              <h1 className="text-xl font-semibold text-gray-900">
+              <h1 style={{ margin: 0, fontSize: 20, fontWeight: 600, letterSpacing: '-0.01em', color: 'var(--color-text-primary)' }}>
                 PlaywrightMCP Demo
               </h1>
-              <p className="text-sm text-gray-500">
+              <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
                 Try browser automation for free - no account required
               </p>
             </div>

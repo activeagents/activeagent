@@ -1,17 +1,15 @@
 import React from 'react';
-import { useTheme } from '../../contexts/ThemeContext';
+import { MONO } from './primitives';
 
 /**
- * AgentStatCard — the one agent card presentation.
+ * AgentStatCard — the agent card of the Traces "agents" view
+ * (/dashboard/traces). The Agents home lists its agents in a table.
  *
- * Used by the Agents list (/dashboard) and the Traces "agents" view
- * (/dashboard/traces), which previously rendered visually different cards:
- * the list was light-only Tailwind, the traces cards theme-aware inline
- * styles. Same shell, same tile grid, same hover affordance in both, and
- * both now follow the dark-mode toggle.
+ * Every colour is a token from frontend/tokens.css, so the card follows the
+ * theme without resolving a palette of its own. Numbers and their labels are
+ * mono; the border strengthens on hover and nothing floats.
  *
- * Callers own their metrics — the two surfaces measure different windows —
- * but they render through the same tiles.
+ * Callers own their metrics, but they render through the same tiles.
  *
  * @param {string} name            agent name or class
  * @param {string} [subtitle]      description / action list
@@ -37,25 +35,16 @@ export default function AgentStatCard({
   // removed those classes and the locator matched nothing, so the whole
   // scorecard test failed on its first assertion rather than reporting drift.
   // A data-testid survives restyling.
-  const { darkMode } = useTheme();
   const [hovered, setHovered] = React.useState(false);
 
-  const palette = {
-    cardBg: darkMode ? 'rgba(255,255,255,0.05)' : '#ffffff',
-    border: darkMode ? 'rgba(255,255,255,0.1)' : '#e5e7eb',
-    borderHover: darkMode ? 'rgba(255,255,255,0.2)' : '#d1d5db',
-    tileBg: darkMode ? 'rgba(255,255,255,0.05)' : '#f9fafb',
-    textPrimary: darkMode ? '#f9fafb' : '#111827',
-    textSecondary: darkMode ? '#9ca3af' : '#6b7280',
-    textMuted: darkMode ? '#6b7280' : '#9ca3af',
-  };
+  const edge = `1px solid ${hovered ? 'var(--color-border-strong)' : 'var(--color-border)'}`;
 
   const toneColor = (tone) => {
-    if (tone === 'good') return darkMode ? '#4ade80' : '#16a34a';
-    if (tone === 'warn') return darkMode ? '#facc15' : '#ca8a04';
-    if (tone === 'bad') return darkMode ? '#f87171' : '#dc2626';
-    if (tone === 'muted') return palette.textMuted;
-    return palette.textPrimary;
+    if (tone === 'good') return 'var(--color-success-text)';
+    if (tone === 'warn') return 'var(--color-warning-text)';
+    if (tone === 'bad') return 'var(--color-error-text)';
+    if (tone === 'muted') return 'var(--color-text-muted)';
+    return 'var(--color-text-primary)';
   };
 
   return (
@@ -75,21 +64,18 @@ export default function AgentStatCard({
         }
       }}
       style={{
-        background: palette.cardBg,
+        background: 'var(--color-card)',
         // Longhands, not `border` + `borderLeft`: React applies the shorthand
         // and then clears the conflicting longhand, which zeroed the left
-        // edge on every card without an accent colour (the whole Agents list).
-        borderTop: `1px solid ${hovered ? palette.borderHover : palette.border}`,
-        borderRight: `1px solid ${hovered ? palette.borderHover : palette.border}`,
-        borderBottom: `1px solid ${hovered ? palette.borderHover : palette.border}`,
-        borderLeft: accentColor
-          ? `4px solid ${accentColor}`
-          : `1px solid ${hovered ? palette.borderHover : palette.border}`,
+        // edge on every card without an accent colour.
+        borderTop: edge,
+        borderRight: edge,
+        borderBottom: edge,
+        borderLeft: accentColor ? `4px solid ${accentColor}` : edge,
         borderRadius: '12px',
         padding: '16px',
         cursor: onClick ? 'pointer' : 'default',
-        transition: 'border-color 0.15s ease, box-shadow 0.15s ease',
-        boxShadow: hovered && onClick ? '0 4px 16px rgba(0,0,0,0.08)' : 'none',
+        transition: 'border-color 0.15s ease',
         display: 'flex',
         flexDirection: 'column',
         gap: '12px',
@@ -100,8 +86,8 @@ export default function AgentStatCard({
           <div
             style={{
               fontWeight: 600,
-              fontSize: '15px',
-              color: hovered && onClick ? '#ef4444' : palette.textPrimary,
+              fontSize: '13px',
+              color: hovered && onClick ? 'var(--color-accent-ui)' : 'var(--color-text-primary)',
               transition: 'color 0.15s ease',
               overflow: 'hidden',
               textOverflow: 'ellipsis',
@@ -115,7 +101,7 @@ export default function AgentStatCard({
             <div
               style={{
                 fontSize: '13px',
-                color: palette.textSecondary,
+                color: 'var(--color-text-secondary)',
                 marginTop: '2px',
                 display: '-webkit-box',
                 WebkitLineClamp: 2,
@@ -136,17 +122,18 @@ export default function AgentStatCard({
             <div
               key={stat.label}
               title={stat.title}
-              style={{ background: palette.tileBg, borderRadius: '8px', padding: '6px 8px', textAlign: 'center' }}
+              style={{ background: 'var(--color-muted)', borderRadius: '8px', padding: '6px 8px', textAlign: 'center' }}
             >
-              <div style={{ fontSize: '14px', fontWeight: 600, lineHeight: 1.2, color: toneColor(stat.tone) }}>
+              <div style={{ fontFamily: MONO, fontSize: '12px', fontWeight: 600, lineHeight: 1.2, color: toneColor(stat.tone) }}>
                 {stat.value}
               </div>
               <div
                 style={{
-                  fontSize: '10px',
+                  fontFamily: MONO,
+                  fontSize: '11px',
                   textTransform: 'uppercase',
                   letterSpacing: '0.04em',
-                  color: palette.textMuted,
+                  color: 'var(--color-text-muted)',
                   whiteSpace: 'nowrap',
                 }}
               >
@@ -165,7 +152,7 @@ export default function AgentStatCard({
             justifyContent: 'space-between',
             gap: '8px',
             fontSize: '12px',
-            color: palette.textMuted,
+            color: 'var(--color-text-muted)',
           }}
         >
           {footer}

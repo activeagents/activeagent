@@ -115,27 +115,27 @@ export const DASHBOARD_ROUTES = [
 // The view at the mount root, and for any path no route matches.
 export const DEFAULT_VIEW = 'list';
 
-// The sidebar's sections, in display order. `icon` names a glyph in
-// ICONS.nav (utils/designTokens.js); `glyph` is the character itself.
-// `badge` names a count the sidebar is given. An `attention` badge is drawn
-// in the warning tone, is left out while its count is zero, and says what it
-// counts in `badgeTitle`. `also` lists views the item is shown as current for.
+// The sidebar's sections, in display order. Two sections, neither with a
+// heading: 'main' holds every destination, and 'workspace' holds Settings,
+// which the sidebar pins to the bottom after a spacer. `icon` names a glyph
+// in ICONS.nav (utils/designTokens.js); `glyph` is the character itself, and
+// every glyph is unique so the column reads as a key. `badge` names a count
+// the sidebar is given. An `attention` badge is drawn in the warning tone, is
+// left out while its count is zero, and says what it counts in `badgeTitle`.
+// `also` lists views the item is shown as current for: the agent pages under
+// Agents, explorations under Projects, catalogs under Evaluations and the
+// organization under Settings. Those views keep their routes; they only lost
+// their own item (New Agent is the Agents page's button, Catalogs is a tab
+// under Evaluations, Organization opens from the account menu).
 export const DASHBOARD_NAV = [
   {
-    id: 'agents',
+    id: 'main',
     label: null,
     items: [
-      { view: 'assistant', label: 'Ask ActiveAgents', glyph: '>' },
-      { view: 'list', label: 'Agents', icon: 'agents', badge: 'agentCount' },
-      { view: 'builder', label: 'New Agent', icon: 'newAgent' },
+      { view: 'assistant', label: 'Ask', glyph: '?' },
+      { view: 'list', label: 'Agents', icon: 'agents', also: ['builder', 'editor', 'runner', 'agent-analytics', 'history'] },
       { view: 'sandbox', label: 'Run Agents', icon: 'demo' },
-      { view: 'projects', label: 'Projects', glyph: '</>' },
-    ],
-  },
-  {
-    id: 'observability',
-    label: 'Observability',
-    items: [
+      { view: 'projects', label: 'Projects', glyph: '</>', also: ['exploration'] },
       { view: 'traces', label: 'Traces', icon: 'traces' },
       {
         view: 'interactions',
@@ -145,20 +145,18 @@ export const DASHBOARD_NAV = [
         badgeTone: 'attention',
         badgeTitle: 'requests waiting for an answer',
       },
+      { view: 'sessions', label: 'Sessions', icon: 'replay', also: ['replay'] },
       { view: 'tools', label: 'Tools', icon: 'tools' },
       { view: 'mcp', label: 'MCP Services', icon: 'mcp' },
       { view: 'metrics', label: 'Metrics', icon: 'metrics' },
-      { view: 'evaluations', label: 'Evaluations', icon: 'evaluations' },
-      { view: 'catalogs', label: 'Catalogs', icon: 'evaluations' },
-      { view: 'sessions', label: 'Sessions', icon: 'replay', also: ['replay'] },
+      { view: 'evaluations', label: 'Evaluations', icon: 'evaluations', also: ['catalogs'] },
     ],
   },
   {
     id: 'workspace',
-    label: 'Workspace',
+    label: null,
     items: [
-      { view: 'organization', label: 'Organization', glyph: '🏢' },
-      { view: 'settings', label: 'Settings', glyph: '⚙️' },
+      { view: 'settings', label: 'Settings', glyph: '*', also: ['organization'] },
     ],
   },
 ];
