@@ -1,5 +1,5 @@
 import React from 'react';
-import { Badge, Button, Card, MONO } from '../primitives';
+import { Badge, Button, Card, MONO, PageHeader } from '../primitives';
 
 const STATE_TONES = { ready: 'success', booting: 'info', failed: 'error', expired: 'muted', none: 'muted' };
 
@@ -7,15 +7,10 @@ const STATE_TONES = { ready: 'success', booting: 'info', failed: 'error', expire
 export default function ProjectList({ projects, onOpen, onNew }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }} data-testid="project-list">
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }}>
-        <div style={{ flex: 1 }}>
-          <h1 style={{ margin: 0, fontSize: 24, fontWeight: 700, letterSpacing: '-0.01em', color: 'var(--color-text-primary)' }}>Projects</h1>
-          <p style={{ margin: '4px 0 0', fontSize: 14, color: 'var(--color-text-secondary)' }}>
-            A repository booted in a sandbox, with the secrets it needs and an agent evaluated against the running app.
-          </p>
-        </div>
-        <Button variant="primary" onClick={onNew} testId="new-project-button">New project</Button>
-      </div>
+      <PageHeader
+        title="Projects"
+        actions={<Button variant="primary" onClick={onNew} testId="new-project-button">New project</Button>}
+      />
 
       {projects.length === 0 && (
         <Card>

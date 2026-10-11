@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useTheme } from '../../contexts/ThemeContext';
+import { PageHeader, SegmentedControl } from './primitives';
 import { isSandboxRuntime, isStoppedRuntime, isUndocumented } from '../../utils/toolRoster.mjs';
 
 const REFRESH_INTERVAL_MS = 60000;
@@ -130,8 +131,8 @@ export default function McpServersView({ focusServer, onOpenTools }) {
 
   if (loadError && !data) {
     return (
-      <div style={{ padding: '24px' }}>
-        <h1 style={{ fontSize: '24px', fontWeight: 'bold', color: colors.textPrimary, margin: 0 }}>MCP Services</h1>
+      <div>
+        <PageHeader title="MCP Services" />
         <div style={{ marginTop: '16px', padding: '12px 16px', background: colors.errorBg, borderRadius: '8px', color: colors.error, fontSize: '14px' }}>
           Failed to load MCP services: {loadError}
         </div>
@@ -152,35 +153,10 @@ export default function McpServersView({ focusServer, onOpenTools }) {
   );
 
   return (
-    <div style={{ borderRadius: '12px', overflow: 'hidden', minHeight: 'calc(100vh - 200px)', backgroundColor: colors.bg }}>
-      <div style={{ padding: '24px 24px 16px 24px', borderBottom: `1px solid ${colors.border}`, marginBottom: '16px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '16px', flexWrap: 'wrap' }}>
-          <div>
-            <h1 style={{ fontSize: '24px', fontWeight: 'bold', color: colors.textPrimary, margin: 0 }}>MCP Services</h1>
-            <p style={{ fontSize: '14px', color: colors.textSecondary, marginTop: '4px' }}>
-              Servers detected from your agents' traffic, plus the defaults you can connect or run in a sandbox
-            </p>
-          </div>
-          <div style={{ display: 'flex', gap: '4px' }}>
-            {WINDOWS.map((window) => (
-              <button
-                key={window.value}
-                onClick={() => setHours(window.value)}
-                style={{
-                  padding: '6px 12px', fontSize: '13px', borderRadius: '6px', cursor: 'pointer',
-                  border: `1px solid ${hours === window.value ? '#ef4444' : colors.border}`,
-                  background: hours === window.value ? (darkMode ? 'rgba(239,68,68,0.15)' : '#fef2f2') : 'transparent',
-                  color: hours === window.value ? '#ef4444' : colors.textSecondary,
-                }}
-              >
-                {window.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <PageHeader title="MCP Services" actions={<SegmentedControl options={WINDOWS} value={hours} onChange={setHours} />} />
 
-      <div style={{ padding: '0 24px 24px 24px' }}>
+      <div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '16px' }}>
           <StatCard label="Active" value={formatNumber(summary.active)} hint="called in this window" />
           <StatCard label="Configured" value={formatNumber(summary.configured)} hint="declared, no traffic yet" />

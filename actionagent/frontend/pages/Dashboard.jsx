@@ -7,7 +7,6 @@ import DashboardAnalytics from '../components/dashboard/DashboardAnalytics';
 import AgentInteractions from '../components/dashboard/AgentInteractions';
 import TemplateLibrary from '../components/dashboard/TemplateLibrary';
 import Sidebar from '../components/dashboard/Sidebar';
-import Header from '../components/dashboard/Header';
 import TracesView from '../components/dashboard/TracesView';
 import MetricsView from '../components/dashboard/MetricsView';
 import InteractionsView from '../components/dashboard/InteractionsView';
@@ -22,7 +21,7 @@ import SettingsView from '../components/dashboard/SettingsView';
 import DashboardAssistant from '../components/dashboard/DashboardAssistant';
 import ProjectsView from '../components/dashboard/ProjectsView';
 import ExplorationsView from '../components/dashboard/ExplorationsView';
-import ScenarioCatalogsView from '../components/dashboard/ScenarioCatalogsView';
+import { MONO } from '../components/dashboard/primitives';
 import { ThemeProvider, useTheme } from '../contexts/ThemeContext';
 import { TimeWindowProvider } from '../contexts/TimeWindowContext';
 import { useInputRequests } from '../hooks/useInputRequests';
@@ -36,6 +35,13 @@ import {
   navView,
 } from '../utils/dashboardRoutes.mjs';
 import { openedFromSessions } from '../utils/sessionsQuery.mjs';
+
+// The toast's leading glyph and its colour, by the kind of message.
+const TOAST_GLYPH = {
+  error: { glyph: '[!]', color: 'var(--color-error)' },
+  success: { glyph: '[+]', color: 'var(--color-success)' },
+  info: { glyph: '[i]', color: 'var(--color-info)' },
+};
 
 /**
  * Dashboard - Main dashboard application
@@ -114,19 +120,30 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
 
   // Ranking is applied server-side (Api::AgentsController::LIST_SORTS) over
   // every agent and their scorecards, so changing it refetches rather than
-  // reordering the array in place.
-  const refreshAgents = async (sort = agentSort) => {
-    setIsLoading(true);
+  // reordering the array in place. `quiet` leaves the loading overlay alone:
+  // the mount refetch replaces a list the page already shows, and a flash of
+  // scrim over it would read as a fault. The list's Refresh button hands its
+  // click event over as `sort`; only a string names a ranking.
+  const refreshAgents = async (sort = agentSort, { quiet = false } = {}) => {
+    const ranking = typeof sort === 'string' ? sort : agentSort;
+    if (!quiet) setIsLoading(true);
     try {
-      const response = await fetch(`/api/agents?sort=${sort}`);
+      const response = await fetch(`/api/agents?sort=${ranking}`);
       const data = await response.json();
       setAgents(data.agents);
     } catch (error) {
       showNotification('Failed to refresh agents', 'error');
     } finally {
-      setIsLoading(false);
+      if (!quiet) setIsLoading(false);
     }
   };
+
+  // The server seeds the page with the first 20 agents so it paints at once;
+  // the rest follow without the overlay, so a workspace with more never
+  // shows a short Agents page.
+  useEffect(() => {
+    refreshAgents(agentSort, { quiet: true });
+  }, []);
 
   const changeAgentSort = (sort) => {
     setAgentSort(sort);
@@ -192,8 +209,11 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
 
       if (response.ok) {
         const data = await response.json();
-        setAgents(agents.map(a => a.id === id ? data.agent : a));
-        setSelectedAgent(data.agent);
+        // The PATCH answer is the record without its stats; keeping the ones
+        // already loaded saves the agent page's figures from blanking on
+        // every save.
+        setAgents(agents.map(a => a.id === id ? { ...data.agent, stats: data.agent.stats ?? a.stats } : a));
+        setSelectedAgent({ ...data.agent, stats: data.agent.stats ?? selectedAgent?.stats });
         showNotification('Agent updated!', 'success');
       } else {
         const error = await response.json();
@@ -372,9 +392,11 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
         }}
       />
     ),
-    evaluations: () => <EvaluationsView />,
+    evaluations: () => <EvaluationsView visit={visit} />,
     projects: () => <ProjectsView visit={visit} />,
-    catalogs: () => <ScenarioCatalogsView visit={visit} />,
+    // Catalogs is a tab under Evaluations; the /catalogs deep link opens the
+    // page with that tab selected.
+    catalogs: () => <EvaluationsView section="catalogs" visit={visit} />,
     sessions: () => <SessionsView agents={agents} user={user} />,
     exploration: () => <ExplorationsView visit={visit} />,
     replay: () => (replaySession ? (
@@ -421,8 +443,6 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
         onSelect={(agent) => navigateTo('editor', agent)}
         onNew={() => navigateTo('builder')}
         onBrowseTemplates={() => setShowTemplateLibrary(true)}
-        onDuplicate={handleDuplicateAgent}
-        onDelete={handleDeleteAgent}
         onRefresh={refreshAgents}
         sort={agentSort}
         onSortChange={changeAgentSort}
@@ -436,12 +456,14 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
     return (views[currentView] || views.list)();
   };
 
+  const toast = notification ? (TOAST_GLYPH[notification.type] || TOAST_GLYPH.info) : null;
+
   return (
     <div
       // aa-dashboard scopes the design token layer (frontend/tokens.css); the
       // theme class switches it to the dark palette for every descendant.
       className={`aa-dashboard min-h-screen flex${darkMode ? ' theme-dark' : ''}`}
-      style={{ backgroundColor: darkMode ? '#0f0f0f' : '#f9fafb' }}
+      style={{ backgroundColor: 'var(--color-background)' }}
     >
       <Sidebar
         currentView={navView(currentView)}
@@ -459,12 +481,7 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
           stretches this column instead of scrolling inside it, and the whole
           page scrolls sideways. */}
       <div className="flex-1 flex flex-col min-w-0">
-        <Header
-          user={user}
-          account={account}
-        />
-
-        <main className="flex-1 p-6 overflow-auto">
+        <main className="flex-1 overflow-auto" style={{ padding: '24px 32px' }}>
           {renderContent()}
         </main>
       </div>
@@ -477,21 +494,32 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
         />
       )}
 
-      {/* Notification Toast */}
+      {/* Notification toast: a bordered surface whose leading glyph says
+          what kind of message it is, so no colour block has to. */}
       {notification && (
-        <div className={`fixed bottom-4 right-4 z-[60] px-6 py-3 rounded-lg shadow-lg transition-all transform ${
-          notification.type === 'error' ? 'bg-red-500' :
-          notification.type === 'success' ? 'bg-green-500' : 'bg-blue-500'
-        } text-white`}>
+        <div
+          role="status"
+          className="fixed bottom-4 right-4 z-[60] flex items-center gap-2 px-4 py-3"
+          style={{
+            background: 'var(--color-surface)',
+            border: '1px solid var(--color-border)',
+            color: 'var(--color-text-primary)',
+            borderRadius: 8,
+            boxShadow: 'var(--shadow-popover)',
+            fontSize: 13,
+          }}
+        >
+          <span aria-hidden="true" style={{ fontFamily: MONO, color: toast.color }}>{toast.glyph}</span>
           {notification.message}
         </div>
       )}
 
-      {/* Loading Overlay */}
+      {/* Loading overlay. The scrim is a token: Tailwind v4 has no
+          bg-opacity-*, so the old class pair painted the backdrop opaque. */}
       {isLoading && (
-        <div className="fixed inset-0 bg-black bg-opacity-20 flex items-center justify-center z-50">
-          <div className={`rounded-lg p-4 shadow-xl ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-500"></div>
+        <div className="fixed inset-0 flex items-center justify-center z-50" style={{ background: 'var(--color-scrim)' }}>
+          <div className="rounded-lg p-4" style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}>
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2" style={{ borderColor: 'var(--color-accent-ui)' }}></div>
           </div>
         </div>
       )}

@@ -32,7 +32,9 @@ module ActiveAgent
         "--color-card" => "#ffffff",
         "--color-muted" => "#f3f4f6",
         "--color-hover" => "#f3f4f6",
+        "--color-row-hover" => "#f9fafb",
         "--color-background-blur" => "rgba(255,255,255,0.9)",
+        "--color-scrim" => "rgba(0,0,0,0.2)",
 
         # Borders
         "--color-border" => "#e5e7eb",
@@ -44,6 +46,7 @@ module ActiveAgent
         "--color-text-secondary" => "#6b7280",
         "--color-text-muted" => "#9ca3af",
         "--color-text-cell" => "#4b5563",
+        "--color-text-dim" => "#8a8a8a",
 
         # Semantic status
         "--color-success" => "#16a34a",
@@ -79,6 +82,9 @@ module ActiveAgent
         "--chart-4" => "#ec4899",
         "--chart-5" => "#3b82f6",
 
+        # Shadow
+        "--shadow-popover" => "0 4px 12px rgba(0,0,0,0.08)",
+
         # Type
         "--font-text" => FONT_TEXT,
         "--font-mono" => FONT_MONO
@@ -93,7 +99,9 @@ module ActiveAgent
         "--color-card" => "rgba(255,255,255,0.05)",
         "--color-muted" => "rgba(255,255,255,0.05)",
         "--color-hover" => "#252525",
+        "--color-row-hover" => "rgba(255,255,255,0.03)",
         "--color-background-blur" => "rgba(15,15,15,0.9)",
+        "--color-scrim" => "rgba(0,0,0,0.5)",
 
         "--color-border" => "rgba(255,255,255,0.1)",
         "--color-border-light" => "rgba(255,255,255,0.05)",
@@ -103,6 +111,7 @@ module ActiveAgent
         "--color-text-secondary" => "rgba(255,255,255,0.6)",
         "--color-text-muted" => "rgba(255,255,255,0.4)",
         "--color-text-cell" => "rgba(255,255,255,0.7)",
+        "--color-text-dim" => "rgba(255,255,255,0.5)",
 
         "--color-success-soft" => "rgba(22,163,74,0.15)",
         "--color-success-text" => "#4ade80",
@@ -111,7 +120,9 @@ module ActiveAgent
         "--color-error-soft" => "rgba(220,38,38,0.15)",
         "--color-error-text" => "#f87171",
         "--color-info-soft" => "rgba(59,130,246,0.15)",
-        "--color-info-text" => "#93c5fd"
+        "--color-info-text" => "#93c5fd",
+
+        "--shadow-popover" => "0 4px 16px rgba(0,0,0,0.5)"
       }.freeze
 
       # One CSS rule declaring `tokens` as custom properties on `scope`, with

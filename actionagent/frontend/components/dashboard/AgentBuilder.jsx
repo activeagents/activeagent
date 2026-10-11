@@ -4,6 +4,7 @@ import { ICONS } from '../../utils/designTokens';
 import { FALLBACK_PROVIDER_MODELS } from '../../utils/providerModels';
 import { useProviderModels } from '../../hooks/useProviderModels';
 import ModelPicker from './ModelPicker';
+import { PageHeader } from './primitives';
 
 const STEPS = [
   { id: 'basics', label: 'Basics', icon: '1' },
@@ -105,6 +106,7 @@ export default function AgentBuilder({ meta, onSave, onCancel, isLoading, initia
 
   return (
     <div className="max-w-4xl mx-auto">
+      <PageHeader crumbs={[{ label: 'Agents', onClick: onCancel }]} title="New agent" style={{ marginBottom: 16 }} />
       {initialDraft && <div className="mb-4 p-4 rounded-lg border border-red-200 bg-red-50 text-sm text-gray-700">Prepared by your workspace assistant. Review the instructions, model, and tools before creating this agent.</div>}
       {/* Progress Steps */}
       <div className="mb-8">
@@ -208,8 +210,8 @@ function BasicsStep({ formData, updateField, providerModels, fieldErrors }) {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-xl font-semibold text-gray-900">Basic Information</h2>
-      <p className="text-gray-500">Give your agent a name and configure its AI provider.</p>
+      <h2 style={{ margin: 0, fontSize: 14, fontWeight: 600, color: 'var(--color-text-primary)' }}>Basic Information</h2>
+      <p style={{ margin: 0, color: 'var(--color-text-secondary)' }}>Give your agent a name and configure its AI provider.</p>
 
       <div className="space-y-4">
         <div>
@@ -299,8 +301,8 @@ function ConfigureStep({ formData, meta, toggleArrayItem, updateField, selectPre
 
   return (
     <div className="space-y-6">
-      <h2 className="text-xl font-semibold text-gray-900">Configure Agent</h2>
-      <p className="text-gray-500">Choose a preset or customize instructions and tools.</p>
+      <h2 style={{ margin: 0, fontSize: 14, fontWeight: 600, color: 'var(--color-text-primary)' }}>Configure Agent</h2>
+      <p style={{ margin: 0, color: 'var(--color-text-secondary)' }}>Choose a preset or customize instructions and tools.</p>
 
       {/* Agent Preview - matching lander hero layout */}
       <div className="flex justify-center py-6 bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl">
@@ -420,8 +422,8 @@ function ConfigureStep({ formData, meta, toggleArrayItem, updateField, selectPre
 function ReviewStep({ formData }) {
   return (
     <div className="space-y-6">
-      <h2 className="text-xl font-semibold text-gray-900">Review Your Agent</h2>
-      <p className="text-gray-500">Confirm the configuration before creating your agent.</p>
+      <h2 style={{ margin: 0, fontSize: 14, fontWeight: 600, color: 'var(--color-text-primary)' }}>Review Your Agent</h2>
+      <p style={{ margin: 0, color: 'var(--color-text-secondary)' }}>Confirm the configuration before creating your agent.</p>
 
       <div className="grid grid-cols-2 gap-8">
         {/* Preview - matching lander layout */}

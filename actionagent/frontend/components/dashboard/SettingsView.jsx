@@ -5,8 +5,16 @@ import ClaudeCodeIntegrationCard from './ClaudeCodeIntegrationCard';
 import CodexIntegrationCard from './CodexIntegrationCard';
 import ProviderKeysCard, { useProviderKeyEditor } from './ProviderKeysCard';
 import { providerKeysPath } from '../../utils/providerKeys.mjs';
+import { PageHeader, Tabs, Button, MONO } from './primitives';
 
-const TAB_IDS = ['profile', 'api-keys', 'integrations', 'notifications', 'billing'];
+// The tab ids outlive their labels, so ?tab=profile still opens Appearance.
+const TABS = [
+  { id: 'profile', label: 'Appearance' },
+  { id: 'api-keys', label: 'API Keys' },
+  { id: 'integrations', label: 'Integrations' },
+];
+
+const TAB_IDS = TABS.map((tab) => tab.id);
 
 // ?tab=… opens a tab directly; the GitHub OAuth callback lands on
 // ?tab=integrations&github=<outcome>, and the GitHub App installation and
@@ -17,7 +25,15 @@ function initialQuery() {
   return { tab: TAB_IDS.includes(tab) ? tab : 'profile', github: query.get('github'), githubApp: query.get('github_app') };
 }
 
-export default function SettingsView({ user, account }) {
+const cardStyle = { backgroundColor: 'var(--color-card)', borderColor: 'var(--color-border)' };
+const heading = { color: 'var(--color-text-primary)' };
+const secondary = { color: 'var(--color-text-secondary)' };
+const fieldStyle = {
+  padding: '8px 12px', borderRadius: 8, fontSize: 13, fontFamily: 'inherit',
+  background: 'var(--color-surface)', border: '1px solid var(--color-border-strong)', color: 'var(--color-text-primary)',
+};
+
+export default function SettingsView() {
   const { darkMode, toggleDarkMode } = useTheme();
   // With personal keys on, the API Keys tab manages the signed-in user's own
   // provider keys; the organization's are on the Organization page.
@@ -110,134 +126,34 @@ export default function SettingsView({ user, account }) {
     }
   };
 
-  const cardStyle = {
-    backgroundColor: darkMode ? '#1f1f1f' : '#ffffff',
-    borderColor: darkMode ? '#2a2a2a' : '#e5e7eb',
-  };
-
-  const tabs = [
-    { id: 'profile', label: 'Profile' },
-    { id: 'api-keys', label: 'API Keys' },
-    { id: 'integrations', label: 'Integrations' },
-    { id: 'notifications', label: 'Notifications' },
-    { id: 'billing', label: 'Billing' },
-  ];
-
   return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
-      <div>
-        <h2 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-          Settings
-        </h2>
-        <p className={`mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-          Manage your account and preferences
-        </p>
-      </div>
+    <div className="space-y-6">
+      <PageHeader title="Settings" />
 
-      {/* Tabs */}
-      <div className="border-b" style={{ borderColor: darkMode ? '#2a2a2a' : '#e5e7eb' }}>
-        <nav className="flex space-x-8">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
-                activeTab === tab.id
-                  ? 'border-red-500 text-red-500'
-                  : `border-transparent ${darkMode ? 'text-gray-400 hover:text-gray-300' : 'text-gray-500 hover:text-gray-700'}`
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </nav>
-      </div>
+      <Tabs tabs={TABS} active={activeTab} onChange={setActiveTab} ariaLabel="Settings sections" />
 
-      {/* Profile Tab */}
+      {/* Appearance Tab */}
       {activeTab === 'profile' && (
-        <div className="space-y-6">
-          <div className="border rounded-lg p-6" style={cardStyle}>
-            <h3 className={`text-lg font-semibold mb-4 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-              Profile Information
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className={`block text-sm font-medium mb-1 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                  First Name
-                </label>
-                <input
-                  type="text"
-                  defaultValue={user?.name?.split(' ')[0] || ''}
-                  className={`w-full px-3 py-2 border rounded-lg ${
-                    darkMode
-                      ? 'bg-gray-800 border-gray-700 text-white'
-                      : 'bg-white border-gray-300 text-gray-900'
-                  }`}
-                />
-              </div>
-              <div>
-                <label className={`block text-sm font-medium mb-1 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                  Last Name
-                </label>
-                <input
-                  type="text"
-                  defaultValue={user?.name?.split(' ')[1] || ''}
-                  className={`w-full px-3 py-2 border rounded-lg ${
-                    darkMode
-                      ? 'bg-gray-800 border-gray-700 text-white'
-                      : 'bg-white border-gray-300 text-gray-900'
-                  }`}
-                />
-              </div>
-              <div className="md:col-span-2">
-                <label className={`block text-sm font-medium mb-1 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                  Email
-                </label>
-                <input
-                  type="email"
-                  defaultValue={user?.email || ''}
-                  disabled
-                  className={`w-full px-3 py-2 border rounded-lg cursor-not-allowed ${
-                    darkMode
-                      ? 'bg-gray-900 border-gray-700 text-gray-500'
-                      : 'bg-gray-100 border-gray-300 text-gray-500'
-                  }`}
-                />
-              </div>
+        <div className="border rounded-lg p-6" style={cardStyle}>
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="font-medium" style={heading}>Dark Mode</p>
+              <p className="text-sm" style={secondary}>Use dark theme across the dashboard</p>
             </div>
-            <button className="mt-4 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600">
-              Save Changes
+            <button
+              type="button"
+              role="switch"
+              aria-checked={darkMode}
+              aria-label="Dark mode"
+              onClick={toggleDarkMode}
+              className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors"
+              style={{ background: darkMode ? 'var(--color-accent-ui)' : 'var(--color-border-strong)', border: 0, padding: 0, cursor: 'pointer' }}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full transition-transform ${darkMode ? 'translate-x-6' : 'translate-x-1'}`}
+                style={{ background: 'var(--color-on-accent)' }}
+              />
             </button>
-          </div>
-
-          {/* Appearance */}
-          <div className="border rounded-lg p-6" style={cardStyle}>
-            <h3 className={`text-lg font-semibold mb-4 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-              Appearance
-            </h3>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className={`font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                  Dark Mode
-                </p>
-                <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                  Use dark theme across the dashboard
-                </p>
-              </div>
-              <button
-                onClick={toggleDarkMode}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                  darkMode ? 'bg-red-500' : 'bg-gray-300'
-                }`}
-              >
-                <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                    darkMode ? 'translate-x-6' : 'translate-x-1'
-                  }`}
-                />
-              </button>
-            </div>
           </div>
         </div>
       )}
@@ -246,72 +162,62 @@ export default function SettingsView({ user, account }) {
       {activeTab === 'api-keys' && (
         <div className="space-y-6">
           <div className="border rounded-lg p-6" style={cardStyle}>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className={`text-lg font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+            <div className="flex items-center justify-between gap-4 flex-wrap mb-4">
+              <h3 className="text-lg font-semibold" style={heading}>
                 API Keys
               </h3>
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center gap-2">
+                <label htmlFor="settings-new-key-name" className="sr-only">Key name</label>
                 <input
+                  id="settings-new-key-name"
                   type="text"
                   value={newKeyName}
                   onChange={(e) => setNewKeyName(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && createApiKey()}
                   placeholder="Key name (e.g. production)"
-                  className={`px-3 py-2 border rounded-lg text-sm ${
-                    darkMode
-                      ? 'bg-gray-800 border-gray-700 text-white placeholder-gray-500'
-                      : 'bg-white border-gray-300 text-gray-900'
-                  }`}
+                  style={fieldStyle}
                 />
-                <button
-                  onClick={createApiKey}
-                  disabled={!newKeyName.trim() || creatingKey}
-                  className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 disabled:opacity-50 whitespace-nowrap"
-                >
+                <Button variant="primary" onClick={createApiKey} disabled={!newKeyName.trim() || creatingKey}>
                   {creatingKey ? 'Creating…' : '+ Create New Key'}
-                </button>
+                </Button>
               </div>
             </div>
 
-            <div className={`p-4 rounded-lg mb-4 ${darkMode ? 'bg-yellow-900/20 border border-yellow-800' : 'bg-yellow-50 border border-yellow-200'}`}>
-              <p className={`text-sm ${darkMode ? 'text-yellow-300' : 'text-yellow-800'}`}>
-                ⚠️ API keys are secrets. Never share them or commit them to version control.
-              </p>
-            </div>
+            <p className="text-sm mb-4" style={{ color: 'var(--color-text-muted)' }}>
+              API keys are secrets. Never share them or commit them to version control.
+            </p>
 
             {keysError && (
-              <div className={`p-4 rounded-lg mb-4 text-sm ${darkMode ? 'bg-red-900/20 border border-red-800 text-red-300' : 'bg-red-50 border border-red-200 text-red-700'}`}>
+              <div className="text-sm mb-4" style={{ padding: '12px 14px', borderRadius: 8, background: 'var(--color-error-soft)', border: '1px solid var(--color-error)', color: 'var(--color-error-text)' }}>
                 {keysError}
               </div>
             )}
 
             {createdKey && (
-              <div className={`p-4 rounded-lg mb-4 border ${darkMode ? 'bg-green-900/20 border-green-800' : 'bg-green-50 border-green-200'}`}>
-                <p className={`text-sm font-medium mb-2 ${darkMode ? 'text-green-300' : 'text-green-800'}`}>
+              <div className="mb-4" style={{ padding: '12px 14px', borderRadius: 8, background: 'var(--color-success-soft)', border: '1px solid var(--color-success)' }}>
+                <p className="text-sm font-medium mb-2" style={{ color: 'var(--color-success-text)' }}>
                   Key “{createdKey.name}” created. Copy it now — it won't be shown again.
                 </p>
-                <div className="flex items-center space-x-2">
-                  <code data-aa-secret="" className={`flex-1 px-3 py-2 rounded text-sm font-mono break-all ${darkMode ? 'bg-gray-900 text-green-300' : 'bg-white text-green-800 border border-green-200'}`}>
+                <div className="flex items-center gap-2">
+                  <code
+                    data-aa-secret=""
+                    className="flex-1 px-3 py-2 text-sm break-all"
+                    style={{ fontFamily: MONO, borderRadius: 6, background: 'var(--color-surface)', border: '1px solid var(--color-border)', color: 'var(--color-text-primary)' }}
+                  >
                     {createdKey.token}
                   </code>
-                  <button
-                    onClick={() => copyToken(createdKey.token)}
-                    className={`px-3 py-2 text-sm rounded ${darkMode ? 'bg-gray-700 text-gray-200 hover:bg-gray-600' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
-                  >
+                  <Button size="sm" onClick={() => copyToken(createdKey.token)}>
                     {copied ? 'Copied!' : 'Copy'}
-                  </button>
-                  <button
-                    onClick={() => setCreatedKey(null)}
-                    className={`px-3 py-2 text-sm rounded ${darkMode ? 'text-gray-400 hover:text-gray-200' : 'text-gray-500 hover:text-gray-700'}`}
-                  >
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={() => setCreatedKey(null)}>
                     Dismiss
-                  </button>
+                  </Button>
                 </div>
               </div>
             )}
 
             {apiKeys.length === 0 ? (
-              <div className={`text-center py-8 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+              <div className="text-center py-8" style={{ color: 'var(--color-text-muted)' }}>
                 <p>{keysLoaded ? 'No API keys yet' : 'Loading…'}</p>
                 {keysLoaded && <p className="text-sm">Create your first API key to authenticate requests</p>}
               </div>
@@ -320,14 +226,14 @@ export default function SettingsView({ user, account }) {
                 {apiKeys.map((key) => (
                   <div
                     key={key.id}
-                    className="flex items-center justify-between p-4 rounded-lg"
-                    style={{ backgroundColor: darkMode ? '#252525' : '#f9fafb' }}
+                    className="flex items-center justify-between gap-4 p-4 rounded-lg"
+                    style={{ backgroundColor: 'var(--color-muted)' }}
                   >
-                    <div>
-                      <p className={`font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>{key.name}</p>
-                      <p className={`text-sm font-mono ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                    <div className="min-w-0">
+                      <p className="font-medium" style={heading}>{key.name}</p>
+                      <p className="text-sm" style={{ fontFamily: MONO, ...secondary }}>
                         {key.masked_token}
-                        <span className="font-sans">
+                        <span style={{ fontFamily: 'var(--font-text)' }}>
                           {' · created '}{new Date(key.created_at).toLocaleDateString()}
                           {key.last_used_at
                             ? ` · last used ${new Date(key.last_used_at).toLocaleDateString()}`
@@ -335,12 +241,9 @@ export default function SettingsView({ user, account }) {
                         </span>
                       </p>
                     </div>
-                    <button
-                      onClick={() => revokeApiKey(key.id)}
-                      className={`px-3 py-1 text-sm rounded ${darkMode ? 'bg-red-900/40 text-red-300 hover:bg-red-900/60' : 'bg-red-50 text-red-600 hover:bg-red-100'}`}
-                    >
+                    <Button variant="danger" size="sm" onClick={() => revokeApiKey(key.id)}>
                       Revoke
-                    </button>
+                    </Button>
                   </div>
                 ))}
               </div>
@@ -355,10 +258,10 @@ export default function SettingsView({ user, account }) {
       {activeTab === 'integrations' && (
         <div className="space-y-6">
           <div className="border rounded-lg p-6" style={cardStyle}>
-            <h3 className={`text-lg font-semibold mb-1 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+            <h3 className="text-lg font-semibold mb-1" style={heading}>
               Integrations
             </h3>
-            <p className={`text-sm mb-4 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+            <p className="text-sm mb-4" style={secondary}>
               Connect GitHub to choose which repositories this workspace may use. A sandbox started
               from one boots that app's own runtime, so agents and evaluations can run with its tools,
               and Claude Code or Codex can work on the checkout.
@@ -370,80 +273,6 @@ export default function SettingsView({ user, account }) {
           </div>
           <div className="border rounded-lg p-6" style={cardStyle}>
             <CodexIntegrationCard onChange={() => setIntegrationsVersion((v) => v + 1)} />
-          </div>
-        </div>
-      )}
-
-      {/* Notifications Tab */}
-      {activeTab === 'notifications' && (
-        <div className="border rounded-lg p-6" style={cardStyle}>
-          <h3 className={`text-lg font-semibold mb-4 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-            Email Notifications
-          </h3>
-          <div className="space-y-4">
-            {[
-              { label: 'Agent execution alerts', desc: 'Get notified when agents fail or complete', enabled: true },
-              { label: 'Weekly usage reports', desc: 'Summary of traces, costs, and performance', enabled: true },
-              { label: 'Security alerts', desc: 'Important security notifications', enabled: true },
-              { label: 'Product updates', desc: 'New features and improvements', enabled: false },
-            ].map((item, i) => (
-              <div key={i} className="flex items-center justify-between py-3 border-b" style={{ borderColor: darkMode ? '#2a2a2a' : '#e5e7eb' }}>
-                <div>
-                  <p className={`font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>{item.label}</p>
-                  <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>{item.desc}</p>
-                </div>
-                <button className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                  item.enabled ? 'bg-red-500' : (darkMode ? 'bg-gray-700' : 'bg-gray-300')
-                }`}>
-                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                    item.enabled ? 'translate-x-6' : 'translate-x-1'
-                  }`} />
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Billing Tab */}
-      {activeTab === 'billing' && (
-        <div className="space-y-6">
-          <div className="border rounded-lg p-6" style={cardStyle}>
-            <h3 className={`text-lg font-semibold mb-4 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-              Subscription
-            </h3>
-            <div className="flex items-center justify-between p-4 rounded-lg" style={{ backgroundColor: darkMode ? '#252525' : '#f9fafb' }}>
-              <div>
-                <p className={`font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>Free Plan</p>
-                <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Current plan</p>
-              </div>
-              <button className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600">
-                Upgrade to Pro
-              </button>
-            </div>
-          </div>
-
-          <div className="border rounded-lg p-6" style={cardStyle}>
-            <h3 className={`text-lg font-semibold mb-4 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-              Payment Method
-            </h3>
-            <p className={`${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-              No payment method on file
-            </p>
-            <button className={`mt-4 px-4 py-2 rounded-lg ${
-              darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-200 text-gray-700'
-            }`}>
-              Add Payment Method
-            </button>
-          </div>
-
-          <div className="border rounded-lg p-6" style={cardStyle}>
-            <h3 className={`text-lg font-semibold mb-4 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-              Invoices
-            </h3>
-            <p className={`${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-              No invoices yet
-            </p>
           </div>
         </div>
       )}

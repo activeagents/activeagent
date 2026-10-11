@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Badge, Button, Card, Chip, Empty, Glyph, MicroLabel, MONO, TONE } from '../primitives';
+import { Badge, Button, Card, Chip, Empty, Glyph, MicroLabel, MONO, PageHeader, TONE } from '../primitives';
 import { navigateTo } from '../../../utils/dashboardPath';
 import { fmtMs, splitModelLabel, timeAgo } from '../../../utils/format';
 import { fmtPasses, fmtScore, fmtThreshold } from '../../../utils/evalFormat.mjs';
@@ -22,7 +22,6 @@ import { samplingFixPromptMarkdown } from '../../../utils/fixPrompt.mjs';
 // the follow-ups the run's own data asks for. A scenario suite's runs open
 // in the suite panel instead, where the scenario matrix lives.
 
-const linkStyle = { background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: MONO, fontSize: 12, color: 'var(--color-info)' };
 const mono = (size = 11, color = 'var(--color-text-muted)', extra = {}) => ({ fontFamily: MONO, fontSize: size, color, ...extra });
 
 function ScoreCell({ stats }) {
@@ -113,25 +112,19 @@ export default function EvaluationRunDetail({
   const [group, setGroup] = useState('all');
   const [failedOnly, setFailedOnly] = useState(false);
 
-  const crumb = (label, onClick) => <button type="button" onClick={onClick} style={linkStyle}>{label}</button>;
   const runIndex = runs.findIndex((candidate) => candidate.id === runId);
   const run = runIndex >= 0 ? runs[runIndex] : runs[0];
   const number = run ? runNumber(run, Math.max(runIndex, 0), runs, runCount) : null;
 
-  const breadcrumb = (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-      {crumb('Evaluations', onBack)}
-      <span style={mono(12)}>/</span>
-      {crumb(evaluation?.name || 'Evaluation', onOpenEvaluation)}
-      <span style={mono(12)}>/</span>
-      <span style={mono(12, 'var(--color-text-primary)', { fontWeight: 700 })}>{run ? `Run #${number}` : 'Runs'}</span>
-    </div>
-  );
+  const crumbs = [
+    { label: 'Evaluations', onClick: onBack },
+    { label: evaluation?.name || 'Evaluation', onClick: onOpenEvaluation },
+  ];
 
   if (!evaluation) {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <div>{crumb('Evaluations', onBack)}</div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <PageHeader crumbs={crumbs.slice(0, 1)} />
         <Card><span style={{ fontSize: 13, color: 'var(--color-text-muted)' }}>This evaluation is not in the list any more.</span></Card>
       </div>
     );
@@ -139,8 +132,8 @@ export default function EvaluationRunDetail({
 
   if (!run) {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        {breadcrumb}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <PageHeader crumbs={crumbs} title="Runs" />
         {loading ? (
           <div className="flex items-center justify-center h-64">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2" style={{ borderBottomColor: 'var(--color-accent-ui)' }} />
@@ -181,32 +174,29 @@ export default function EvaluationRunDetail({
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }} data-testid="evaluation-run-detail">
-      {breadcrumb}
-
-      {/* Title row: which run, what it covered, and the run switcher. */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-        <div style={{ minWidth: 0 }}>
-          <h1 style={{ margin: 0, fontSize: 24, fontWeight: 700, letterSpacing: '-0.01em', color: 'var(--color-text-primary)' }}>{`Run #${number}`}</h1>
-          <p style={{ margin: '4px 0 0', fontSize: 14, color: 'var(--color-text-secondary)', textWrap: 'pretty' }}>
-            {`${evaluation.name} · ${when} · @${evaluation.agent?.name || 'agent'} · ${runLabel(evaluation, run)}${passedLabel}`}
-          </p>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-          {runs.map((candidate, index) => (
-            <Chip
-              key={candidate.id}
-              square
-              mono
-              selected={candidate.id === run.id}
-              onClick={() => onSelectRun?.(candidate)}
-              title={`${candidate.status} · ${timeAgo(candidate.completed_at || candidate.created_at)}`}
-            >
-              {`#${runNumber(candidate, index, runs, runCount)}`}
-            </Chip>
-          ))}
-          <Button variant="primary" disabled={running} onClick={onRun} testId="run-again-button">{running ? 'Running…' : 'Run again'}</Button>
-        </div>
-      </div>
+      {/* Which run, what it covered, and the run switcher. */}
+      <PageHeader
+        crumbs={crumbs}
+        title={`Run #${number}`}
+        meta={`${evaluation.name} · ${when} · @${evaluation.agent?.name || 'agent'} · ${runLabel(evaluation, run)}${passedLabel}`}
+        actions={(
+          <>
+            {runs.map((candidate, index) => (
+              <Chip
+                key={candidate.id}
+                square
+                mono
+                selected={candidate.id === run.id}
+                onClick={() => onSelectRun?.(candidate)}
+                title={`${candidate.status} · ${timeAgo(candidate.completed_at || candidate.created_at)}`}
+              >
+                {`#${runNumber(candidate, index, runs, runCount)}`}
+              </Chip>
+            ))}
+            <Button variant="primary" disabled={running} onClick={onRun} testId="run-again-button">{running ? 'Running…' : 'Run again'}</Button>
+          </>
+        )}
+      />
 
       {/* What the run cost, the agent's side apart from the judge's. */}
       <SpendStrip spend={spend} judgedBy={judgeLabel(evaluation, run)} />

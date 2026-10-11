@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Badge, Button, Card, Empty, MicroLabel, MONO } from './primitives';
+import { Badge, Button, Card, Empty, MONO, PageHeader } from './primitives';
 import { timeAgo } from '../../utils/format';
 import { dashboardPath, navigateTo } from '../../utils/dashboardPath';
 import { sessionReplayPath } from '../../utils/dashboardRoutes.mjs';
@@ -185,17 +185,7 @@ export default function SessionsView({ agents = [], user = null }) {
 
   return (
     <div data-testid="sessions-view" style={{ display: 'flex', flexDirection: 'column', gap: 16, maxWidth: 1200 }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-        <div>
-          <h1 style={{ margin: 0, fontSize: 24, fontWeight: 700, letterSpacing: '-0.01em', color: 'var(--color-text-primary)' }}>Sessions</h1>
-          <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--color-text-secondary)' }}>
-            Replay what an agent did: its messages, model calls and tool calls, and its browser when one was recorded.
-          </p>
-        </div>
-        {status === 'ready' && (
-          <MicroLabel>{page.total} session{page.total === 1 ? '' : 's'}</MicroLabel>
-        )}
-      </div>
+      <PageHeader title="Sessions" count={status === 'ready' ? page.total : undefined} />
 
       <FilterBar filters={filters} onChange={setFilters} agents={agents} user={user} />
 

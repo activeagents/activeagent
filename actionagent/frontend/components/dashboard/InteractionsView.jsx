@@ -5,6 +5,7 @@ import {
 import { useTheme } from '../../contexts/ThemeContext';
 import { useTimeWindow } from '../../contexts/TimeWindowContext';
 import TimeWindowSelector from './TimeWindowSelector';
+import { PageHeader } from './primitives';
 import InteractionStream, { roleBubble } from './InteractionStream';
 import ContextMeter, { contextWindowFor, estimateTokens } from './ContextMeter';
 import TraceSpanBar from './TraceSpanBar';
@@ -392,43 +393,32 @@ export default function InteractionsView({ agentId = null, embedded = false }) {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-start justify-between">
-        {!embedded && (
-          <div>
-            <h1 className="text-2xl font-bold" style={{ color: colors.textPrimary }}>Interactions</h1>
-            <p className="text-sm mt-1" style={{ color: colors.textSecondary }}>
-              Persisted conversation streams per agent — messages, generations and provenance
-            </p>
-          </div>
+    <div className="space-y-4">
+      <PageHeader
+        title={embedded ? null : 'Interactions'}
+        actions={(
+          <>
+            <div className="flex items-center rounded-lg p-1" style={{ background: 'var(--color-muted)' }}>
+              <span className="text-xs px-1" style={{ color: 'var(--color-text-muted)' }}>Sort</span>
+              {SORT_OPTIONS.map((option) => (
+                <button
+                  key={option.id}
+                  type="button"
+                  onClick={() => setSortBy(option.id)}
+                  aria-pressed={sortBy === option.id}
+                  className="px-2 py-1 text-xs rounded transition-colors"
+                  style={sortBy === option.id
+                    ? { background: 'var(--color-card)', color: 'var(--color-text-primary)', border: '1px solid var(--color-border)' }
+                    : { color: 'var(--color-text-secondary)', border: '1px solid transparent' }}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+            <TimeWindowSelector />
+          </>
         )}
-        <div className="flex items-center gap-3">
-          <div
-            className="flex items-center rounded-lg p-1"
-            style={{ background: darkMode ? 'rgba(255,255,255,0.06)' : '#f3f4f6' }}
-          >
-            <span className="text-xs px-1" style={{ color: colors.textMuted }}>Sort</span>
-            {SORT_OPTIONS.map((option) => (
-              <button
-                key={option.id}
-                onClick={() => setSortBy(option.id)}
-                className="px-2 py-1 text-xs rounded transition-colors"
-                style={sortBy === option.id
-                  ? {
-                      background: darkMode ? '#2a2a2a' : '#ffffff',
-                      color: colors.textPrimary,
-                      boxShadow: darkMode ? 'none' : '0 1px 2px rgba(0,0,0,0.08)'
-                    }
-                  : { color: colors.textSecondary }}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
-          <TimeWindowSelector />
-        </div>
-      </div>
+      />
 
       <NeedsInputLane agentId={agentId} />
 

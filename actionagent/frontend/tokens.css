@@ -5,6 +5,13 @@
    Mirrored in Ruby by ActiveAgent::Evals::DesignTokens for the self-contained
    evaluation report — keep the two in step (a test asserts parity). */
 .aa-dashboard {
+  /* Base type: unsized text inside the dashboard is 13px Inter in the
+     primary colour, so a view only sizes what departs from that. */
+  font-family: var(--font-text);
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--color-text-primary);
+
   /* Brand */
   --color-accent: #FA343B;
   --color-accent-hover: #E02D33;
@@ -23,7 +30,9 @@
   --color-card: #ffffff;
   --color-muted: #f3f4f6;
   --color-hover: #f3f4f6;
+  --color-row-hover: #f9fafb;
   --color-background-blur: rgba(255,255,255,0.9);
+  --color-scrim: rgba(0,0,0,0.2);
 
   /* Borders */
   --color-border: #e5e7eb;
@@ -35,6 +44,7 @@
   --color-text-secondary: #6b7280;
   --color-text-muted: #9ca3af;
   --color-text-cell: #4b5563;
+  --color-text-dim: #8a8a8a;
 
   /* Semantic status */
   --color-success: #16a34a;
@@ -70,6 +80,9 @@
   --chart-4: #ec4899;
   --chart-5: #3b82f6;
 
+  /* Shadow. The one sanctioned shadow: menus and toasts, always with a 1px border. */
+  --shadow-popover: 0 4px 12px rgba(0,0,0,0.08);
+
   /* Type. Inter Variable and JetBrains Mono are used when the host provides
      them; the stacks fall back to the fonts the dashboard already renders in. */
   --font-text: "Inter Variable", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -86,7 +99,9 @@
   --color-card: rgba(255,255,255,0.05);
   --color-muted: rgba(255,255,255,0.05);
   --color-hover: #252525;
+  --color-row-hover: rgba(255,255,255,0.03);
   --color-background-blur: rgba(15,15,15,0.9);
+  --color-scrim: rgba(0,0,0,0.5);
 
   --color-border: rgba(255,255,255,0.1);
   --color-border-light: rgba(255,255,255,0.05);
@@ -96,6 +111,7 @@
   --color-text-secondary: rgba(255,255,255,0.6);
   --color-text-muted: rgba(255,255,255,0.4);
   --color-text-cell: rgba(255,255,255,0.7);
+  --color-text-dim: rgba(255,255,255,0.5);
 
   --color-success-soft: rgba(22,163,74,0.15);
   --color-success-text: #4ade80;
@@ -105,6 +121,8 @@
   --color-error-text: #f87171;
   --color-info-soft: rgba(59,130,246,0.15);
   --color-info-text: #93c5fd;
+
+  --shadow-popover: 0 4px 16px rgba(0,0,0,0.5);
 }
 
 /* The chevron glyph rotates when its section opens; nothing else animates. */
@@ -116,3 +134,7 @@
 .aa-dashboard .aa-roster-row { background: transparent; }
 .aa-dashboard .aa-roster-row[data-on="true"] { background: var(--color-accent-ui-tint); }
 .aa-dashboard .aa-roster-row:hover { background: var(--color-hover); }
+
+/* Table rows and menu items: the hover tints live here for the same reason. */
+.aa-dashboard .aa-row:hover { background: var(--color-row-hover); }
+.aa-dashboard .aa-menu-item:hover { background: var(--color-hover); }

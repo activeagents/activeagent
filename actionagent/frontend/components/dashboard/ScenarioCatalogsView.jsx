@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Button, Card } from './primitives';
-import { navigateTo } from '../../utils/dashboardPath';
+import { Button, Card, Hint, Menu, MonoLink, PageHeader, TABLE, MONO } from './primitives';
+import { dashboardPath, navigateTo } from '../../utils/dashboardPath';
 import { apiErrorMessage } from '../../utils/codeSessions.mjs';
+import { timeAgo } from '../../utils/format';
 
 // /catalogs: the owner's scenario catalogs. A catalog is a YAML document of
 // products (an agent or a project under test), each with named sets of
@@ -10,7 +11,10 @@ import { apiErrorMessage } from '../../utils/codeSessions.mjs';
 // in Active Storage when the host has it, and run one set at a time: the
 // set becomes an evaluation of the agent under test, run against the
 // project's booted app and browser when a project is chosen.
-export default function ScenarioCatalogsView({ visit = 0 }) {
+//
+// embedded: the host (the Evaluations page's Catalogs tab) carries the
+// title, so the list renders its toolbar alone.
+export default function ScenarioCatalogsView({ visit = 0, embedded = false }) {
   const [catalogs, setCatalogs] = useState(null);
   const [storageAvailable, setStorageAvailable] = useState(false);
   const [selected, setSelected] = useState(null);
@@ -160,17 +164,16 @@ export default function ScenarioCatalogsView({ visit = 0 }) {
     );
   }
 
+  const importButton = <Button onClick={() => setShowImport((value) => !value)}>{showImport ? 'Close' : 'Import catalog'}</Button>;
+  const storageText = (catalog) => (catalog.synced ? 'synced' : storageAvailable ? 'not synced' : 'database only');
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-        <div>
-          <h1 style={{ margin: 0, fontSize: 24, fontWeight: 700, letterSpacing: '-0.01em', color: 'var(--color-text-primary)' }}>Scenario catalogs</h1>
-          <p style={{ margin: '4px 0 0', fontSize: 14, color: 'var(--color-text-secondary)' }}>
-            Scenarios kept as YAML, by product and set, imported from a document or a repository and run as evaluations.
-          </p>
-        </div>
-        <Button onClick={() => setShowImport((value) => !value)}>{showImport ? 'Close' : 'Import catalog'}</Button>
-      </div>
+      {embedded ? (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, flexWrap: 'wrap' }}>{importButton}</div>
+      ) : (
+        <PageHeader title="Scenario catalogs" actions={importButton} />
+      )}
 
       {error && <Notice tone="error">{error}</Notice>}
       {notice && <Notice>{notice}</Notice>}
@@ -178,37 +181,72 @@ export default function ScenarioCatalogsView({ visit = 0 }) {
       {showImport && <ImportForm importing={importing} onImport={importCatalog} />}
 
       {catalogs === null ? (
-        <p style={{ color: 'var(--color-text-secondary)' }}>Loading…</p>
-      ) : catalogs.length === 0 ? (
-        <Card>
-          <p style={{ margin: 0, color: 'var(--color-text-secondary)' }}>
-            No catalogs yet. Import a YAML document, or read the <code>.activeagents/evals</code> directory of a connected repository.
-          </p>
-        </Card>
+        <p style={{ margin: 0, color: 'var(--color-text-secondary)' }}>Loading…</p>
       ) : (
-        <div style={{ display: 'grid', gap: 12 }}>
-          {catalogs.map((catalog) => (
-            <Card key={catalog.id} style={{ cursor: 'pointer' }} onClick={() => open(catalog.id)}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-                <div>
-                  <div style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>{catalog.name}</div>
-                  <div style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>
-                    <code>{catalog.key}</code>
-                    {catalog.source_path ? ` · ${catalog.source_path}` : ` · ${catalog.source_kind}`}
-                  </div>
-                </div>
-                <div style={{ fontSize: 13, color: 'var(--color-text-secondary)', textAlign: 'right' }}>
-                  {catalog.product_count} {catalog.product_count === 1 ? 'product' : 'products'} · {catalog.scenario_count} scenarios
-                  <div>{catalog.synced ? 'synced to storage' : storageAvailable ? 'not synced' : 'database only'}</div>
-                </div>
-              </div>
-            </Card>
-          ))}
+        <div style={TABLE.frame}>
+          <table style={TABLE.table} data-testid="catalogs-table">
+            <thead>
+              <tr>
+                <th scope="col" style={TABLE.th}>Catalog</th>
+                <th scope="col" style={{ ...TABLE.th, ...TABLE.right }}>Products</th>
+                <th scope="col" style={{ ...TABLE.th, ...TABLE.right }}>Scenarios</th>
+                <th scope="col" style={TABLE.th}>Storage</th>
+              </tr>
+            </thead>
+            <tbody>
+              {catalogs.length === 0 && (
+                <tr>
+                  <td colSpan={4} style={{ ...TABLE.td, borderBottom: 'none', padding: '32px 14px', textAlign: 'center' }}>
+                    <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--color-text-primary)' }}>No catalogs yet</div>
+                    <p style={{ margin: '4px 0 0', fontSize: 12, color: 'var(--color-text-muted)' }}>
+                      Import a YAML document, or read the <span style={{ fontFamily: MONO }}>.activeagents/evals</span> directory of a connected repository.
+                    </p>
+                  </td>
+                </tr>
+              )}
+              {catalogs.map((catalog, index) => {
+                const last = index === catalogs.length - 1;
+                const cell = (extra) => ({ ...TABLE.td, ...(last ? { borderBottom: 'none' } : {}), ...extra });
+                return (
+                  <tr
+                    key={catalog.id}
+                    className="aa-row"
+                    data-testid="catalog-row"
+                    tabIndex={0}
+                    onClick={() => open(catalog.id)}
+                    onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); open(catalog.id); } }}
+                    style={{ cursor: 'pointer' }}
+                  >
+                    <td style={cell()}>
+                      <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--color-text-primary)' }}>{catalog.name}</div>
+                      <div style={{ ...TABLE.mono, color: 'var(--color-text-muted)' }}>
+                        {catalog.key}
+                        {catalog.source_path ? ` · ${catalog.source_path}` : catalog.source_kind ? ` · ${catalog.source_kind}` : ''}
+                      </div>
+                    </td>
+                    <td style={cell({ ...TABLE.mono, ...TABLE.right })}>{catalog.product_count}</td>
+                    <td style={cell({ ...TABLE.mono, ...TABLE.right })}>{catalog.scenario_count}</td>
+                    <td style={cell({ ...TABLE.mono, color: 'var(--color-text-muted)' })}>{storageText(catalog)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       )}
     </div>
   );
 }
+
+const fieldStyle = {
+  padding: '6px 10px', borderRadius: 8, border: '1px solid var(--color-border)', background: 'var(--color-surface)',
+  color: 'var(--color-text-primary)', fontSize: 13, fontFamily: 'inherit',
+};
+
+const yamlStyle = {
+  fontFamily: MONO, fontSize: 12, padding: 8, borderRadius: 8, border: '1px solid var(--color-border)',
+  background: 'var(--color-surface)', color: 'var(--color-text-primary)',
+};
 
 function ImportForm({ importing, onImport }) {
   const [mode, setMode] = useState('document');
@@ -235,11 +273,12 @@ function ImportForm({ importing, onImport }) {
         </div>
         {mode === 'document' ? (
           <textarea
+            aria-label="Catalog YAML"
             value={document}
             onChange={(event) => setDocument(event.target.value)}
             rows={12}
             placeholder={'catalog: support_desk\nproducts:\n  - key: triage\n    agent: TriageAgent\n    sets:\n      - key: smoke\n        scenarios:\n          - key: refund\n            prompt: A customer asks for a refund.\n            expect: { tools: [lookup_order] }'}
-            style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: 12, padding: 8, borderRadius: 6, border: '1px solid var(--color-border)', background: 'var(--color-surface)', color: 'var(--color-text-primary)' }}
+            style={yamlStyle}
           />
         ) : (
           <div style={{ display: 'grid', gap: 8, gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
@@ -249,7 +288,7 @@ function ImportForm({ importing, onImport }) {
           </div>
         )}
         <div>
-          <Button type="submit" disabled={importing || (mode === 'document' ? !document.trim() : !repository.trim())}>
+          <Button type="submit" variant="primary" disabled={importing || (mode === 'document' ? !document.trim() : !repository.trim())}>
             {importing ? 'Importing…' : 'Import'}
           </Button>
         </div>
@@ -262,15 +301,27 @@ function Field({ label, value, onChange, placeholder }) {
   return (
     <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12, color: 'var(--color-text-secondary)' }}>
       {label}
-      <input
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        placeholder={placeholder}
-        style={{ padding: 6, borderRadius: 6, border: '1px solid var(--color-border)', background: 'var(--color-surface)', color: 'var(--color-text-primary)', fontSize: 13 }}
-      />
+      <input value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} style={fieldStyle} />
     </label>
   );
 }
+
+// A scenario's expectations, as the catalog recorded them ({ tools,
+// contains, not_contains }), in one mono line: "calls lookup_order · says
+// “refund” · never says “unfortunately”". Empty when it expects nothing.
+export const expectationSummary = (expectations) => {
+  const value = expectations && typeof expectations === 'object' ? expectations : {};
+  const list = (key) => (Array.isArray(value[key]) ? value[key] : value[key] ? [value[key]] : []).map(String);
+  return [
+    ...list('tools').map((tool) => `calls ${tool}`),
+    ...list('contains').map((text) => `says “${text}”`),
+    ...list('not_contains').map((text) => `never says “${text}”`),
+  ].join(' · ');
+};
+
+// The agent a product names: the dashboard's agent, else the name the
+// document gave (not on this dashboard), else the project under test.
+const productAgentName = (product) => product.agent?.name || product.agent_name || product.project?.name || '—';
 
 function CatalogDetail({ catalog, agents, projects, storageAvailable, error, notice, onBack, onRun, onSync, onDelete, onReimport }) {
   const [editing, setEditing] = useState(false);
@@ -278,32 +329,37 @@ function CatalogDetail({ catalog, agents, projects, storageAvailable, error, not
 
   const exportUrl = useMemo(() => `/api/scenario_catalogs/${catalog.id}/export`, [catalog.id]);
 
+  const meta = [
+    catalog.key,
+    catalog.source_path,
+    catalog.synced_at ? `synced ${timeAgo(catalog.synced_at)}` : 'not synced',
+  ].filter(Boolean).join(' · ');
+
+  const menuItems = [
+    { label: 'Export YAML', onClick: () => window.open(exportUrl, '_blank') },
+    ...(storageAvailable && catalog.synced_at ? [{ label: 'Restore from storage', onClick: () => onSync(catalog, 'pull') }] : []),
+    { label: editing ? 'Cancel re-import' : 'Re-import YAML', onClick: () => setEditing((value) => !value) },
+    { label: 'Delete', tone: 'danger', onClick: () => onDelete(catalog) },
+  ];
+
+  const sets = (catalog.products || []).flatMap((product) => (product.sets || []).map((set) => ({ product, set })));
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-        <Button size="sm" variant="ghost" onClick={onBack} style={{ padding: 0 }}>← Catalogs</Button>
-      </div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
-        <div>
-          <h1 style={{ margin: 0, fontSize: 24, fontWeight: 700, letterSpacing: '-0.01em', color: 'var(--color-text-primary)' }}>{catalog.name}</h1>
-          <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--color-text-secondary)' }}>
-            <code>{catalog.key}</code>
-            {catalog.source_path ? ` · ${catalog.source_path}` : ''}
-            {catalog.description ? ` · ${catalog.description}` : ''}
-          </p>
-          <p style={{ margin: '4px 0 0', fontSize: 12, color: 'var(--color-text-secondary)' }}>
-            digest {catalog.digest ? catalog.digest.slice(0, 12) : '—'} ·{' '}
-            {catalog.synced ? `synced to storage ${catalog.synced_at ? new Date(catalog.synced_at).toLocaleString() : ''}` : storageAvailable ? 'not synced to storage' : 'Active Storage is off for this dashboard'}
-          </p>
-        </div>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <Button size="sm" variant="ghost" onClick={() => window.open(exportUrl, '_blank')}>Export YAML</Button>
-          {storageAvailable && <Button size="sm" variant="ghost" onClick={() => onSync(catalog, 'push')}>Write to storage</Button>}
-          {storageAvailable && catalog.synced_at && <Button size="sm" variant="ghost" onClick={() => onSync(catalog, 'pull')}>Restore from storage</Button>}
-          <Button size="sm" variant="ghost" onClick={() => setEditing((value) => !value)}>{editing ? 'Cancel' : 'Re-import YAML'}</Button>
-          <Button size="sm" variant="ghost" onClick={() => onDelete(catalog)}>Delete</Button>
-        </div>
-      </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <PageHeader
+        crumbs={[
+          { label: 'Evaluations', onClick: () => navigateTo('/evaluations') },
+          { label: 'Catalogs', onClick: onBack, testId: 'catalogs-crumb' },
+        ]}
+        title={catalog.name}
+        meta={meta}
+        actions={(
+          <>
+            {storageAvailable && <Button onClick={() => onSync(catalog, 'push')}>Write to storage</Button>}
+            <Menu glyph="..." ariaLabel="More: export YAML, restore, re-import, delete" items={menuItems} testId="catalog-menu" />
+          </>
+        )}
+      />
 
       {error && <Notice tone="error">{error}</Notice>}
       {notice && <Notice>{notice}</Notice>}
@@ -312,45 +368,71 @@ function CatalogDetail({ catalog, agents, projects, storageAvailable, error, not
         <Card>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             <textarea
+              aria-label="Catalog YAML"
               value={document}
               onChange={(event) => setDocument(event.target.value)}
               rows={14}
               placeholder="Paste the catalog document; its products, sets and scenarios replace this catalog's."
-              style={{ fontFamily: 'var(--font-mono, monospace)', fontSize: 12, padding: 8, borderRadius: 6, border: '1px solid var(--color-border)', background: 'var(--color-surface)', color: 'var(--color-text-primary)' }}
+              style={yamlStyle}
             />
             <div>
-              <Button size="sm" disabled={!document.trim()} onClick={() => { onReimport(document); setEditing(false); }}>Import</Button>
+              <Button size="sm" variant="primary" disabled={!document.trim()} onClick={() => { onReimport(document); setEditing(false); }}>Import</Button>
             </div>
           </div>
         </Card>
       )}
 
-      {(catalog.products || []).map((product) => (
-        <Card key={product.id}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-            <div>
-              <div style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>{product.name}</div>
-              <div style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>
-                <code>{product.key}</code>
-                {product.agent ? ` · agent ${product.agent.name}` : product.agent_name ? ` · agent ${product.agent_name} (not on this dashboard)` : ''}
-                {product.project ? ` · project ${product.project.name} (${product.project.repository}${product.project.ref ? `@${product.project.ref}` : ''})` : ''}
-              </div>
-              {product.description && <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--color-text-secondary)' }}>{product.description}</p>}
-            </div>
-            <div style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>{product.set_count} sets · {product.scenario_count} scenarios</div>
-          </div>
-          <div style={{ display: 'grid', gap: 8, marginTop: 12 }}>
-            {(product.sets || []).map((set) => (
-              <SetRow key={set.id} catalog={catalog} product={product} set={set} agents={agents} projects={projects} onRun={onRun} />
+      <div style={TABLE.frame}>
+        <table style={{ ...TABLE.table, minWidth: 900 }} data-testid="catalog-sets-table">
+          <thead>
+            <tr>
+              <th scope="col" style={TABLE.th}>Set</th>
+              <th scope="col" style={TABLE.th}>Product · agent</th>
+              <th scope="col" style={{ ...TABLE.th, ...TABLE.right }}>Scenarios</th>
+              <th scope="col" style={TABLE.th}>Latest run</th>
+              <th scope="col" style={TABLE.th}>Run against</th>
+              <th scope="col" style={TABLE.th} aria-label="Run" />
+            </tr>
+          </thead>
+          <tbody>
+            {sets.length === 0 && (
+              <tr>
+                <td colSpan={6} style={{ ...TABLE.td, borderBottom: 'none', padding: '32px 14px', textAlign: 'center' }}>
+                  <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--color-text-primary)' }}>No sets in this catalog</div>
+                </td>
+              </tr>
+            )}
+            {sets.map(({ product, set }, index) => (
+              <SetRow
+                key={set.id}
+                catalog={catalog}
+                product={product}
+                set={set}
+                agents={agents}
+                projects={projects}
+                onRun={onRun}
+                last={index === sets.length - 1}
+              />
             ))}
-          </div>
-        </Card>
-      ))}
+          </tbody>
+        </table>
+      </div>
+      <Hint>
+        Running a set creates or reuses the evaluation <span style={{ fontFamily: MONO }}>{`${catalog.key}/<product>/<set>`}</span>.
+      </Hint>
     </div>
   );
 }
 
-function SetRow({ catalog, product, set, agents, projects, onRun }) {
+const selectStyle = {
+  minHeight: 32, padding: '0 8px', borderRadius: 8, border: '1px solid var(--color-border)', background: 'var(--color-surface)',
+  color: 'var(--color-text-primary)', fontFamily: 'inherit', fontSize: 12, maxWidth: '100%',
+};
+
+const RUN_COLOR = { failed: 'var(--color-error-text)', running: 'var(--color-info-text)', pending: 'var(--color-info-text)' };
+
+// One set: its row, and under it, when open, its scenarios.
+function SetRow({ catalog, product, set, agents, projects, onRun, last }) {
   const defaultTarget = product.project ? `project:${product.project.id}` : product.agent ? `agent:${product.agent.id}` : '';
   const [target, setTarget] = useState(defaultTarget);
   const [expanded, setExpanded] = useState(false);
@@ -361,29 +443,49 @@ function SetRow({ catalog, product, set, agents, projects, onRun }) {
     onRun(catalog, set, payload);
   };
 
+  const toggle = () => setExpanded((value) => !value);
+  const stop = (event) => event.stopPropagation();
+  const bottom = last && !expanded ? { borderBottom: 'none' } : {};
+  const cell = (extra) => ({ ...TABLE.td, ...bottom, ...extra });
+  const latest = set.latest_run;
+  const runPath = latest && set.evaluation ? `/evaluations/${set.evaluation.id}/runs/${latest.id}` : null;
+  const scenarios = set.scenarios || [];
+
   return (
-    <div style={{ border: '1px solid var(--color-border)', borderRadius: 8, padding: 10 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-        <div>
-          <span style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>{set.name}</span>{' '}
-          <code style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>{set.key}</code>
-          <span style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}> · {set.scenario_count} scenarios</span>
-          {set.evaluation && (
-            <span style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>
-              {' · '}
-              <a href="#" onClick={(event) => { event.preventDefault(); navigateTo(`/evaluations/${set.evaluation.id}`); }}>
-                evaluation {set.evaluation.name}
-              </a>
-              {set.latest_run ? ` (latest run ${set.latest_run.status})` : ''}
-            </span>
-          )}
-        </div>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-          <select
-            value={target}
-            onChange={(event) => setTarget(event.target.value)}
-            style={{ fontSize: 12, padding: 4, borderRadius: 6, border: '1px solid var(--color-border)', background: 'var(--color-surface)', color: 'var(--color-text-primary)' }}
+    <>
+      <tr
+        className="aa-row"
+        data-testid="catalog-set-row"
+        data-open={expanded ? 'true' : 'false'}
+        onClick={toggle}
+        style={{ cursor: 'pointer' }}
+      >
+        <td style={cell()}>
+          <button
+            type="button"
+            aria-expanded={expanded}
+            onClick={(event) => { event.stopPropagation(); toggle(); }}
+            style={{ display: 'block', background: 'none', border: 0, padding: 0, fontFamily: 'inherit', fontSize: 13, fontWeight: 500, color: 'var(--color-text-primary)', textAlign: 'left', cursor: 'pointer' }}
           >
+            {set.name}
+          </button>
+          {set.description && <div style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>{set.description}</div>}
+        </td>
+        <td style={cell({ color: 'var(--color-text-secondary)' })}>
+          {product.name} · <span style={TABLE.mono}>{productAgentName(product)}</span>
+        </td>
+        <td style={cell({ ...TABLE.mono, ...TABLE.right })}>{set.scenario_count ?? scenarios.length}</td>
+        <td style={cell()} onClick={stop}>
+          {latest && runPath ? (
+            <MonoLink size={12} href={dashboardPath(runPath)} onClick={() => navigateTo(runPath)} color={RUN_COLOR[latest.status] || 'var(--color-info)'}>
+              {`${latest.status} · ${timeAgo(latest.created_at)}`}
+            </MonoLink>
+          ) : (
+            <span style={{ ...TABLE.mono, color: 'var(--color-text-muted)' }}>never run</span>
+          )}
+        </td>
+        <td style={cell()} onClick={stop}>
+          <select aria-label="Run against" value={target} onChange={(event) => setTarget(event.target.value)} style={selectStyle}>
             <option value="">Run against…</option>
             {projects.length > 0 && (
               <optgroup label="Projects (booted app and browser)">
@@ -402,30 +504,42 @@ function SetRow({ catalog, product, set, agents, projects, onRun }) {
               </optgroup>
             )}
           </select>
+        </td>
+        <td style={cell(TABLE.right)} onClick={stop}>
           <Button size="sm" onClick={run} disabled={!target && !product.agent && !product.project}>Run set</Button>
-          <Button size="sm" variant="ghost" onClick={() => setExpanded((value) => !value)}>{expanded ? 'Hide' : 'Scenarios'}</Button>
-        </div>
-      </div>
+        </td>
+      </tr>
       {expanded && (
-        <ol style={{ margin: '10px 0 0', paddingLeft: 20, display: 'grid', gap: 6 }}>
-          {(set.scenarios || []).map((scenario) => (
-            <li key={scenario.id} style={{ fontSize: 13, color: 'var(--color-text-primary)' }}>
-              <code style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>{scenario.key}</code> {scenario.prompt}
-              {scenario.tags && scenario.tags.length > 0 && (
-                <span style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}> · {scenario.tags.join(', ')}</span>
-              )}
-              {scenario.production_only && <span style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}> · production only</span>}
-              {!scenario.enabled && <span style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}> · disabled</span>}
-            </li>
-          ))}
-        </ol>
+        <tr data-testid="catalog-set-scenarios">
+          <td colSpan={6} style={{ padding: '4px 14px 14px', background: 'var(--color-background)', borderBottom: last ? 'none' : '1px solid var(--color-border-light)' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {scenarios.length === 0 && <span style={{ ...TABLE.mono, color: 'var(--color-text-muted)' }}>no scenarios</span>}
+              {scenarios.map((scenario) => {
+                const flags = [
+                  ...(scenario.tags || []),
+                  scenario.production_only ? 'production only' : null,
+                  scenario.enabled === false ? 'disabled' : null,
+                ].filter(Boolean);
+                return (
+                  <div key={scenario.id || scenario.key} style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center', padding: '8px 10px', borderRadius: 8, background: 'var(--color-surface)', border: '1px solid var(--color-border-light)' }}>
+                    <span style={{ ...TABLE.mono, color: 'var(--color-text-muted)', width: 140, flexShrink: 0 }}>{scenario.key}</span>
+                    <span style={{ flex: 1, minWidth: 200, color: 'var(--color-text-primary)' }}>{scenario.prompt}</span>
+                    <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--color-text-secondary)' }}>
+                      {[expectationSummary(scenario.expectations), ...flags].filter(Boolean).join(' · ')}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </td>
+        </tr>
       )}
-    </div>
+    </>
   );
 }
 
 function Notice({ tone = 'info', children }) {
-  const color = tone === 'error' ? 'var(--color-danger, #b91c1c)' : 'var(--color-text-secondary)';
+  const color = tone === 'error' ? 'var(--color-error-text)' : 'var(--color-text-secondary)';
   return (
     <div role={tone === 'error' ? 'alert' : 'status'} style={{ fontSize: 13, color, padding: '8px 10px', border: '1px solid var(--color-border)', borderRadius: 8 }}>
       {children}

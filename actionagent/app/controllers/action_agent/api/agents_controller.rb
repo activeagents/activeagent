@@ -79,8 +79,10 @@ module ActionAgent
 
       # GET /api/agents/:id
       def show
+        # The agent page draws the same scorecard strip the list draws from
+        # index, so a deep link to the page has the figures too.
         render json: {
-          agent: agent_json(@agent, include_details: true),
+          agent: agent_json(@agent, include_details: true).merge(stats: AgentScorecard.for_agents([ @agent ])[@agent.id]),
           versions: @agent.agent_versions.recent.limit(10).map { |v| version_json(v) },
           recent_runs: @agent.agent_runs.with_attachments.recent.limit(5).map(&:summary)
         }

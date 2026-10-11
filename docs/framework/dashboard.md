@@ -661,21 +661,29 @@ finished run's figures are cached under the run, its update time and the
 pricing tables in force.
 
 **Standing.** The Evaluations page's pass rate describes the agent as it
-is now: the tiles pool only the headline run — the newest complete run —
+is now: the summary line over the table (**Passed**, **Fixes**, **Cost ·
+headline runs**) pools only the headline run — the newest complete run —
 of each evaluation whose standing is `current` (that run scored the
 agent's current version) or `unrecorded` (nothing says which version it
-scored, and the agent has no release to compare with), and say how many
-evaluations were left out as `stale` (last run against an earlier version)
-or `archived`. Only edits the model can see count as a new version: the
+scored, and the agent has no release to compare with). An evaluation
+whose standing is `stale` (last run against an earlier version) is left
+out, and its row says so with an amber *older version* note beside the
+run's passes; the footnote under the table explains the note when one
+shows. Only edits the model can see count as a new version: the
 instructions, action prompts, tools, MCP servers, model config and
 response format; an appearance edit does not. A run the engine executes
 is pinned to the agent's version as it runs; a published run is pinned to
 the release its report names (`report.release`), and stays unrecorded
-without one. A newer run still pending or failed shows beside the
-headline run, never in its place. Archive an evaluation nobody maintains
-from its card: it keeps its history but leaves the index and the pooled
-figures until *Show archived*; a new run or a published report brings it
-back. The agent cards' **Eval** tile is the same pooled pass rate.
+without one. A newer run still pending or failed is named in the row's
+**Latest run** cell (*running*, *queued*, *failed*) beside the headline
+run's figures, never in their place. Each row is one evaluation — its
+kind (*Scenarios* or *Sampled*), agent, latest run, movement against the
+run before, fixes, models and when it ran — and opens in place to its run
+history. Archive an evaluation nobody maintains from the end of its row:
+it keeps its history but leaves the **Evaluations** tab and the summary
+for the **Archived** tab, whose count is the API's `archived_count`;
+*unarchive* there, a new run or a published report brings it back. The
+Agents table's **Eval** column is the same pooled pass rate.
 
 A scenario passes when the run completed, met its expectations, and scored
 at least 0.7 across the evaluation's criteria. Anything else carries exactly
@@ -749,8 +757,8 @@ An evaluation's scenarios can be typed into the dashboard. A **catalog** keeps
 them out of it: one YAML document, versioned in the repository with the agents
 it tests, holding every **product** a team ships and the **sets** of scenarios
 each product must answer (the format is in the
-[evaluations guide](/framework/evaluations#catalogs)). The Catalogs page
-imports such documents, keeps them as records the dashboard can edit and
+[evaluations guide](/framework/evaluations#catalogs)). The **Catalogs** tab
+of the Evaluations page imports such documents, keeps them as records the dashboard can edit and
 diff, writes them back to Active Storage, and runs one set at a time as an
 evaluation, so the prompts, the results, the traces and the recordings of a
 run all point at the same versioned document.

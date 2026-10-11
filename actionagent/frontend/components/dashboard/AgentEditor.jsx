@@ -1,37 +1,57 @@
 import React, { useState, useEffect } from 'react';
-import AgentAvatar, { AGENT_PRESETS } from '../AgentAvatar';
+import { AGENT_PRESETS } from '../AgentAvatar';
 import { TYPOGRAPHY } from '../../utils/designTokens';
 import { useProviderModels } from '../../hooks/useProviderModels';
 import ModelPicker from './ModelPicker';
 import { useTheme } from '../../contexts/ThemeContext';
 import { paletteFor, ACCENT } from '../../utils/dashboardTheme';
+import { PageHeader, Tabs, Chip, SegmentedControl, MONO, TONE } from './primitives';
+import { fmtRuns, fmtErrorRate, fmtDuration, fmtAgentCost, evalTone } from '../../utils/agentStats.mjs';
+import { fmtPercent } from '../../utils/evalFormat.mjs';
 import TracesView from './TracesView';
 import InteractionsView from './InteractionsView';
 import EvaluationsView from './EvaluationsView';
 import AgentAnalytics from './AgentAnalytics';
 import AgentToolsTab from './AgentToolsTab';
 
-// The agent detail page carries two tab groups on one row: how the agent is
-// configured on the left, how it behaves in production on the right. Both
-// drive the same `tab` state — an operator moves between "what did I build"
-// and "what did it do" without leaving the page.
-const CONFIG_TABS = [
-  { id: 'config', label: 'Configuration' },
-  { id: 'instructions', label: 'Instructions' },
-  { id: 'tools', label: 'Tools' },
-  { id: 'versions', label: 'Versions' },
-  { id: 'code', label: 'Code' }
+// The agent page has three tabs — what the agent did (Activity), how well it
+// did it (Quality) and what it is (Config) — each holding the sections an
+// operator moves between without leaving the page. `activeTab` names the
+// section, so a deep link such as initialTab="metrics" lands on Quality with
+// Metrics selected.
+const TABS = [
+  {
+    id: 'activity',
+    label: 'Activity',
+    sections: [
+      { id: 'traces', label: 'Traces' },
+      { id: 'interactions', label: 'Interactions' }
+    ]
+  },
+  {
+    id: 'quality',
+    label: 'Quality',
+    sections: [
+      { id: 'evals', label: 'Evaluations' },
+      { id: 'metrics', label: 'Metrics' }
+    ]
+  },
+  {
+    id: 'config',
+    label: 'Config',
+    sections: [
+      { id: 'config', label: 'Configuration' },
+      { id: 'instructions', label: 'Instructions' },
+      { id: 'tools', label: 'Tools' },
+      { id: 'versions', label: 'Versions' },
+      { id: 'code', label: 'Code' }
+    ]
+  }
 ];
 
-const OBSERVABILITY_TABS = [
-  { id: 'traces', label: 'Traces' },
-  { id: 'metrics', label: 'Metrics' },
-  { id: 'interactions', label: 'Interactions' },
-  { id: 'evals', label: 'Evals' },
-  { id: 'feedback', label: 'Feedback' }
-];
+const TOP_TABS = TABS.map(({ id, label }) => ({ id, label }));
 
-const OBSERVABILITY_TAB_IDS = OBSERVABILITY_TABS.map(tab => tab.id);
+const tabOf = (sectionId) => TABS.find((tab) => tab.sections.some((section) => section.id === sectionId));
 
 // Soft tint + strong text. Dark mode lifts the text off the base hue instead
 // of using the light-mode ink, which would go unreadable on a dark tint.
@@ -98,35 +118,27 @@ export function Button({ variant = 'secondary', size = 'md', onClick, disabled, 
   );
 }
 
-// Underline tabs. The group carries no bottom border of its own — the row
-// that holds both groups owns the rule, so the two groups share one baseline.
-function TabGroup({ tabs, active, onChange, colors }) {
+// The figures the scorecard recorded for this agent over its window, in one
+// mono row under the header. The error rate reads in the error colour once
+// there is one; the evaluation score carries its tone.
+function StatsStrip({ stats }) {
+  const errorRate = fmtErrorRate(stats.success_rate);
+  const hasErrors = errorRate !== '—' && parseFloat(errorRate) > 0;
+  const items = [
+    { label: stats.window_days ? `RUNS ${stats.window_days}D` : 'RUNS', value: fmtRuns(stats.runs) },
+    { label: 'ERRORS', value: errorRate, color: hasErrors ? 'var(--color-error-text)' : undefined },
+    { label: 'AVG', value: fmtDuration(stats.avg_duration_ms) },
+    { label: 'EVAL', value: fmtPercent(stats.eval_score), color: TONE[evalTone(stats.eval_score)].text },
+    { label: 'COST', value: fmtAgentCost(stats.cost) }
+  ];
   return (
-    <div style={{ display: 'flex', alignItems: 'center' }}>
-      {tabs.map(tab => {
-        const isActive = active === tab.id;
-        return (
-          <button
-            key={tab.id}
-            type="button"
-            onClick={() => onChange(tab.id)}
-            style={{
-              padding: '10px 12px',
-              marginBottom: '-1px',
-              background: 'none',
-              border: 'none',
-              borderBottom: `2px solid ${isActive ? ACCENT : 'transparent'}`,
-              color: isActive ? ACCENT : colors.textSecondary,
-              fontSize: '13px',
-              fontWeight: isActive ? 600 : 500,
-              cursor: 'pointer',
-              whiteSpace: 'nowrap'
-            }}
-          >
-            {tab.label}
-          </button>
-        );
-      })}
+    <div data-testid="agent-stats" style={{ display: 'flex', flexWrap: 'wrap', gap: 28, fontFamily: MONO }}>
+      {items.map((item) => (
+        <div key={item.label} style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+          <span style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--color-text-muted)' }}>{item.label}</span>
+          <span style={{ fontSize: 16, fontWeight: 500, color: item.color || 'var(--color-text-primary)' }}>{item.value}</span>
+        </div>
+      ))}
     </div>
   );
 }
@@ -134,7 +146,7 @@ function TabGroup({ tabs, active, onChange, colors }) {
 export default function AgentEditor({ agent, meta, onSave, onDelete, onRun, onDuplicate, onRunReport, onBack, isLoading, initialTab }) {
   const { darkMode } = useTheme();
   const colors = paletteFor(darkMode);
-  const [activeTab, setActiveTab] = useState(initialTab || 'config');
+  const [activeTab, setActiveTab] = useState(() => (tabOf(initialTab) ? initialTab : 'config'));
   const [formData, setFormData] = useState({
     name: agent.name || '',
     description: agent.description || '',
@@ -226,73 +238,77 @@ export default function AgentEditor({ agent, meta, onSave, onDelete, onRun, onDu
     onSave(formData);
   };
 
-  const isObservability = OBSERVABILITY_TAB_IDS.includes(activeTab);
+  const tab = tabOf(activeTab);
+  // Opening a tab lands on its first section, unless the current section is
+  // already inside it (a deep link to Metrics keeps Metrics).
+  const openTab = (id) => {
+    if (tab.id === id) return;
+    setActiveTab(TABS.find((entry) => entry.id === id).sections[0].id);
+  };
+  const isObservability = tab.id !== 'config';
   // The Tools tab brings its own cards and its own action bar, the way the
   // observability panels do — a roster is a pair of lists, not a form.
   const isTools = activeTab === 'tools';
 
+  const versionCount = agent.version_count ?? agent.versionCount;
+  const metaLine = [agent.model, versionCount != null && `v${versionCount}`].filter(Boolean).join(' · ');
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-      {/* Header — back, glyph, identity, then the two page-level actions. */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
-        <button
-          type="button"
-          onClick={onBack}
-          title="Back to agents"
-          style={{
-            fontFamily: TYPOGRAPHY.mono,
-            fontSize: '13px',
-            color: colors.textSecondary,
-            background: 'none',
-            border: 'none',
-            cursor: 'pointer',
-            padding: '4px 2px',
-            marginTop: '10px'
-          }}
-        >
-          {'<-'}
-        </button>
-
-        <AgentAvatar size={44} />
-
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-            <h1 style={{ fontSize: '20px', fontWeight: 700, color: colors.textPrimary, margin: 0 }}>
-              {formData.name || 'Untitled agent'}
-            </h1>
-            <Badge tone={STATUS_TONE[formData.status] || 'neutral'} darkMode={darkMode}>
-              {formData.status}
-            </Badge>
-            {hasChanges && (
-              <Badge tone="info" darkMode={darkMode}>unsaved</Badge>
-            )}
-          </div>
-          <p style={{ fontSize: '13px', color: colors.textSecondary, margin: '4px 0 0' }}>
-            {formData.description || 'No description'}
-          </p>
-        </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-          {onDuplicate && (
-            <Button variant="secondary" colors={colors} onClick={onDuplicate}>Duplicate</Button>
+      {/* Header — the trail back to Agents, the identity, then the two
+          page-level actions; the recorded figures sit in a strip under it. */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <PageHeader
+          crumbs={[{ label: 'Agents', onClick: onBack }]}
+          glyph="@"
+          title={formData.name || agent.name || 'Untitled agent'}
+          meta={metaLine || undefined}
+          badges={(
+            <>
+              <Badge tone={STATUS_TONE[formData.status] || 'neutral'} darkMode={darkMode}>
+                {formData.status}
+              </Badge>
+              {hasChanges && (
+                <Badge tone="info" darkMode={darkMode}>unsaved</Badge>
+              )}
+            </>
           )}
-          <Button variant="primary" colors={colors} onClick={onRun}>Run Agent</Button>
-        </div>
+          actions={(
+            <>
+              {onDuplicate && (
+                <Button variant="secondary" colors={colors} onClick={onDuplicate}>Duplicate</Button>
+              )}
+              <Button variant="primary" colors={colors} onClick={onRun}>Run Agent</Button>
+            </>
+          )}
+        />
+        {formData.description && (
+          <p style={{ fontSize: '13px', color: 'var(--color-text-secondary)', margin: 0 }}>
+            {formData.description}
+          </p>
+        )}
+        {agent.stats && <StatsStrip stats={agent.stats} />}
       </div>
 
-      {/* Both groups drive one tab state; the row owns the baseline rule. */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '20px',
-          borderBottom: `1px solid ${colors.cardBorder}`,
-          overflowX: 'auto'
-        }}
-      >
-        <TabGroup tabs={CONFIG_TABS} active={activeTab} onChange={setActiveTab} colors={colors} />
-        <div style={{ width: '1px', height: '18px', background: colors.borderStrong, flexShrink: 0 }} />
-        <TabGroup tabs={OBSERVABILITY_TABS} active={activeTab} onChange={setActiveTab} colors={colors} />
+      {/* Three tabs; the row under them switches the section within one. */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <Tabs tabs={TOP_TABS} active={tab.id} onChange={openTab} ariaLabel="Agent sections" />
+        {isObservability ? (
+          <div role="group" aria-label={`${tab.label} sections`} style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+            {tab.sections.map((section) => (
+              <Chip key={section.id} selected={section.id === activeTab} onClick={() => setActiveTab(section.id)}>
+                {section.label}
+              </Chip>
+            ))}
+          </div>
+        ) : (
+          <SegmentedControl
+            options={tab.sections.map(({ id, label }) => ({ value: id, label }))}
+            value={activeTab}
+            onChange={setActiveTab}
+            style={{ flexWrap: 'wrap' }}
+          />
+        )}
       </div>
 
       {/* Observability panels bring their own cards; config panels get one. */}
@@ -322,9 +338,9 @@ export default function AgentEditor({ agent, meta, onSave, onDelete, onRun, onDu
                       background: 'none',
                       border: 'none',
                       cursor: 'pointer',
-                      fontFamily: TYPOGRAPHY.mono,
+                      fontFamily: MONO,
                       fontSize: '11px',
-                      color: '#3b82f6'
+                      color: 'var(--color-info)'
                     }}
                   >
                     {'run report ->'}
@@ -335,7 +351,6 @@ export default function AgentEditor({ agent, meta, onSave, onDelete, onRun, onDu
             </div>
           )}
           {activeTab === 'evals' && <EvaluationsView embedded agentId={agent.id} />}
-          {activeTab === 'feedback' && <FeedbackTab colors={colors} />}
         </div>
       ) : (
         <div
@@ -384,7 +399,7 @@ export default function AgentEditor({ agent, meta, onSave, onDelete, onRun, onDu
             border: `1px solid ${colors.borderStrong}`,
             borderRadius: '12px',
             padding: '10px 14px',
-            boxShadow: '0 4px 16px rgba(0,0,0,0.12)'
+            boxShadow: 'var(--shadow-popover)'
           }}
         >
           <span style={{ fontSize: '13px', color: colors.textSecondary }}>Unsaved changes</span>
@@ -775,8 +790,9 @@ function CodeTab({ code, colors }) {
       <pre
         style={{
           padding: '16px',
-          background: '#111827',
-          color: '#e5e7eb',
+          background: 'var(--color-background)',
+          color: 'var(--color-text-primary)',
+          border: '1px solid var(--color-border)',
           borderRadius: '10px',
           overflowX: 'auto',
           fontFamily: TYPOGRAPHY.mono,
@@ -787,29 +803,6 @@ function CodeTab({ code, colors }) {
       >
         <code>{code || 'Loading...'}</code>
       </pre>
-    </div>
-  );
-}
-
-// Feedback has no recorded source yet — there is no feedback model or
-// endpoint in the app, so the tab states that plainly rather than charting
-// invented numbers.
-function FeedbackTab({ colors }) {
-  return (
-    <div
-      style={{
-        background: colors.cardBg,
-        border: `1px solid ${colors.cardBorder}`,
-        borderRadius: '12px',
-        padding: '20px'
-      }}
-    >
-      <EmptyState
-        colors={colors}
-        glyph="[?]"
-        title="No feedback recorded"
-        hint="Thumbs and comments are not captured yet. Once an interaction feedback source is recorded, CSAT and per-trace comments appear here."
-      />
     </div>
   );
 }

@@ -1,35 +1,30 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { dashboardPath, dashboardRelativePath, pushDashboardPath } from '../../utils/dashboardPath';
+import React, { useState, useEffect, useCallback, useRef, useId } from 'react';
+import { dashboardPath, dashboardRelativePath, navigateTo, pushDashboardPath } from '../../utils/dashboardPath';
 import { evaluationLink, includeLinkedEvaluation } from '../../utils/evaluationHistory.mjs';
 import { useTheme } from '../../contexts/ThemeContext';
 import ScenarioSuitePanel from './ScenarioSuitePanel';
+import ScenarioCatalogsView from './ScenarioCatalogsView';
 import EvaluationForm from './evaluations/EvaluationForm';
 import EvaluationRunDetail from './evaluations/EvaluationRunDetail';
 import CriteriaFooter from './evaluations/CriteriaFooter';
-import RunsList, { RunBadge, runsSummary } from './evaluations/RunsList';
-import { fmtRate } from './evaluations/SpendStrip';
-import { Badge, Button, Card, Glyph, StatCard, MONO, TONE, toneFor } from './primitives';
-import { timeAgo } from '../../utils/format';
-import { COST_LEGEND, fmtPasses, fmtPercent, fmtSpend } from '../../utils/evalFormat.mjs';
+import RunsList, { runsSummary } from './evaluations/RunsList';
+import { Button, Hint, PageHeader, TABLE, Tabs, MONO, TONE, toneFor } from './primitives';
+import { splitModelLabel, timeAgo } from '../../utils/format';
+import { fmtPasses, fmtPercent, fmtSpend } from '../../utils/evalFormat.mjs';
 import {
-  criterionGroup, evaluationStanding, headlineRun, headlineSummary, modelCount, notCountedText, plural, runLabel, runSpend,
+  criterionGroup, evaluationStanding, headlineRun, headlineSummary, plural, runDelta, runLabel, runSpend,
   samplingFixItems,
 } from '../../utils/evaluationRuns.mjs';
 
 // Evaluations, each with every run it has had. An evaluation is a named set
 // of criteria against one agent — scored over its recorded generations, or,
 // as a scenario suite, replayed through it — and its runs are the record of
-// whether the agent is getting better. The page lists evaluations with their
-// run history; a run opens to a scorecard per model cohort, the judge's
-// verdict, the criteria × models matrix (or, for a suite, the scenario
-// matrix) and what the run asks to fix. Every figure on screen is a field
-// the app recorded, including what each run cost: the agent's side, which
-// is what operating it costs, apart from the judge's, which is the
-// evaluation's own.
-
-// Mean-score tone: a score is not a pass ratio, so it keeps the thresholds
-// the sampling evaluations have always used.
-const scoreTone = (value) => (value >= 0.85 ? 'success' : value >= 0.7 ? 'warning' : 'error');
+// whether the agent is getting better. The page is one table, a row per
+// evaluation with one status each; a row opens in place to its run history
+// and, for a suite, the scenario matrix. Catalogs and Archived are tabs of
+// the same page. Every figure on screen is a field the app recorded,
+// including what each run cost: the agent's side, which is what operating
+// it costs, apart from the judge's, which is the evaluation's own.
 
 // Routes under /evaluations: the report page of one run …
 const reportRefFromPath = () => {
@@ -66,21 +61,59 @@ const fixCountFor = (evaluation) => {
   return samplingFixItems(evaluation, run).length + failed;
 };
 
-// How an evaluation's standing reads on its card: nothing for one that
-// counts, a badge for one the tiles leave out and why.
-const STANDING_BADGE = {
-  stale: { tone: 'warning', text: 'stale', title: 'Its headline run scored an earlier version of the agent, so the tiles leave it out' },
-  unrecorded: { tone: 'muted', text: 'version not recorded', title: 'Nothing says which version of the agent its headline run scored; it still counts' },
-  archived: { tone: 'muted', text: 'archived', title: 'Archived: kept with its runs, left out of the tiles' },
+const IN_PROGRESS = ['running', 'pending'];
+
+// The one note a row's LATEST RUN cell carries, after the figures: where a
+// run still going is, that the latest run failed, or that the run shown
+// predates the agent's current version.
+const runNote = (evaluation, shown) => {
+  const latest = evaluation.latest_run;
+  if (latest?.status === 'running') return { text: 'running', color: 'var(--color-info-text)' };
+  if (latest?.status === 'pending') return { text: 'queued', color: 'var(--color-info-text)' };
+  if (latest?.status === 'failed') return { text: 'failed', color: 'var(--color-error-text)' };
+  if (evaluationStanding(evaluation) === 'stale' || shown?.version_state === 'earlier') {
+    return { text: 'older version', color: 'var(--color-warning-text)' };
+  }
+  return null;
+};
+
+// runDelta's wording, pinned elsewhere, shortened for a cell: "+3 vs #4",
+// "−2 vs #6", "same as #2", "first run".
+const shortDelta = (text) => String(text).replace(' passed vs ', ' vs ').replace(/^-/, '−');
+const DELTA_TONE = { success: TONE.success.text, error: TONE.error.text, muted: 'var(--color-text-muted)' };
+
+// The models a row names: the latest run's, else the ones the evaluation
+// compares; past two, just how many.
+const modelsText = (evaluation) => {
+  const models = evaluation.latest_run?.models || evaluation.compare_models || [];
+  if (models.length === 0) return '—';
+  if (models.length > 2) return `${models.length} models`;
+  return models.map((model) => splitModelLabel(model).short).join(', ');
+};
+
+const matchesFilter = (evaluation, filter) => {
+  const needle = filter.trim().toLowerCase();
+  if (!needle) return true;
+  return [evaluation.name, evaluation.agent?.name].some((text) => String(text || '').toLowerCase().includes(needle));
+};
+
+const hiddenLabelStyle = { position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap' };
+
+const inputStyle = {
+  width: 240, maxWidth: '100%', height: 36, boxSizing: 'border-box', padding: '0 12px', borderRadius: 8,
+  border: '1px solid var(--color-border)', background: 'var(--color-surface)', color: 'var(--color-text-primary)',
+  fontFamily: 'inherit', fontSize: 13,
 };
 
 // embedded hides the page title when this renders inside the agent detail
 // page's Evals tab, which already carries the heading, and keeps the page
 // off the URL. agentId scopes every number on the page to that agent — an
 // account-wide average under one agent's name reads as that agent's score,
-// which it is not.
-export default function EvaluationsView({ embedded = false, agentId = null }) {
+// which it is not. section 'catalogs' shows the Catalogs tab's content
+// under the same header; visit re-reads the catalogs when it changes.
+export default function EvaluationsView({ embedded = false, agentId = null, section = 'evaluations', visit = 0 }) {
   const { darkMode } = useTheme();
+  const filterId = useId();
   // Which run's report the URL asks for; the agent page's embedded Evals tab
   // has no URL of its own, so it never routes.
   const [reportRef, setReportRef] = useState(() => (embedded ? null : reportRefFromPath()));
@@ -145,11 +178,12 @@ export default function EvaluationsView({ embedded = false, agentId = null }) {
   // { runs (newest first, up to RUNS_PAGE), runCount }.
   const [histories, setHistories] = useState({});
   const [showForm, setShowForm] = useState(false);
+  const [filter, setFilter] = useState('');
   const [runningId, setRunningId] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
   const [archivingId, setArchivingId] = useState(null);
   // Archived evaluations leave the list unless asked for; the API says how
-  // many it left out.
+  // many it left out. The Archived tab asks for them.
   const [showArchived, setShowArchived] = useState(false);
   const [archivedCount, setArchivedCount] = useState(0);
 
@@ -203,6 +237,9 @@ export default function EvaluationsView({ embedded = false, agentId = null }) {
           : (list.find((e) => e.scenario_suite) || list[0]);
         return new Set(first ? [first.id] : []);
       });
+      // A deep link to an archived evaluation lands on the tab that lists it.
+      const linked = linkedEvaluationId ? list.find((e) => String(e.id) === linkedEvaluationId) : null;
+      if (linked && evaluationStanding(linked) === 'archived') setShowArchived(true);
       setLoadError(linkError);
     } catch (error) {
       setLoadError(error.message);
@@ -344,6 +381,48 @@ export default function EvaluationsView({ embedded = false, agentId = null }) {
     }
   };
 
+  // The request is already scoped; this is a belt-and-braces guard so the
+  // list, the summary, and the empty state can never disagree.
+  const shownEvaluations = agentId
+    ? evaluations.filter((e) => String(e.agent?.id) === String(agentId))
+    : evaluations;
+  // The Evaluations tab lists what stands; the Archived tab what was put
+  // away (the API returns both under archived=1).
+  const currentEvaluations = shownEvaluations.filter((e) => evaluationStanding(e) !== 'archived');
+  const archivedEvaluations = shownEvaluations.filter((e) => evaluationStanding(e) === 'archived');
+
+  const catalogs = section === 'catalogs';
+  const activeTab = catalogs ? 'catalogs' : showArchived ? 'archived' : 'evaluations';
+  const selectTab = (id) => {
+    if (id === 'catalogs') navigateTo('/catalogs');
+    else if (id === 'archived') setShowArchived(true);
+    else if (catalogs) navigateTo('/evaluations');
+    else setShowArchived(false);
+  };
+  const tabs = (
+    <Tabs
+      ariaLabel="Evaluation views"
+      active={activeTab}
+      onChange={selectTab}
+      tabs={[
+        { id: 'evaluations', label: 'Evaluations', count: isLoading ? undefined : currentEvaluations.length },
+        ...(embedded ? [] : [{ id: 'catalogs', label: 'Catalogs' }]),
+        { id: 'archived', label: 'Archived', count: isLoading ? undefined : archivedCount, testId: 'show-archived-toggle' },
+      ]}
+    />
+  );
+
+  // The Catalogs tab: the same header and tabs, then the catalogs.
+  if (catalogs) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <PageHeader title={embedded ? null : 'Evaluations'} />
+        {tabs}
+        <ScenarioCatalogsView embedded visit={visit} />
+      </div>
+    );
+  }
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -351,12 +430,6 @@ export default function EvaluationsView({ embedded = false, agentId = null }) {
       </div>
     );
   }
-
-  // The request is already scoped; this is a belt-and-braces guard so the
-  // list, the tiles, and the empty state can never disagree.
-  const shownEvaluations = agentId
-    ? evaluations.filter((e) => String(e.agent?.id) === String(agentId))
-    : evaluations;
 
   // The runs a sampling card lists: its history once loaded, else the
   // latest run the index carried.
@@ -371,24 +444,22 @@ export default function EvaluationsView({ embedded = false, agentId = null }) {
     const framedUrl = `${reportUrl}?theme=${darkMode ? 'dark' : 'light'}`;
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <Button size="sm" onClick={() => { pushDashboardPath('/evaluations'); setReportRef(null); }}>
-              <span style={{ fontFamily: MONO }}>{'<-'}</span> Evaluations
-            </Button>
-            <h1 style={{ margin: 0, fontSize: 24, fontWeight: 700, letterSpacing: '-0.01em', color: 'var(--color-text-primary)' }}>Run report</h1>
-            <span style={monoStyle(11)}>{`evaluation ${reportRef.evaluationId} · run ${reportRef.runId}`}</span>
-          </div>
-          <a
-            href={reportUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            title="The report is one self-contained page — save it to export"
-            style={{ padding: '6px 12px', borderRadius: 8, fontSize: 13, fontWeight: 500, color: 'var(--color-text-cell)', border: '1px solid var(--color-border-strong)', textDecoration: 'none' }}
-          >
-            Open standalone <span style={{ fontFamily: MONO }}>{'->'}</span>
-          </a>
-        </div>
+        <PageHeader
+          crumbs={[{ label: 'Evaluations', onClick: () => { pushDashboardPath('/evaluations'); setReportRef(null); } }]}
+          title="Run report"
+          meta={`evaluation ${reportRef.evaluationId} · run ${reportRef.runId}`}
+          actions={(
+            <a
+              href={reportUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              title="The report is one self-contained page — save it to export"
+              style={{ padding: '6px 12px', borderRadius: 8, fontSize: 13, fontWeight: 500, color: 'var(--color-text-cell)', border: '1px solid var(--color-border-strong)', textDecoration: 'none' }}
+            >
+              Open standalone <span style={{ fontFamily: MONO }}>{'->'}</span>
+            </a>
+          )}
+        />
         <iframe
           ref={reportFrame}
           src={framedUrl}
@@ -430,64 +501,73 @@ export default function EvaluationsView({ embedded = false, agentId = null }) {
     }
   }
 
-  // Page tiles, pooled over the headline run of each evaluation that
+  // The summary line, pooled over the headline run of each evaluation that
   // describes the agent as it is now — a stale or archived evaluation is
-  // left out and the tiles say so — or, when the page is focused on one
-  // evaluation, that evaluation's headline run alone.
+  // left out — or, when the page is focused on one evaluation, that
+  // evaluation's headline run alone.
   const summary = headlineSummary(shownEvaluations, { focusId: linkedEvaluationId });
   const { samplesScored, samplesPassed, passRatio, spend } = summary;
-  const notCounted = notCountedText(summary);
-  const agentNames = [...new Set(shownEvaluations.map((e) => e.agent?.name).filter(Boolean))];
-  const modelsCompared = shownEvaluations.reduce((max, e) => Math.max(max, modelCount(e, headlineRun(e) || e.latest_run)), 0);
-  const fixCounts = shownEvaluations.map(fixCountFor);
-  const toFix = fixCounts.reduce((sum, count) => sum + count, 0);
-  const toFixEvaluations = fixCounts.filter(Boolean).length;
-  const evaluationsSub = shownEvaluations.length
-    ? [
-      `${plural(agentNames.length, 'agent')} · ${modelsCompared > 1 ? `${modelsCompared} models compared` : 'no model comparisons'}`,
-      notCounted,
-    ].filter(Boolean).join(' · ')
-    : 'none defined yet';
-  const scoredSub = summary.focused
-    ? 'headline run of this evaluation'
-    : `headline run of ${plural(summary.counted, 'current evaluation')}${notCounted ? ` · ${notCounted}` : ''}`;
-  // The pass rate's fraction sits on the tile, and under it one line per
-  // model so a comparison's cohorts can be told apart.
-  const perModelLines = summary.perModel.length > 1 ? summary.perModel.map((entry) => `${entry.label} ${fmtPasses(entry.passed, entry.total)}`) : [];
-  // The operating figure clients budget against: the agent's spend over the
-  // interactions the headline runs covered, with the judge's own spend
-  // named apart so it never inflates it; "~" marks an estimated part.
-  const spendSub = spend.agentCost != null
+  const toFix = currentEvaluations.map(fixCountFor).reduce((sum, count) => sum + count, 0);
+  // What the headline runs cost, agent and judge together; the split is
+  // in the title, and "~" marks an estimated part.
+  const priced = spend.agentCost != null || spend.judgeCost != null;
+  const totalCost = priced ? (spend.agentCost || 0) + (spend.judgeCost || 0) : null;
+  const costEstimated = (spend.agentCost != null && spend.estimated) || (spend.judgeCost != null && spend.judgeEstimated);
+  const costTitle = priced
     ? [
       `agent ${fmtSpend(spend.agentCost, { estimated: spend.estimated })} over ${plural(spend.interactions, 'interaction')}`,
-      spend.judgeCost != null ? `judge ${fmtSpend(spend.judgeCost, { estimated: spend.judgeEstimated })} offline` : 'no judge spend',
-    ].join(' · ')
+      spend.judgeCost != null ? `judge ${fmtSpend(spend.judgeCost, { estimated: spend.judgeEstimated })}` : 'no judge spend',
+      costEstimated ? '~ estimated from tokens × model rates' : null,
+    ].filter(Boolean).join(' · ')
     : 'no priced runs yet';
-  const spendEstimated = (spend.agentCost != null && spend.estimated) || (spend.judgeCost != null && spend.judgeEstimated);
+
+  const rows = (showArchived ? archivedEvaluations : currentEvaluations).filter((e) => matchesFilter(e, filter));
+  const anyOlderVersion = rows.some((e) => runNote(e, headlineRun(e) || e.latest_run)?.text === 'older version');
+
+  const columns = [
+    { key: 'evaluation', label: 'Evaluation', width: 'minmax(220px, 2fr)' },
+    ...(embedded ? [] : [{ key: 'agent', label: 'Agent', width: 'minmax(120px, 1fr)' }]),
+    { key: 'latest', label: 'Latest run', width: 'minmax(280px, 1.8fr)' },
+    { key: 'delta', label: 'Vs previous', width: 'minmax(110px, 1fr)' },
+    { key: 'fixes', label: 'Fixes', width: '72px', right: true },
+    { key: 'models', label: 'Models', width: 'minmax(140px, 1.2fr)' },
+    { key: 'ran', label: 'Ran', width: 'minmax(96px, auto)', right: true },
+    { key: 'archive', label: '', width: '80px', right: true },
+  ];
+  const gridTemplateColumns = columns.map((column) => column.width).join(' ');
+  const cell = (last, extra) => ({ ...TABLE.td, minWidth: 0, ...(last ? { borderBottom: 'none' } : {}), ...extra });
+
+  const emptyTitle = filter.trim() ? `Nothing matches “${filter.trim()}”` : showArchived ? 'Nothing archived' : 'No evaluations yet';
+  const emptyText = filter.trim()
+    ? null
+    : showArchived
+      ? 'Archive an evaluation from its row to keep its runs but leave it out of the list and the summary.'
+      : 'Create an evaluation to score recorded outputs, or paste scenarios to test new tasks across models.';
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       {/* Header — embedded in the agent page, that page owns the heading. */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
-        {!embedded && (
-          <div style={{ flex: 1, minWidth: 260 }}>
-            <h1 style={{ margin: 0, fontSize: 24, fontWeight: 700, letterSpacing: '-0.01em', color: 'var(--color-text-primary)' }}>Evaluations</h1>
-            <p style={{ margin: '4px 0 0', fontSize: 14, color: 'var(--color-text-secondary)', textWrap: 'pretty' }}>
-              Score recorded outputs, or paste a list of user messages to replay through the agent under one or more models. Every run is kept.
-            </p>
-          </div>
-        )}
-        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 12 }}>
-          {(archivedCount > 0 || showArchived) && (
-            <Button size="sm" onClick={() => setShowArchived((value) => !value)} testId="show-archived-toggle" title="Archived evaluations keep their runs but leave the list and the tiles">
-              {showArchived ? 'Hide archived' : `Show archived (${archivedCount})`}
+      <PageHeader
+        title={embedded ? null : 'Evaluations'}
+        actions={(
+          <>
+            <label htmlFor={filterId} style={hiddenLabelStyle}>Filter evaluations</label>
+            <input
+              id={filterId}
+              type="search"
+              value={filter}
+              onChange={(event) => setFilter(event.target.value)}
+              placeholder={embedded ? 'Filter by name' : 'Filter by name or agent'}
+              style={inputStyle}
+            />
+            <Button variant="primary" onClick={() => setShowForm(!showForm)} testId="new-evaluation-button">
+              {showForm ? 'Cancel' : 'New evaluation'}
             </Button>
-          )}
-          <Button variant="primary" onClick={() => setShowForm(!showForm)} testId="new-evaluation-button">
-            {showForm ? 'Cancel' : 'New Evaluation'}
-          </Button>
-        </div>
-      </div>
+          </>
+        )}
+      />
+
+      {tabs}
 
       {loadError && (
         <div style={{ padding: '10px 12px', borderRadius: 8, fontSize: 13, background: 'var(--color-error-soft)', color: 'var(--color-error-text)' }}>
@@ -514,170 +594,188 @@ export default function EvaluationsView({ embedded = false, agentId = null }) {
         />
       )}
 
-      {/* Stats */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 16 }}>
-        <StatCard label="Evaluations" value={shownEvaluations.length} sub={evaluationsSub} testId="stat-evaluations" />
-        <StatCard label="Samples scored" value={samplesScored} sub={scoredSub} testId="stat-samples-scored" />
-        <StatCard
-          label="Pass rate"
-          value={fmtPercent(passRatio)}
-          valueColor={passRatio == null ? 'var(--color-text-muted)' : TONE[toneFor(passRatio)].strong}
-          sub={passRatio == null
-            ? (notCounted || 'no completed runs yet')
-            : (
-              <span style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                <span data-testid="stat-pass-rate-fraction">{`${samplesPassed}/${samplesScored} passed`}</span>
-                {perModelLines.map((line) => (
-                  <span key={line} style={{ fontFamily: MONO, fontSize: 11, color: 'var(--color-text-muted)' }} data-testid="stat-pass-rate-model">{line}</span>
-                ))}
-              </span>
-            )}
-          testId="stat-pass-rate"
-        />
-        <StatCard
-          label="To fix"
-          value={toFix}
-          valueColor={toFix ? 'var(--color-error)' : undefined}
-          sub={toFix ? `across ${plural(toFixEvaluations, 'evaluation')}` : 'nothing outstanding'}
-          testId="stat-to-fix"
-        />
-        <StatCard
-          label="Cost / interaction"
-          value={fmtRate(spend.perInteraction, spend.estimated)}
-          valueColor={spend.perInteraction == null ? 'var(--color-text-muted)' : undefined}
-          sub={spendEstimated ? `${spendSub} · ${COST_LEGEND}` : spendSub}
-          testId="stat-agent-cost"
-        />
-      </div>
+      {/* Summary: what the headline runs passed, ask to fix and cost. */}
+      {!showArchived && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 28, fontFamily: MONO }} data-testid="evaluations-summary">
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+            <span style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--color-text-muted)' }}>Passed</span>
+            <span style={{ fontSize: 16, fontWeight: 500, color: 'var(--color-text-primary)' }}>{`${samplesPassed}/${samplesScored}`}</span>
+            <span style={{ fontSize: 13, color: passRatio == null ? 'var(--color-text-muted)' : TONE[toneFor(passRatio)].text }}>{fmtPercent(passRatio)}</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+            <span style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--color-text-muted)' }}>Fixes</span>
+            <span style={{ fontSize: 16, fontWeight: 500, color: toFix > 0 ? 'var(--color-warning-text)' : 'var(--color-text-primary)' }}>{toFix}</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }} title={costTitle}>
+            <span style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--color-text-muted)' }}>Cost · headline runs</span>
+            <span style={{ fontSize: 16, fontWeight: 500, color: totalCost == null ? 'var(--color-text-muted)' : 'var(--color-text-primary)' }}>{fmtSpend(totalCost, { estimated: costEstimated })}</span>
+          </div>
+        </div>
+      )}
 
-      {/* Evaluations */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-        {shownEvaluations.map((evaluation, index) => {
-          const run = evaluation.latest_run;
-          // The badge describes the headline run; a newer run still pending
-          // or failed shows beside it, never in its place.
-          const headline = headlineRun(evaluation);
-          const newer = run && headline && run.id !== headline.id ? run : null;
-          const standing = evaluationStanding(evaluation);
-          const standingBadge = STANDING_BADGE[standing];
-          const archived = standing === 'archived';
-          const open = isOpen(evaluation.id);
-          const suite = !!evaluation.scenario_suite;
-          const fixCount = fixCounts[index];
-          // Criteria are only rendered once expanded, so this exposes on the
-          // collapsed card whether the evaluation scores from telemetry —
-          // otherwise nothing can select one without opening every card.
-          const scoresFromTelemetry = (evaluation.criteria || []).some((criterion) => criterionGroup(criterion) === 'telemetry');
-          const { runs, runCount } = runsOf(evaluation);
-          return (
-            <Card
-              key={evaluation.id}
-              padding={0}
-              testId="evaluation-card"
-              data-telemetry={scoresFromTelemetry ? 'true' : 'false'}
-              data-kind={suite ? 'suite' : 'sampling'}
-              data-open={open ? 'true' : 'false'}
-              data-standing={standing}
-              style={{ overflow: 'hidden', opacity: archived ? 0.75 : 1 }}
-            >
-              <div
-                role="button"
-                tabIndex={0}
-                aria-expanded={open}
-                onClick={() => toggleOpen(evaluation)}
-                onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); toggleOpen(evaluation); } }}
-                className="hover:bg-[var(--color-hover)]"
-                style={{ display: 'flex', alignItems: 'center', gap: 10, rowGap: 8, padding: '12px 16px', cursor: 'pointer', flexWrap: 'wrap' }}
-              >
-                <Glyph kind="chevron" open={open} />
-                <span
-                  style={{ width: 22, height: 22, borderRadius: 6, background: 'var(--color-muted)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontFamily: MONO, fontSize: 11, fontWeight: 700, color: 'var(--color-text-secondary)', flexShrink: 0 }}
-                  title={suite ? 'scenario suite' : 'sampling evaluation'}
-                >
-                  {suite ? '=' : '~'}
-                </span>
-                <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--color-text-primary)' }}>{evaluation.name}</span>
-                {/* What the evaluation is set up to cover; a run's own row says what it scored. */}
-                <span style={monoStyle(11)}>{`@${evaluation.agent?.name || 'agent'} · ${runLabel(evaluation)}`}</span>
-                <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
-                  <span style={monoStyle(11)}>{timeAgo(run?.completed_at || run?.created_at || evaluation.created_at)}</span>
-                  {fixCount > 0 && <span style={monoStyle(11, 'var(--color-error)')}>{`${fixCount} to fix`}</span>}
-                  {standingBadge && <Badge tone={standingBadge.tone} size={10} style={{ padding: '1px 6px' }} title={standingBadge.title} testId="evaluation-standing">{standingBadge.text}</Badge>}
-                  {newer && <RunBadge run={newer} testId="evaluation-newer-run-badge" />}
-                  <RunBadge run={headline || run} testId={suite ? 'suite-pass-badge' : 'evaluation-pass-badge'} />
-                  <button
-                    type="button"
-                    onClick={(event) => { event.stopPropagation(); handleArchive(evaluation, !archived); }}
-                    disabled={archivingId === evaluation.id}
-                    title={archived ? 'Bring this evaluation back into the list and the tiles' : 'Archive: keep its runs, leave it out of the list and the tiles'}
-                    data-testid="evaluation-archive-toggle"
-                    style={{ background: 'transparent', border: 'none', padding: 0, cursor: archivingId === evaluation.id ? 'not-allowed' : 'pointer', fontFamily: MONO, fontSize: 11, color: 'var(--color-text-muted)', opacity: archivingId === evaluation.id ? 0.5 : 1 }}
-                  >
-                    {archivingId === evaluation.id ? '…' : archived ? 'unarchive' : 'archive'}
-                  </button>
-                </span>
+      {/* The table: a header row, then one row per evaluation, each opening in place. */}
+      {(rows.length > 0 || !showForm) && (
+        <div style={TABLE.frame}>
+          <div style={{ minWidth: embedded ? 760 : 900 }}>
+            <div style={{ display: 'grid', gridTemplateColumns }} data-testid="evaluations-header-row">
+              {columns.map((column) => (
+                <span key={column.key} style={{ ...TABLE.th, ...(column.right ? TABLE.right : {}) }}>{column.label}</span>
+              ))}
+            </div>
+
+            {rows.length === 0 && (
+              <div style={{ ...TABLE.td, borderBottom: 'none', padding: '32px 14px', textAlign: 'center' }} data-testid="evaluations-empty">
+                <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--color-text-primary)' }}>{emptyTitle}</div>
+                {emptyText && <p style={{ margin: '4px 0 0', fontSize: 12, color: 'var(--color-text-muted)' }}>{emptyText}</p>}
               </div>
+            )}
 
-              {open && (
-                <div style={{ borderTop: '1px solid var(--color-border-light)' }}>
-                  {suite ? (
-                    <ScenarioSuitePanel
-                      evaluation={evaluation}
-                      modelProviders={modelProviders}
-                      onChanged={fetchEvaluations}
-                      onDelete={() => handleDelete(evaluation)}
-                      deleting={deletingId === evaluation.id}
-                      initialRunId={openRun?.evaluationId === evaluation.id ? openRun.runId : null}
-                      onRunSelected={(runId) => setPath(`/evaluations/${evaluation.id}/runs/${runId}`)}
-                    />
-                  ) : (
-                    <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }} data-testid="sampling-evaluation-panel">
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-                        <span style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>
-                          {runs.length ? runsSummary(runs, runCount) : `@${evaluation.agent?.name || 'agent'} · no runs yet`}
-                        </span>
-                        <Button
-                          variant="primary"
-                          size="sm"
-                          disabled={runningId === evaluation.id}
-                          onClick={(event) => { event.stopPropagation(); handleRun(evaluation); }}
-                          testId="evaluation-run-button"
-                        >
-                          {runningId === evaluation.id ? 'Running…' : `Run ${runLabel(evaluation)}`}
-                        </Button>
-                      </div>
-                      <RunsList
-                        runs={runs}
-                        runCount={runCount}
-                        evaluation={evaluation}
-                        agentName={evaluation.agent?.name}
-                        previousRun={evaluation.previous_run}
-                        onOpen={(candidate) => openRunDetail(evaluation, candidate)}
-                        testId="evaluation-runs-panel"
-                      />
-                      <CriteriaFooter
-                        evaluation={evaluation}
-                        run={run}
-                        spend={runSpend(run)}
-                        onDelete={() => handleDelete(evaluation)}
-                        deleting={deletingId === evaluation.id}
-                      />
+            {rows.map((evaluation, index) => {
+              const latest = evaluation.latest_run;
+              // The figures describe the headline run; the note says where a
+              // newer run still pending or failed is.
+              const shown = headlineRun(evaluation) || latest;
+              const standing = evaluationStanding(evaluation);
+              const archived = standing === 'archived';
+              const open = isOpen(evaluation.id);
+              const suite = !!evaluation.scenario_suite;
+              const last = index === rows.length - 1;
+              const fixCount = fixCountFor(evaluation);
+              // Criteria are only rendered once expanded, so this exposes on the
+              // collapsed row whether the evaluation scores from telemetry —
+              // otherwise nothing can select one without opening every row.
+              const scoresFromTelemetry = (evaluation.criteria || []).some((criterion) => criterionGroup(criterion) === 'telemetry');
+              const { runs, runCount } = runsOf(evaluation);
+              const evaluated = shown?.samples_evaluated || 0;
+              const passed = shown?.samples_passed || 0;
+              const ratio = evaluated ? passed / evaluated : 0;
+              const inProgress = IN_PROGRESS.includes(latest?.status);
+              const fill = inProgress ? 'var(--color-info)' : TONE[toneFor(ratio)].strong;
+              const note = runNote(evaluation, shown);
+              const delta = runDelta(latest, evaluation.previous_run, { olderNumber: evaluation.previous_run?.number });
+              const archiving = archivingId === evaluation.id;
+              const rowCell = (extra) => cell(last && !open, extra);
+              return (
+                <React.Fragment key={evaluation.id}>
+                  <div
+                    className="aa-row"
+                    role="button"
+                    tabIndex={0}
+                    aria-expanded={open}
+                    data-testid="evaluation-card"
+                    data-kind={suite ? 'suite' : 'sampling'}
+                    data-open={open ? 'true' : 'false'}
+                    data-standing={standing}
+                    data-telemetry={scoresFromTelemetry ? 'true' : 'false'}
+                    onClick={() => toggleOpen(evaluation)}
+                    onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); toggleOpen(evaluation); } }}
+                    style={{ display: 'grid', gridTemplateColumns, alignItems: 'center', cursor: 'pointer' }}
+                  >
+                    <div style={rowCell({ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' })}>
+                      <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--color-text-primary)' }}>{evaluation.name}</span>
+                      <span style={{ padding: '1px 6px', borderRadius: 4, fontSize: 11, background: 'var(--color-muted)', color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }} data-testid="evaluation-kind">
+                        {suite ? 'Scenarios' : 'Sampled'}
+                      </span>
+                    </div>
+                    {!embedded && (
+                      <div style={rowCell({ color: 'var(--color-text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' })}>{evaluation.agent?.name}</div>
+                    )}
+                    <div style={rowCell({ display: 'flex', alignItems: 'center', gap: 10 })} data-testid="evaluation-latest-run">
+                      {shown ? (
+                        <>
+                          <span style={{ width: 96, height: 4, borderRadius: 2, background: 'var(--color-border)', flexShrink: 0, overflow: 'hidden' }} aria-hidden="true">
+                            <span style={{ display: 'block', height: '100%', width: `${Math.round(ratio * 100)}%`, borderRadius: 2, background: fill }} />
+                          </span>
+                          <span style={{ ...monoStyle(13, 'var(--color-text-primary)'), whiteSpace: 'nowrap' }}>{fmtPasses(passed, evaluated)}</span>
+                          {note && <span style={{ ...monoStyle(12, note.color), whiteSpace: 'nowrap' }}>{note.text}</span>}
+                        </>
+                      ) : (
+                        <span style={monoStyle(12)}>no runs</span>
+                      )}
+                    </div>
+                    <div style={rowCell(monoStyle(12, delta ? DELTA_TONE[delta.tone] : 'var(--color-text-muted)'))}>
+                      {delta ? shortDelta(delta.text) : '—'}
+                    </div>
+                    <div style={rowCell({ ...monoStyle(13, fixCount > 0 ? 'var(--color-warning-text)' : 'var(--color-text-muted)'), ...TABLE.right })}>
+                      {fixCount > 0 ? fixCount : '—'}
+                    </div>
+                    <div style={rowCell({ ...monoStyle(12), overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' })} title={(latest?.models || evaluation.compare_models || []).join(', ') || undefined}>
+                      {modelsText(evaluation)}
+                    </div>
+                    <div style={rowCell({ ...monoStyle(12), ...TABLE.right, whiteSpace: 'nowrap' })}>
+                      {latest?.status === 'running' ? 'now' : timeAgo(latest?.completed_at || latest?.created_at || evaluation.created_at)}
+                    </div>
+                    <div style={rowCell(TABLE.right)}>
+                      <button
+                        type="button"
+                        onClick={(event) => { event.stopPropagation(); handleArchive(evaluation, !archived); }}
+                        disabled={archiving}
+                        title={archived ? 'Bring this evaluation back into the list and the summary' : 'Archive: keep its runs, leave it out of the list and the summary'}
+                        data-testid="evaluation-archive-toggle"
+                        style={{ background: 'transparent', border: 'none', padding: 0, cursor: archiving ? 'not-allowed' : 'pointer', fontFamily: MONO, fontSize: 11, color: 'var(--color-text-muted)', opacity: archiving ? 0.5 : 1 }}
+                      >
+                        {archiving ? '…' : archived ? 'unarchive' : 'archive'}
+                      </button>
+                    </div>
+                  </div>
+
+                  {open && (
+                    <div style={{ padding: '4px 14px 16px', background: 'var(--color-background)', borderBottom: last ? 'none' : '1px solid var(--color-border-light)' }}>
+                      {suite ? (
+                        <ScenarioSuitePanel
+                          evaluation={evaluation}
+                          modelProviders={modelProviders}
+                          onChanged={fetchEvaluations}
+                          onDelete={() => handleDelete(evaluation)}
+                          deleting={deletingId === evaluation.id}
+                          initialRunId={openRun?.evaluationId === evaluation.id ? openRun.runId : null}
+                          onRunSelected={(runId) => setPath(`/evaluations/${evaluation.id}/runs/${runId}`)}
+                        />
+                      ) : (
+                        <div style={{ padding: '12px 0 0', display: 'flex', flexDirection: 'column', gap: 12 }} data-testid="sampling-evaluation-panel">
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+                            <span style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>
+                              {runs.length ? runsSummary(runs, runCount) : `@${evaluation.agent?.name || 'agent'} · no runs yet`}
+                            </span>
+                            <Button
+                              variant="primary"
+                              size="sm"
+                              disabled={runningId === evaluation.id}
+                              onClick={(event) => { event.stopPropagation(); handleRun(evaluation); }}
+                              testId="evaluation-run-button"
+                            >
+                              {runningId === evaluation.id ? 'Running…' : `Run ${runLabel(evaluation)}`}
+                            </Button>
+                          </div>
+                          <RunsList
+                            runs={runs}
+                            runCount={runCount}
+                            evaluation={evaluation}
+                            agentName={evaluation.agent?.name}
+                            previousRun={evaluation.previous_run}
+                            onOpen={(candidate) => openRunDetail(evaluation, candidate)}
+                            testId="evaluation-runs-panel"
+                          />
+                          <CriteriaFooter
+                            evaluation={evaluation}
+                            run={latest}
+                            spend={runSpend(latest)}
+                            onDelete={() => handleDelete(evaluation)}
+                            deleting={deletingId === evaluation.id}
+                          />
+                        </div>
+                      )}
                     </div>
                   )}
-                </div>
-              )}
-            </Card>
-          );
-        })}
-      </div>
+                </React.Fragment>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
-      {shownEvaluations.length === 0 && !showForm && (
-        <Card style={{ textAlign: 'center', padding: '48px 20px' }}>
-          <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--color-text-primary)' }}>No evaluations yet</div>
-          <p style={{ margin: '8px 0 0', fontSize: 13, color: 'var(--color-text-secondary)', textWrap: 'pretty' }}>
-            Create an evaluation to score recorded outputs, or paste scenarios to test new tasks across models. Every run is kept, so scores stay comparable over time.
-          </p>
-        </Card>
+      {anyOlderVersion && (
+        <Hint>Amber “older version”: the latest run predates the agent's current version. Run again to refresh it.</Hint>
       )}
     </div>
   );

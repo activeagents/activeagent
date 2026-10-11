@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Badge, Button, Card, MicroLabel, MONO } from './primitives';
+import { Badge, Button, Card, MicroLabel, MONO, PageHeader } from './primitives';
 import { dashboardPath } from '../../utils/dashboardPath';
 
 const STARTERS = [
@@ -144,13 +144,14 @@ export default function DashboardAssistant({ session, onSessionChange, onReviewD
 
   return (
     <div style={{ maxWidth: 980, margin: '0 auto', color: 'var(--color-text-primary)', display: 'grid', gap: 22 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, alignItems: 'start' }}>
-        <div>
-          <MicroLabel>Workspace assistant</MicroLabel>
-          <h1 style={{ margin: '8px 0', fontSize: 30, fontWeight: 600, letterSpacing: '-0.035em' }}>Ask ActiveAgents</h1>
-          <p style={{ margin: 0, color: 'var(--color-text-secondary)', fontSize: 14 }}>Find evaluation evidence. Understand failures. Build the next agent.</p>
-        </div>
-        {messages.length > 0 && <Button disabled={busy} onClick={() => { onSessionChange({ ...session, messages: [] }); setError(null); setInput(''); setAllowProviderProcessing(false); }}>New conversation</Button>}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <MicroLabel>Workspace assistant</MicroLabel>
+        <PageHeader
+          title="Ask"
+          actions={messages.length > 0
+            ? <Button disabled={busy} onClick={() => { onSessionChange({ ...session, messages: [] }); setError(null); setInput(''); setAllowProviderProcessing(false); }}>New conversation</Button>
+            : undefined}
+        />
       </div>
 
       {!messages.length && (

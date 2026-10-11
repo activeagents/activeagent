@@ -1,10 +1,19 @@
-import React, { useState } from 'react';
+import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
 import AgentAvatar from '../AgentAvatar';
-import AgentStatCard, { rateTone } from './AgentStatCard';
+import { Button, Hint, MONO, Menu, PageHeader, TABLE, TONE } from './primitives';
 import { fmtPasses, fmtPercent } from '../../utils/evalFormat.mjs';
+import {
+  activityTone, evalTone, fmtAgentCost, fmtDuration, fmtErrorRate, fmtLastSeen, fmtRuns,
+} from '../../utils/agentStats.mjs';
 
-// Mirrors Api::AgentsController::LIST_SORTS. Ordering is applied server-side
-// over the scorecards, so these values are sent, not sorted on.
+// The Agents home: a titled table of every agent with the figures its
+// API recorded over its window, one filter, one sort and one primary
+// action. A row opens the agent; duplicating and deleting live on the agent
+// page. The host still passes meta, onDuplicate, onDelete and onRefresh,
+// which this view no longer reads.
+
+// Mirrors Api::AgentsController::LIST_SORTS. Ordering is applied server-side,
+// so these values are sent, not sorted on.
 const SORTS = [
   { value: 'recent', label: 'Recently updated' },
   { value: 'popular', label: 'Most runs' },
@@ -13,309 +22,256 @@ const SORTS = [
   { value: 'tokens', label: 'Most tokens' },
 ];
 
-export default function AgentList({
-  agents,
-  meta,
-  onSelect,
-  onNew,
-  onBrowseTemplates,
-  onDuplicate,
-  onDelete,
-  onRefresh,
-  sort = 'recent',
-  onSortChange,
-  isLoading
-}) {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [filterProvider, setFilterProvider] = useState('');
-  const [filterStatus, setFilterStatus] = useState('');
+const COST_TITLE = 'Estimated from token counts at each model\'s published rates';
 
-  const filteredAgents = agents.filter(agent => {
-    const matchesSearch = !searchQuery ||
-      agent.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      agent.description?.toLowerCase().includes(searchQuery.toLowerCase());
+// The filter and the sort share one control recipe, so they read as a pair.
+const CONTROL = {
+  height: 36, boxSizing: 'border-box', padding: '0 12px',
+  border: '1px solid var(--color-border-strong)', borderRadius: 8,
+  background: 'var(--color-surface)', color: 'var(--color-text-primary)', font: 'inherit',
+};
 
-    const matchesProvider = !filterProvider || agent.provider === filterProvider;
-    const matchesStatus = !filterStatus || agent.status === filterStatus;
+// Read by screen readers, not shown.
+const VISUALLY_HIDDEN = {
+  position: 'absolute', width: 1, height: 1, padding: 0, margin: -1, overflow: 'hidden',
+  clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap', border: 0,
+};
 
-    return matchesSearch && matchesProvider && matchesStatus;
-  });
+const NUM = { fontFamily: MONO };
+const MUTED = { color: 'var(--color-text-muted)' };
 
-  const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diff = now - date;
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+const DOT = {
+  success: 'var(--color-success)',
+  warning: 'var(--color-warning)',
+  muted: 'var(--color-text-muted)',
+};
 
-    if (days === 0) return 'Today';
-    if (days === 1) return 'Yesterday';
-    if (days < 7) return `${days} days ago`;
-    return date.toLocaleDateString();
-  };
+const FILTER_FIELDS = ['name', 'description', 'provider', 'model', 'status'];
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'active': return 'bg-green-100 text-green-700';
-      case 'draft': return 'bg-yellow-100 text-yellow-700';
-      case 'archived': return 'bg-gray-100 text-gray-500';
-      default: return 'bg-gray-100 text-gray-500';
+const matches = (agent, query) =>
+  FILTER_FIELDS.some((field) => agent[field] != null && String(agent[field]).toLowerCase().includes(query));
+
+// Which sources fed the run count, for its tooltip.
+const runsTitle = (sources = []) => (sources.length
+  ? `Counted from ${sources.map((s) => (s === 'platform' ? 'dashboard runs' : 'reported telemetry')).join(' + ')}`
+  : undefined);
+
+// The pass rate pooled over the headline runs of the agent's current
+// evaluations; the fraction and what was left out ride in the title.
+const evalTitle = (stats) => {
+  if (stats.eval_samples_evaluated) {
+    return `${fmtPasses(stats.eval_samples_passed, stats.eval_samples_evaluated)} passed over ${stats.eval_runs ?? 'the'} current evaluation${stats.eval_runs === 1 ? '' : 's'}`
+      + (stats.eval_not_counted ? ` · ${stats.eval_not_counted} stale or archived not counted` : '');
+  }
+  if (stats.eval_not_counted) {
+    return `${stats.eval_not_counted} evaluation${stats.eval_not_counted === 1 ? '' : 's'} stale or archived, none counted`;
+  }
+  return 'No evaluation counted yet';
+};
+
+// A key typed while a field, a select or an editable region has focus, or
+// with ctrl, meta or alt held, is not a shortcut. Shift is not a modifier
+// here: on some layouts '/' is typed with it.
+const isTypingTarget = (element) =>
+  !!element && (['INPUT', 'TEXTAREA', 'SELECT'].includes(element.tagName) || element.isContentEditable);
+
+function EvalCell({ stats }) {
+  const score = stats.eval_score;
+  const tone = evalTone(score);
+  return (
+    <td style={TABLE.td} title={evalTitle(stats)}>
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+        {score != null && (
+          <span aria-hidden="true" style={{ width: 64, height: 4, borderRadius: 2, background: 'var(--color-muted)', overflow: 'hidden', flexShrink: 0 }}>
+            <span style={{ display: 'block', height: '100%', borderRadius: 2, width: `${Math.round(Number(score) * 100)}%`, background: TONE[tone].strong }} />
+          </span>
+        )}
+        <span style={TABLE.mono}>{fmtPercent(score)}</span>
+      </span>
+    </td>
+  );
+}
+
+function AgentRow({ agent, onSelect }) {
+  const stats = agent.stats || {};
+  const errors = fmtErrorRate(stats.success_rate);
+  const erring = parseFloat(errors) > 0;
+  const updated = agent.updatedAt || agent.updated_at;
+  const tag = agent.status && agent.status !== 'active' ? agent.status : null;
+
+  const open = () => onSelect(agent);
+  const onKeyDown = (event) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      open();
     }
   };
 
-  const formatDuration = (ms) => {
-    if (ms == null) return '—';
-    if (ms < 1000) return `${Math.round(ms)}ms`;
-    return `${(ms / 1000).toFixed(1)}s`;
-  };
+  return (
+    <tr
+      className="aa-row"
+      data-testid="agent-row"
+      data-agent-name={agent.name}
+      tabIndex={0}
+      aria-label={`Open ${agent.name}`}
+      onClick={open}
+      onKeyDown={onKeyDown}
+      style={{ cursor: 'pointer' }}
+    >
+      <td style={TABLE.td}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+          <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: 4, flexShrink: 0, background: DOT[activityTone(stats)] }} />
+          <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--color-text-primary)' }}>{agent.name}</span>
+          {tag && <span style={{ fontFamily: MONO, fontSize: 11, ...MUTED }}>{tag}</span>}
+        </span>
+      </td>
+      <td style={{ ...TABLE.td, ...TABLE.mono, ...MUTED }} title={`${agent.provider} · ${agent.model}`}>{agent.model}</td>
+      <td style={{ ...TABLE.td, ...NUM, ...TABLE.right }} title={runsTitle(stats.run_sources)}>{fmtRuns(stats.runs)}</td>
+      <td style={{ ...TABLE.td, ...NUM, ...TABLE.right, ...(erring ? { color: 'var(--color-error-text)' } : {}) }}>{errors}</td>
+      <td style={{ ...TABLE.td, ...NUM, ...TABLE.right }}>{fmtDuration(stats.avg_duration_ms)}</td>
+      <EvalCell stats={stats} />
+      <td style={{ ...TABLE.td, ...NUM, ...TABLE.right }} title={COST_TITLE}>{fmtAgentCost(stats.cost)}</td>
+      <td style={{ ...TABLE.td, ...NUM, ...TABLE.right, ...MUTED }} title={updated ? `Updated ${fmtLastSeen(updated)}` : undefined}>
+        {fmtLastSeen(stats.last_run_at)}
+      </td>
+    </tr>
+  );
+}
 
-  const formatTokens = (tokens) => {
-    if (tokens == null) return '—';
-    if (tokens >= 1_000_000) return `${(tokens / 1_000_000).toFixed(1)}M`;
-    if (tokens >= 1_000) return `${(tokens / 1_000).toFixed(1)}k`;
-    return `${tokens}`;
-  };
+function EmptyState({ onNew, onBrowseTemplates }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 12, padding: '56px 24px' }}>
+      <AgentAvatar size={96} />
+      <h2 style={{ margin: 0, fontSize: 20, fontWeight: 600, letterSpacing: '-0.01em', color: 'var(--color-text-primary)' }}>No agents yet</h2>
+      <p style={{ margin: 0, color: 'var(--color-text-secondary)' }}>Create your first agent, or start from a template.</p>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginTop: 8 }}>
+        <Button variant="primary" onClick={onNew}>New agent</Button>
+        <button
+          type="button"
+          onClick={onBrowseTemplates}
+          style={{ background: 'none', border: 0, padding: 0, font: 'inherit', fontWeight: 500, color: 'var(--color-accent-ui)', cursor: 'pointer' }}
+        >
+          Browse templates
+        </button>
+      </div>
+    </div>
+  );
+}
 
-  // nil cost means nothing priceable ran — "—", not "$0.00", which would
-  // read as free rather than unknown.
-  const formatCost = (cost) => {
-    if (cost == null) return '—';
-    if (cost > 0 && cost < 0.01) return '<$0.01';
-    return `$${cost.toFixed(2)}`;
-  };
+export default function AgentList({
+  agents,
+  onSelect,
+  onNew,
+  onBrowseTemplates,
+  sort = 'recent',
+  onSortChange,
+  isLoading = false,
+}) {
+  const [filter, setFilter] = useState('');
+  const filterRef = useRef(null);
+  const filterId = useId();
 
-  const formatLastRun = (dateString) => {
-    if (!dateString) return '—';
-    const days = Math.floor((new Date() - new Date(dateString)) / (1000 * 60 * 60 * 24));
-    if (days <= 0) return 'Today';
-    if (days < 30) return `${days}d ago`;
-    return new Date(dateString).toLocaleDateString();
-  };
+  const query = filter.trim().toLowerCase();
+  const visible = useMemo(() => (query ? agents.filter((agent) => matches(agent, query)) : agents), [agents, query]);
 
+  // The window every run count covers, as the API reports it.
+  const windowDays = agents.find((agent) => agent.stats?.window_days)?.stats.window_days;
 
+  // '/' focuses the filter from anywhere on the page.
+  useEffect(() => {
+    const onKeyDown = (event) => {
+      if (event.key !== '/' || event.ctrlKey || event.metaKey || event.altKey) return;
+      if (isTypingTarget(document.activeElement)) return;
+      event.preventDefault();
+      filterRef.current?.focus();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
+
+  const actions = (
+    <>
+      <label htmlFor={filterId} style={VISUALLY_HIDDEN}>Filter agents</label>
+      <input
+        id={filterId}
+        ref={filterRef}
+        type="search"
+        placeholder="Filter  /"
+        value={filter}
+        onChange={(event) => setFilter(event.target.value)}
+        style={{ ...CONTROL, width: 220 }}
+      />
+      <select
+        aria-label="Sort agents"
+        value={sort}
+        onChange={(event) => onSortChange?.(event.target.value)}
+        style={CONTROL}
+      >
+        {SORTS.map((option) => (
+          <option key={option.value} value={option.value}>{option.label}</option>
+        ))}
+      </select>
+      {/* One primary action, split: the button creates from scratch, the
+          menu beside it offers the template library. Both halves square
+          the edge they share and a faint divider marks it. */}
+      <div style={{ display: 'inline-flex', alignItems: 'stretch' }}>
+        <Button
+          variant="primary"
+          onClick={onNew}
+          testId="new-agent"
+          style={{ borderTopRightRadius: 0, borderBottomRightRadius: 0 }}
+        >
+          New agent
+        </Button>
+        <Menu
+          variant="primary"
+          glyph="v"
+          ariaLabel="More ways to create an agent"
+          testId="new-agent-menu"
+          items={[{ label: 'From a template', onClick: onBrowseTemplates, testId: 'new-agent-from-template' }]}
+          triggerStyle={{ borderTopLeftRadius: 0, borderBottomLeftRadius: 0, borderLeftColor: 'rgba(255,255,255,0.35)' }}
+        />
+      </div>
+    </>
+  );
 
   return (
-    <div className="space-y-6">
-      {/* Header Actions */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div className="flex-1 flex items-center space-x-4">
-          {/* Search */}
-          <div className="relative flex-1 max-w-md">
-            <input
-              type="text"
-              placeholder="Search agents..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
-            />
-            <svg className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-          </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <PageHeader title="Agents" count={agents.length} actions={actions} testId="agents-header" />
 
-          {/* Filters */}
-          <select
-            value={filterProvider}
-            onChange={(e) => setFilterProvider(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500"
-          >
-            <option value="">All Providers</option>
-            {meta.providers?.map(p => (
-              <option key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</option>
-            ))}
-          </select>
-
-          <select
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500"
-          >
-            <option value="">All Status</option>
-            <option value="active">Active</option>
-            <option value="draft">Draft</option>
-            <option value="archived">Archived</option>
-          </select>
-
-          <select
-            value={sort}
-            onChange={(e) => onSortChange?.(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500"
-            title="Rank agents by their scorecard"
-          >
-            {SORTS.map((option) => (
-              <option key={option.value} value={option.value}>{option.label}</option>
-            ))}
-          </select>
-        </div>
-
-        <div className="flex items-center space-x-3">
-          <button
-            onClick={onRefresh}
-            disabled={isLoading}
-            className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-          >
-            <svg className={`h-5 w-5 ${isLoading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-            </svg>
-          </button>
-          <button
-            onClick={onBrowseTemplates}
-            className="flex items-center space-x-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-          >
-            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-            </svg>
-            <span>Browse Templates</span>
-          </button>
-          <button
-            onClick={onNew}
-            className="flex items-center space-x-2 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
-          >
-            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            <span>New Agent</span>
-          </button>
-        </div>
+      <div style={TABLE.frame} aria-busy={isLoading || undefined}>
+        {agents.length === 0 ? (
+          <EmptyState onNew={onNew} onBrowseTemplates={onBrowseTemplates} />
+        ) : (
+          <table style={{ ...TABLE.table, minWidth: 820 }}>
+            <thead>
+              <tr>
+                <th scope="col" style={TABLE.th}>AGENT</th>
+                <th scope="col" style={TABLE.th}>MODEL</th>
+                <th scope="col" style={{ ...TABLE.th, ...TABLE.right }} title={windowDays ? `Over the last ${windowDays} days` : undefined}>RUNS</th>
+                <th scope="col" style={{ ...TABLE.th, ...TABLE.right }}>ERRORS</th>
+                <th scope="col" style={{ ...TABLE.th, ...TABLE.right }}>AVG</th>
+                <th scope="col" style={TABLE.th}>EVAL</th>
+                <th scope="col" style={{ ...TABLE.th, ...TABLE.right }}>COST</th>
+                <th scope="col" style={{ ...TABLE.th, ...TABLE.right }}>LAST RUN</th>
+              </tr>
+            </thead>
+            <tbody>
+              {visible.length === 0 ? (
+                <tr>
+                  <td colSpan={8} style={{ ...TABLE.td, padding: '24px 14px', textAlign: 'center', ...MUTED }}>
+                    No agents match “{filter.trim()}”.
+                  </td>
+                </tr>
+              ) : (
+                visible.map((agent) => <AgentRow key={agent.id ?? agent.name} agent={agent} onSelect={onSelect} />)
+              )}
+            </tbody>
+          </table>
+        )}
       </div>
 
-      {/* Agent Grid */}
-      {filteredAgents.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {filteredAgents.map((agent) => {
-            const stats = agent.stats || {};
-            const sources = stats.run_sources || [];
-            const runsTitle = sources.length
-              ? `Counted from ${sources.map((s) => (s === 'platform' ? 'dashboard runs' : 'reported telemetry')).join(' + ')}`
-              : undefined;
-
-            return (
-              <AgentStatCard
-                key={agent.id}
-                name={agent.name}
-                subtitle={agent.description || 'No description'}
-                badge={
-                  <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${getStatusColor(agent.status)}`}>
-                    {agent.status}
-                  </span>
-                }
-                onClick={() => onSelect(agent)}
-                stats={[
-                  { label: `Runs ${stats.window_days || 30}d`, value: stats.runs ?? 0, title: runsTitle },
-                  {
-                    label: 'Success',
-                    value: stats.success_rate != null ? `${Math.round(stats.success_rate)}%` : '—',
-                    tone: rateTone(stats.success_rate != null ? stats.success_rate / 100 : null),
-                  },
-                  { label: 'Avg time', value: formatDuration(stats.avg_duration_ms) },
-                  // The pass rate pooled over the headline runs of the agent's
-                  // current evaluations; the fraction rides in the title.
-                  {
-                    label: 'Eval',
-                    title: stats.eval_samples_evaluated
-                      ? `${fmtPasses(stats.eval_samples_passed, stats.eval_samples_evaluated)} passed over ${stats.eval_runs ?? 'the'} current evaluation${stats.eval_runs === 1 ? '' : 's'}${stats.eval_not_counted ? ` · ${stats.eval_not_counted} stale or archived not counted` : ''}`
-                      : stats.eval_not_counted ? `${stats.eval_not_counted} evaluation${stats.eval_not_counted === 1 ? '' : 's'} stale or archived, none counted` : 'No evaluation counted yet',
-                    value: fmtPercent(stats.eval_score),
-                    tone: rateTone(stats.eval_score),
-                  },
-                  { label: 'Tokens', value: formatTokens(stats.tokens) },
-                  {
-                    label: 'Cost',
-                    value: formatCost(stats.cost),
-                    title: 'Estimated from token counts at each model\'s published rates',
-                    tone: stats.cost == null ? 'muted' : undefined,
-                  },
-                ]}
-                footer={
-                  <>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
-                      <span style={{
-                        padding: '2px 6px',
-                        borderRadius: '4px',
-                        background: 'rgba(128,128,128,0.15)',
-                        whiteSpace: 'nowrap',
-                        flexShrink: 0,
-                      }}>
-                        {agent.provider}
-                      </span>
-                      {/* Model ids run long (meta-llama/llama-3.3-70b-instruct);
-                          truncate rather than wrap the card to three lines. */}
-                      <span
-                        title={agent.model}
-                        style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-                      >
-                        {agent.model}
-                      </span>
-                    </span>
-                    {/* Last activity beats last edit on an observability
-                        card; the edit date stays in the tooltip. */}
-                    <span
-                      style={{ whiteSpace: 'nowrap' }}
-                      title={`Updated ${formatDate(agent.updatedAt || agent.updated_at)}`}
-                    >
-                      {stats.last_run_at
-                        ? `Last run ${formatLastRun(stats.last_run_at)}`
-                        : `Updated ${formatDate(agent.updatedAt || agent.updated_at)}`}
-                    </span>
-                  </>
-                }
-                actions={
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); onDuplicate(agent.id); }}
-                      className="text-gray-500 hover:text-red-600 transition-colors"
-                    >
-                      Duplicate
-                    </button>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); onDelete(agent.id); }}
-                      className="text-red-500 hover:text-red-700 transition-colors"
-                    >
-                      Delete
-                    </button>
-                  </div>
-                }
-              />
-            );
-          })}
-        </div>
-      ) : (
-        <div className="text-center py-16">
-          <div className="inline-block mb-4">
-            <AgentAvatar size={100} />
-          </div>
-          <h3 className="text-lg font-medium text-gray-900 mb-2">
-            {agents.length === 0 ? 'No agents yet' : 'No matching agents'}
-          </h3>
-          <p className="text-gray-500 mb-6">
-            {agents.length === 0
-              ? 'Create your first AI agent to get started'
-              : 'Try adjusting your search or filters'}
-          </p>
-          {agents.length === 0 && (
-            <div className="flex items-center justify-center space-x-4">
-              <button
-                onClick={onBrowseTemplates}
-                className="inline-flex items-center space-x-2 px-6 py-3 border-2 border-red-500 text-red-600 rounded-lg hover:bg-red-50 transition-colors"
-              >
-                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                </svg>
-                <span>Browse Templates</span>
-              </button>
-              <span className="text-gray-400">or</span>
-              <button
-                onClick={onNew}
-                className="inline-flex items-center space-x-2 px-6 py-3 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
-              >
-                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                </svg>
-                <span>Create From Scratch</span>
-              </button>
-            </div>
-          )}
-        </div>
-      )}
+      {agents.length > 0 && <Hint>Click a row to open it.</Hint>}
     </div>
   );
 }

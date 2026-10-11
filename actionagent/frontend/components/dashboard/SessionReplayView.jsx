@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Badge, Button, Card, Chip, MicroLabel, MONO } from './primitives';
+import { Badge, Button, Card, Chip, MicroLabel, MONO, PageHeader } from './primitives';
 import ReplayScrubber, { LANE_ROWS } from './replay/ReplayScrubber';
 import ReplayTranscript from './replay/ReplayTranscript';
 import ReplayEntryDetail from './replay/ReplayEntryDetail';
@@ -81,24 +81,20 @@ function SessionReplay({ kind, id, timeline, onBack, handoff }) {
 
   return (
     <div data-testid="session-replay" style={{ display: 'flex', flexDirection: 'column', gap: 16, maxWidth: 1400 }}>
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
-        <div style={{ minWidth: 0 }}>
-          <Button variant="ghost" size="sm" onClick={onBack} style={{ padding: '2px 0', marginBottom: 6 }}>&lt;- Sessions</Button>
-          <h1 style={{ margin: 0, fontSize: 24, fontWeight: 700, letterSpacing: '-0.01em', color: 'var(--color-text-primary)' }}>
-            {KIND_TITLES[kind] || 'Session'} #{id}
-          </h1>
-          <div style={{ marginTop: 4, display: 'flex', gap: 12, flexWrap: 'wrap', fontFamily: MONO, fontSize: 11, color: 'var(--color-text-muted)' }}>
+      <PageHeader
+        crumbs={[{ label: 'Sessions', onClick: onBack }]}
+        title={`${KIND_TITLES[kind] || 'Session'} #${id}`}
+        meta={(
+          <span style={{ display: 'inline-flex', gap: 12, flexWrap: 'wrap' }}>
             {session.started_at && <span title={session.started_at}>started {new Date(session.started_at).toLocaleString()}</span>}
             {axis.startMs !== null && <span>{formatSpan(axis.endMs - axis.startMs)} long</span>}
             <span>{counts.message || 0} messages · {counts.llm || 0} model calls · {counts.tool || 0} tool calls</span>
             {recordings.length > 0 && <span>browser recorded</span>}
-          </div>
-        </div>
-        <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, alignItems: 'center' }}>
-          {session.truncated && <Badge tone="warning" title="Each lane holds its earliest 2,000 entries">truncated</Badge>}
-          {handoff}
-        </div>
-      </div>
+          </span>
+        )}
+        badges={session.truncated ? <Badge tone="warning" title="Each lane holds its earliest 2,000 entries">truncated</Badge> : undefined}
+        actions={handoff || undefined}
+      />
 
       {empty ? (
         <Card testId="replay-empty">
@@ -232,8 +228,8 @@ export default function SessionReplayView({ kind, id, onBack, onHandoff }) {
       : state.message;
 
   return (
-    <div data-testid="session-replay" style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 1400 }}>
-      <Button variant="ghost" size="sm" onClick={onBack} style={{ padding: '2px 0', alignSelf: 'flex-start' }}>&lt;- Sessions</Button>
+    <div data-testid="session-replay" style={{ display: 'flex', flexDirection: 'column', gap: 16, maxWidth: 1400 }}>
+      <PageHeader crumbs={[{ label: 'Sessions', onClick: onBack }]} title={`${KIND_TITLES[kind] || 'Session'} #${id}`} />
       <Card testId={`replay-${state.status}`}>
         <div style={{ fontSize: 13, color: state.status === 'loading' ? 'var(--color-text-muted)' : 'var(--color-text-primary)' }}>{message}</div>
       </Card>

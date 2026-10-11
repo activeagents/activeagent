@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Badge, Button, Card, MicroLabel, MONO, SegmentedControl } from '../primitives';
+import { Badge, Button, Card, MicroLabel, MONO, PageHeader, SegmentedControl } from '../primitives';
 import ProjectAssistantReads from './ProjectAssistantReads';
 import ProjectBootProgress from './ProjectBootProgress';
 import ProjectEnvironment from './ProjectEnvironment';
@@ -239,28 +239,28 @@ export default function ProjectDetail({ projectId, onBack, onDeleted }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }} data-testid="project-detail">
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
-        <div style={{ flex: 1, minWidth: 260 }}>
-          <Button size="sm" variant="ghost" onClick={onBack} style={{ padding: 0 }}>← Projects</Button>
-          <h1 style={{ margin: '4px 0 0', fontSize: 24, fontWeight: 700, letterSpacing: '-0.01em', color: 'var(--color-text-primary)' }}>{project.name}</h1>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 4, flexWrap: 'wrap' }}>
-            <span style={{ fontFamily: MONO, fontSize: 13, color: 'var(--color-text-secondary)' }}>
-              {project.repository}{project.default_ref ? `@${project.default_ref}` : ''}
-            </span>
+      <PageHeader
+        crumbs={[{ label: 'Projects', onClick: onBack }]}
+        title={project.name}
+        meta={`${project.repository}${project.default_ref ? `@${project.default_ref}` : ''}`}
+        badges={(
+          <>
             <Badge tone={STATE_TONES[project.sandbox_state] || 'muted'}>sandbox {project.sandbox_state}</Badge>
             <Badge tone={PREFLIGHT_TONES[project.install_state === 'installed' ? 'supported' : 'bootstrap']}>{INSTALL_LABELS[project.install_state]}</Badge>
-          </div>
-        </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <Button onClick={() => post(`/api/projects/${projectId}/boot`)} disabled={busy || booting} testId="boot-project">
-            {project.sandbox_state === 'ready' ? 'Sandbox running' : booting ? 'Booting…' : 'Boot sandbox'}
-          </Button>
-          <Button variant="primary" onClick={() => runEvaluation()} disabled={busy || !target} testId="run-project-evaluation"
-            title={target ? 'Boots the sandbox first when it is not running' : 'Choose the agent to evaluate first'}>
-            Run evaluation
-          </Button>
-        </div>
-      </div>
+          </>
+        )}
+        actions={(
+          <>
+            <Button onClick={() => post(`/api/projects/${projectId}/boot`)} disabled={busy || booting} testId="boot-project">
+              {project.sandbox_state === 'ready' ? 'Sandbox running' : booting ? 'Booting…' : 'Boot sandbox'}
+            </Button>
+            <Button variant="primary" onClick={() => runEvaluation()} disabled={busy || !target} testId="run-project-evaluation"
+              title={target ? 'Boots the sandbox first when it is not running' : 'Choose the agent to evaluate first'}>
+              Run evaluation
+            </Button>
+          </>
+        )}
+      />
 
       {confirmation && (
         <Card testId="local-boot-confirmation" style={{ borderColor: 'var(--color-warning)' }}>

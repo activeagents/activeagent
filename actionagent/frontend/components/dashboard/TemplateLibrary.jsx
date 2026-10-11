@@ -80,7 +80,7 @@ export default function TemplateLibrary({ onUseTemplate, onClose }) {
         {/* Header */}
         <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
           <div>
-            <h2 className="text-xl font-semibold text-gray-900">Template Library</h2>
+            <h2 className="text-xl font-semibold" style={{ color: 'var(--color-text-primary)' }}>Template Library</h2>
             <p className="text-sm text-gray-500">Start with a pre-configured agent template</p>
           </div>
           <button
@@ -97,7 +97,7 @@ export default function TemplateLibrary({ onUseTemplate, onClose }) {
         <div className="flex-1 flex overflow-hidden">
           {/* Category Sidebar */}
           <div className="w-48 border-r border-gray-200 p-4 flex-shrink-0">
-            <h3 className="text-xs font-semibold text-gray-400 uppercase mb-3">Categories</h3>
+            <h3 className="text-xs font-semibold uppercase mb-3" style={{ color: 'var(--color-text-muted)' }}>Categories</h3>
             <div className="space-y-1">
               <button
                 onClick={() => setSelectedCategory('')}
@@ -148,7 +148,7 @@ export default function TemplateLibrary({ onUseTemplate, onClose }) {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center space-x-2">
                             <span className="text-lg">{template.icon}</span>
-                            <h3 className="font-medium text-gray-900 truncate">{template.name}</h3>
+                            <h3 className="font-medium truncate" style={{ color: 'var(--color-text-primary)' }}>{template.name}</h3>
                           </div>
                           <p className="text-xs text-gray-500 mt-1 line-clamp-2">{template.description}</p>
                           <div className="flex items-center space-x-2 mt-2">
@@ -177,7 +177,7 @@ export default function TemplateLibrary({ onUseTemplate, onClose }) {
                 <AgentAvatar size={120} />
               </div>
 
-              <h3 className="text-lg font-semibold text-gray-900 text-center">{selectedTemplate.name}</h3>
+              <h3 className="text-lg font-semibold text-center" style={{ color: 'var(--color-text-primary)' }}>{selectedTemplate.name}</h3>
               <p className="text-sm text-gray-500 text-center mt-1">{selectedTemplate.description}</p>
 
               <div className="mt-6 space-y-4">

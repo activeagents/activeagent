@@ -478,10 +478,10 @@ export default function SandboxRunner({ initialType = 'playwright_mcp', onClose 
               appearance={{ hat: 'fedora', hatAccessory: 'theaterMasks', heldItem: 'browser' }}
             />
             <div>
-              <h1 className="text-xl font-semibold text-gray-900">
+              <h1 style={{ margin: 0, fontSize: 20, fontWeight: 600, letterSpacing: '-0.01em', color: 'var(--color-text-primary)' }}>
                 PlaywrightMCP Demo
               </h1>
-              <p className="text-sm text-gray-500">
+              <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
                 Try browser automation for free - no account required
               </p>
             </div>

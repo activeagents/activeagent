@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **A simpler dashboard** (`actionagent`). The first pass of the dashboard's
+  UX simplification, from the Active Agents design canvas. The sidebar is one
+  flat list of destinations with no section headings, no emoji glyphs and
+  Settings pinned at the bottom, and the top bar is gone: its theme toggle,
+  *Sign out*, Documentation and GitHub links live in the workspace menu with
+  the version. The Agents home is one table (agent, model, runs, errors,
+  average, eval, cost, last run) with one filter (`/` focuses it), the
+  server-side sort and a split *New agent* button that offers the template
+  library; the card grid, the provider and status selects and the hover
+  Duplicate and Delete are gone (the agent page has both). Evaluations has
+  tabs for Evaluations, Catalogs and Archived, one summary line (passed,
+  fixes, cost of the headline runs) in place of the five tiles, and a
+  table-like list whose rows expand in place; Catalogs is that tab rather
+  than a sidebar item (`/catalogs` still opens it) and its pages are tables,
+  with Export, Restore, Re-import and Delete in an overflow menu. The agent
+  page has three tabs (Activity, Quality, Config) over the same sections, a
+  stats strip and a breadcrumb; the Feedback placeholder is gone, and
+  `GET /api/agents/:id` now carries the agent's `stats`. Settings keeps
+  Appearance, API Keys and Integrations; the Notifications and Billing
+  placeholders and the inert profile form are gone. Every page opens with the
+  same header: a 20px title, a crumb trail instead of a back button, no
+  subtitle. `components/dashboard/primitives.jsx` gains `PageHeader`, `Menu`,
+  `Tabs`, `TABLE` and `Hint`; `tokens.css` gains `--color-text-dim`,
+  `--color-row-hover`, `--color-scrim` and `--shadow-popover` (mirrored in
+  `ActiveAgent::Evals::DesignTokens`) and sets a 13px Inter base on the
+  dashboard root; `utils/agentStats.mjs` holds the agent figure formatters.
+  A browser test that located an agent card by `data-testid="agent-card"` on
+  the Agents home now finds its row by `agent-row`, and *Sign out* is inside
+  the workspace menu.
+
 ## [1.9.0] - 2026-10-07
 
 Releases `activeagent` and `actionagent` 1.9.0 from one tag. A minor release.

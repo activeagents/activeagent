@@ -67,7 +67,7 @@ before(async () => {
   window.localStorage.setItem('dashboard-theme', 'light');
   window.ACTIVE_AGENT_DASHBOARD = { meta: { signOutPath: '/session' } };
   // jsdom does not implement form submission. The sign-out test reads the form
-  // the header builds, not where it goes.
+  // the sidebar's account menu builds, not where it goes.
   window.HTMLFormElement.prototype.submit = () => {};
   window.matchMedia = () => ({ matches: false, addEventListener() {}, removeEventListener() {} });
   Object.defineProperty(window.navigator, 'clipboard', { value: { writeText: async () => {} }, configurable: true });
@@ -89,11 +89,11 @@ before(async () => {
         import AgentRunner from './components/dashboard/AgentRunner.jsx';
         import SettingsView from './components/dashboard/SettingsView.jsx';
         import OrganizationView from './components/dashboard/OrganizationView.jsx';
-        import Header from './components/dashboard/Header.jsx';
+        import Sidebar from './components/dashboard/Sidebar.jsx';
 
         export { act };
 
-        const VIEWS = { runner: AgentRunner, settings: SettingsView, organization: OrganizationView, header: Header };
+        const VIEWS = { runner: AgentRunner, settings: SettingsView, organization: OrganizationView, sidebar: Sidebar };
 
         // Renders the named views, as the dashboard renders one view at a time.
         export function mount(container) {
@@ -267,11 +267,13 @@ test('signing out while recording leaves the CSRF token out of the recording', a
   const capture = createSessionCapture({ contextId: 5, loadRecorder: () => import(recorderUrl), fetch: (path, init) => fetch(path, init) });
 
   try {
-    await dashboard.act(async () => view.show(['header'], { user: { name: 'Ada' } }));
+    await dashboard.act(async () => view.show(['sidebar'], {
+      currentView: 'list', onNavigate() {}, features: {}, user: { name: 'Ada', email: 'ada@example.com' },
+    }));
     await capture.start();
     assert.equal(capture.state, 'recording');
 
-    await click(buttonIn(container, 'A'));
+    await click(container.querySelector('button[aria-label="Workspace menu"]'));
     await click(buttonIn(container, 'Sign out'));
     assert.ok(document.querySelector('form[action="/session"] input[name="authenticity_token"]'), 'the sign-out form was added');
     await capture.stop();

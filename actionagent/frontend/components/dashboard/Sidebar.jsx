@@ -1,14 +1,18 @@
 import React, { useState, useRef, useEffect } from 'react';
-import AgentAvatar from '../AgentAvatar';
 import { useTheme } from '../../contexts/ThemeContext';
-import { ICONS, TYPOGRAPHY } from '../../utils/designTokens';
+import { ICONS } from '../../utils/designTokens';
 import { dashboardNavSections } from '../../utils/dashboardRoutes.mjs';
+import { MONO } from './primitives';
 
-// features: what the server enabled on this dashboard (dashboardFeatures);
-// a view it turned off has no nav item. pendingInputCount: the requests for
-// input waiting for an answer, undefined when none are.
+// The dashboard's one navigation surface: the workspace button, which opens
+// the account menu, then every destination as a flat list with Settings
+// pinned at the bottom. features: what the server enabled on this dashboard
+// (dashboardFeatures); a view it turned off has no nav item.
+// pendingInputCount: the requests for input waiting for an answer, undefined
+// when none are. agentCount is accepted so callers need not change, but the
+// count lives in the Agents page title now, not beside the nav item.
 export default function Sidebar({ currentView, onNavigate, agentCount, pendingInputCount, account, user, gemVersion, features = {} }) {
-  const { darkMode } = useTheme();
+  const { darkMode, toggleDarkMode } = useTheme();
   const [showAccountMenu, setShowAccountMenu] = useState(false);
   const menuRef = useRef(null);
 
@@ -24,9 +28,48 @@ export default function Sidebar({ currentView, onNavigate, agentCount, pendingIn
   }, []);
 
   const accountName = account?.name || 'My Workspace';
-  const userName = user?.name || user?.email?.split('@')[0] || 'User';
+  // The first letters of the account's first two words, so a workspace reads
+  // as a two-letter key the way an agent's avatar does.
+  const initials = accountName.split(/\s+/).filter(Boolean).slice(0, 2).map((word) => word[0].toUpperCase()).join('');
+  // The line under the workspace name: whoever is signed in, when the host
+  // told us; nothing otherwise, rather than a placeholder.
+  const userLine = user?.name || user?.email;
 
-  const badges = { agentCount, pendingInputCount };
+  // Sign-out belongs to the host app: the engine has no session of its own,
+  // so the path comes from ActionAgent.sign_out_path (published in the meta
+  // blob) and the menu item is hidden when the host configured none. The
+  // extracted copy posted to the platform's /session, which 404s on any
+  // other host.
+  const signOutPath = window.ACTIVE_AGENT_DASHBOARD?.meta?.signOutPath;
+
+  const handleSignOut = () => {
+    if (!signOutPath) return;
+
+    // Get CSRF token
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
+
+    // Create and submit a form to sign out
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = signOutPath;
+
+    const methodInput = document.createElement('input');
+    methodInput.type = 'hidden';
+    methodInput.name = '_method';
+    methodInput.value = 'delete';
+    form.appendChild(methodInput);
+
+    const csrfInput = document.createElement('input');
+    csrfInput.type = 'hidden';
+    csrfInput.name = 'authenticity_token';
+    csrfInput.value = csrfToken;
+    form.appendChild(csrfInput);
+
+    document.body.appendChild(form);
+    form.submit();
+  };
+
+  const badges = { pendingInputCount };
   const badgeFor = (item) => {
     const value = item.badge ? badges[item.badge] : undefined;
     return item.badgeTone === 'attention' && !value ? undefined : value;
@@ -43,243 +86,284 @@ export default function Sidebar({ currentView, onNavigate, agentCount, pendingIn
     })),
   }));
 
-  const NavButton = ({ item }) => (
-    <button
-      onClick={() => onNavigate(item.id)}
-      className={`w-full flex items-center justify-between py-3 rounded-lg text-left transition-colors ${
-        item.indent ? 'pl-10 pr-4' : 'px-4'
-      }`}
-      style={{
-        backgroundColor: currentView === item.id
-          ? (darkMode ? 'rgba(239, 68, 68, 0.15)' : '#fef2f2')
-          : 'transparent',
-        color: currentView === item.id
-          ? '#ef4444'
-          : (darkMode ? '#d1d5db' : '#374151')
-      }}
-      onMouseEnter={(e) => {
-        if (currentView !== item.id) {
-          e.currentTarget.style.backgroundColor = darkMode ? '#252525' : '#f3f4f6';
-        }
-      }}
-      onMouseLeave={(e) => {
-        if (currentView !== item.id) {
-          e.currentTarget.style.backgroundColor = 'transparent';
-        }
-      }}
-    >
-      <div className="flex items-center space-x-3">
+  // The hover tint is set by hand: an inline background on the current item
+  // would win over a :hover rule, so the rule would have to know which item
+  // is current.
+  const NavButton = ({ item }) => {
+    const current = currentView === item.id;
+    return (
+      <button
+        type="button"
+        onClick={() => onNavigate(item.id)}
+        aria-current={current ? 'page' : undefined}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+          width: '100%',
+          minHeight: 36,
+          padding: '0 10px',
+          border: 0,
+          borderRadius: 8,
+          textAlign: 'left',
+          cursor: 'pointer',
+          fontFamily: 'inherit',
+          fontSize: 13,
+          fontWeight: 500,
+          background: current ? 'var(--color-accent-ui-tint)' : 'transparent',
+          color: current ? 'var(--color-accent-ui)' : 'var(--color-text-cell)',
+        }}
+        onMouseEnter={(e) => {
+          if (!current) e.currentTarget.style.background = 'var(--color-hover)';
+        }}
+        onMouseLeave={(e) => {
+          if (!current) e.currentTarget.style.background = 'transparent';
+        }}
+      >
         <span
+          aria-hidden="true"
           style={{
-            fontFamily: TYPOGRAPHY.mono,
-            fontSize: '12px',
-            width: '20px',
-            textAlign: 'center',
+            fontFamily: MONO,
+            fontSize: 12,
+            width: 22,
+            flexShrink: 0,
+            color: current ? 'var(--color-accent-ui)' : 'var(--color-text-dim)',
           }}
         >
           {item.icon}
         </span>
-        <span className="font-medium">{item.label}</span>
-      </div>
-      {item.badge !== undefined && item.badgeTone === 'attention' && (
-        <span
-          data-testid={`nav-badge-${item.id}`}
-          className="px-2 py-0.5 text-xs rounded-full font-semibold"
-          title={`${item.badge} ${item.badgeTitle || ''}`.trim()}
-          aria-label={`${item.badge} ${item.badgeTitle || ''}`.trim()}
-          style={{ backgroundColor: 'var(--color-warning-soft)', color: 'var(--color-warning-text)' }}
-        >
-          {item.badge}
-        </span>
-      )}
-      {item.badge !== undefined && item.badgeTone !== 'attention' && (
-        <span
-          className="px-2 py-0.5 text-xs rounded-full"
-          style={{
-            backgroundColor: currentView === item.id
-              ? '#fee2e2'
-              : (darkMode ? '#2a2a2a' : '#f3f4f6'),
-            color: currentView === item.id
-              ? '#ef4444'
-              : (darkMode ? '#d1d5db' : '#4b5563')
-          }}
-        >
-          {item.badge}
-        </span>
-      )}
-    </button>
-  );
+        <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.label}</span>
+        {item.badge !== undefined && item.badgeTone === 'attention' && (
+          <span
+            data-testid={`nav-badge-${item.id}`}
+            className="px-2 py-0.5 text-xs rounded-full font-semibold"
+            title={`${item.badge} ${item.badgeTitle || ''}`.trim()}
+            aria-label={`${item.badge} ${item.badgeTitle || ''}`.trim()}
+            style={{ backgroundColor: 'var(--color-warning-soft)', color: 'var(--color-warning-text)' }}
+          >
+            {item.badge}
+          </span>
+        )}
+        {item.badge !== undefined && item.badgeTone !== 'attention' && (
+          <span
+            className="px-2 py-0.5 text-xs rounded-full"
+            style={{
+              fontFamily: MONO,
+              backgroundColor: current ? 'var(--color-accent-ui-muted)' : 'var(--color-muted)',
+              color: current ? 'var(--color-accent-ui)' : 'var(--color-text-cell)',
+            }}
+          >
+            {item.badge}
+          </span>
+        )}
+      </button>
+    );
+  };
+
+  // One row of the account menu: text only, the hover tint from the
+  // aa-menu-item rule in tokens.css.
+  const menuItemStyle = {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 10,
+    width: '100%',
+    boxSizing: 'border-box',
+    padding: '7px 10px',
+    border: 0,
+    borderRadius: 6,
+    background: 'transparent',
+    color: 'var(--color-text-primary)',
+    fontFamily: 'inherit',
+    fontSize: 13,
+    textAlign: 'left',
+    textDecoration: 'none',
+    cursor: 'pointer',
+  };
+  const closeAnd = (action) => () => {
+    setShowAccountMenu(false);
+    action();
+  };
+  const divider = { borderTop: '1px solid var(--color-border-light)', margin: '4px 0' };
 
   return (
     <aside
-      className="w-64 border-r flex flex-col"
       style={{
-        backgroundColor: darkMode ? '#1a1a1a' : '#ffffff',
-        borderColor: darkMode ? '#2a2a2a' : '#e5e7eb'
+        width: 220,
+        flexShrink: 0,
+        boxSizing: 'border-box',
+        padding: '16px 12px',
+        background: 'var(--color-surface)',
+        borderRight: '1px solid var(--color-border)',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 4,
       }}
     >
-      {/* Account Switcher - Stripe-style */}
-      <div
-        className="h-16 flex items-center px-4 border-b relative"
-        style={{ borderColor: darkMode ? '#2a2a2a' : '#e5e7eb' }}
-        ref={menuRef}
-      >
+      {/* The workspace button and the account menu it opens. */}
+      <div ref={menuRef} style={{ position: 'relative', marginBottom: 12 }}>
         <button
+          type="button"
+          aria-label="Workspace menu"
+          aria-haspopup="menu"
+          aria-expanded={showAccountMenu}
           onClick={() => setShowAccountMenu(!showAccountMenu)}
-          className="w-full flex items-center justify-between px-2 py-2 rounded-lg transition-colors"
           style={{
-            backgroundColor: showAccountMenu ? (darkMode ? '#252525' : '#f3f4f6') : 'transparent'
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+            width: '100%',
+            minHeight: 44,
+            boxSizing: 'border-box',
+            padding: '6px 10px',
+            border: '1px solid var(--color-border)',
+            borderRadius: 10,
+            background: showAccountMenu ? 'var(--color-hover)' : 'var(--color-card)',
+            color: 'var(--color-text-primary)',
+            fontFamily: 'inherit',
+            textAlign: 'left',
+            cursor: 'pointer',
           }}
         >
-          <div className="flex items-center space-x-3 min-w-0">
-            <AgentAvatar size={28} />
-            <span className={`font-semibold truncate ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+          <span
+            aria-hidden="true"
+            style={{
+              width: 24,
+              height: 24,
+              flexShrink: 0,
+              borderRadius: 6,
+              background: 'var(--color-accent-ui)',
+              color: 'var(--color-on-accent)',
+              fontFamily: MONO,
+              fontSize: 12,
+              fontWeight: 500,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            {initials}
+          </span>
+          <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+            <span style={{ fontSize: 13, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {accountName}
             </span>
-          </div>
+            {userLine && (
+              <span style={{ fontSize: 11, color: 'var(--color-text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {userLine}
+              </span>
+            )}
+          </span>
           <svg
             className={`w-4 h-4 flex-shrink-0 transition-transform ${showAccountMenu ? 'rotate-180' : ''}`}
-            style={{ color: darkMode ? '#9ca3af' : '#6b7280' }}
+            style={{ color: 'var(--color-text-muted)' }}
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
+            aria-hidden="true"
           >
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
           </svg>
         </button>
 
-        {/* Account dropdown menu */}
         {showAccountMenu && (
           <div
-            className="absolute left-4 right-4 top-14 rounded-lg shadow-lg border overflow-hidden z-50"
+            role="menu"
             style={{
-              backgroundColor: darkMode ? '#1a1a1a' : '#ffffff',
-              borderColor: darkMode ? '#2a2a2a' : '#e5e7eb'
+              position: 'absolute',
+              left: 0,
+              right: 0,
+              top: 'calc(100% + 4px)',
+              zIndex: 50,
+              padding: 4,
+              background: 'var(--color-surface)',
+              border: '1px solid var(--color-border)',
+              borderRadius: 10,
+              boxShadow: 'var(--shadow-popover)',
             }}
           >
-            {/* Account header */}
-            <div className="px-4 py-3 border-b" style={{ borderColor: darkMode ? '#2a2a2a' : '#e5e7eb' }}>
-              <div className="flex items-center space-x-3">
-                <AgentAvatar size={32} />
-                <div className="min-w-0">
-                  <div className={`font-medium truncate ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                    {accountName}
-                  </div>
+            <div style={{ padding: '8px 10px 10px', borderBottom: '1px solid var(--color-border-light)', marginBottom: 4 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {accountName}
+              </div>
+              {userLine && (
+                <div style={{ fontSize: 12, color: 'var(--color-text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {[user?.name, user?.email].filter(Boolean).join(' · ')}
                 </div>
-              </div>
+              )}
             </div>
 
-            {/* Menu items */}
-            <div className="py-1">
-              <button
-                onClick={() => { onNavigate('settings'); setShowAccountMenu(false); }}
-                className={`w-full flex items-center space-x-3 px-4 py-2 text-left text-sm transition-colors ${
-                  darkMode
-                    ? 'text-gray-300 hover:bg-gray-800'
-                    : 'text-gray-700 hover:bg-gray-100'
-                }`}
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
-                <span>Settings</span>
-              </button>
+            {/* The theme row stays open after a toggle so the state glyph can
+                be seen flipping; it is a setting, not a destination. */}
+            <button
+              type="button"
+              role="menuitemcheckbox"
+              aria-checked={darkMode}
+              className="aa-menu-item"
+              onClick={toggleDarkMode}
+              style={menuItemStyle}
+            >
+              <span aria-hidden="true" style={{ fontFamily: MONO, fontSize: 12, color: 'var(--color-text-dim)' }}>{darkMode ? '[x]' : '[ ]'}</span>
+              <span>Dark mode</span>
+            </button>
+            <button type="button" role="menuitem" className="aa-menu-item" onClick={closeAnd(() => onNavigate('organization'))} style={menuItemStyle}>
+              Organization
+            </button>
+            <button type="button" role="menuitem" className="aa-menu-item" onClick={closeAnd(() => onNavigate('settings'))} style={menuItemStyle}>
+              Settings
+            </button>
 
-              <button
-                onClick={() => { onNavigate('organization'); setShowAccountMenu(false); }}
-                className={`w-full flex items-center space-x-3 px-4 py-2 text-left text-sm transition-colors ${
-                  darkMode
-                    ? 'text-gray-300 hover:bg-gray-800'
-                    : 'text-gray-700 hover:bg-gray-100'
-                }`}
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                </svg>
-                <span>Organization</span>
-              </button>
-            </div>
+            <div style={divider} />
+            <a
+              role="menuitem"
+              className="aa-menu-item"
+              href="https://docs.activeagents.ai"
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => setShowAccountMenu(false)}
+              style={menuItemStyle}
+            >
+              Documentation
+            </a>
+            <a
+              role="menuitem"
+              className="aa-menu-item"
+              href="https://github.com/activeagents/activeagent"
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => setShowAccountMenu(false)}
+              style={menuItemStyle}
+            >
+              GitHub
+            </a>
 
-            {/* User section */}
-            <div className="border-t py-1" style={{ borderColor: darkMode ? '#2a2a2a' : '#e5e7eb' }}>
-              <div className={`px-4 py-2 flex items-center space-x-3 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                </svg>
-                <span className="text-sm">{userName}</span>
-              </div>
+            {signOutPath && (
+              <>
+                <div style={divider} />
+                <button type="button" role="menuitem" className="aa-menu-item" onClick={closeAnd(handleSignOut)} style={menuItemStyle}>
+                  Sign out
+                </button>
+              </>
+            )}
+
+            <div style={{ padding: '8px 10px 4px', marginTop: 4, borderTop: '1px solid var(--color-border-light)', fontFamily: MONO, fontSize: 11, color: 'var(--color-text-muted)' }}>
+              Active Agent{gemVersion ? ` v${gemVersion}` : ''}
             </div>
           </div>
         )}
       </div>
 
-      {/* Navigation */}
-      <nav className="flex-1 px-4 py-4 space-y-1 overflow-y-auto">
-        {sections.map((section) => {
-          const items = (
-            <div className="space-y-1">
-              {section.items.map((item) => (
-                <NavButton key={item.id} item={item} />
-              ))}
-            </div>
-          );
-          // A section without a label has no heading and no top padding.
-          if (!section.label) return <React.Fragment key={section.id}>{items}</React.Fragment>;
-          return (
-            <div key={section.id} className="pt-4">
-              <div className="px-4 pb-2">
-                <span className={`text-xs font-semibold uppercase tracking-wide ${
-                  darkMode ? 'text-gray-500' : 'text-gray-400'
-                }`}>{section.label}</span>
-              </div>
-              {items}
-            </div>
-          );
-        })}
+      {/* Destinations, then a spacer that pins the workspace section to the
+          bottom. No section has a heading. */}
+      <nav aria-label="Main" style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
+        {sections.map((section, index) => (
+          <React.Fragment key={section.id}>
+            {index > 0 && <div aria-hidden="true" style={{ flex: 1, minHeight: 24 }} />}
+            {section.items.map((item) => (
+              <NavButton key={item.id} item={item} />
+            ))}
+          </React.Fragment>
+        ))}
       </nav>
-
-      {/* Quick Links */}
-      <div className="px-4 py-4 border-t" style={{ borderColor: darkMode ? '#2a2a2a' : '#e5e7eb' }}>
-        <div className={`text-xs font-semibold uppercase mb-3 ${
-          darkMode ? 'text-gray-500' : 'text-gray-400'
-        }`}>Resources</div>
-        <div className="space-y-2">
-          <a
-            href="https://docs.activeagents.ai"
-            target="_blank"
-            rel="noopener noreferrer"
-            className={`flex items-center space-x-2 text-sm transition-colors ${
-              darkMode
-                ? 'text-gray-400 hover:text-red-400'
-                : 'text-gray-600 hover:text-red-600'
-            }`}
-          >
-            <span style={{ fontFamily: TYPOGRAPHY.mono, fontSize: '12px', width: '20px', textAlign: 'center' }}>{ICONS.nav.docs}</span>
-            <span>Documentation</span>
-          </a>
-          <a
-            href="https://github.com/activeagents/activeagent"
-            target="_blank"
-            rel="noopener noreferrer"
-            className={`flex items-center space-x-2 text-sm transition-colors ${
-              darkMode
-                ? 'text-gray-400 hover:text-red-400'
-                : 'text-gray-600 hover:text-red-600'
-            }`}
-          >
-            <span style={{ fontFamily: TYPOGRAPHY.mono, fontSize: '12px', width: '20px', textAlign: 'center' }}>{ICONS.nav.github}</span>
-            <span>GitHub</span>
-          </a>
-        </div>
-      </div>
-
-      {/* Version */}
-      <div className="px-6 py-4 border-t" style={{ borderColor: darkMode ? '#2a2a2a' : '#e5e7eb' }}>
-        <div className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-          Active Agent {gemVersion ? `v${gemVersion}` : ''}
-        </div>
-      </div>
     </aside>
   );
 }

@@ -4,8 +4,15 @@ import { useTimeWindow } from '../../contexts/TimeWindowContext';
 import TimeWindowSelector from './TimeWindowSelector';
 import InteractionStream from './InteractionStream';
 import InteractionsView from './InteractionsView';
-import { dashboardPath, dashboardRelativePath } from '../../utils/dashboardPath';
+import { dashboardPath, dashboardRelativePath, navigateTo } from '../../utils/dashboardPath';
+import { MONO, PageHeader } from './primitives';
 import ReplayLink from './replay/ReplayLink';
+
+// The detail pane's breadcrumb bar: each level a plain button, the current
+// one in the primary text colour, mono slashes between them.
+const crumbStyle = { background: 'none', border: 0, padding: 0, font: 'inherit', color: 'var(--color-text-secondary)', cursor: 'pointer' };
+const crumbSeparator = { fontFamily: MONO, color: 'var(--color-text-muted)' };
+const crumbCurrent = { color: 'var(--color-text-primary)' };
 
 export default function AgentInteractions({ agent, onBack }) {
   const { timeWindow } = useTimeWindow();
@@ -300,20 +307,15 @@ export default function AgentInteractions({ agent, onBack }) {
       <div className="w-80 border-r border-gray-200 flex flex-col bg-white">
         {/* Header */}
         <div className="p-4 border-b border-gray-200">
-          <div className="flex items-center space-x-3 mb-4">
-            <button
-              onClick={onBack}
-              className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-            </button>
-            <div>
-              <h2 className="font-semibold text-gray-900">Agent Interactions</h2>
-              <p className="text-sm text-gray-500">{agent.name}</p>
-            </div>
-          </div>
+          <PageHeader
+            titleAs="h2"
+            crumbs={[
+              { label: 'Agents', href: dashboardPath('/agents'), onClick: () => navigateTo('/agents') },
+              { label: agent.name, onClick: onBack },
+            ]}
+            title="Interactions"
+            style={{ marginBottom: 16 }}
+          />
 
           {/* Shared dashboard time window */}
           <div className="mb-2">
@@ -480,35 +482,35 @@ export default function AgentInteractions({ agent, onBack }) {
         {/* Breadcrumbs — each level links back up, mirroring the URL
             (/interactions, /interactions/runs/:id, /interactions/sessions,
             /interactions/sessions/:id). */}
-        <div className="px-4 py-2 bg-white border-b border-gray-100 flex items-center gap-1.5 text-xs text-gray-500">
-          <button onClick={onBack} className="hover:text-gray-900 hover:underline transition-colors">
+        <div className="px-4 py-2 border-b flex items-center gap-1.5 text-xs" style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border-light)', color: 'var(--color-text-secondary)' }}>
+          <button type="button" onClick={onBack} className="hover:underline transition-colors" style={crumbStyle}>
             {agent.name}
           </button>
-          <span className="text-gray-300">/</span>
+          <span aria-hidden="true" style={crumbSeparator}>/</span>
           {detailMode === 'all' || selectedRun ? (
             <>
-              <button onClick={clearRunSelection} className="hover:text-gray-900 hover:underline transition-colors">
+              <button type="button" onClick={clearRunSelection} className="hover:underline transition-colors" style={crumbStyle}>
                 Interactions
               </button>
-              <span className="text-gray-300">/</span>
+              <span aria-hidden="true" style={crumbSeparator}>/</span>
               {detailMode === 'all' ? (
                 selectedSession ? (
                   <>
-                    <button onClick={() => selectSession(null)} className="hover:text-gray-900 hover:underline transition-colors">
+                    <button type="button" onClick={() => selectSession(null)} className="hover:underline transition-colors" style={crumbStyle}>
                       Sessions
                     </button>
-                    <span className="text-gray-300">/</span>
-                    <span className="text-gray-900 font-medium">{selectedSessionName}</span>
+                    <span aria-hidden="true" style={crumbSeparator}>/</span>
+                    <span className="font-medium" style={crumbCurrent}>{selectedSessionName}</span>
                   </>
                 ) : (
-                  <span className="text-gray-900 font-medium">Sessions</span>
+                  <span className="font-medium" style={crumbCurrent}>Sessions</span>
                 )
               ) : (
-                <span className="text-gray-900 font-medium">Run #{selectedRun.id}</span>
+                <span className="font-medium" style={crumbCurrent}>Run #{selectedRun.id}</span>
               )}
             </>
           ) : (
-            <span className="text-gray-900 font-medium">Interactions</span>
+            <span className="font-medium" style={crumbCurrent}>Interactions</span>
           )}
         </div>
 

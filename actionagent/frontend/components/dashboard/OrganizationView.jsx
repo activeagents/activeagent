@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useTheme } from '../../contexts/ThemeContext';
 import { startCheckout } from '../../utils/checkout';
 import ProviderKeysCard, { useProviderKeyEditor } from './ProviderKeysCard';
+import { PageHeader } from './primitives';
 import { fetchTelemetryKey } from '../../utils/telemetryKey.mjs';
 
 const formatNumber = (num) => {
@@ -134,22 +135,14 @@ export default function OrganizationView({ account, user, subscription, agentCou
   const features = planFeatures[planName.toLowerCase()] || planFeatures.free;
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
-      <div>
-        <h2 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-          Organization
-        </h2>
-        <p className={`mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-          Manage your workspace, team, and billing
-        </p>
-      </div>
+    <div className="space-y-6">
+      <PageHeader title="Organization" />
 
       {/* Account Overview */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Workspace Info */}
         <div className="border rounded-lg p-6" style={cardStyle}>
-          <h3 className={`text-lg font-semibold mb-4 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+          <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--color-text-primary)' }}>
             Workspace
           </h3>
           <div className="space-y-3">
@@ -177,7 +170,7 @@ export default function OrganizationView({ account, user, subscription, agentCou
         {/* Current Plan */}
         <div className="border rounded-lg p-6" style={cardStyle}>
           <div className="flex items-center justify-between mb-4">
-            <h3 className={`text-lg font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+            <h3 className="text-lg font-semibold" style={{ color: 'var(--color-text-primary)' }}>
               Current Plan
             </h3>
             <span className="px-3 py-1 bg-red-100 text-red-700 rounded-full text-sm font-medium">
@@ -230,7 +223,7 @@ export default function OrganizationView({ account, user, subscription, agentCou
       {/* Team Members */}
       <div className="border rounded-lg p-6" style={cardStyle}>
         <div className="flex items-center justify-between mb-4">
-          <h3 className={`text-lg font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+          <h3 className="text-lg font-semibold" style={{ color: 'var(--color-text-primary)' }}>
             Team Members
           </h3>
           {inviteUrl && (
@@ -305,7 +298,7 @@ export default function OrganizationView({ account, user, subscription, agentCou
 
       {/* Usage Stats */}
       <div className="border rounded-lg p-6" style={cardStyle}>
-        <h3 className={`text-lg font-semibold mb-4 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+        <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--color-text-primary)' }}>
           Usage This Month
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -335,7 +328,7 @@ export default function OrganizationView({ account, user, subscription, agentCou
 
       {/* Telemetry Ingestion */}
       <div className="border rounded-lg p-6" style={cardStyle}>
-        <h3 className={`text-lg font-semibold mb-1 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+        <h3 className="text-lg font-semibold mb-1" style={{ color: 'var(--color-text-primary)' }}>
           Telemetry
         </h3>
         <p className={`text-sm mb-4 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>

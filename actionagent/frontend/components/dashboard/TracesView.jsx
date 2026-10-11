@@ -4,6 +4,7 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
 import { TYPOGRAPHY } from '../../utils/designTokens';
+import { PageHeader, SegmentedControl } from './primitives';
 import { useTimeWindow } from '../../contexts/TimeWindowContext';
 import AgentStatCard from './AgentStatCard';
 import TimeWindowSelector from './TimeWindowSelector';
@@ -86,6 +87,10 @@ const buildThroughputData = (traces, agents, windowMinutes, bucketSeconds = 60) 
   }
   return data;
 };
+
+// The ways the loaded traces can be read, in the header's mode toggle.
+const VIEW_MODES = ['timeline', 'agents', 'actions', 'tools', 'spans']
+  .map((mode) => ({ value: mode, label: mode[0].toUpperCase() + mode.slice(1) }));
 
 // agentId scopes the view to one agent's traces (per-agent embed: same
 // component, different UX context); embedded hides the page title.
@@ -524,43 +529,34 @@ export default function TracesView({ agentId = null, embedded = false }) {
 
   const emptyState = traces.length === 0;
 
+  // One header for both themes: the title (the agent page supplies its own
+  // when embedded), the window or bucket in view, the view mode and the
+  // shared time window.
+  const header = (
+    <PageHeader
+      title={embedded ? null : 'Traces'}
+      meta={selectedTimeBucket !== null
+        ? `Viewing ${throughputData[selectedTimeBucket]?.time} · ${filteredTraces.length} requests`
+        : `Last ${timeWindow.label}`}
+      actions={(
+        <>
+          <SegmentedControl options={VIEW_MODES} value={viewMode} onChange={setViewMode} />
+          <TimeWindowSelector />
+        </>
+      )}
+    />
+  );
+
   // Dark mode uses lander CSS classes, light mode uses Tailwind
   if (darkMode) {
     return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {header}
       <div className="preview-content" style={{ borderRadius: '12px', overflow: 'hidden', minHeight: 'calc(100vh - 200px)' }}>
-        {/* Header inside dark container */}
+        {/* Filters inside dark container */}
         <div style={{ padding: '24px 24px 0 24px', borderBottom: '1px solid rgba(255,255,255,0.1)', marginBottom: '16px', paddingBottom: '16px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div>
-              {!embedded && <h1 style={{ fontSize: '24px', fontWeight: 'bold', color: 'white', margin: 0 }}>Traces</h1>}
-              <p style={{ fontSize: '14px', color: 'rgba(255,255,255,0.6)', marginTop: '4px' }}>
-                {selectedTimeBucket !== null
-                  ? `Viewing ${throughputData[selectedTimeBucket]?.time} • ${filteredTraces.length} requests`
-                  : `Last ${timeWindow.label} • Click timeline to drill down`}
-              </p>
-            </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              {/* View Mode Toggle */}
-              <div style={{ display: 'flex', background: 'rgba(255,255,255,0.1)', borderRadius: '8px', padding: '2px' }}>
-                {['timeline', 'agents', 'actions', 'tools', 'spans'].map((mode) => (
-                  <button
-                    key={mode}
-                    onClick={() => setViewMode(mode)}
-                    style={{
-                      padding: '6px 12px',
-                      background: viewMode === mode ? '#ef4444' : 'transparent',
-                      color: 'white',
-                      borderRadius: '6px',
-                      border: 'none',
-                      fontSize: '13px',
-                      cursor: 'pointer',
-                      textTransform: 'capitalize',
-                    }}
-                  >
-                    {mode}
-                  </button>
-                ))}
-              </div>
               {!agentId && (
               <select
                 value={filter.agent}
@@ -928,41 +924,19 @@ export default function TracesView({ agentId = null, embedded = false }) {
           </div>
         )}
       </div>
+      </div>
     );
   }
 
   // Light mode - Tailwind classes
   return (
-    <div className="space-y-6">
-      {/* Header */}
+    <div className="space-y-4">
+      {header}
+      {/* Filters */}
       <div className="flex items-center justify-between flex-wrap gap-y-2">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Traces</h1>
-          <p className="text-sm text-gray-500">
-            {selectedTimeBucket !== null
-              ? `Viewing ${throughputData[selectedTimeBucket]?.time} • ${filteredTraces.length} requests`
-              : `Last ${timeWindow.label} • Click timeline to drill down`}
-          </p>
-        </div>
         {/* Wraps instead of forcing horizontal page overflow; long
             agent#action option names cap the selects, not the layout. */}
         <div className="flex items-center space-x-3 flex-wrap gap-y-2 min-w-0">
-          <TimeWindowSelector />
-
-          {/* View Mode Toggle */}
-          <div className="flex bg-gray-100 rounded-lg p-1">
-            {['timeline', 'agents', 'actions', 'tools', 'spans'].map((mode) => (
-              <button
-                key={mode}
-                onClick={() => setViewMode(mode)}
-                className={`px-3 py-1 text-sm rounded-md transition-colors capitalize ${
-                  viewMode === mode ? 'bg-white shadow text-gray-900' : 'text-gray-600'
-                }`}
-              >
-                {mode}
-              </button>
-            ))}
-          </div>
           <select
             value={filter.agent}
             onChange={(e) => setFilter({ ...filter, agent: e.target.value, action: 'all' })}
