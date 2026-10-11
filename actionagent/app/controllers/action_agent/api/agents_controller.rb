@@ -80,7 +80,7 @@ module ActionAgent
       # GET /api/agents/:id
       def show
         render json: {
-          agent: agent_json(@agent, include_details: true),
+          agent: agent_with_stats(@agent),
           versions: @agent.agent_versions.recent.limit(10).map { |v| version_json(v) },
           recent_runs: @agent.agent_runs.with_attachments.recent.limit(5).map(&:summary)
         }
@@ -91,7 +91,7 @@ module ActionAgent
         @agent = owner_agents.build(agent_params)
 
         if @agent.save
-          render json: { agent: agent_json(@agent, include_details: true) }, status: :created
+          render json: { agent: agent_with_stats(@agent) }, status: :created
         else
           render json: agent_errors_json(@agent), status: :unprocessable_entity
         end
@@ -248,7 +248,7 @@ module ActionAgent
         new_agent.status = :draft
         new_agent.save!
 
-        render json: { agent: agent_json(new_agent, include_details: true) }, status: :created
+        render json: { agent: agent_with_stats(new_agent) }, status: :created
       end
 
       # GET /api/agents/:id/export
@@ -420,6 +420,13 @@ module ActionAgent
       end
 
       private
+
+      # The detail shape plus the scorecard the list shows, so the agent page
+      # draws its stats strip however it was reached: opened, created,
+      # duplicated or deep-linked.
+      def agent_with_stats(agent)
+        agent_json(agent, include_details: true).merge(stats: AgentScorecard.for_agents([ agent ])[agent.id])
+      end
 
       # Observed agents were discovered from reported telemetry; the platform
       # has no configuration to run them with (a placeholder model, no

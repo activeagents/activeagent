@@ -9,6 +9,7 @@ import { sessionReplayPath } from '../../utils/dashboardRoutes.mjs';
 import { attachmentKind } from '../../utils/attachments';
 import useSessionCapture from '../../hooks/useSessionCapture';
 import { Badge, Button } from './AgentEditor';
+import { PageHeader } from './primitives';
 import InteractionStream, { roleBubble, streamPreStyle, AttachmentChips } from './InteractionStream';
 import Markdown from './Markdown';
 import InputRequestCard from './InputRequestCard';
@@ -852,7 +853,9 @@ export default function AgentRunner({ agent, onBack, recorderUrl = null }) {
   const preStyle = streamPreStyle(darkMode);
 
   return (
-    <div className="grid grid-cols-3 gap-6 h-full">
+    <div className="flex flex-col gap-4 h-full min-w-0">
+      <PageHeader crumbs={[{ label: agent.name, onClick: onBack, testId: 'runner-back' }]} title="Run" />
+    <div className="grid grid-cols-3 gap-6 flex-1 min-h-0">
       {/* Workbench */}
       <div className="col-span-2 flex flex-col gap-4 min-w-0">
         {/* Plan limit banner */}
@@ -924,9 +927,6 @@ export default function AgentRunner({ agent, onBack, recorderUrl = null }) {
             </select>
             <Button testId="runner-new-conversation" variant="secondary" size="sm" colors={colors} onClick={handleNewConversation} disabled={isRunning} title="Start an empty conversation for this action">
               + New conversation
-            </Button>
-            <Button testId="runner-back" variant="secondary" size="sm" colors={colors} onClick={onBack}>
-              ← Back to editor
             </Button>
           </div>
         </div>
@@ -1358,6 +1358,7 @@ export default function AgentRunner({ agent, onBack, recorderUrl = null }) {
           </div>
         </div>
       </div>
+    </div>
     </div>
   );
 }

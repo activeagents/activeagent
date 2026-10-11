@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { MONO, Card, SegmentedControl } from './primitives';
+import { MONO, Card, PageHeader, SegmentedControl } from './primitives';
 import { fmtK, fmtMs, fmtUSD, fmtCost, fmtDelta } from '../../utils/format';
 import {
   CHART_HEIGHT, maxOf, niceMax, countMax, tickDecimals, ticksFor, linePoints, areaPoints, sparklinePoints, stackBuckets,
@@ -264,7 +264,7 @@ export default function MetricsView() {
   if (loadError || !m) {
     return (
       <div>
-        <h1 style={{ margin: 0, fontSize: 24, fontWeight: 700, letterSpacing: '-0.01em', color: INK }}>Metrics</h1>
+        <PageHeader title="Metrics" />
         <div style={{ marginTop: 16, padding: '12px 16px', background: 'var(--color-error-soft)', borderRadius: 8, color: 'var(--color-error-text)', fontSize: 14 }}>
           Failed to load metrics{loadError ? `: ${loadError}` : ''}
         </div>
@@ -302,36 +302,33 @@ export function MetricsPage({ m, view, railAgents = m.agents, range, agent, agen
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16, width: '100%', maxWidth: 1600, boxSizing: 'border-box', color: INK, fontSize: 13 }}>
-      {/* Page header */}
-      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 16, flexWrap: 'wrap' }}>
-        <div style={{ flex: 1, minWidth: 240 }}>
-          <h1 style={{ margin: 0, fontSize: 24, fontWeight: 700, letterSpacing: '-0.01em' }}>Metrics</h1>
-          <p style={{ margin: '4px 0 0', fontSize: 14, color: 'var(--color-text-secondary)' }}>
-            Requests, latency, errors, tokens and cost across every agent — {R.title}{agent ? ` · ${agent}` : ''}
-          </p>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-          <select
-            value={agent}
-            onChange={(event) => onAgent(event.target.value)}
-            aria-label="Filter by agent"
-            style={{ padding: '6px 10px', borderRadius: 8, fontSize: 13, fontFamily: 'inherit', border: '1px solid var(--color-border-strong)', background: 'var(--color-card)', color: INK, cursor: 'pointer' }}
-          >
-            <option value="">All agents</option>
-            {agentOptions.map((name) => <option key={name} value={name}>{name}</option>)}
-          </select>
-          {m.environment && (
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 10px', borderRadius: 8, border: '1px solid var(--color-border)', fontFamily: MONO, fontSize: 11, color: 'var(--color-text-cell)', background: 'var(--color-card)' }}>
-              <span style={{ color: 'var(--color-text-muted)' }}>env</span>{m.environment}
+      <PageHeader
+        title="Metrics"
+        meta={`${R.title}${agent ? ` · ${agent}` : ''}`}
+        actions={(
+          <>
+            <select
+              value={agent}
+              onChange={(event) => onAgent(event.target.value)}
+              aria-label="Filter by agent"
+              style={{ padding: '6px 10px', borderRadius: 8, fontSize: 13, fontFamily: 'inherit', border: '1px solid var(--color-border-strong)', background: 'var(--color-card)', color: INK, cursor: 'pointer' }}
+            >
+              <option value="">All agents</option>
+              {agentOptions.map((name) => <option key={name} value={name}>{name}</option>)}
+            </select>
+            {m.environment && (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 10px', borderRadius: 8, border: '1px solid var(--color-border)', fontFamily: MONO, fontSize: 11, color: 'var(--color-text-cell)', background: 'var(--color-card)' }}>
+                <span style={{ color: 'var(--color-text-muted)' }}>env</span>{m.environment}
+              </span>
+            )}
+            <SegmentedControl options={RANGE_OPTIONS} value={range} onChange={onRange} />
+            <span title={pending ? 'loading…' : `refreshes every ${REFRESH_INTERVAL_MS / 1000}s`} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: MONO, fontSize: 11, color: 'var(--color-text-muted)' }}>
+              <span style={{ width: 7, height: 7, borderRadius: '50%', background: pending ? 'var(--color-text-muted)' : 'var(--color-success)' }} />
+              live · {R.bucket} buckets
             </span>
-          )}
-          <SegmentedControl options={RANGE_OPTIONS} value={range} onChange={onRange} />
-          <span title={pending ? 'loading…' : `refreshes every ${REFRESH_INTERVAL_MS / 1000}s`} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: MONO, fontSize: 11, color: 'var(--color-text-muted)' }}>
-            <span style={{ width: 7, height: 7, borderRadius: '50%', background: pending ? 'var(--color-text-muted)' : 'var(--color-success)' }} />
-            live · {R.bucket} buckets
-          </span>
-        </div>
-      </div>
+          </>
+        )}
+      />
 
       {isEmpty ? (
         <Card style={{ padding: '40px 24px', textAlign: 'center', fontSize: 14, color: 'var(--color-text-secondary)' }}>

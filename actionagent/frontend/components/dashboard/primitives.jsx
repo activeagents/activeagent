@@ -92,6 +92,7 @@ export function Chip({ selected = false, onClick, children, square = false, mono
       data-testid={testId}
       onClick={onClick}
       title={title}
+      aria-pressed={selected}
       style={{
         padding: '4px 10px', borderRadius: square ? 6 : 999, cursor: onClick ? 'pointer' : 'default',
         fontFamily: mono ? MONO : 'inherit', fontSize: mono ? 11 : 12, fontWeight: mono ? 400 : 500,
@@ -134,7 +135,8 @@ export function SegmentedControl({ options, value, onChange, style }) {
 }
 
 // primary = accent fill; secondary = bordered; danger = red text; ghost = text only.
-export function Button({ variant = 'secondary', size = 'md', children, onClick, disabled = false, title, type = 'button', style, testId }) {
+// The recipe is shared with Menu's trigger, so the two line up in a toolbar.
+const buttonStyle = (variant, size, disabled) => {
   const pad = size === 'sm' ? '6px 12px' : '8px 14px';
   const base = { padding: pad, borderRadius: 8, cursor: disabled ? 'not-allowed' : 'pointer', fontSize: 13, fontWeight: 500, opacity: disabled ? 0.5 : 1, whiteSpace: 'nowrap', fontFamily: 'inherit' };
   const variants = {
@@ -143,8 +145,12 @@ export function Button({ variant = 'secondary', size = 'md', children, onClick, 
     danger: { background: 'transparent', color: 'var(--color-error)', border: '1px solid transparent' },
     ghost: { background: 'transparent', color: 'var(--color-text-secondary)', border: '1px solid transparent' },
   };
+  return { ...base, ...(variants[variant] || variants.secondary) };
+};
+
+export function Button({ variant = 'secondary', size = 'md', children, onClick, disabled = false, title, type = 'button', style, testId }) {
   return (
-    <button type={type} data-testid={testId} onClick={onClick} disabled={disabled} title={title} style={{ ...base, ...(variants[variant] || variants.secondary), ...style }}>
+    <button type={type} data-testid={testId} onClick={onClick} disabled={disabled} title={title} style={{ ...buttonStyle(variant, size, disabled), ...style }}>
       {children}
     </button>
   );
@@ -229,4 +235,232 @@ export function Empty({ children, style }) {
       {children}
     </div>
   );
+}
+
+// ---------------------------------------------------------------------------
+// Page chrome every view shares: the header, the overflow menu, tabs, the
+// table styles and the footnote under a table.
+
+// One crumb of the parent trail: an <a> when it has an href (onClick, when
+// given, takes the click so the app can route it), else a button.
+function Crumb({ label, onClick, href, testId }) {
+  const style = { fontSize: 13, color: 'var(--color-text-secondary)', background: 'none', border: 0, padding: 0, fontFamily: 'inherit', cursor: 'pointer', textDecoration: 'none' };
+  if (href) {
+    return (
+      <a href={href} data-testid={testId} onClick={(event) => { if (onClick) { event.preventDefault(); onClick(event); } }} style={style}>
+        {label}
+      </a>
+    );
+  }
+  return <button type="button" data-testid={testId} onClick={onClick} style={style}>{label}</button>;
+}
+
+// The one page header. `crumbs` is the parent trail on the line above; the
+// title row holds an optional accent glyph, the `count` of what the page
+// lists, a mono `meta` line and `badges`, with `actions` pushed right. No
+// subtitle by design: a page says what it is in its title and its data.
+// `title` null renders only the crumbs and the actions row, for embedded
+// hosts. Hook-free, so static renders stay simple.
+export function PageHeader({ title, titleAs: Heading = 'h1', glyph, count, meta, badges, crumbs = [], actions, testId, style }) {
+  const hasTitle = title != null;
+  const hasRow = hasTitle || count != null || meta != null || badges != null || actions != null;
+  return (
+    <div data-testid={testId} style={{ display: 'flex', flexDirection: 'column', gap: 6, ...style }}>
+      {crumbs.length > 0 && (
+        <nav aria-label="Breadcrumb" style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
+          {crumbs.map((crumb, index) => (
+            <React.Fragment key={`${crumb.label}-${index}`}>
+              <Crumb {...crumb} />
+              <span aria-hidden="true" style={{ fontFamily: MONO, fontSize: 13, color: 'var(--color-text-muted)' }}>/</span>
+            </React.Fragment>
+          ))}
+        </nav>
+      )}
+      {hasRow && (
+        <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
+          {hasTitle && (
+            <Heading style={{ margin: 0, fontSize: 20, fontWeight: 600, letterSpacing: '-0.01em', lineHeight: 1.2, color: 'var(--color-text-primary)', display: 'inline-flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+              {glyph != null && <span aria-hidden="true" style={{ fontFamily: MONO, color: 'var(--color-accent-ui)' }}>{glyph}</span>}
+              {title}
+            </Heading>
+          )}
+          {count != null && <span style={{ fontFamily: MONO, fontSize: 13, color: 'var(--color-text-secondary)' }}>{count}</span>}
+          {meta != null && <span style={{ fontFamily: MONO, fontSize: 12, color: 'var(--color-text-muted)' }}>{meta}</span>}
+          {badges}
+          {actions != null && (
+            <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>{actions}</div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// One row of a Menu: a button, or an <a> when the item navigates (`onClick`
+// runs first, and does not take the click). Danger reads in the error colour.
+function MenuItem({ label, onClick, href, tone, disabled = false, testId, onSelect }) {
+  const style = {
+    display: 'block', width: '100%', boxSizing: 'border-box', textAlign: 'left', padding: '7px 10px', borderRadius: 5,
+    fontSize: 13, fontFamily: 'inherit', background: 'transparent', border: 0, textDecoration: 'none', whiteSpace: 'nowrap',
+    color: tone === 'danger' ? 'var(--color-error)' : 'var(--color-text-primary)',
+    cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.5 : 1,
+  };
+  const select = (event) => {
+    if (disabled) { event.preventDefault(); return; }
+    if (onClick) onClick(event);
+    onSelect();
+  };
+  if (href && !disabled) {
+    return <a role="menuitem" href={href} className="aa-menu-item" data-testid={testId} onClick={select} style={style}>{label}</a>;
+  }
+  return (
+    <button type="button" role="menuitem" className="aa-menu-item" data-testid={testId} disabled={disabled} onClick={select} style={style}>
+      {label}
+    </button>
+  );
+}
+
+// A trigger that opens a popover of actions: `label`, or `glyph` alone with
+// `ariaLabel` when there is no label. Closes on item click, Escape and a
+// click outside, and focus returns to the trigger when an item or Escape
+// closed it. `style` lands on the wrapper, `triggerStyle` on the trigger
+// button itself (a split control squares its corners). The popover is the one
+// place a shadow is sanctioned, and it still carries a border.
+export function Menu({ label, glyph = '...', ariaLabel, items = [], align = 'right', variant = 'secondary', size = 'md', style, triggerStyle, testId }) {
+  const [open, setOpen] = React.useState(false);
+  const rootRef = React.useRef(null);
+  const triggerRef = React.useRef(null);
+
+  React.useEffect(() => {
+    if (!open) return undefined;
+    const onMouseDown = (event) => { if (rootRef.current && !rootRef.current.contains(event.target)) setOpen(false); };
+    const onKeyDown = (event) => {
+      if (event.key !== 'Escape') return;
+      // Focus returns to the trigger only when it was inside the menu.
+      if (rootRef.current?.contains(document.activeElement)) triggerRef.current?.focus();
+      setOpen(false);
+    };
+    document.addEventListener('mousedown', onMouseDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', onMouseDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [open]);
+
+  const iconOnly = label == null;
+  return (
+    <div ref={rootRef} style={{ position: 'relative', display: 'inline-flex', ...style }}>
+      <button
+        ref={triggerRef}
+        type="button"
+        data-testid={testId}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label={iconOnly ? ariaLabel : undefined}
+        title={iconOnly ? ariaLabel : undefined}
+        onClick={() => setOpen((value) => !value)}
+        style={{ ...buttonStyle(variant, size, false), ...(iconOnly ? { fontFamily: MONO, padding: size === 'sm' ? '6px 8px' : '8px 10px' } : {}), ...triggerStyle }}
+      >
+        {iconOnly ? glyph : label}
+      </button>
+      {open && (
+        <div
+          role="menu"
+          style={{
+            position: 'absolute', top: 'calc(100% + 4px)', [align === 'left' ? 'left' : 'right']: 0, zIndex: 30, minWidth: 160, padding: 4,
+            background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 8, boxShadow: 'var(--shadow-popover)',
+          }}
+        >
+          {items.map((item, index) => (
+            <MenuItem key={item.testId || `${item.label}-${index}`} {...item} onSelect={() => { setOpen(false); triggerRef.current?.focus(); }} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// A row of tabs; the active one is underlined in the accent, and a `count`
+// sits beside the label in mono. The active tab is the one in the Tab order;
+// the arrow keys, Home and End move between the tabs and select as they go.
+// Hook-free.
+export function Tabs({ tabs, active, onChange, ariaLabel, style }) {
+  const enabled = tabs.filter((tab) => !tab.disabled);
+  const focusable = tabs.some((tab) => tab.id === active) ? active : enabled[0]?.id;
+  const onKeyDown = (event) => {
+    const index = enabled.findIndex((tab) => tab.id === active);
+    const next = event.key === 'ArrowRight' ? enabled[(index + 1) % enabled.length]
+      : event.key === 'ArrowLeft' ? enabled[(index - 1 + enabled.length) % enabled.length]
+        : event.key === 'Home' ? enabled[0]
+          : event.key === 'End' ? enabled[enabled.length - 1]
+            : null;
+    if (!next || next.id === active) return;
+    event.preventDefault();
+    onChange(next.id);
+    event.currentTarget.parentElement?.querySelector(`[data-tab-id="${next.id}"]`)?.focus();
+  };
+  return (
+    <div role="tablist" aria-label={ariaLabel} style={{ display: 'flex', alignItems: 'stretch', flexWrap: 'wrap', gap: 2, borderBottom: '1px solid var(--color-border)', ...style }}>
+      {tabs.map((tab) => {
+        const selected = tab.id === active;
+        return (
+          <button
+            key={tab.id}
+            type="button"
+            role="tab"
+            aria-selected={selected}
+            tabIndex={tab.id === focusable ? 0 : -1}
+            data-tab-id={tab.id}
+            data-testid={tab.testId}
+            disabled={tab.disabled}
+            onClick={() => onChange(tab.id)}
+            onKeyDown={onKeyDown}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6, height: 40, padding: '0 14px', marginBottom: -1,
+              background: 'transparent', border: 0, borderBottom: `2px solid ${selected ? 'var(--color-accent-ui)' : 'transparent'}`,
+              fontFamily: 'inherit', fontSize: 13, fontWeight: 500, whiteSpace: 'nowrap',
+              color: selected ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
+              cursor: tab.disabled ? 'not-allowed' : 'pointer', opacity: tab.disabled ? 0.5 : 1,
+            }}
+          >
+            {tab.label}
+            {tab.count != null && <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 400, color: 'var(--color-text-secondary)' }}>{tab.count}</span>}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// A surface that stays white in both themes (the builder's card, the
+// template library, the sandbox bar, the interactions pane) keeps light ink:
+// set these on it so the text and border tokens inside resolve to the light
+// values whatever the theme. The colour itself is set too, since the root's
+// colour inherits as the value it resolved to there, not as the variable.
+export const LIGHT_INK = {
+  color: '#111827',
+  '--color-text-primary': '#111827', '--color-text-cell': '#4b5563', '--color-text-secondary': '#6b7280',
+  '--color-text-muted': '#9ca3af', '--color-text-dim': '#8a8a8a',
+  '--color-border': '#e5e7eb', '--color-border-light': '#f3f4f6', '--color-border-strong': '#d1d5db',
+};
+
+// Inline styles for a data table: a bordered frame, mono uppercase headers,
+// bottom-border rows. Give each <tr> the class `aa-row` for the hover tint
+// (tokens.css), since an inline background would win over :hover.
+export const TABLE = {
+  frame: { overflowX: 'auto', border: '1px solid var(--color-border)', borderRadius: 12 },
+  table: { width: '100%', borderCollapse: 'collapse' },
+  th: {
+    padding: '10px 14px', textAlign: 'left', fontFamily: MONO, fontSize: 11, fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.04em',
+    color: 'var(--color-text-secondary)', borderBottom: '1px solid var(--color-border)', whiteSpace: 'nowrap',
+  },
+  td: { padding: '12px 14px', borderBottom: '1px solid var(--color-border-light)', verticalAlign: 'middle' },
+  mono: { fontFamily: MONO, fontSize: 12 },
+  right: { textAlign: 'right' },
+};
+
+// The one-line footnote under a table, e.g. "Click a row to open it."
+export function Hint({ children, style }) {
+  return <p style={{ margin: 0, fontSize: 12, color: 'var(--color-text-secondary)', ...style }}>{children}</p>;
 }

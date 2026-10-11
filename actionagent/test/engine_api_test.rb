@@ -43,9 +43,31 @@ class DashboardEngineApiTest < ActionDispatch::IntegrationTest
     }
 
     assert_response :created
-    agent = ActionAgent::Agent.find(JSON.parse(response.body).dig("agent", "id"))
+    body = JSON.parse(response.body)
+    agent = ActionAgent::Agent.find(body.dig("agent", "id"))
     assert_equal "researcher", agent.slug
     assert_equal 1, agent.agent_versions.count
+    assert body["agent"].key?("stats"), "a fresh agent carries its (empty) scorecard, so the page draws its strip"
+    assert_equal 0, body.dig("agent", "stats", "runs")
+  end
+
+  test "an agent is shown and duplicated with its scorecard" do
+    agent = create_agent(name: "Support")
+    3.times { agent.agent_runs.create!(trace_id: SecureRandom.uuid, status: :complete) }
+    agent.agent_runs.create!(trace_id: SecureRandom.uuid, status: :failed)
+
+    get "/activeagents/api/agents/#{agent.id}"
+    assert_response :success
+    stats = JSON.parse(response.body).dig("agent", "stats")
+    assert_equal 4, stats["runs"]
+    assert_equal 25.0, stats["error_rate"]
+
+    post "/activeagents/api/agents/#{agent.id}/duplicate"
+    assert_response :created
+    copy = JSON.parse(response.body)["agent"]
+    refute_equal agent.id, copy["id"]
+    assert_equal 0, copy.dig("stats", "runs"), "the copy starts with no runs of its own"
+    assert_nil copy.dig("stats", "error_rate")
   end
 
   test "a rejected agent reports its errors per field as well as in summary" do

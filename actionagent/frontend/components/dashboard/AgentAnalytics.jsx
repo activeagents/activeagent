@@ -17,10 +17,10 @@ const TABS = [
   { id: 'interactions', label: 'Interactions' }
 ];
 
-// embedded drops the page header and the nested tab bar: when this renders
-// inside the agent detail page's Metrics tab, that page already owns the
-// heading and the tab row, and Traces/Interactions are siblings there.
-export default function AgentAnalytics({ agent, onBack, embedded = false }) {
+// This renders inside the agent page's Metrics section, which owns the
+// heading; `embedded` also drops the nested tab bar there, where Traces and
+// Interactions are siblings of this view.
+export default function AgentAnalytics({ agent, embedded = false }) {
   // Embedded into the agent page, this renders inside a themed shell, so it
   // resolves the same palette rather than staying light-only.
   const { darkMode } = useTheme();
@@ -92,44 +92,15 @@ export default function AgentAnalytics({ agent, onBack, embedded = false }) {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      {embedded ? (
-        <div className="flex items-center justify-end gap-2">
-          {timeWindow.minutes < 1440 && (
-            <span className="text-xs" style={{ color: colors.textMuted }} title="This view aggregates by day">
-              showing 1 day
-            </span>
-          )}
-          <TimeWindowSelector />
-        </div>
-      ) : (
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <button
-              onClick={onBack}
-              className="p-2 transition-colors"
-              style={{ color: colors.textMuted }}
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-            </button>
-            <div>
-              <h1 className="text-2xl font-bold" style={{ color: colors.textPrimary }}>{agent.name} Analytics</h1>
-              <p className="text-sm" style={{ color: colors.textSecondary }}>Performance metrics and usage data</p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            {timeWindow.minutes < 1440 && (
-              <span className="text-xs" style={{ color: colors.textMuted }} title="This view aggregates by day">
-                showing 1 day
-              </span>
-            )}
-            <TimeWindowSelector />
-          </div>
-        </div>
-      )}
+      {/* The host page owns the heading; this row holds the window controls. */}
+      <div className="flex items-center justify-end gap-2">
+        {timeWindow.minutes < 1440 && (
+          <span className="text-xs" style={{ color: colors.textMuted }} title="This view aggregates by day">
+            showing 1 day
+          </span>
+        )}
+        <TimeWindowSelector />
+      </div>
 
       {/* Shared-view tabs: Traces and Interactions are the same components
           as the global observability views, scoped to this agent. */}

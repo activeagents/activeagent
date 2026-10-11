@@ -227,29 +227,28 @@ test('mount paths join and strip the way dashboardPath and dashboardRelativePath
   assert.equal(mountRelativePath('', '/traces'), '/traces');
 });
 
+// Two sections, neither with a heading: every destination, then Settings,
+// which the sidebar pins to the bottom. The views that lost their own item
+// (builder, catalogs, organization, exploration, the agent pages) keep their
+// routes and are listed under the item shown as current for them.
 const EXPECTED_NAV = [
-  ['agents', null, [
-    ['assistant', 'Ask ActiveAgents', { glyph: '>' }],
-    ['list', 'Agents', { icon: 'agents', badge: 'agentCount' }],
-    ['builder', 'New Agent', { icon: 'newAgent' }],
+  ['main', null, [
+    ['assistant', 'Ask', { glyph: '?' }],
+    ['list', 'Agents', { icon: 'agents', also: ['builder', 'editor', 'runner', 'agent-analytics', 'history'] }],
     ['sandbox', 'Run Agents', { icon: 'demo' }],
-    ['projects', 'Projects', { glyph: '</>' }],
-  ]],
-  ['observability', 'Observability', [
+    ['projects', 'Projects', { glyph: '</>', also: ['exploration'] }],
     ['traces', 'Traces', { icon: 'traces' }],
     ['interactions', 'Interactions', {
       icon: 'interactions', badge: 'pendingInputCount', badgeTone: 'attention', badgeTitle: 'requests waiting for an answer',
     }],
+    ['sessions', 'Sessions', { icon: 'replay', also: ['replay'] }],
     ['tools', 'Tools', { icon: 'tools' }],
     ['mcp', 'MCP Services', { icon: 'mcp' }],
     ['metrics', 'Metrics', { icon: 'metrics' }],
-    ['evaluations', 'Evaluations', { icon: 'evaluations' }],
-    ['catalogs', 'Catalogs', { icon: 'evaluations' }],
-    ['sessions', 'Sessions', { icon: 'replay', also: ['replay'] }],
+    ['evaluations', 'Evaluations', { icon: 'evaluations', also: ['catalogs'] }],
   ]],
-  ['workspace', 'Workspace', [
-    ['organization', 'Organization', { glyph: '🏢' }],
-    ['settings', 'Settings', { glyph: '⚙️' }],
+  ['workspace', null, [
+    ['settings', 'Settings', { glyph: '*', also: ['organization'] }],
   ]],
 ];
 
@@ -261,7 +260,7 @@ const expectedNav = (assistantEnabled) => EXPECTED_NAV.map(([id, label, items]) 
     .map(([view, itemLabel, extra]) => ({ view, label: itemLabel, ...extra })),
 }));
 
-test('the sidebar lists its views in three sections', () => {
+test('the sidebar lists its views in two sections', () => {
   assert.deepEqual(dashboardNavSections(ON), expectedNav(true));
 });
 
@@ -314,8 +313,16 @@ test('no replay path is built for an unknown kind or an id that is not a positiv
   assert.equal(sessionReplayPath('recording', null), null);
 });
 
-test('the Sessions item is current while a replay is open', () => {
+test('a view without an item of its own is shown under the item that holds it', () => {
   assert.equal(navView('replay'), 'sessions');
   assert.equal(navView('sessions'), 'sessions');
   assert.equal(navView('traces'), 'traces');
+  assert.equal(navView('builder'), 'list');
+  assert.equal(navView('editor'), 'list');
+  assert.equal(navView('runner'), 'list');
+  assert.equal(navView('agent-analytics'), 'list');
+  assert.equal(navView('history'), 'list');
+  assert.equal(navView('catalogs'), 'evaluations');
+  assert.equal(navView('organization'), 'settings');
+  assert.equal(navView('exploration'), 'projects');
 });
