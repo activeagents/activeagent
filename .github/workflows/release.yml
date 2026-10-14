@@ -16,7 +16,9 @@ name: Release
 # version too: the npm package through npm trusted publishing (OIDC, no
 # stored token) as a staged publish, and the image to
 # ghcr.io/activeagents/browser-sidecar with the workflow's own token. Each is
-# skipped when that version is already published.
+# skipped when that version is already published; the npm job then fails if
+# browser-sidecar/ no longer packs the same as that published version, since
+# a sidecar change needs a new version.
 #
 # A staged publish is not public until a maintainer approves it with 2FA, on
 # npmjs.com or with `npm stage approve` (`npm stage list` shows what waits).
@@ -141,6 +143,9 @@ jobs:
             exit 1
           fi
           if npm view "@activeagents/browser-sidecar@${version}" version > /dev/null 2>&1; then
+            # Skipping is right only when the sidecar is what was published:
+            # a change released under a published version would never reach npm.
+            ../.github/scripts/browser-sidecar-unchanged.sh . "$version"
             echo "@activeagents/browser-sidecar ${version} is already on npm; skipping."
             exit 0
           fi
