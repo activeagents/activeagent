@@ -150,6 +150,21 @@ class ProjectBootFixTest < ActionDispatch::IntegrationTest
     assert_not_includes prompt, CLAUDE_TOKEN
   end
 
+  test "a boot fix may run the bundle and git commands it needs, and the prompt lists them; no other session gets them" do
+    perform_enqueued_jobs { @project.reload.sandbox_failed!(@sandbox) }
+
+    session = ActionAgent::CodeSession.sole
+    allowed = ActionAgent::ProjectBootFix.allowed_tools_for(session)
+    assert_equal ActionAgent::ProjectBootFix::BUNDLER_COMMANDS, allowed
+    assert_not_includes allowed, "Bash(npm install:*)", "a bundle_install failure needs no JS install"
+    assert_includes FixBackend.prompts.sole, "bundle lock, bundle update"
+
+    ordinary = ActionAgent::CodeSession.create!(sandbox_session: @sandbox, prompt: "Edit something", runner: "claude_code",
+      credential_mode: "api_key")
+    assert_equal [], ActionAgent::ProjectBootFix.allowed_tools_for(ordinary)
+    assert_includes ActionAgent::ProjectBootFix.allowed_commands("javascript_build"), "Bash(yarn install:*)"
+  end
+
   test "a session that changed nothing leaves the boot failed and does not resume it" do
     perform_enqueued_jobs { @project.reload.sandbox_failed!(@sandbox) }
 

@@ -36,6 +36,15 @@ module ActionAgent
     LOG_TAIL_BYTES = 12 * 1024
     MAX_ERROR_CHARACTERS = 2_000
     LOG_FENCE = "step_log"
+    # The commands a boot fix may run in the checkout, as Claude Code
+    # --allowedTools rules: it runs headless in acceptEdits, so anything else
+    # is denied. Enough to re-resolve a bundle or a JS install rather than
+    # hand-edit a lockfile; nothing that starts the app or reaches past the
+    # checkout.
+    BUNDLER_COMMANDS = [ "Bash(bundle install:*)", "Bash(bundle lock:*)", "Bash(bundle update:*)",
+                         "Bash(gem search:*)", "Bash(gem list:*)", "Bash(git status:*)", "Bash(git diff:*)" ].freeze
+    JS_COMMANDS = [ "Bash(npm install:*)", "Bash(yarn install:*)" ].freeze
+    JS_STEPS = %w[javascript_build css_build tailwindcss_build].freeze
 
     # Raised by .start! when the project's boot cannot be fixed now.
     class Unavailable < StandardError; end
@@ -153,6 +162,21 @@ module ActionAgent
         Array(claude_code_settings(project)["session_ids"]).include?(session.id) ? project : nil
       end
 
+      # The --allowedTools rules for +session+: the commands a boot fix may
+      # run for the step it was started on, or none for any other session.
+      #
+      # @return [Array<String>]
+      def allowed_tools_for(session)
+        return [] unless session.respond_to?(:sandbox_session)
+
+        project = project_for(session)
+        project ? allowed_commands(claude_code_settings(project)["failed_step"]) : []
+      end
+
+      def allowed_commands(failed_step)
+        JS_STEPS.include?(failed_step.to_s) ? BUNDLER_COMMANDS + JS_COMMANDS : BUNDLER_COMMANDS
+      end
+
       # The project's latest boot fix while it is queued or running.
       def active_session(project)
         id = claude_code_settings(project)["last_session_id"]
@@ -197,6 +221,7 @@ module ActionAgent
           - Change only what the failure needs. Do not refactor, upgrade or reformat anything else.
           - Never write a secret, key, password or token into a file. When the step needs one, change nothing and say which environment variable is missing: it is set in the project's Environment tab.
           - Do not commit, push, or start the application's server.
+          - You may run only these commands, each on its own and spelled out (no variables, pipes, `cd` or `&&`): #{allowed_commands(failed_step).map { |rule| rule[/\ABash\((.+):\*\)\z/, 1] }.join(", ")}. Anything else is denied. Prefer them to editing a lockfile by hand, e.g. `bundle lock --update GEM --conservative` after changing the Gemfile.
           - When the failure cannot be fixed in the code, change nothing and say why.
           - End with one line saying what you changed and why.
 

@@ -70,6 +70,20 @@ export function setupInProgress(project) {
     || (Number(project?.pending_input_requests) || 0) > 0;
 }
 
+// How long the Project page keeps reading a project whose boot just failed,
+// waiting for the automatic fix (Claude Code or the setup assistant) to start.
+export const AUTO_SETUP_WAIT_MS = 60000;
+
+// Whether an automatic fix may still start on the project's failed boot:
+// automatic setup is on and Claude Code or the setup assistant can run, and
+// nothing has started on it since the page saw the boot fail
+// (`failedAt`, a time in ms, or null).
+export function awaitingAutoSetup(project, failedAt, now = Date.now()) {
+  if (project?.sandbox_state !== 'failed' || project?.setup?.auto === false || failedAt == null) return false;
+  if (!project.setup?.claude_code?.available && !project.setup?.available) return false;
+  return now - failedAt < AUTO_SETUP_WAIT_MS;
+}
+
 // Whether a Claude Code session is fixing the project's boot right now.
 export function claudeCodeFixing(project) {
   return ['queued', 'running'].includes(project?.setup?.claude_code?.last_session?.status);

@@ -16,6 +16,8 @@ import {
   schemaToolsPayload,
   selectionFromChoices,
   setupInProgress,
+  awaitingAutoSetup,
+  AUTO_SETUP_WAIT_MS,
   setupStatusText,
   toggleColumn,
   waitingLabel,
@@ -138,4 +140,16 @@ test('the setup card says what Claude Code is doing to a failed boot, and why it
   assert.match(claudeCodeFixText({ ...nothing, sandbox_state: 'booting' }), /fixed bundle_install and the boot resumed/);
   assert.match(claudeCodeFixText(project({ available: true, resume_error: 'quota', last_session: { status: 'succeeded' } })), /did not resume: quota/);
   assert.equal(claudeCodeFixText({ setup: {} }), null);
+});
+
+test('a just-failed boot keeps the page reading the project until the automatic fix starts', () => {
+  const failed = { sandbox_state: 'failed', setup: { auto: true, available: false, claude_code: { available: true } } };
+  const seen = 1_000_000;
+  assert.equal(awaitingAutoSetup(failed, seen, seen + 3000), true);
+  assert.equal(awaitingAutoSetup(failed, seen, seen + AUTO_SETUP_WAIT_MS), false, 'it gives up after the wait');
+  assert.equal(awaitingAutoSetup({ ...failed, setup: { ...failed.setup, auto: false } }, seen, seen), false, 'not when fixes start only on request');
+  assert.equal(awaitingAutoSetup({ ...failed, setup: { auto: true, available: false, claude_code: { available: false } } }, seen, seen), false,
+    'not when nothing can fix the boot');
+  assert.equal(awaitingAutoSetup({ ...failed, sandbox_state: 'ready' }, seen, seen), false);
+  assert.equal(awaitingAutoSetup(failed, null), false);
 });
