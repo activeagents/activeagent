@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import test, { after, before } from 'node:test';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -137,8 +137,32 @@ test('the checklist shows the line that fixes a failing item, and marks the bloc
 
   assert.match(html, /action needed/);
   assert.match(html, /data-testid="capability-fix-sandbox_backend"[^>]*>config.sandbox_service = :local/);
-  assert.equal((html.match(/blocks creating a project/g) || []).length, 1);
+  assert.equal((html.match(/>blocks creating a project</g) || []).length, 1, 'one row is marked as blocking');
   assert.match(html, /callback URL https:\/\/dash.example\/aa\/api\/github_connection\/callback/);
+});
+
+test('a ready checklist is one collapsed summary line, and a blocking one opens with its fixes', () => {
+  const ready = render('CapabilitiesChecklist', {
+    capabilities: { ready: true, items: [{ key: 'github', label: 'GitHub', ok: true, blocking: true, detail: 'Connected' }] },
+  });
+  assert.match(ready, /data-testid="capabilities-summary"[^>]*>ready</);
+  assert.match(ready, /aria-expanded="false"/);
+  assert.doesNotMatch(ready, /data-testid="capability-github"/, 'the items stay folded away');
+
+  const blocked = render('CapabilitiesChecklist', {
+    capabilities: { ready: false, items: [
+      { key: 'github_connection', label: 'GitHub connection', ok: false, blocking: true, fix: 'Connect GitHub' },
+      { key: 'credentials', label: 'Model credentials', ok: false, blocking: false, fix: 'Add a key' },
+    ] },
+  });
+  assert.match(blocked, /2 items need action · 1 blocks creating a project/);
+  assert.match(blocked, /aria-expanded="true"/);
+  assert.match(blocked, /data-testid="capability-fix-github_connection"/);
+});
+
+test('the New project page puts the repository picker above the checklist', () => {
+  const source = readFileSync(new URL('../components/dashboard/projects/NewProject.jsx', import.meta.url), 'utf8');
+  assert.ok(source.indexOf('<RepoPicker') < source.indexOf('<CapabilitiesChecklist'), 'the picker comes first');
 });
 
 // --- secrets form -----------------------------------------------------------
