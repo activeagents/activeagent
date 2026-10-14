@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { ControlLock } from './control-lock.mjs';
+import { FileChooserRelay } from './file-upload.mjs';
 import { startEgressProxy } from './egress-proxy.mjs';
 import { acceptedHosts } from './guard.mjs';
 import { createHttpServer } from './http-server.mjs';
@@ -97,17 +98,19 @@ export function mcpConfig(config, outputDir) {
  *
  * @param {object} config a parsed configuration with `live` set
  * @param {import('playwright').BrowserContext} context
- * @param {{ recorder: Recorder | null, log: (message: string) => void }} options
- * @returns {Promise<{ server: LiveServer, lock: ControlLock, screencast: Screencast }>}
+ * @param {{ recorder: Recorder | null, uploadsDir: string, log: (message: string) => void }} options
+ * @returns {Promise<{ server: LiveServer, lock: ControlLock, screencast: Screencast, uploads: FileChooserRelay }>}
  */
-async function startLiveView(config, context, { recorder, log }) {
+async function startLiveView(config, context, { recorder, uploadsDir, log }) {
   const lock = new ControlLock({ graceMs: config.live.releaseGraceMs });
   const verifier = new TicketVerifier({ key: ticketKey(config.token), sessionId: config.live.sessionId });
   let server = null;
   const screencast = new Screencast({ context, log, onFrame: (frame) => server?.frame(frame), onPageChange: () => server?.pageChanged() });
-  server = new LiveServer({ verifier, lock, screencast, log, onMarker: (data) => recorder?.marker(data) });
+  const uploads = new FileChooserRelay({ context, lock, dir: uploadsDir, limits: config.live.uploadLimits, log });
+  server = new LiveServer({ verifier, lock, screencast, uploads, log, onMarker: (data) => recorder?.marker(data) });
+  uploads.attach();
   await screencast.attach();
-  return { server, lock, screencast };
+  return { server, lock, screencast, uploads };
 }
 
 /**
@@ -116,7 +119,9 @@ async function startLiveView(config, context, { recorder, log }) {
  * (Playwright's --remote-debugging-pipe), so no debugging port is opened.
  * Every connection it makes goes through the egress proxy, loopback and
  * WebRTC included. The process's working directory becomes an empty uploads
- * directory, which is where Playwright MCP reads files to upload from.
+ * directory, which is where Playwright MCP reads files to upload from. The
+ * files a person uploads through the live view go to a directory of their
+ * own.
  *
  * @param {object} config a parsed configuration (see parseConfig)
  * @param {object} [dependencies]
@@ -139,8 +144,9 @@ export async function startSidecar(config, dependencies = {}) {
   const profileDir = await mkdtemp(join(workdir, 'profile-'));
   const uploadsDir = await mkdtemp(join(workdir, 'uploads-'));
   const outputDir = await mkdtemp(join(workdir, 'output-'));
+  const liveUploadsDir = await mkdtemp(join(workdir, 'live-uploads-'));
   const removeDirectories = async () => {
-    for (const dir of ownsWorkdir ? [workdir] : [profileDir, uploadsDir, outputDir]) {
+    for (const dir of ownsWorkdir ? [workdir] : [profileDir, uploadsDir, outputDir, liveUploadsDir]) {
       await rm(dir, { recursive: true, force: true }).catch(() => {});
     }
   };
@@ -177,7 +183,7 @@ export async function startSidecar(config, dependencies = {}) {
   guard.attach(context);
   const recorder = config.recording ? new Recorder({ recording: config.recording, log }) : null;
   await recorder?.attach(context);
-  const live = config.live ? await startLiveView(config, context, { recorder, log }) : null;
+  const live = config.live ? await startLiveView(config, context, { recorder, uploadsDir: liveUploadsDir, log }) : null;
 
   const gateway = new McpGateway({
     connect: () => connect(mcpConfig(config, outputDir), async () => context),
@@ -214,6 +220,7 @@ export async function startSidecar(config, dependencies = {}) {
       server.close();
       server.closeAllConnections();
       live?.server.close();
+      await live?.uploads.close();
       await live?.screencast.close();
       await gateway.closeAll();
       // The pages hand over the rrweb events they hold, then the context
