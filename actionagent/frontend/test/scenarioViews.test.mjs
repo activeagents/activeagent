@@ -30,8 +30,9 @@ before(async () => {
         import { ThemeProvider } from './contexts/ThemeContext.jsx';
         import ScenariosView from './components/dashboard/scenarios/ScenariosView.jsx';
         import { PreviewCard } from './components/dashboard/scenarios/ScenarioImport.jsx';
+        import { Field, Select } from './components/dashboard/scenarios/fields.jsx';
 
-        const views = { ScenariosView, PreviewCard };
+        const views = { ScenariosView, PreviewCard, Field, Select };
         export const render = (name, props) =>
           renderToStaticMarkup(React.createElement(ThemeProvider, null, React.createElement(views[name], props)));
       `,
@@ -80,4 +81,17 @@ test('an import preview lists what it creates, overwrites and removes, by key', 
   const unchanged = render('PreviewCard', { preview: { mode: 'merge', catalog: { key: 'c', action: 'create' }, scenario_count: 0, counts: {}, changes: [] } });
   assert.match(unchanged, /new collection/);
   assert.match(unchanged, /Nothing changes/);
+});
+
+test('the scenario form names its prompt and notes boxes for screen readers', () => {
+  for (const [label, multiline] of [['Prompt: what a user asks the agent', true], ['Notes: the rubric, what a good answer does', true], ['Key', false]]) {
+    const html = render('Field', { label, value: '', onChange() {}, multiline });
+    const tag = multiline ? 'textarea' : 'input';
+    const id = html.match(new RegExp(`<${tag}[^>]*id="([^"]+)"`))?.[1];
+    assert.ok(id, `the ${tag} has an id`);
+    assert.match(html, new RegExp(`<label for="${id}">${label}</label>`), 'the label points at it');
+    assert.match(html, new RegExp(`<${tag}[^>]*aria-label="${label}"`));
+  }
+  const select = render('Select', { label: 'Set', value: '', onChange() {}, children: null });
+  assert.match(select, /<select[^>]*aria-label="Set"/);
 });
