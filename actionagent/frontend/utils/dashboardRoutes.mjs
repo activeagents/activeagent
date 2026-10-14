@@ -60,7 +60,8 @@ function replayPage(path) {
 //   match:   (path) => params, or null when the row does not match. Params:
 //              agentId:     the view needs this agent loaded before it opens
 //              focusServer: the MCP service to open expanded
-//              replacePath: the canonical path to replace the URL with
+//              replacePath: the canonical mount-relative path to replace
+//                           the URL with
 //              sessionKind, sessionId: the session a replay opens
 //   path:    the mount-relative path the view pushes, or a function of
 //            { agent } returning it ('' when it has no agent to name)
@@ -69,7 +70,10 @@ export const DASHBOARD_ROUTES = [
   { view: 'assistant', match: exact('/assistant'), path: '/assistant', enabled: assistantEnabled },
   { view: 'traces', match: prefix('/traces'), path: '/traces' },
   { view: 'metrics', match: prefix('/metrics'), path: '/metrics' },
-  { view: 'catalogs', match: prefix('/catalogs'), path: '/catalogs' },
+  // ScenariosView reads /scenarios/:id and its tabs itself.
+  { view: 'scenarios', match: prefix('/scenarios'), path: '/scenarios' },
+  // Scenarios were called catalogs: their old URLs open the same page.
+  { view: 'scenarios', match: (path) => (path.startsWith('/catalogs') ? { replacePath: path.replace('/catalogs', '/scenarios') } : null) },
   { view: 'interactions', match: prefix('/interactions'), path: '/interactions' },
   { view: 'tools', match: prefix('/tools'), path: '/tools' },
   {
@@ -149,7 +153,7 @@ export const DASHBOARD_NAV = [
       { view: 'mcp', label: 'MCP Services', icon: 'mcp' },
       { view: 'metrics', label: 'Metrics', icon: 'metrics' },
       { view: 'evaluations', label: 'Evaluations', icon: 'evaluations' },
-      { view: 'catalogs', label: 'Catalogs', icon: 'evaluations' },
+      { view: 'scenarios', label: 'Scenarios', icon: 'evaluations' },
       { view: 'sessions', label: 'Sessions', icon: 'replay', also: ['replay'] },
     ],
   },

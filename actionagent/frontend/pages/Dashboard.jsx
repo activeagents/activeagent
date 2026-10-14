@@ -22,7 +22,7 @@ import SettingsView from '../components/dashboard/SettingsView';
 import DashboardAssistant from '../components/dashboard/DashboardAssistant';
 import ProjectsView from '../components/dashboard/ProjectsView';
 import ExplorationsView from '../components/dashboard/ExplorationsView';
-import ScenarioCatalogsView from '../components/dashboard/ScenarioCatalogsView';
+import ScenariosView from '../components/dashboard/scenarios/ScenariosView';
 import { ThemeProvider, useTheme } from '../contexts/ThemeContext';
 import { TimeWindowProvider } from '../contexts/TimeWindowContext';
 import { useInputRequests } from '../hooks/useInputRequests';
@@ -83,7 +83,7 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
       const route = matchDashboardRoute(dashboardRelativePath(), features);
       if (route.focusServer) setFocusServer(route.focusServer);
       if (route.sessionId) setReplaySession({ kind: route.sessionKind, id: route.sessionId });
-      if (route.replacePath) window.history.replaceState({}, '', route.replacePath);
+      if (route.replacePath) window.history.replaceState({}, '', dashboardPath(route.replacePath));
       if (route.agentId) loadAgent(route.agentId, route.view);
       else setCurrentView(route.view);
     };
@@ -383,7 +383,7 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
     ),
     evaluations: () => <EvaluationsView />,
     projects: () => <ProjectsView visit={visit} />,
-    catalogs: () => <ScenarioCatalogsView visit={visit} />,
+    scenarios: () => <ScenariosView visit={visit} />,
     sessions: () => <SessionsView agents={agents} user={user} />,
     exploration: () => <ExplorationsView visit={visit} />,
     replay: () => (replaySession ? (
