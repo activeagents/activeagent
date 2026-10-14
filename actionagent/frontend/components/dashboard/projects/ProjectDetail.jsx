@@ -25,7 +25,7 @@ import {
   secretsFormProblem,
   secretsPayload,
 } from '../../../utils/projects.mjs';
-import { setupInProgress } from '../../../utils/projectSetup.mjs';
+import { awaitingAutoSetup, setupInProgress } from '../../../utils/projectSetup.mjs';
 
 const RUNTIMES_PATH = '/settings?tab=integrations';
 const STATE_TONES = { ready: 'success', booting: 'info', failed: 'error', expired: 'muted', none: 'muted' };
@@ -91,8 +91,14 @@ export default function ProjectDetail({ projectId, onBack, onDeleted }) {
     window.history.replaceState(window.history.state, '', `${pathname}${projectTabSearch(search, next)}`);
   };
 
+  // When the page first saw the current boot failed: an automatic fix starts
+  // a moment later, so the page keeps reading the project until it shows up.
+  const failed = project?.sandbox_state === 'failed';
+  const [failedAt, setFailedAt] = useState(null);
+  useEffect(() => { setFailedAt(failed ? Date.now() : null); }, [failed, project?.sandbox?.session_id]);
+
   const booting = isBooting(project);
-  const watching = booting || setupInProgress(project);
+  const watching = booting || setupInProgress(project) || awaitingAutoSetup(project, failedAt);
   useEffect(() => {
     if (!watching) return undefined;
     const timer = setTimeout(() => loadBoot().catch((e) => setError(e.message)), BOOT_POLL_INTERVAL_MS);
