@@ -35,12 +35,13 @@ async function readJson(res) {
 }
 
 // A project's page: its boot (steps, elapsed time, log tail), what its
-// agents are waiting on, the setup assistant, the agent it evaluates and Run
-// evaluation, what the App assistant may read, the install pull request, its
-// Explorations tab (candidate scenarios to review) and its Environment tab.
-// The boot is followed through the sandbox's Action Cable stream and polled
-// every BOOT_POLL_INTERVAL_MS while it boots or the setup assistant works, so
-// it updates without the cable.
+// agents are waiting on, what helps a failed boot (Claude Code or the setup
+// assistant), the agent it evaluates and Run evaluation, what the App
+// assistant may read, the install pull request, its Explorations tab
+// (candidate scenarios to review) and its Environment tab. The boot is
+// followed through the sandbox's Action Cable stream and polled every
+// BOOT_POLL_INTERVAL_MS while it boots or its setup works, so it updates
+// without the cable.
 export default function ProjectDetail({ projectId, onBack, onDeleted }) {
   const [project, setProject] = useState(null);
   const [boot, setBoot] = useState(null); // { boot, log_tail, error, confirmation }
@@ -126,15 +127,15 @@ export default function ProjectDetail({ projectId, onBack, onDeleted }) {
   // sends its request again once it is given.
   const askConfirmation = (question, retry) => setConfirmation({ question, retry });
 
-  const setupRequest = async (method, body) => {
+  const setupRequest = async (method, body, path = 'setup') => {
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch(`/api/projects/${projectId}/setup`, {
+      const res = await fetch(`/api/projects/${projectId}/${path}`, {
         method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}),
       });
       const data = await readJson(res);
-      if (!res.ok) throw new Error(apiErrorMessage(data, `The setup assistant request failed (HTTP ${res.status}).`));
+      if (!res.ok) throw new Error(apiErrorMessage(data, `The setup request failed (HTTP ${res.status}).`));
       if (data.project) setProject(data.project);
       await loadBoot();
     } catch (e) {
@@ -304,6 +305,7 @@ export default function ProjectDetail({ projectId, onBack, onDeleted }) {
             project={project}
             busy={busy}
             onAsk={() => setupRequest('POST')}
+            onFixWithClaudeCode={() => setupRequest('POST', null, 'setup/claude_code')}
             onToggleAuto={(auto) => setupRequest('PATCH', { auto })}
           />
 

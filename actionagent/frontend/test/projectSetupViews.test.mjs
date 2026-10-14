@@ -126,6 +126,35 @@ test('the setup card says why the assistant cannot run, and offers it only on a 
   assert.match(failed, /runs no\s+commands and reads no files/);
 });
 
+test('the setup card shows Claude Code first: what it is doing, its session, and the button on a failed boot', () => {
+  const offered = render('ProjectSetupCard', {
+    project: { sandbox_state: 'failed', setup: { available: false, auto: true, reason: 'No provider key the setup assistant can use. Add one in Settings → Provider API Keys.',
+      claude_code: { available: true } } },
+    onAsk: noop, onFixWithClaudeCode: noop, onToggleAuto: noop,
+  });
+  assert.match(offered, /data-testid="fix-with-claude-code"/);
+  assert.match(offered, /When a boot fails, Claude Code fixes the step that failed/);
+  assert.equal(offered.match(/Environment tab/g).length, 1, 'the Environment tab is mentioned once');
+
+  const working = render('ProjectSetupCard', {
+    project: { sandbox_state: 'failed', setup: { available: true, auto: true,
+      claude_code: { available: true, failed_step: 'bundle_install', last_session: { id: 9, status: 'running', sandbox_session_id: 'sbx-1' } } } },
+    onAsk: noop, onFixWithClaudeCode: noop, onToggleAuto: noop,
+  });
+  assert.match(working, /Claude Code is fixing bundle_install…/);
+  assert.match(working, /Claude Code on bundle_install/, 'its session follows on the card');
+  assert.doesNotMatch(working, /fix-with-claude-code|ask-setup-assistant/);
+  assert.doesNotMatch(working, /What should Claude Code do/, 'the session view has no composer');
+
+  const notUsed = render('ProjectSetupCard', {
+    project: { sandbox_state: 'failed', setup: { available: false, auto: true, reason: 'No provider key.',
+      claude_code: { available: false, reason: 'Claude Code is not connected: connect it in Settings → Integrations' } } },
+    onAsk: noop, onToggleAuto: noop,
+  });
+  assert.match(notUsed, /not used/);
+  assert.match(notUsed, /Claude Code does not fix failed boots here: Claude Code is not connected/);
+});
+
 test('the chooser lists each model\'s columns with filter and read boxes, ticked as chosen', () => {
   const models = [{ name: 'Reservation', table: 'reservations', columns: [{ name: 'status', type: 'string' }, { name: 'starts_at', type: 'datetime' }] }];
   const selection = { Reservation: { filterable: new Set(['status']), returns: new Set(['status', 'starts_at']) } };
