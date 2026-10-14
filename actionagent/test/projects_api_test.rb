@@ -158,6 +158,8 @@ class ProjectsApiTest < ActionDispatch::IntegrationTest
     assert_equal %w[boot_spec browser code_runners execution github github_connection model_credentials sandbox_backend],
       items.keys.sort
     assert_equal [ false, false ], items["browser"].values_at("ok", "blocking")
+    assert_equal "The project_test backend runs no browsers: the project's agent works through the app's tools", items["browser"]["detail"]
+    assert_equal [], body.dig("browser", "modes")
     assert body.dig("default_model", "provider").present?
   end
 

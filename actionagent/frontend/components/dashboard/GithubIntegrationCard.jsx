@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useTheme } from '../../contexts/ThemeContext';
-import { dashboardPath } from '../../utils/dashboardPath';
+import { dashboardPath, navigateTo } from '../../utils/dashboardPath';
+import { sandboxProjectPath } from '../../utils/projects.mjs';
 import BrowserPanel from './BrowserPanel';
 import CodeSessionPanel, { StatusBadge } from './CodeSessionPanel';
 import DraftPullRequestPanel from './DraftPullRequestPanel';
@@ -314,6 +315,17 @@ export default function GithubIntegrationCard({ callbackStatus, appCallbackStatu
               {standalone ? sandbox.repository : ''}@{sandbox.repository_ref}
             </span>
             {expiry && <span className={`shrink-0 ${muted}`}>· {expiry}</span>}
+            {sandboxProjectPath(sandbox) && (
+              <a
+                href={dashboardPath(sandboxProjectPath(sandbox))}
+                onClick={(event) => { event.preventDefault(); navigateTo(sandboxProjectPath(sandbox)); }}
+                className={`shrink-0 truncate hover:underline ${darkMode ? 'text-blue-300' : 'text-blue-600'}`}
+                data-testid="sandbox-project-link"
+                title={sandbox.browser?.status === 'running' ? "Open the project's page on its browser" : "Open the project's page"}
+              >
+                · {sandbox.project.name} →
+              </a>
+            )}
           </div>
           <button
             onClick={() => stopSandbox(sandbox)}

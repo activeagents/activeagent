@@ -33,8 +33,9 @@ before(async () => {
         import ProjectBootProgress from './components/dashboard/projects/ProjectBootProgress.jsx';
         import ProjectList from './components/dashboard/projects/ProjectList.jsx';
         import { PreflightResult } from './components/dashboard/projects/NewProject.jsx';
+        import ProjectBrowser from './components/dashboard/projects/ProjectBrowser.jsx';
 
-        const views = { RepoPicker, CapabilitiesChecklist, ProjectSecretsForm, ProjectEnvironment, ProjectBootProgress, ProjectList, PreflightResult };
+        const views = { RepoPicker, CapabilitiesChecklist, ProjectSecretsForm, ProjectEnvironment, ProjectBootProgress, ProjectList, PreflightResult, ProjectBrowser };
         export const render = (name, props) =>
           renderToStaticMarkup(React.createElement(ThemeProvider, null, React.createElement(views[name], props)));
       `,
@@ -273,4 +274,31 @@ test('the projects list shows each project with its sandbox state and agent', ()
   assert.match(html, /sandbox ready/);
   assert.match(html, /App assistant/);
   assert.match(render('ProjectList', { projects: [], onOpen() {}, onNew() {} }), /No projects yet/);
+});
+
+const browserProject = (overrides = {}) => ({
+  repository: 'acme/shop', sandbox_state: 'ready',
+  sandbox: { session_id: 'sbx-1', status: 'ready', browser: { status: 'stopped', mode: 'headless' } },
+  ...overrides,
+});
+
+test("the project's Browser tab starts its sandbox's browser, and links to every runtime", () => {
+  const html = render('ProjectBrowser', { project: browserProject(), modes: ['headless'] });
+  assert.match(html, /data-testid="project-browser"/);
+  assert.match(html, />Start browser</);
+  assert.match(html, /browser:sbx-1/);
+  assert.match(html, /href="\/settings\?tab=integrations"[^>]*>Manage runtimes/);
+});
+
+test('the Browser tab says why there is no browser yet', () => {
+  assert.match(render('ProjectBrowser', { project: browserProject({ sandbox_state: 'booting' }), modes: ['headless'] }), /Boot the sandbox to start its browser/);
+  assert.match(render('ProjectBrowser', { project: browserProject(), modes: [] }), /runs no browsers/);
+  assert.doesNotMatch(render('ProjectBrowser', { project: browserProject(), modes: [] }), /Start browser/);
+});
+
+test('a running browser offers its live view from the Browser tab', () => {
+  const project = browserProject({ sandbox: { session_id: 'sbx-1', status: 'ready', browser: { status: 'running', mode: 'headless', started_at: 't', live_url: 'ws://x/live', server_key: 'browser:sbx-1' } } });
+  const html = render('ProjectBrowser', { project, modes: ['headless'] });
+  assert.match(html, />Stop browser</);
+  assert.match(html, />Watch live</);
 });

@@ -127,6 +127,38 @@ class SandboxBrowserTest < ActionDispatch::IntegrationTest
     assert_equal %w[headless], response.parsed_body["browser_modes"]
   end
 
+  test "a sandbox booted for a project links to it from the listing, and one started on its own does not" do
+    project = ActionAgent::Project.create!(name: "Shop", repository: "acme/shop", current_sandbox_session: @sandbox)
+    @sandbox.update!(project_id: project.id)
+    standalone = live_sandbox
+
+    get "/activeagents/api/sandboxes", params: { sandbox_type: "app_runtime" }
+
+    listed = response.parsed_body["sandboxes"].index_by { |sandbox| sandbox["session_id"] }
+    assert_equal({ "id" => project.id, "name" => "Shop" }, listed[@sandbox.session_id]["project"])
+    assert_nil listed[standalone.session_id]["project"]
+  end
+
+  test "the project page is told which modes its sandbox's browser can start in, and the checklist offers it" do
+    project = ActionAgent::Project.create!(name: "Shop", repository: "acme/shop", current_sandbox_session: @sandbox)
+
+    get "/activeagents/api/projects/#{project.id}/boot"
+    assert_response :success, response.body
+    assert_equal %w[headless headed], response.parsed_body["browser_modes"]
+    assert_equal @sandbox.session_id, response.parsed_body.dig("project", "sandbox", "session_id")
+
+    checklist = ActionAgent::ProjectCapabilities.new(owner: nil, github_connected: true, base_url: "http://www.example.com/activeagents").call
+    browser = checklist[:items].find { |item| item[:key] == "browser" }
+    assert_equal [ true, false ], browser.values_at(:ok, :blocking)
+    assert_match(/Start, watch and take over the sandbox's browser from the project page \(headless, headed\)/, browser[:detail])
+    assert_match(/the project's agent works through the app's tools/, browser[:detail])
+    assert_equal({ available: true, modes: %w[headless headed] }, checklist[:browser])
+
+    BrowserBackend.modes = []
+    get "/activeagents/api/projects/#{project.id}/boot"
+    assert_equal [], response.parsed_body["browser_modes"]
+  end
+
   test "the browser token is encrypted at rest and never serialized or shown" do
     post browser_path, as: :json
     token = @sandbox.reload.browser_token

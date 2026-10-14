@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Badge, Button, Card, MicroLabel, MONO, SegmentedControl } from '../primitives';
+import { Badge, Button, Card, MicroLabel, MONO, MonoLink, SegmentedControl } from '../primitives';
 import ProjectAssistantReads from './ProjectAssistantReads';
 import ProjectBootProgress from './ProjectBootProgress';
+import ProjectBrowser from './ProjectBrowser';
 import ProjectEnvironment from './ProjectEnvironment';
 import ProjectExplorations from './ProjectExplorations';
 import ProjectInputRequests from './ProjectInputRequests';
@@ -9,7 +10,7 @@ import ProjectInstallPullRequest from './ProjectInstallPullRequest';
 import ProjectSecretsForm from './ProjectSecretsForm';
 import ProjectSetupCard from './ProjectSetupCard';
 import { useActionCable } from '../../../hooks/useActionCable';
-import { navigateTo } from '../../../utils/dashboardPath';
+import { dashboardPath, navigateTo } from '../../../utils/dashboardPath';
 import { apiErrorMessage } from '../../../utils/codeSessions.mjs';
 import { liveUpdate } from '../../../utils/liveUpdates.mjs';
 import { environmentSecrets } from '../../../utils/explorer.mjs';
@@ -17,12 +18,16 @@ import {
   BOOT_POLL_INTERVAL_MS,
   PREFLIGHT_TONES,
   isBooting,
+  projectBrowserAction,
+  projectTabFromSearch,
+  projectTabSearch,
   secretRows,
   secretsFormProblem,
   secretsPayload,
 } from '../../../utils/projects.mjs';
 import { setupInProgress } from '../../../utils/projectSetup.mjs';
 
+const RUNTIMES_PATH = '/settings?tab=integrations';
 const STATE_TONES = { ready: 'success', booting: 'info', failed: 'error', expired: 'muted', none: 'muted' };
 const INSTALL_LABELS = {
   installed: 'bundles the engine',
@@ -38,7 +43,8 @@ async function readJson(res) {
 // agents are waiting on, what helps a failed boot (Claude Code or the setup
 // assistant), the agent it evaluates and Run evaluation, what the App
 // assistant may read, the install pull request, its Explorations tab
-// (candidate scenarios to review) and its Environment tab. The boot is
+// (candidate scenarios to review), its Environment tab and its Browser tab
+// (the sandbox's browser, watched live; ?tab= opens a tab directly). The boot is
 // followed through the sandbox's Action Cable stream and polled every
 // BOOT_POLL_INTERVAL_MS while it boots or its setup works, so it updates
 // without the cable.
@@ -46,7 +52,9 @@ export default function ProjectDetail({ projectId, onBack, onDeleted }) {
   const [project, setProject] = useState(null);
   const [boot, setBoot] = useState(null); // { boot, log_tail, error, confirmation }
   const [secrets, setSecrets] = useState([]);
-  const [tab, setTab] = useState('overview');
+  const [tab, setTabState] = useState(() => projectTabFromSearch(window.location.search));
+  // Set by the header's Watch live, so the Browser tab starts watching.
+  const [watchRequested, setWatchRequested] = useState(false);
   const [error, setError] = useState(null);
   const [environmentError, setEnvironmentError] = useState(null);
   const [confirmation, setConfirmation] = useState(null); // { question, retry }
@@ -74,6 +82,14 @@ export default function ProjectDetail({ projectId, onBack, onDeleted }) {
     loadBoot().catch((e) => setError(e.message));
     loadSecrets().catch((e) => setEnvironmentError(e.message));
   }, [loadBoot, loadSecrets]);
+
+  // The open tab is kept in the address, so a reload or a link lands on it.
+  const setTab = (next) => {
+    setTabState(next);
+    if (next !== 'browser') setWatchRequested(false);
+    const { pathname, search } = window.location;
+    window.history.replaceState(window.history.state, '', `${pathname}${projectTabSearch(search, next)}`);
+  };
 
   const booting = isBooting(project);
   const watching = booting || setupInProgress(project);
@@ -235,6 +251,13 @@ export default function ProjectDetail({ projectId, onBack, onDeleted }) {
       : <div style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>Loading the project…</div>;
   }
 
+  const browserModes = boot?.browser_modes || [];
+  const browserAction = projectBrowserAction(project, browserModes);
+  const openBrowser = (watch) => {
+    if (watch) setWatchRequested(true);
+    setTab('browser');
+  };
+
   const target = project.target_agent;
   const needsPick = !target && project.install_state === 'installed';
 
@@ -250,12 +273,18 @@ export default function ProjectDetail({ projectId, onBack, onDeleted }) {
             </span>
             <Badge tone={STATE_TONES[project.sandbox_state] || 'muted'}>sandbox {project.sandbox_state}</Badge>
             <Badge tone={PREFLIGHT_TONES[project.install_state === 'installed' ? 'supported' : 'bootstrap']}>{INSTALL_LABELS[project.install_state]}</Badge>
+            <MonoLink href={dashboardPath(RUNTIMES_PATH)} onClick={() => navigateTo(RUNTIMES_PATH)} title="Every sandbox and browser, in Settings → Integrations">
+              Manage runtimes
+            </MonoLink>
           </div>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <Button onClick={() => post(`/api/projects/${projectId}/boot`)} disabled={busy || booting} testId="boot-project">
             {project.sandbox_state === 'ready' ? 'Sandbox running' : booting ? 'Booting…' : 'Boot sandbox'}
           </Button>
+          {browserAction && (
+            <Button onClick={() => openBrowser(browserAction.watch)} testId="project-watch-live">{browserAction.label}</Button>
+          )}
           <Button variant="primary" onClick={() => runEvaluation()} disabled={busy || !target} testId="run-project-evaluation"
             title={target ? 'Boots the sandbox first when it is not running' : 'Choose the agent to evaluate first'}>
             Run evaluation
@@ -284,6 +313,9 @@ export default function ProjectDetail({ projectId, onBack, onDeleted }) {
           { value: 'overview', label: 'Overview' },
           { value: 'explorations', label: 'Explorations' },
           { value: 'environment', label: `Environment (${environmentSecrets(secrets).length})` },
+          ...(browserModes.length > 0 || tab === 'browser'
+            ? [{ value: 'browser', label: project.sandbox?.browser?.status === 'running' ? 'Browser · live' : 'Browser' }]
+            : []),
         ]}
         value={tab}
         onChange={setTab}
@@ -371,6 +403,10 @@ export default function ProjectDetail({ projectId, onBack, onDeleted }) {
       )}
 
       {tab === 'explorations' && <ProjectExplorations projectId={projectId} project={project} />}
+
+      {tab === 'browser' && (
+        <ProjectBrowser project={project} modes={browserModes} watchOnOpen={watchRequested} onChange={() => loadBoot().catch(() => {})} />
+      )}
 
       {tab === 'environment' && (
         <>
