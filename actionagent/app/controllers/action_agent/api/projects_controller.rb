@@ -174,7 +174,8 @@ module ActionAgent
       # GET /api/projects/:id/boot
       # The current sandbox's boot, step by step (see
       # SandboxOrchestrator#boot_status), with the scrubbed tail of the step
-      # that failed or is running.
+      # that failed or is running, and the modes its browser can start in
+      # (none when the backend runs no browsers).
       def boot_status
         sandbox = @project.current_sandbox_session
         orchestrator = SandboxOrchestrator.new
@@ -187,7 +188,8 @@ module ActionAgent
           log_tail: status && log_tail(orchestrator, sandbox, status),
           error: sandbox&.failed? ? SecretScrubber.scrub(sandbox.error_summary, @project.scrub_values) : nil,
           logs: sandbox.present? && orchestrator.supports?(:boot_log),
-          confirmation: @project.local_boot_confirmation(orchestrator)
+          confirmation: @project.local_boot_confirmation(orchestrator),
+          browser_modes: browser_modes(orchestrator)
         }
       end
 
@@ -450,6 +452,14 @@ module ActionAgent
         render json: { error: "The project's sandbox did not list its tools: #{SecretScrubber.scrub(e.message, @project.scrub_values)}" },
           status: :bad_gateway
         nil
+      end
+
+      # The modes the project's browser can start in on the configured
+      # backend: none when it runs no browsers, or cannot be loaded.
+      def browser_modes(orchestrator)
+        orchestrator.browser_modes.map(&:to_s)
+      rescue StandardError, LoadError
+        []
       end
 
       # The last LOG_TAIL_BYTES of the step that failed, else of the one
