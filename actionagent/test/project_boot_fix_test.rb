@@ -162,7 +162,11 @@ class ProjectBootFixTest < ActionDispatch::IntegrationTest
   test "without Claude Code connected a failed boot starts no session, and the project says why" do
     ActionAgent::ProviderKey.delete_all
 
-    perform_enqueued_jobs { @project.reload.sandbox_failed!(@sandbox) }
+    # With no Claude Code the setup assistant is the fallback; with no
+    # provider for it either (CI may resolve ollama), nothing runs.
+    ActionAgent::AgentExecutionService.stub(:available_providers, []) do
+      perform_enqueued_jobs { @project.reload.sandbox_failed!(@sandbox) }
+    end
 
     assert_equal 0, ActionAgent::CodeSession.count
     claude_code = @project.reload.summary.dig(:setup, :claude_code)
@@ -198,8 +202,10 @@ class ProjectBootFixTest < ActionDispatch::IntegrationTest
   end
 
   test "automatic sessions stop after the setup assistant's attempts, until a boot succeeds" do
-    (ActionAgent::ProjectSetup::MAX_AUTOMATIC_ATTEMPTS + 1).times do
-      perform_enqueued_jobs { @project.reload.sandbox_failed!(new_failed_sandbox!) }
+    ActionAgent::AgentExecutionService.stub(:available_providers, []) do
+      (ActionAgent::ProjectSetup::MAX_AUTOMATIC_ATTEMPTS + 1).times do
+        perform_enqueued_jobs { @project.reload.sandbox_failed!(new_failed_sandbox!) }
+      end
     end
 
     assert_equal ActionAgent::ProjectSetup::MAX_AUTOMATIC_ATTEMPTS, ActionAgent::CodeSession.count
