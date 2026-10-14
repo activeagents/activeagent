@@ -213,8 +213,10 @@ module ActionAgent
     #   run_ids          the setup runs it started, newest last
     #   last_run_id      the latest of them
     #   retried_run_ids  the runs that retried the boot
-    #   attempts         automatic runs since the last good boot
+    #   attempts         automatic runs (and Claude Code boot fixes) since
+    #                    the last good boot
     #   auto             false when a failed boot starts no run on its own
+    #   claude_code      the Claude Code boot fixes (see ProjectBootFix)
     def setup_settings
       settings["setup"].is_a?(Hash) ? settings["setup"] : {}
     end
@@ -444,9 +446,9 @@ module ActionAgent
       end
     end
 
-    # Called by SandboxProvisionJob when +sandbox+'s boot failed. Starts the
-    # setup assistant on it in the background, unless that is switched off
-    # (see ProjectSetup.after_boot_failed).
+    # Called by SandboxProvisionJob when +sandbox+'s boot failed. Starts
+    # Claude Code or the setup assistant on it in the background, unless that
+    # is switched off (see ProjectSetupJob).
     def sandbox_failed!(sandbox)
       changed = settle!(sandbox) { { status: "failed" } }
       ProjectSetupJob.perform_later(id, sandbox.id) if changed && auto_setup?
@@ -639,7 +641,8 @@ module ActionAgent
         auto: auto_setup?,
         agent_id: setup_settings["agent_id"],
         attempts: setup_settings["attempts"].to_i,
-        last_run: last_run && { id: last_run.id, status: last_run.status, created_at: last_run.created_at&.iso8601 }
+        last_run: last_run && { id: last_run.id, status: last_run.status, created_at: last_run.created_at&.iso8601 },
+        claude_code: ProjectBootFix.summary(self)
       }
     end
 

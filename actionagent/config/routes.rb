@@ -138,6 +138,7 @@ ActionAgent::Engine.routes.draw do
       # The setup assistant, the requests for input waiting on the project's
       # agents, and the models the App assistant may read.
       post :setup, to: "project_setup#start"
+      post "setup/claude_code", to: "project_setup#fix_with_claude_code", as: :setup_claude_code
       patch :setup, to: "project_setup#update"
       get :input_requests, to: "project_setup#input_requests"
       get :app_models, to: "project_setup#app_models"
