@@ -164,6 +164,7 @@ export default function CodeInteraction({ rootId, onBack = null }) {
   const card = `rounded-lg border p-4 ${darkMode ? 'bg-gray-900 border-gray-700' : 'bg-white border-gray-200'}`;
   const button = `px-3 py-1 text-sm rounded disabled:opacity-50 ${darkMode ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`;
   const primary = 'px-3 py-1 text-sm rounded text-white bg-red-600 hover:bg-red-700 disabled:opacity-50';
+  const needsYouClass = `p-2 rounded text-sm border ${darkMode ? 'bg-blue-900/20 border-blue-800 text-blue-200' : 'bg-blue-50 border-blue-200 text-blue-800'}`;
 
   if (!conversation) {
     return (
@@ -203,14 +204,15 @@ export default function CodeInteraction({ rootId, onBack = null }) {
         </div>
       </div>
 
-      {personRequest && (
-        <p role="alert" className={`p-2 rounded text-sm border ${darkMode ? 'bg-blue-900/20 border-blue-800 text-blue-200' : 'bg-blue-50 border-blue-200 text-blue-800'}`}>
+      {personRequest && !showBrowser && (
+        <p role="alert" className={needsYouClass}>
           Claude Code needs you: {personRequest.reason}{' '}
-          {!showBrowser && <button type="button" onClick={() => setShowBrowser(true)} className="underline">Open the browser</button>}
+          <button type="button" onClick={() => setShowBrowser(true)} className="underline">Open the browser</button>
         </p>
       )}
 
-      <div className={showBrowser ? 'grid gap-4 lg:grid-cols-2' : ''}>
+      {/* items-start: a stretched grid item has no room to stick in. */}
+      <div className={showBrowser ? 'grid gap-4 lg:grid-cols-2 items-start' : ''}>
         <div className="space-y-3">
           <ol className="space-y-3">
             {conversation.turns.map((turn) => (
@@ -240,7 +242,15 @@ export default function CodeInteraction({ rootId, onBack = null }) {
         </div>
 
         {showBrowser && (
-          <div className={`${card} space-y-2`} data-testid="code-interaction-browser">
+          // Sticky beside a long transcript, so Take over and Hand back stay
+          // in view; scrolls on its own when taller than the screen.
+          <div
+            className={`${card} space-y-2 lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto`}
+            data-testid="code-interaction-browser"
+          >
+            {personRequest && (
+              <p role="alert" className={needsYouClass}>Claude Code needs you: {personRequest.reason}</p>
+            )}
             <p className={`text-sm font-medium ${strong}`}>The sandbox’s browser</p>
             {browserRunning ? (
               <LiveView sessionId={sandboxId} watchOnOpen onHandBack={handedBack} handBackLabel="Hand back to Claude Code" />

@@ -90,9 +90,16 @@ module ActionAgent
     end
 
     # Where the conversation was started. Sessions from before origins were
-    # recorded are told apart by what they ran for.
+    # recorded are told apart by what they ran for: an evaluation fix names
+    # its run, and a boot fix is one its project recorded
+    # (ProjectBootFix.project_for).
     def origin
-      super.presence || (evaluation_run_id ? "evaluation_fix" : "settings")
+      recorded = super.presence
+      return recorded if recorded
+      return "evaluation_fix" if evaluation_run_id
+      return "boot_fix" if persisted? && root? && ProjectBootFix.project_for(self)
+
+      "settings"
     end
 
     # What the CLI is given on stdin: the dashboard's note, fenced, ahead of
