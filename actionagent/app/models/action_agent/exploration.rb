@@ -68,6 +68,8 @@ module ActionAgent
     OPEN_STATES = %w[proposed edited].freeze
     EXPECTATION_KEYS = %w[tools contains not_contains].freeze
     BUDGET_KEYS = %w[minutes steps cost].freeze
+    # The tag a scenario accepted into a catalog set (#accept_into_set!) carries.
+    EXPLORED_TAG = "explored"
     MAX_CANDIDATES = 200
     # A candidate's prompt and rubric hold at most MAX_STRING characters,
     # and each expectation list at most MAX_ITEMS entries of at most
@@ -415,6 +417,96 @@ module ActionAgent
       end
       broadcast_change
       result
+    end
+
+    # Accepts candidates +ids+ into +set+, a scenario set of the owner's
+    # scenario catalogs, rather than into an evaluation: each becomes the
+    # set's scenario x<exploration id>_<candidate id>, with the rubric as its
+    # notes, and accepting it again updates that scenario. The catalog's
+    # document is rewritten from its records. Returns
+    # { added:, updated:, unchanged:, set: }.
+    #
+    # +edits+ is applied first, as #accept! applies it. Nothing is written
+    # when a candidate is refused (a rejected one), or when the set holds
+    # the key as a scenario this exploration did not write.
+    #
+    # @raise [AcceptRefused]
+    # @raise [InvalidCandidate] for an edit, as #update_candidate! raises it
+    # @raise [CandidateLimitExceeded]
+    # @return [Hash]
+    def accept_into_set!(ids, set:, edits: {})
+      ids = Array(ids).map { |id| Integer(id.to_s, exception: false) }
+      raise AcceptRefused, "Choose the candidates to accept" if ids.empty?
+      raise AcceptRefused, "Candidate ids are numbers" if ids.include?(nil)
+
+      ids = ids.uniq
+      edits = plain_hash(edits).each_with_object({}) do |(id, edit), map|
+        number = Integer(id.to_s, exception: false) or raise AcceptRefused, "Candidate ids are numbers"
+        map[number] = plain_hash(edit).slice("prompt", "group", "notes", "rubric", "expectations", *EXPECTATION_KEYS)
+      end
+      secrets = edits.any? ? scrub_secrets : []
+      roster = edits.values.any? { |edit| edits_tools?(edit) } ? tool_roster : nil
+      catalog = set.catalog
+      result = { added: [], updated: [], unchanged: [] }
+
+      with_lock do
+        rows = candidates.deep_dup
+        by_id = rows.index_by { |row| row["id"] }
+        unknown = ids.reject { |id| by_id.key?(id) }
+        raise AcceptRefused, "No candidate #{unknown.join(', ')}" if unknown.any?
+
+        problems = {}
+        ids.each do |id|
+          candidate = by_id[id]
+          if candidate["state"] == "rejected"
+            problems[id] = "it was rejected: reconsider it first"
+            next
+          end
+          apply_edit!(candidate, edits[id], roster: roster, secrets: secrets) if edits[id].present?
+          problems[id] = "it has no prompt" if candidate["prompt"].blank?
+        end
+        raise AcceptRefused.new("Some candidates cannot be accepted", problems) if problems.any?
+
+        refuse_oversized_list!(rows, "shorten the edits") if edits.any?
+        if catalog.scenario_count + ids.size > ScenarioCatalog::MAX_SCENARIOS
+          raise AcceptRefused, "The catalog would hold more than #{ScenarioCatalog::MAX_SCENARIOS} scenarios"
+        end
+
+        ScenarioCatalog.transaction do
+          next_position = (set.scenarios.maximum(:position) || -1) + 1
+          ids.each do |id|
+            candidate = by_id.fetch(id)
+            key = "x#{self.id}_#{id}"
+            record = set.scenarios.find_or_initialize_by(key: key)
+            written_here = candidate["scenario_set_id"] == set.id && candidate["scenario_key"] == key
+            if record.persisted? && !written_here
+              raise AcceptRefused.new("Some candidates cannot be accepted", id => "the set already holds a scenario #{key}")
+            end
+
+            expectations = candidate["expectations"].to_h.slice(*EXPECTATION_KEYS).reject { |_, value| value.blank? }
+            record.assign_attributes(prompt: candidate["prompt"], notes: candidate["notes"].presence,
+              expectations: expectations, tags: (record.tags | [ EXPLORED_TAG ]))
+            record.position ||= (next_position += 1) - 1
+            bucket = record.new_record? ? :added : (record.changed? ? :updated : :unchanged)
+            record.save!
+            result[bucket] << key
+
+            candidate["state"] = "accepted"
+            candidate["scenario_key"] = key
+            candidate["scenario_set_id"] = set.id
+          end
+          catalog.refresh_document!
+        end
+
+        self.candidates = rows
+        settle_status
+        save!
+      end
+      catalog.sync_to_storage!
+      broadcast_change
+      result.merge(set: set)
+    rescue ActiveAgent::Evals::Catalog::InvalidDocument, ActiveRecord::RecordInvalid => e
+      raise AcceptRefused, e.respond_to?(:record) ? e.record.errors.full_messages.to_sentence : e.message
     end
 
     # Ends a pending or running exploration, keeping the candidates found so

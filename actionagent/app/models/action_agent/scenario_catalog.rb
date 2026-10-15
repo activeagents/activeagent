@@ -64,9 +64,26 @@ module ActionAgent
       ActiveAgent::Evals::Catalog.new([ to_document ], name: key)
     end
 
-    # The canonical YAML of the records.
-    def export_yaml
-      to_catalog.to_yaml
+    # The canonical YAML of the records: the whole catalog, or only the
+    # products, sets or scenarios named by id (with the products and sets
+    # that hold them), as a document of this catalog's key that a merge
+    # import (ScenarioCatalogImport mode "merge") reads back into it.
+    def export_yaml(product_ids: nil, set_ids: nil, scenario_ids: nil)
+      selection = { product_ids: ids(product_ids), set_ids: ids(set_ids), scenario_ids: ids(scenario_ids) }
+      return to_catalog.to_yaml if selection.values.all?(&:nil?)
+
+      ActiveAgent::Evals::Catalog.new([ to_document(**selection) ], name: key).to_yaml
+    end
+
+    # A key for a new product, set or scenario: +text+ as a key, made unique
+    # among +taken+ with a numeric suffix.
+    def self.key_for(text, taken)
+      base = text.to_s.parameterize(separator: "_").first(60).presence || "item"
+      base = "k_#{base}" unless base.match?(KEY_FORMAT)
+      candidate = base
+      suffix = 1
+      candidate = "#{base}_#{suffix += 1}" while taken.include?(candidate)
+      candidate
     end
 
     # Rewrites the stored document and digest from the records, after a
@@ -121,13 +138,35 @@ module ActionAgent
 
     private
 
-    def to_document
+    # The catalog's document, narrowed to the products, sets and scenarios
+    # named by id when any are (see #export_yaml). A product or set is kept
+    # whole when it is named, and otherwise only for what it holds that is.
+    def to_document(product_ids: nil, set_ids: nil, scenario_ids: nil)
+      narrowed = [ product_ids, set_ids, scenario_ids ].any?
+      documents = products.includes(sets: :scenarios).filter_map do |product|
+        next product.to_document unless narrowed
+        next product.to_document if product_ids&.include?(product.id)
+
+        sets = product.sets.filter_map do |set|
+          next set.to_document if set_ids&.include?(set.id)
+
+          chosen = set.scenarios.select { |scenario| scenario_ids&.include?(scenario.id) }
+          set.to_document.merge("scenarios" => chosen.map(&:to_document)) if chosen.any?
+        end
+        product.to_document.merge("sets" => sets) if sets.any?
+      end
       {
         "catalog" => key,
         "name" => name,
         "description" => description,
-        "products" => products.includes(sets: :scenarios).map(&:to_document)
+        "products" => documents
       }.merge(metadata).compact
+    end
+
+    def ids(value)
+      return nil if value.blank?
+
+      Array(value).flat_map { |entry| entry.to_s.split(",") }.filter_map { |entry| Integer(entry.strip, exception: false) }
     end
   end
 end

@@ -37,16 +37,20 @@ module ActionAgent
 
       # POST /api/scenario_catalogs
       # One of:
+      #   catalog:    { key, name, description } for an empty catalog, built
+      #               up in the dashboard (see ScenarioCatalogEntriesController)
       #   document:   the catalog's YAML text
       #   file:       an uploaded .yml
       #   repository: owner/name of a connected repository, with ref (its
       #               default branch when omitted) and path (a directory of
       #               .yml files, .activeagents/evals by default, or one file)
-      # Answers the imported catalogs. A repository the GitHub connection
-      # has not selected needs :manage_github, as reading one for a project
-      # does.
+      # mode is "replace" (the default: the document is the catalog) or
+      # "merge" (what the document leaves out is kept). Answers the imported
+      # catalogs. A repository the GitHub connection has not selected needs
+      # :manage_github, as reading one for a project does.
       def create
         return unless authorize_action!(:replace_scenarios, ScenarioCatalog.new)
+        return create_empty if params[:document].blank? && params[:file].blank? && params[:repository].blank? && params[:catalog].present?
 
         catalogs =
           if params[:repository].present?
@@ -86,10 +90,33 @@ module ActionAgent
         head :no_content
       end
 
-      # GET /api/scenario_catalogs/:id/export
-      # The canonical YAML, as a download.
+      # POST /api/scenario_catalogs/preview
+      # What POST /api/scenario_catalogs would change, with the same
+      # document, file or repository and mode, without writing: one
+      # ScenarioCatalogImport#preview per catalog.
+      def preview
+        previews =
+          if params[:repository].present?
+            preview_repository or return
+          else
+            [ build_import(document_param, name: params[:name].presence).preview ]
+          end
+
+        render json: { previews: previews }
+      end
+
+      # GET /api/scenario_catalogs/:id/export?product_ids=&set_ids=&scenario_ids=
+      # The canonical YAML, as a download: the whole catalog, or only the
+      # products, sets or scenarios named (comma-separated ids or arrays).
+      # disposition=inline answers it as text, for copying.
       def export
-        send_data @catalog.export_yaml, filename: "#{@catalog.key.tr('/', '-')}.yml", type: "application/x-yaml", disposition: "attachment"
+        yaml = @catalog.export_yaml(product_ids: params[:product_ids], set_ids: params[:set_ids], scenario_ids: params[:scenario_ids])
+        if params[:disposition].to_s == "inline"
+          render plain: yaml, content_type: "application/x-yaml"
+        else
+          suffix = [ params[:product_ids], params[:set_ids], params[:scenario_ids] ].any?(&:present?) ? "-selection" : ""
+          send_data yaml, filename: "#{@catalog.key.tr('/', '-')}#{suffix}.yml", type: "application/x-yaml", disposition: "attachment"
+        end
       end
 
       # POST /api/scenario_catalogs/:id/sync
@@ -180,11 +207,35 @@ module ActionAgent
       end
 
       def import_document(document, catalog: nil, name: nil, source_path: nil)
+        build_import(document, catalog: catalog, name: name, source_path: source_path).call
+      end
+
+      def build_import(document, catalog: nil, name: nil, source_path: nil)
         ScenarioCatalogImport.new(
           owner: current_owner, document: document, catalog: catalog, name: name,
           source_kind: "upload", source_path: source_path,
-          agents: owner_agents, projects: owned(Project)
-        ).call
+          agents: owner_agents, projects: owned(Project), mode: params[:mode].presence || "replace"
+        )
+      end
+
+      # An empty catalog from catalog: { key, name, description }; a blank
+      # key is made from the name.
+      def create_empty
+        attributes = params.require(:catalog).permit(:key, :name, :description).to_h.symbolize_keys
+        taken = owned(ScenarioCatalog).pluck(:key)
+        attributes[:key] = ScenarioCatalog.key_for(attributes[:name], taken) if attributes[:key].blank?
+        attributes[:name] = attributes[:key] if attributes[:name].blank?
+        catalog = ScenarioCatalog.new(attributes.merge(source_kind: "api"))
+        catalog.owner = current_owner
+        ScenarioCatalog.transaction do
+          catalog.save!
+          catalog.refresh_document!
+        end
+        catalog.sync_to_storage!
+
+        render json: { catalogs: [ ScenarioCatalogSerializer.full(catalog) ] }, status: :created
+      rescue ActiveRecord::RecordInvalid => e
+        render json: { errors: e.record.errors.full_messages }, status: :unprocessable_entity
       end
 
       # Imports from the connected repository params name. nil, with the
@@ -203,11 +254,33 @@ module ActionAgent
           return nil
         end
 
+        repository_import(connection, repository).call
+      end
+
+      # Previews what the connected repository params name would import. nil,
+      # with the refusal rendered, as #import_from_repository.
+      def preview_repository
+        connection = GithubConnection.for_owner(current_owner).first
+        if connection.nil?
+          render json: { error: "Connect GitHub in Settings first", code: "no_github_connection" }, status: :unprocessable_entity
+          return nil
+        end
+
+        repository = params[:repository].to_s
+        if connection.repository(repository).nil? && !ActionAgent.permitted?(current_user, :manage_github, connection)
+          permission_denied(:manage_github)
+          return nil
+        end
+
+        repository_import(connection, repository).preview
+      end
+
+      def repository_import(connection, repository)
         ScenarioCatalogRepositoryImport.new(
           owner: current_owner, connection: connection, repository: repository,
           ref: params[:ref].presence, path: params[:path].presence,
-          agents: owner_agents, projects: owned(Project)
-        ).call
+          agents: owner_agents, projects: owned(Project), mode: params[:mode].presence || "replace"
+        )
       end
 
       # Boots the project's sandbox when none is running, as the project's
