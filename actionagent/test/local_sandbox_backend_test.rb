@@ -309,6 +309,19 @@ class LocalSandboxBackendTest < ActiveSupport::TestCase
     ], argv
   end
 
+  test "a boot fix's session is given its allowed commands, after the other options" do
+    sandbox = boot!
+    rules = [ "Bash(bundle install:*)", "Bash(bundle lock:*)" ]
+
+    outcome = ActionAgent::ProjectBootFix.stub(:allowed_tools_for, rules) do
+      @backend.run_code_session(sandbox, code_session) { |_event| }
+    end
+
+    assert_equal 0, outcome[:exit_status]
+    argv = JSON.parse(workspace(sandbox).join("claude/invocation.json").read)["argv"]
+    assert_equal [ "--allowedTools", "Bash(bundle install:*),Bash(bundle lock:*)" ], argv[argv.index("--allowedTools"), 2]
+  end
+
   test "cancel_code_session stops the session's whole process group" do
     sandbox = boot!
     session = code_session(id: 11, prompt: "SLEEP until cancelled")

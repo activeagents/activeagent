@@ -155,6 +155,37 @@ class DraftPullRequestsTest < ActionDispatch::IntegrationTest
     assert_equal 0, ActionAgent::DraftPullRequest.count
   end
 
+  test "a Gemfile or lockfile that newly points a gem at a path outside the repository is never published" do
+    sandbox = app_sandbox!
+    stage!(sandbox, working: {
+      "Gemfile" => %(source "https://rubygems.org"\ngem "actionagent", path: "/Users/dev/src/activeagent/actionagent"\n),
+      "Gemfile.lock" => "PATH\n  remote: ../activeagent/actionagent\n  specs:\n    actionagent (1.9.0)\n\nGEM\n  remote: https://rubygems.org/\n",
+      "gems/notes.rb" => %(# path: "/not/a/gemfile"\n)
+    })
+
+    files = preview!(sandbox)["files"].index_by { |file| file["path"] }
+
+    assert_equal "local_path_gem", files["Gemfile"]["refusal"]
+    assert_equal "local_path_gem", files["Gemfile.lock"]["refusal"]
+    assert_nil files["gems/notes.rb"]["refusal"], "only Bundler's own files are read for paths"
+
+    publish!(sandbox, preview_files: preview!(sandbox), paths: [ "Gemfile" ], forge: true)
+    assert_response :unprocessable_entity
+    assert_equal "not_publishable", JSON.parse(response.body)["code"]
+  end
+
+  test "a released or git engine in the Gemfile, or a path inside the repository, is published" do
+    sandbox = app_sandbox!
+    stage!(sandbox, working: {
+      "Gemfile" => %(source "https://rubygems.org"\ngem "actionagent", "~> 1.9.0"\ngem "activeagent", github: "activeagents/activeagent"\n) +
+        %(gem "local_tools", path: "vendor/local_tools"\n)
+    })
+
+    files = preview!(sandbox)["files"].index_by { |file| file["path"] }
+
+    assert_nil files["Gemfile"]["refusal"]
+  end
+
   test "a file holding a sandbox secret or a GitHub token refuses the publish, naming the file and never the value" do
     sandbox = app_sandbox!
     connect_claude_key!

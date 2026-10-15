@@ -379,6 +379,23 @@ const systemRow = (event) => {
   return { kind: 'system', text: event.subtype ? `System: ${humanize(event.subtype).toLowerCase()}` : 'System event' };
 };
 
+// System events the CLI streams as bookkeeping (hooks starting and
+// answering, running thinking-token counts) say nothing about the work, so
+// they are left out of the transcript.
+const QUIET_SYSTEM_SUBTYPE = /^(hook_|thinking_tokens$)/;
+export const quietSystemEvent = (event) => QUIET_SYSTEM_SUBTYPE.test(String(event?.subtype || ''));
+
+// A rate_limit_event is shown only when the session is actually limited
+// ("allowed_warning" or "rejected"); the routine "allowed" ones are hidden.
+export const rateLimitRows = (event) => {
+  const info = event?.rate_limit_info || {};
+  const status = String(info.status || '');
+  if (status === '' || status === 'allowed') return [];
+  const resets = Number(info.resetsAt);
+  const when = Number.isFinite(resets) && resets > 0 ? `resets ${new Date(resets * 1000).toLocaleTimeString()}` : null;
+  return [{ kind: 'system', text: [`Rate limit: ${humanize(status).toLowerCase()}`, when].filter(Boolean).join(' · ') }];
+};
+
 const unknownRow = (label, value) => ({
   kind: 'unknown',
   label: String(label || 'event'),
@@ -461,7 +478,9 @@ export const eventRows = (event, context = { toolNames: {} }) => {
     }
     case 'system':
       if (event.subtype === 'init' && event.cwd) context.cwd = event.cwd;
-      return [systemRow(event)];
+      return quietSystemEvent(event) ? [] : [systemRow(event)];
+    case 'rate_limit_event':
+      return rateLimitRows(event);
     case 'assistant':
     case 'user':
       return mark(messageRows(event, context));

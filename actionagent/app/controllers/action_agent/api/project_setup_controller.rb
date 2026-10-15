@@ -5,7 +5,8 @@ module ActionAgent
     # Getting a project's sandbox to boot and choosing what its App assistant
     # may read:
     #
-    #   - starting the setup assistant on a failed boot (see ProjectSetup)
+    #   - starting the setup assistant on a failed boot (see ProjectSetup), or
+    #     Claude Code in its checkout (see ProjectBootFix)
     #   - the requests for input the project's agents are waiting on, which
     #     the Project page answers through the input requests API
     #   - the app's models as a boot listed them, and the models and columns
@@ -15,7 +16,7 @@ module ActionAgent
 
       before_action :require_owner!
       before_action :set_project
-      before_action :require_execution_enabled!, only: [ :start ]
+      before_action :require_execution_enabled!, only: [ :start, :fix_with_claude_code ]
 
       rescue_from Project::ConfirmationRequired, with: :confirmation_required
       rescue_from Project::BootRefused, SandboxOrchestrator::UnsupportedBackendError, with: :boot_refused
@@ -37,8 +38,25 @@ module ActionAgent
         render json: { error: e.message, code: "setup_unavailable" }, status: :conflict
       end
 
+      # POST /api/projects/:project_id/setup/claude_code
+      # Starts a Claude Code session in the failed boot's checkout to fix the
+      # step that failed; the boot resumes once it changed something. It
+      # runs on the caller's Claude Code, as a session started from the
+      # sandbox's page would.
+      def fix_with_claude_code
+        enforce_execution_quota!
+        return if performed?
+
+        session = ProjectBootFix.start!(@project, trigger: "requested", user_id: current_user.respond_to?(:id) ? current_user.id : @project.user_id)
+        record_execution_usage
+        render json: { project: @project.reload.summary, code_session: session.summary }, status: :accepted
+      rescue ProjectBootFix::Unavailable => e
+        render json: { error: e.message, code: "claude_code_unavailable" }, status: :conflict
+      end
+
       # PATCH /api/projects/:project_id/setup { auto: false }
-      # Whether a failed boot starts the setup assistant on its own.
+      # Whether a failed boot starts Claude Code or the setup assistant on its
+      # own.
       def update
         return unless authorize_action!(:manage_project_secrets, secret_subject)
 

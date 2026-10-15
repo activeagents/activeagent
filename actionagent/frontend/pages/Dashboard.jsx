@@ -36,6 +36,8 @@ import {
   navView,
 } from '../utils/dashboardRoutes.mjs';
 import { openedFromSessions } from '../utils/sessionsQuery.mjs';
+import { requestConfirm } from '../utils/confirm.mjs';
+import { ConfirmHost } from '../components/dashboard/ConfirmDialog';
 
 /**
  * Dashboard - Main dashboard application
@@ -207,7 +209,14 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
   };
 
   const handleDeleteAgent = async (id) => {
-    if (!confirm('Are you sure you want to delete this agent?')) return;
+    const agent = agents.find((a) => a.id === id);
+    if (!(await requestConfirm({
+      title: agent ? `Delete ${agent.name}?` : 'Delete this agent?',
+      message: 'Its versions and run history are deleted with it. This cannot be undone.',
+      confirmLabel: 'Delete agent',
+      danger: true,
+      requireText: agent?.name,
+    }))) return;
 
     setIsLoading(true);
     try {
@@ -476,6 +485,8 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
           onClose={() => setShowTemplateLibrary(false)}
         />
       )}
+
+      <ConfirmHost />
 
       {/* Notification Toast */}
       {notification && (

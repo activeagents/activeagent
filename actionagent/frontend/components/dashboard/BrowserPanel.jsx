@@ -8,7 +8,9 @@ import LiveView from './LiveView';
 // A ready checkout sandbox's browser: start and stop it, its status, and,
 // while it runs, its live view. `modes` is what the sandbox listing says the
 // backend can start ("headless", and "headed" where it can open a window).
-export default function BrowserPanel({ sandbox, modes }) {
+// `watchOnOpen` starts watching as soon as its live view is shown, and
+// `onChange` is told the browser after a start or stop.
+export default function BrowserPanel({ sandbox, modes, watchOnOpen = false, onChange }) {
   const { darkMode } = useTheme();
   const [browser, setBrowser] = useState(sandbox.browser || null);
   const [inWindow, setInWindow] = useState(false);
@@ -25,7 +27,10 @@ export default function BrowserPanel({ sandbox, modes }) {
     try {
       const res = await fetch(base, init);
       const data = await res.json().catch(() => ({}));
-      if (data.browser) setBrowser(data.browser);
+      if (data.browser) {
+        setBrowser(data.browser);
+        onChange?.(data.browser);
+      }
       if (!res.ok) throw new Error(data.message || apiErrorMessage(data, `${fallback} (HTTP ${res.status}).`));
     } catch (e) {
       setError(e.message);
@@ -86,7 +91,7 @@ export default function BrowserPanel({ sandbox, modes }) {
           Runs against this sandbox reach it as <code className="font-mono">{browser.server_key}</code>.
         </p>
       )}
-      {running && browser.live_url && <LiveView key={browser.started_at} sessionId={sandbox.session_id} headed={browser.mode === 'headed'} />}
+      {running && browser.live_url && <LiveView key={browser.started_at} sessionId={sandbox.session_id} headed={browser.mode === 'headed'} watchOnOpen={watchOnOpen} />}
       {running && !browser.live_url && <p className={`text-xs ${muted}`}>This browser has no live view to watch.</p>}
     </div>
   );

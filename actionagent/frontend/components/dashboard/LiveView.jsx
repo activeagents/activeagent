@@ -39,8 +39,9 @@ const isPasteShortcut = (event) => (event.metaKey || event.ctrlKey) && event.key
 // While this viewer holds control, its mouse and wheel over the frame go to
 // the page, and so do its keys while the frame has keyboard focus. It holds
 // control, and the agent waits, until Hand back or Stop watching. `headed`
-// is whether the browser also has a window open on the dashboard's machine.
-export default function LiveView({ sessionId, headed = false }) {
+// is whether the browser also has a window open on the dashboard's machine,
+// and `watchOnOpen` starts watching when the view is first shown.
+export default function LiveView({ sessionId, headed = false, watchOnOpen = false }) {
   const { darkMode } = useTheme();
   const [state, dispatch] = useReducer(liveViewReducer, initialLiveViewState);
   const [connection, setConnection] = useState('idle'); // idle | connecting | open
@@ -149,6 +150,13 @@ export default function LiveView({ sessionId, headed = false }) {
       setNotice(e.message);
     }
   };
+
+  const watchedOnOpen = useRef(false);
+  useEffect(() => {
+    if (!watchOnOpen || watchedOnOpen.current) return;
+    watchedOnOpen.current = true;
+    void watch();
+  }, [watchOnOpen]);
 
   const takeOver = async () => {
     dispatch({ type: 'clear_error' });

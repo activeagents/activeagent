@@ -2002,6 +2002,11 @@ module ActionAgent
       # that would prompt is denied instead of stalling the session.
       argv += [ "--permission-prompts", "none" ] if permission_prompts_supported?(command)
       argv += [ "--max-turns", ActionAgent.claude_code_max_turns.to_i.to_s ] if ActionAgent.claude_code_max_turns.present?
+      # A boot fix may run the few commands it needs to re-resolve the
+      # checkout's dependencies (ProjectBootFix::BUNDLER_COMMANDS); every
+      # other session runs none.
+      allowed = ProjectBootFix.allowed_tools_for(code_session)
+      argv += [ "--allowedTools", allowed.join(",") ] if allowed.any?
 
       if (model = code_session.model.presence)
         # One argv entry, but one that must not read as a flag.

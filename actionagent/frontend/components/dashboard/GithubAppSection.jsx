@@ -4,6 +4,7 @@ import { dashboardPath } from '../../utils/dashboardPath';
 import RepoPicker from './RepoPicker';
 import { toggleRepository } from '../../utils/repositories.mjs';
 import { installationLabel, installationProblem, submitManifest, validGithubLogin } from '../../utils/githubApp.mjs';
+import { requestConfirm } from '../../utils/confirm.mjs';
 
 // The GitHub App half of the GitHub card: installing the App and the owner's
 // linked installations, each with its repository selection and Unlink. On a
@@ -100,10 +101,12 @@ export default function GithubAppSection({ app, onChanged, onError, onNotice }) 
   };
 
   const unlink = async (installation) => {
-    if (!window.confirm(
-      `Unlink the GitHub App installation on @${installation.account_login}? New sandboxes can no longer check out its `
-      + 'repositories. The App stays installed on GitHub; uninstall it there to remove its access.',
-    )) return;
+    if (!(await requestConfirm({
+      title: `Unlink @${installation.account_login}?`,
+      message: 'New sandboxes can no longer check out its repositories. The App stays installed on GitHub; uninstall it there to remove its access.',
+      confirmLabel: 'Unlink',
+      danger: true,
+    }))) return;
     onError(null);
     try {
       const res = await fetch(`/api/github_installations/${installation.id}`, { method: 'DELETE' });

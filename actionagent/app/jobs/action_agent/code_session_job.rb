@@ -30,8 +30,9 @@ module ActionAgent
       sandbox = code_session.sandbox_session
 
       # Queued behind a Stop (the cleanup job shares this queue): never start
-      # Claude Code, with the owner's credential, in a stopped sandbox.
-      unless sandbox.reload.ready? && sandbox.active?
+      # Claude Code, with the owner's credential, in a stopped sandbox. A
+      # project's boot fix runs in the checkout its failed boot kept.
+      unless (sandbox.reload.ready? && sandbox.active?) || ProjectBootFix.runs_in_failed_boot?(code_session)
         return fail!(code_session, "The sandbox was stopped before the session started")
       end
 
@@ -58,13 +59,24 @@ module ActionAgent
 
       finish(code_session, outcome.to_h, result_event, secrets)
       verify(code_session)
+      resume_boot(code_session)
     rescue StandardError => e
       message = SecretScrubber.scrub(e.message.to_s, secrets || safe_secrets(code_session))
       Rails.logger.error("Code session #{code_session_id} failed: #{message}")
       fail!(code_session, message) if code_session
+      resume_boot(code_session) if code_session
     end
 
     private
+
+    # A project's boot fix resumes the boot it fixed (ProjectBootFix). Its
+    # failure is the boot's, not the session's, so it is logged and left on
+    # the project rather than raised.
+    def resume_boot(code_session)
+      ProjectBootFix.after_session(code_session.reload)
+    rescue StandardError => e
+      Rails.logger.warn("Code session #{code_session.id}: the project's boot was not resumed: #{e.class}: #{e.message}")
+    end
 
     # A fix session that changed the checkout is verified next. If that
     # cannot even be queued, the error is the session's, so the sandbox is
