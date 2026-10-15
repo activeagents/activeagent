@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useTheme } from '../../contexts/ThemeContext';
+import { requestConfirm } from '../../utils/confirm.mjs';
 
 // Codex uses a workspace-owned API key, separate from the agent builder's key.
 export default function CodexIntegrationCard({ onChange }) {
@@ -38,7 +39,12 @@ export default function CodexIntegrationCard({ onChange }) {
   };
 
   const disconnect = async () => {
-    if (!window.confirm('Disconnect Codex? New Codex sessions will require reconnecting an API key.')) return;
+    if (!(await requestConfirm({
+      title: 'Disconnect Codex?',
+      message: 'New Codex sessions will need an API key connected again.',
+      confirmLabel: 'Disconnect',
+      danger: true,
+    }))) return;
     setSaving(true);
     setError(null);
     try {

@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Button, Card } from './primitives';
 import { navigateTo } from '../../utils/dashboardPath';
 import { apiErrorMessage } from '../../utils/codeSessions.mjs';
+import { requestConfirm } from '../../utils/confirm.mjs';
 
 // /catalogs: the owner's scenario catalogs. A catalog is a YAML document of
 // products (an agent or a project under test), each with named sets of
@@ -110,7 +111,13 @@ export default function ScenarioCatalogsView({ visit = 0 }) {
   };
 
   const remove = async (catalog) => {
-    if (!window.confirm(`Delete the catalog ${catalog.key}? Its evaluations and their runs stay.`)) return;
+    if (!(await requestConfirm({
+      title: `Delete the catalog ${catalog.key}?`,
+      message: 'Its evaluations and their runs stay.',
+      confirmLabel: 'Delete catalog',
+      danger: true,
+      requireText: catalog.key,
+    }))) return;
     try {
       const res = await fetch(`/api/scenario_catalogs/${catalog.id}`, { method: 'DELETE' });
       if (!res.ok) {
