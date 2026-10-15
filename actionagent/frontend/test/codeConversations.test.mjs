@@ -15,6 +15,12 @@ import {
   parseInteractionsLocation,
   pendingPersonRequest,
   showBrowserPreference,
+  clampSplit,
+  splitForKey,
+  splitFromPointer,
+  SPLIT_DEFAULT,
+  SPLIT_MAX,
+  SPLIT_MIN,
   turnLine,
 } from '../utils/codeConversations.mjs';
 
@@ -95,4 +101,24 @@ test('a conversation opens its browser panel from the URL, then the last choice'
   assert.equal(showBrowserPreference('?tab=x', '0'), false);
   assert.equal(showBrowserPreference('', null), false);
   assert.equal(showBrowserPreference('?browser=yes', null), false);
+});
+
+test('the panel split stays between its bounds, from a drag, a key or storage', () => {
+  assert.equal(clampSplit(10), SPLIT_MIN);
+  assert.equal(clampSplit(90), SPLIT_MAX);
+  assert.equal(clampSplit('62.37'), 62.4);
+  assert.equal(clampSplit('wide'), SPLIT_DEFAULT);
+  assert.equal(clampSplit(null), SPLIT_MIN);
+
+  assert.equal(splitFromPointer(400, { left: 200, width: 800 }), 25);
+  assert.equal(splitFromPointer(600, { left: 200, width: 800 }), 50);
+  assert.equal(splitFromPointer(5000, { left: 200, width: 800 }), SPLIT_MAX);
+  assert.equal(splitFromPointer(600, { left: 200, width: 0 }), SPLIT_DEFAULT);
+
+  assert.equal(splitForKey(50, 'ArrowLeft'), 45);
+  assert.equal(splitForKey(74, 'ArrowRight'), SPLIT_MAX);
+  assert.equal(splitForKey(60, 'Home'), SPLIT_MIN);
+  assert.equal(splitForKey(30, 'End'), SPLIT_MAX);
+  assert.equal(splitForKey(30, 'Enter'), SPLIT_DEFAULT);
+  assert.equal(splitForKey(30, 'a'), null);
 });
