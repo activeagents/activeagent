@@ -10,6 +10,7 @@ import InteractionsView from './InteractionsView';
 import EvaluationsView from './EvaluationsView';
 import AgentAnalytics from './AgentAnalytics';
 import AgentToolsTab from './AgentToolsTab';
+import { requestConfirm } from '../../utils/confirm.mjs';
 
 // The agent detail page carries two tab groups on one row: how the agent is
 // configured on the left, how it behaves in production on the right. Both
@@ -692,7 +693,11 @@ function InstructionsTab({ formData, updateField, meta, toggleArrayItem, colors 
 
 function VersionsTab({ versions, agentId, onRestore, colors, darkMode }) {
   const handleRestore = async (versionId) => {
-    if (!confirm('Restore this version? This will create a new version with the restored configuration.')) return;
+    if (!(await requestConfirm({
+      title: 'Restore this version?',
+      message: 'A new version is created with the restored configuration. The current version stays in the history.',
+      confirmLabel: 'Restore',
+    }))) return;
 
     try {
       await fetch(`/api/agents/${agentId}/restore`, {

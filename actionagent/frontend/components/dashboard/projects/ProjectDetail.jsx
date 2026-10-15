@@ -26,6 +26,7 @@ import {
   secretsPayload,
 } from '../../../utils/projects.mjs';
 import { awaitingAutoSetup, setupInProgress } from '../../../utils/projectSetup.mjs';
+import { requestConfirm } from '../../../utils/confirm.mjs';
 
 const RUNTIMES_PATH = '/settings?tab=integrations';
 const STATE_TONES = { ready: 'success', booting: 'info', failed: 'error', expired: 'muted', none: 'muted' };
@@ -246,7 +247,13 @@ export default function ProjectDetail({ projectId, onBack, onDeleted }) {
   };
 
   const destroy = async () => {
-    if (!window.confirm(`Delete ${project.name}? Its secrets, agent and evaluation are deleted, and its sandbox is stopped.`)) return;
+    if (!(await requestConfirm({
+      title: `Delete ${project.name}?`,
+      message: 'Its secrets, agent and evaluation are deleted, and its sandbox is stopped. This cannot be undone.',
+      confirmLabel: 'Delete project',
+      danger: true,
+      requireText: project.name,
+    }))) return;
     const res = await fetch(`/api/projects/${projectId}`, { method: 'DELETE' });
     if (res.ok) onDeleted(); else setError(apiErrorMessage(await readJson(res), `Could not delete the project (HTTP ${res.status}).`));
   };

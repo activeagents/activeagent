@@ -27,6 +27,7 @@ import {
   checkoutSourceLabel,
   installationsSummary,
 } from '../../utils/githubApp.mjs';
+import { requestConfirm } from '../../utils/confirm.mjs';
 
 // What the OAuth callback reports back through ?github=… on its redirect.
 const CALLBACK_MESSAGES = {
@@ -220,10 +221,12 @@ export default function GithubIntegrationCard({ callbackStatus, appCallbackStatu
   // Only the connection goes: sandboxes already checked out keep running
   // until stopped or reaped, so they stay listed below with their Stop.
   const disconnect = async () => {
-    if (!window.confirm(
-      'Disconnect GitHub? New checkout sandboxes will no longer be able to clone its repositories. '
-      + 'Sandboxes already running keep running until you stop them or they expire.',
-    )) return;
+    if (!(await requestConfirm({
+      title: 'Disconnect GitHub?',
+      message: 'New checkout sandboxes can no longer clone its repositories. Sandboxes already running keep running until you stop them or they expire.',
+      confirmLabel: 'Disconnect',
+      danger: true,
+    }))) return;
     try {
       const res = await fetch('/api/github_connection', { method: 'DELETE' });
       if (!res.ok) throw new Error('disconnect failed');
@@ -259,9 +262,12 @@ export default function GithubIntegrationCard({ callbackStatus, appCallbackStatu
   // Expires the sandbox; the cleanup job stops its processes and deletes
   // the checkout. A failed one has nothing running, so it is just dismissed.
   const stopSandbox = async (sandbox) => {
-    if (sandbox.status !== 'failed' && !window.confirm(
-      'Stop this sandbox? Its app stops and its checkout is deleted, including any changes Claude Code made there.',
-    )) return;
+    if (sandbox.status !== 'failed' && !(await requestConfirm({
+      title: 'Stop this sandbox?',
+      message: 'Its app stops and its checkout is deleted, including any changes Claude Code made there.',
+      confirmLabel: 'Stop sandbox',
+      danger: true,
+    }))) return;
     setStopping(sandbox.session_id);
     setSandboxError(sandbox.repository, null);
     try {
