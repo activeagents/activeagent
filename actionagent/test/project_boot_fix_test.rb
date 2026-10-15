@@ -155,6 +155,17 @@ class ProjectBootFixTest < ActionDispatch::IntegrationTest
     assert_equal resumes, FixBackend.calls.count { |call| call.first == :resume_boot }
   end
 
+  test "a boot fix recorded before origins were is still told apart as one" do
+    perform_enqueued_jobs { @project.reload.sandbox_failed!(@sandbox) }
+    session = ActionAgent::CodeSession.sole
+    session.update_columns(origin: nil)
+
+    assert_equal "boot_fix", session.reload.origin
+    other = ActionAgent::CodeSession.create!(sandbox_session: @sandbox, prompt: "Unrelated", runner: "claude_code")
+    other.update_columns(origin: nil)
+    assert_equal "settings", other.reload.origin
+  end
+
   test "the prompt asks for commands Claude Code can approve unattended: no anchored patterns or variables" do
     perform_enqueued_jobs { @project.reload.sandbox_failed!(@sandbox) }
 
