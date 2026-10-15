@@ -34,9 +34,20 @@ function digest(value) {
   return createHash('sha256').update(value).digest();
 }
 
-function bearerMatches(header, token) {
+/**
+ * The bearer token an Authorization header carries, or null.
+ *
+ * @param {string|undefined} header
+ * @returns {string|null}
+ */
+export function bearerOf(header) {
   const match = /^Bearer\s+(\S+)\s*$/i.exec(header ?? '');
-  return match !== null && timingSafeEqual(digest(match[1]), digest(token));
+  return match ? match[1] : null;
+}
+
+function bearerMatches(header, token) {
+  const presented = bearerOf(header);
+  return presented !== null && timingSafeEqual(digest(presented), digest(token));
 }
 
 /**
@@ -45,20 +56,24 @@ function bearerMatches(header, token) {
  * carry no Origin unless that origin is allowed (a page in a browser always
  * sends one), and carry the bearer token.
  *
+ * With `client` set, a live client token (ClientTokens) is accepted in place
+ * of the master token; the caller decides which paths allow that.
+ *
  * @param {import('node:http').IncomingMessage} request
  * @param {{ token: string, hosts: Set<string>, origins?: Set<string> }} rules
+ * @param {{ match(token: string): object|null } | null} [client] the client tokens to accept too
  * @returns {{ status: number, message: string } | null} the refusal, or null to proceed
  */
-export function refusal(request, { token, hosts, origins = new Set() }) {
+export function refusal(request, { token, hosts, origins = new Set() }, client = null) {
   const host = (request.headers.host ?? '').toLowerCase();
   if (!hosts.has(host)) return { status: 403, message: 'Host not allowed' };
 
   const origin = request.headers.origin;
   if (origin !== undefined && !origins.has(origin)) return { status: 403, message: 'Origin not allowed' };
 
-  if (!bearerMatches(request.headers.authorization, token)) return { status: 401, message: 'Missing or invalid bearer token' };
-
-  return null;
+  if (bearerMatches(request.headers.authorization, token)) return null;
+  if (client?.match(bearerOf(request.headers.authorization))) return null;
+  return { status: 401, message: 'Missing or invalid bearer token' };
 }
 
 /**
