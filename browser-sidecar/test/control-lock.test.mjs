@@ -145,3 +145,37 @@ test('closing refuses the calls still waiting, as the browser stopping, and rele
   assert.deepEqual(changes.at(-1), [null, 'Ada', 'closed']);
   assert.equal(lock.acquire('a1', ada).taken, false, 'nobody takes control of a closed browser');
 });
+
+test('the journal records control taken and handed back, not moves between one user\'s connections', async () => {
+  const { ControlLock: Lock } = await import('../lib/control-lock.mjs');
+  let now = 0;
+  const lock = new Lock({ now: () => now });
+  const ada = { id: '1', name: 'Ada' };
+  assert.deepEqual(lock.changesSince(0), []);
+
+  now = 1000;
+  lock.acquire('ada-1', ada);
+  lock.acquire('ada-2', ada);
+  now = 2000;
+  lock.release('ada-2');
+
+  assert.deepEqual(lock.changesSince(0), [
+    { seq: 1, at: 1000, type: 'taken', reason: 'taken', user: 'Ada' },
+    { seq: 2, at: 2000, type: 'released', reason: 'handed_back', user: 'Ada' },
+  ]);
+  assert.deepEqual(lock.changesSince(1).map((change) => change.seq), [2]);
+  assert.equal(lock.journalSeq, 2);
+});
+
+test('a waiting call carries the client it came from', async () => {
+  const { ControlLock: Lock } = await import('../lib/control-lock.mjs');
+  const lock = new Lock();
+  lock.acquire('ada-1', { id: '1', name: 'Ada' });
+  const seen = [];
+  lock.on('agent_waiting', (wait) => seen.push(wait.client));
+  const admitted = lock.admit('browser_click', {}, 1000, 'Claude Code · turn 2');
+  assert.equal(lock.agentWaiting.client, 'Claude Code · turn 2');
+  lock.release('ada-1');
+  assert.equal(await admitted, null);
+  assert.deepEqual(seen, ['Claude Code · turn 2']);
+});

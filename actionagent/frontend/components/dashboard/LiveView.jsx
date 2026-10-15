@@ -7,12 +7,14 @@ import {
   controlLabel,
   encodeChunk,
   fileChooserWaitLabel,
+  handoffReport,
   initialLiveViewState,
   keyMessage,
   leavesView,
   liveViewReducer,
   mouseMessage,
   pageLabel,
+  personRequestBanner,
   releaseMessage,
   takeOverButton,
   textMessage,
@@ -98,7 +100,10 @@ export function FileChooserPrompt({ chooser, upload, onFiles, onCancel }) {
 // dropped on the view) and sent to the browser. `headed`
 // is whether the browser also has a window open on the dashboard's machine,
 // and `watchOnOpen` starts watching when the view is first shown.
-export default function LiveView({ sessionId, headed = false, watchOnOpen = false }) {
+// `onHandBack` is told, with handoffReport's shape, each time this viewer
+// hands control back after driving, so a conversation with the agent can
+// say what happened. `handBackLabel` renames the Hand back button.
+export default function LiveView({ sessionId, headed = false, watchOnOpen = false, onHandBack = null, handBackLabel = 'Hand back' }) {
   const { darkMode } = useTheme();
   const [state, dispatch] = useReducer(liveViewReducer, initialLiveViewState);
   const [connection, setConnection] = useState('idle'); // idle | connecting | open
@@ -120,6 +125,20 @@ export default function LiveView({ sessionId, headed = false, watchOnOpen = fals
   // Counts uploads begun and cancelled, so a cancelled one sends no more.
   const uploadRef = useRef(0);
   const mine = state.control.mine;
+  // When this viewer last took control, for the handoff report.
+  const takenAtRef = useRef(null);
+  const latest = useRef(state);
+  latest.current = state;
+  useEffect(() => {
+    if (mine) {
+      takenAtRef.current = state.control.since || Date.now();
+      return;
+    }
+    if (takenAtRef.current === null) return;
+    const takenAt = takenAtRef.current;
+    takenAtRef.current = null;
+    onHandBack?.(handoffReport({ by: null, takenAt, releasedAt: Date.now(), page: latest.current.page }));
+  }, [mine]);
 
   const send = useCallback((message) => {
     const ws = socketRef.current;
@@ -379,6 +398,7 @@ export default function LiveView({ sessionId, headed = false, watchOnOpen = fals
   const secondaryButton = `px-3 py-1 text-sm rounded disabled:opacity-50 ${darkMode ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`;
   const primaryButton = 'px-3 py-1 text-sm rounded text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50';
   const banner = agentBanner(state);
+  const personBanner = personRequestBanner(state);
   const holder = controlLabel(state);
   const takeOverAction = takeOverButton(state, { taking });
   const page = pageLabel(state.page);
@@ -396,7 +416,7 @@ export default function LiveView({ sessionId, headed = false, watchOnOpen = fals
         )}
         {/* One button that changes, so focus stays on it when control changes hands. */}
         {open && (mine ? (
-          <button ref={controlButtonRef} type="button" onClick={handBack} className={primaryButton}>Hand back</button>
+          <button ref={controlButtonRef} type="button" onClick={handBack} className={primaryButton}>{handBackLabel}</button>
         ) : (
           <button ref={controlButtonRef} type="button" onClick={takeOver} disabled={takeOverAction.disabled} className={primaryButton}>
             {takeOverAction.label}
@@ -408,6 +428,15 @@ export default function LiveView({ sessionId, headed = false, watchOnOpen = fals
 
       {notice && <p className={`text-xs ${muted}`} role="status">{notice}</p>}
       {state.error && <p className={`text-xs ${darkMode ? 'text-red-400' : 'text-red-600'}`} role="alert">{state.error}</p>}
+      {personBanner && (
+        <p
+          role="alert"
+          data-testid="live-view-person-request"
+          className={`p-2 rounded text-xs border ${darkMode ? 'bg-blue-900/20 border-blue-800 text-blue-200' : 'bg-blue-50 border-blue-200 text-blue-800'}`}
+        >
+          {personBanner}{open ? ' Take over to help, then hand back.' : ' Watch live, then take over to help.'}
+        </p>
+      )}
       {banner && (
         <p
           role="status"

@@ -214,9 +214,10 @@ test('a viewer is told the state and sent the last frame, then every frame, whil
   assert.deepEqual(client.messages[0], {
     type: 'ready',
     control: { held: false, mine: false, yours: false, by: null, since: null },
-    agent: { waiting: false, tool: null, since: null },
+    agent: { waiting: false, tool: null, since: null, client: null },
     page: { url: 'http://127.0.0.1:4100/orders', tab: 1, tabs: 1 },
     file_chooser: null,
+    person_request: null,
   });
   assert.deepEqual(await message(client, 'frame'), { type: 'frame', data: 'ZnJhbWUtMQ==', width: 1280, height: 800 });
   assert.equal(screencast.streaming, true);
@@ -425,4 +426,35 @@ test('without an upload relay a file message is refused', async (t) => {
   await message(ada, 'control', (state) => state.mine);
   ada.send({ type: 'file_upload', chooser: 'x', files: [{ name: 'a', size: 1 }] });
   assert.equal((await message(ada, 'error')).code, 'uploads_off');
+});
+
+test('an agent asking for a person is shown to every viewer until someone takes control', async (t) => {
+  const { port, live, lock, markers } = await start(t);
+  const ada = await viewer(port);
+
+  live.personRequested({ reason: 'Sign in with the test account', client: 'Claude Code · turn 2' });
+  const request = (await message(ada, 'person_requested', (received) => received.request)).request;
+  assert.equal(request.reason, 'Sign in with the test account');
+  assert.equal(request.client, 'Claude Code · turn 2');
+  assert.deepEqual(markers.at(-1), { label: 'person_requested', source: 'agent', client: 'Claude Code · turn 2', reason: 'Sign in with the test account' });
+
+  const late = await viewer(port);
+  assert.equal(late.messages.find((received) => received.type === 'ready').person_request.reason, 'Sign in with the test account',
+    'a viewer who joins later sees the request too');
+
+  takeControl(ada);
+  await message(ada, 'person_requested', (received) => received.request === null);
+  assert.equal(lock.holder.user.name, 'Ada');
+});
+
+test('a waiting agent is named by its client', async (t) => {
+  const { port, lock } = await start(t);
+  const ada = await viewer(port);
+  takeControl(ada);
+  await message(ada, 'control', (state) => state.mine);
+
+  const admitted = lock.admit('browser_click', {}, 5000, 'Claude Code · turn 4');
+  assert.equal((await message(ada, 'agent', (state) => state.waiting)).client, 'Claude Code · turn 4');
+  ada.send({ type: 'hand_back' });
+  assert.equal(await admitted, null);
 });

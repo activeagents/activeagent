@@ -28,7 +28,7 @@ class PermissionCheckerTest < ActionDispatch::IntegrationTest
   test "the vocabulary is fixed" do
     assert_equal %i[
       manage_credentials manage_github manage_api_keys publish_pull_request answer_input_request
-      manage_project_secrets take_over_browser manage_recordings replace_scenarios
+      manage_project_secrets take_over_browser chat_code_session manage_recordings replace_scenarios
     ], ActionAgent::PERMISSION_ACTIONS
   end
 

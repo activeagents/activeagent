@@ -75,13 +75,13 @@ async function counted(body) {
   return server;
 }
 
-function mcpClient(endpoint) {
+function mcpClient(endpoint, token = TOKEN) {
   let sessionId;
   let nextId = 1;
   const rpc = async (method, params) => {
     const response = await fetch(endpoint, {
       method: 'POST',
-      headers: { authorization: `Bearer ${TOKEN}`, 'content-type': 'application/json', ...(sessionId ? { 'mcp-session-id': sessionId } : {}) },
+      headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json', ...(sessionId ? { 'mcp-session-id': sessionId } : {}) },
       body: JSON.stringify({ jsonrpc: '2.0', id: nextId++, method, params }),
     });
     sessionId ??= response.headers.get('mcp-session-id');
@@ -476,5 +476,85 @@ test('a file chooser opened while a person drives is answered from the live view
   const read = await mcp.call('browser_evaluate', { function: "() => document.getElementById('out').textContent" });
   assert.notEqual(read.isError, true, `the agent's tools are not blocked by the answered chooser: ${text(read)}`);
   assert.match(text(read), /notes\.txt:hello world/, 'the page read the uploaded file');
+  ws.close();
+});
+
+test("a turn's own token: Claude Code asks for a person, is told of the handoff, and loses the browser when revoked", { skip }, async (t) => {
+  const dashboard = 'http://dashboard.test:3000';
+  const app = await fixtureApp(() => '/');
+  const workdir = await mkdtemp(join(tmpdir(), 'sidecar-handoff-'));
+  const cwd = process.cwd();
+  const config = parseConfig({
+    token: TOKEN, app_url: origin(app), workdir,
+    live: { session_id: 'handoff-session', origins: [dashboard], agent_wait_ms: 200, release_grace_ms: 200 },
+  });
+  const sidecar = await startSidecar(config, { log: () => {} });
+  t.after(async () => {
+    await sidecar.close();
+    process.chdir(cwd);
+    app.close();
+    await rm(workdir, { recursive: true, force: true });
+  });
+  const base = `http://127.0.0.1:${sidecar.port}`;
+
+  const mintedResponse = await fetch(`${base}/tokens`, {
+    method: 'POST', headers: { authorization: `Bearer ${TOKEN}`, 'content-type': 'application/json' },
+    body: JSON.stringify({ label: 'Claude Code · turn 2' }),
+  });
+  assert.equal(mintedResponse.status, 201);
+  const minted = await mintedResponse.json();
+  assert.equal((await fetch(`${base}/health`, { headers: { authorization: `Bearer ${minted.token}` } })).status, 401,
+    'a client token reaches /mcp only');
+
+  const mcp = mcpClient(`${base}/mcp`, minted.token);
+  await mcp.initialize();
+  await untilAppOpened(mcp);
+  assert.ok((await mcp.tools()).includes('browser_request_person'));
+
+  const ws = new WebSocket(`ws://127.0.0.1:${sidecar.port}/live`, { origin: dashboard });
+  const received = [];
+  ws.on('message', (data) => received.push(JSON.parse(data.toString())));
+  await new Promise((resolve, reject) => {
+    ws.on('open', resolve);
+    ws.on('error', reject);
+  });
+  const latest = async (type, predicate = () => true) => {
+    for (let attempt = 0; attempt < 100; attempt += 1) {
+      const found = received.findLast((message) => message.type === type && predicate(message));
+      if (found) return found;
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+    throw new Error(`no ${type} message`);
+  };
+  const iat = Math.floor(Date.now() / 1000);
+  const ticket = (jti) => signTicket(ticketKey(TOKEN), { v: 1, sid: 'handoff-session', sub: '1', name: 'Ada', mode: 'control', iat, exp: iat + 30, jti });
+  ws.send(JSON.stringify({ type: 'auth', ticket: ticket('handoff-ticket-0123456789') }));
+  await latest('ready');
+
+  const asked = await mcp.call('browser_request_person', { reason: 'Sign in with the test account' });
+  assert.match(text(asked), /End your turn now and wait/);
+  const request = (await latest('person_requested', (message) => message.request)).request;
+  assert.deepEqual([request.reason, request.client], ['Sign in with the test account', 'Claude Code · turn 2']);
+
+  ws.send(JSON.stringify({ type: 'take_control', ticket: ticket('handoff-ticket-control-0123456789') }));
+  assert.equal((await latest('control')).mine, true);
+  await latest('person_requested', (message) => message.request === null);
+
+  const waiting = mcp.call('browser_navigate', { url: '/' });
+  assert.equal((await latest('agent', (state) => state.waiting)).client, 'Claude Code · turn 2', 'the live view names who waits');
+  ws.send(JSON.stringify({ type: 'hand_back' }));
+  const navigated = await waiting;
+  assert.notEqual(navigated.isError, true);
+  assert.match(navigated.content[0].text, /^\[dashboard\] Ada took control of the browser at .* UTC; Ada handed it back at .* UTC\. The page may have changed/,
+    'the first result after the handoff says so');
+  assert.doesNotMatch(text(await mcp.call('browser_snapshot')), /\[dashboard\]/, 'once');
+
+  const revoked = await fetch(`${base}/tokens/${minted.id}`, { method: 'DELETE', headers: { authorization: `Bearer ${TOKEN}` } });
+  assert.equal(revoked.status, 200);
+  const refused = await fetch(`${base}/mcp`, {
+    method: 'POST', headers: { authorization: `Bearer ${minted.token}`, 'content-type': 'application/json' },
+    body: JSON.stringify({ jsonrpc: '2.0', id: 99, method: 'tools/list' }),
+  });
+  assert.equal(refused.status, 401, 'a revoked turn token no longer reaches the browser');
   ws.close();
 });

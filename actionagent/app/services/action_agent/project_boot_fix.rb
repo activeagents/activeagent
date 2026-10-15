@@ -42,7 +42,14 @@ module ActionAgent
     # hand-edit a lockfile; nothing that starts the app or reaches past the
     # checkout.
     BUNDLER_COMMANDS = [ "Bash(bundle install:*)", "Bash(bundle lock:*)", "Bash(bundle update:*)",
-                         "Bash(gem search:*)", "Bash(gem list:*)", "Bash(git status:*)", "Bash(git diff:*)" ].freeze
+                         "Bash(gem search:*)", "Bash(gem list:*)", "Bash(gem info:*)", "Bash(git status:*)", "Bash(git diff:*)" ].freeze
+    # Claude Code checks a command against these rules by its literal words,
+    # and asks about one with anything its checker cannot read statically: a
+    # `$` (an anchored pattern such as `^rails$` reads as a variable), quotes
+    # around a pattern, backticks, or a glob. With nobody to answer, that is a
+    # denial, so the prompt asks for plain names and exact-match flags.
+    COMMAND_SPELLING = "Spell each one out with plain words only: no variables, pipes, `cd`, `&&`, quotes, `$`, `^` or `*`. " \
+                       "To look a gem up, use `gem search --remote --exact NAME` or `gem info --remote NAME`, not a pattern."
     JS_COMMANDS = [ "Bash(npm install:*)", "Bash(yarn install:*)" ].freeze
     JS_STEPS = %w[javascript_build css_build tailwindcss_build].freeze
 
@@ -99,7 +106,7 @@ module ActionAgent
           raise Unavailable, ClaudeCodeAuth.credential_refusal(sandbox, user_id: user_id) || "Claude Code is not connected" if mode.nil?
 
           session = CodeSession.create!(sandbox_session: sandbox, prompt: prompt(project, sandbox, status[:failed_step]),
-            runner: "claude_code", credential_mode: mode, user_id: user_id, account_id: sandbox.try(:account_id))
+            runner: "claude_code", origin: "boot_fix", credential_mode: mode, user_id: user_id, account_id: sandbox.try(:account_id))
         end
         record_session!(project, session, failed_step: status[:failed_step], automatic: trigger == "boot_failed")
         CodeSessionJob.perform_later(session.id)
@@ -221,7 +228,7 @@ module ActionAgent
           - Change only what the failure needs. Do not refactor, upgrade or reformat anything else.
           - Never write a secret, key, password or token into a file. When the step needs one, change nothing and say which environment variable is missing: it is set in the project's Environment tab.
           - Do not commit, push, or start the application's server.
-          - You may run only these commands, each on its own and spelled out (no variables, pipes, `cd` or `&&`): #{allowed_commands(failed_step).map { |rule| rule[/\ABash\((.+):\*\)\z/, 1] }.join(", ")}. Anything else is denied. Prefer them to editing a lockfile by hand, e.g. `bundle lock --update GEM --conservative` after changing the Gemfile.
+          - You may run only these commands, each on its own: #{allowed_commands(failed_step).map { |rule| rule[/\ABash\((.+):\*\)\z/, 1] }.join(", ")}. #{COMMAND_SPELLING} Anything else is denied. Prefer them to editing a lockfile by hand, e.g. `bundle lock --update GEM --conservative` after changing the Gemfile.
           - When the failure cannot be fixed in the code, change nothing and say why.
           - End with one line saying what you changed and why.
 

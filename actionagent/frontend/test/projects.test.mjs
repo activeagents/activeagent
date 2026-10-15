@@ -167,7 +167,8 @@ test("the project's name follows each picked repository until the user types one
 });
 
 test("a project's page opens the tab ?tab= names, and keeps the open tab in its address", () => {
-  assert.deepEqual(PROJECT_TABS, ['overview', 'explorations', 'environment', 'browser']);
+  assert.deepEqual(PROJECT_TABS, ['overview', 'explorations', 'environment', 'browser', 'sessions']);
+  assert.equal(projectTabFromSearch('?tab=sessions'), 'sessions');
   assert.equal(projectTabFromSearch('?tab=browser'), 'browser');
   assert.equal(projectTabFromSearch('?tab=nope'), 'overview');
   assert.equal(projectTabFromSearch(''), 'overview');

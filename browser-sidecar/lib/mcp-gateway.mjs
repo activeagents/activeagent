@@ -39,6 +39,49 @@ function takeoverError(id, holder, waitedMs) {
   return result;
 }
 
+// A tool the gateway answers itself: an agent asks for a person to take over
+// the browser (a sign-in, a CAPTCHA, a file to upload). It returns at once,
+// and the live view shows the request to whoever watches.
+export const REQUEST_PERSON_TOOL = {
+  name: 'browser_request_person',
+  title: 'Ask a person to take over',
+  description: 'Ask the person watching this browser in the dashboard to take control and do something you cannot, ' +
+    'such as signing in, solving a CAPTCHA or choosing a file to upload. Returns at once: end your turn and wait for ' +
+    'their reply, which arrives as your next message.',
+  inputSchema: {
+    type: 'object',
+    properties: { reason: { type: 'string', description: 'What you need the person to do, in one sentence' } },
+    required: ['reason'],
+    additionalProperties: false,
+  },
+  annotations: { readOnlyHint: true, openWorldHint: false },
+};
+const MAX_REASON = 500;
+
+function clock(at) {
+  return `${new Date(at).toISOString().slice(11, 19)} UTC`;
+}
+
+/**
+ * The note an agent's next tool result carries after people took or handed
+ * back control of the browser: what changed, and that the page may not be
+ * what it last saw.
+ *
+ * @param {Array<{ at: number, type: 'taken'|'released', reason: string, user: string|null }>} changes oldest first
+ * @param {object|null} holder who holds control now
+ * @returns {string}
+ */
+export function handoffNote(changes, holder) {
+  const parts = changes.map((change) => {
+    const who = change.user ?? 'A person';
+    if (change.type === 'taken') return `${who} took control of the browser at ${clock(change.at)}`;
+    if (change.reason === 'disconnected') return `${who}'s control lapsed at ${clock(change.at)} when they disconnected`;
+    return `${who} handed it back at ${clock(change.at)}`;
+  });
+  const now = holder ? ` ${holder.user.name ?? 'A person'} is still driving it.` : '';
+  return `[dashboard] ${parts.join('; ')}.${now} The page may have changed: take a snapshot before acting.`;
+}
+
 function isRequest(message) {
   return typeof message.method === 'string' && message.id !== undefined && message.id !== null;
 }
@@ -136,11 +179,14 @@ export class McpGateway {
    * @param {import('./control-lock.mjs').ControlLock} [options.lock]
    * @param {number} [options.agentWaitMs]
    * @param {(name: string, args: object) => void} [options.afterCall] told of each tool call that succeeded
+   * @param {((request: { reason: string, client: string|null }) => void) | null} [options.onPersonRequested]
+   *   offers REQUEST_PERSON_TOOL, and is told of each call to it
    */
   constructor({
     connect, policy, deniedTools = DENIED_TOOLS, maxSessions = 8, idleMs = 30 * 60_000, requestTimeoutMs = 120_000, snapshotDir = null,
-    guard = null, lock = null, agentWaitMs = 0, afterCall = () => {},
+    guard = null, lock = null, agentWaitMs = 0, afterCall = () => {}, onPersonRequested = null,
   }) {
+    this.onPersonRequested = onPersonRequested;
     this.connect = connect;
     this.policy = policy;
     this.guard = guard;
@@ -161,9 +207,10 @@ export class McpGateway {
    *
    * @param {unknown} message the parsed body
    * @param {string | undefined} sessionId the Mcp-Session-Id header
+   * @param {{ label: string|null } | null} [client] the client token the request came with, if not the master token
    * @returns {Promise<{ status: number, headers?: object, body?: object }>}
    */
-  async handle(message, sessionId) {
+  async handle(message, sessionId, client = null) {
     if (!message || typeof message !== 'object' || Array.isArray(message) || message.jsonrpc !== JSONRPC) {
       return { status: 400, body: rpcError(null, -32600, 'The body must be one JSON-RPC 2.0 message') };
     }
@@ -179,6 +226,10 @@ export class McpGateway {
       return { status: 202 };
     }
 
+    if (message.method === 'tools/call' && this.onPersonRequested && message.params?.name === REQUEST_PERSON_TOOL.name) {
+      return { status: 200, body: this.requestPerson(message, client) };
+    }
+
     const inbound = this.inbound(message);
     if (inbound.answer) return { status: 200, body: inbound.answer };
 
@@ -188,7 +239,7 @@ export class McpGateway {
       const call = message.method === 'tools/call' ? inbound.message.params : null;
       if (call && this.lock) {
         const waitStarted = Date.now();
-        const refusal = await this.lock.admit(call.name, call.arguments, this.agentWaitMs);
+        const refusal = await this.lock.admit(call.name, call.arguments, this.agentWaitMs, client?.label ?? null);
         if (refusal?.stopping) return { status: 200, body: toolError(message.id, 'The browser is stopping. Nothing was done.') };
         if (refusal) return { status: 200, body: takeoverError(message.id, refusal.holder, Date.now() - waitStarted) };
       }
@@ -199,7 +250,8 @@ export class McpGateway {
       if (refusal) return { status: 200, body: toolError(message.id, refusal) };
       if (call && response.result && !response.result.isError) this.afterCall(call.name, call.arguments);
 
-      return { status: 200, body: await this.outbound(message, response) };
+      const body = await this.outbound(message, response);
+      return { status: 200, body: call ? this.withHandoffNote(session, body) : body };
     } finally {
       session.busy -= 1;
       this.touch(session);
@@ -218,7 +270,8 @@ export class McpGateway {
     await server.connect(transport);
 
     const id = randomUUID();
-    const session = { server, transport, busy: 1 };
+    // A new session has seen every control change so far: it saw no page yet.
+    const session = { server, transport, busy: 1, journalSeen: this.lock?.journalSeq ?? 0 };
     this.touch(session);
     this.sessions.set(id, session);
     try {
@@ -232,6 +285,33 @@ export class McpGateway {
     } finally {
       session.busy -= 1;
     }
+  }
+
+  // Answers a call to REQUEST_PERSON_TOOL, and passes the request on.
+  requestPerson(message, client) {
+    const raw = message.params?.arguments?.reason;
+    const reason = typeof raw === 'string' ? raw.replace(/[\u0000-\u001f\u007f]/g, ' ').trim().slice(0, MAX_REASON) : '';
+    if (reason === '') return toolError(message.id, 'Say what you need the person to do, as reason');
+
+    this.onPersonRequested({ reason, client: client?.label ?? null });
+    const text = 'Asked the person watching this browser. End your turn now and wait: their reply arrives as your next message, ' +
+      'and the browser may have changed by then.';
+    return { jsonrpc: JSONRPC, id: message.id, result: { content: [{ type: 'text', text }] } };
+  }
+
+  // `body`, a tool call's answer to `session`, with a note ahead of its
+  // content when people took or handed back control since that session's
+  // last call.
+  withHandoffNote(session, body) {
+    if (!this.lock) return body;
+    const changes = this.lock.changesSince(session.journalSeen);
+    if (changes.length === 0) return body;
+
+    session.journalSeen = this.lock.journalSeq;
+    const content = Array.isArray(body.result?.content) ? body.result.content : null;
+    if (!content) return body;
+    const note = { type: 'text', text: handoffNote(changes, this.lock.holder) };
+    return { ...body, result: { ...body.result, content: [note, ...content] } };
   }
 
   // The message as the server should see it, or the answer to give without
@@ -258,7 +338,8 @@ export class McpGateway {
 
   async outbound(request, response) {
     if (request.method === 'tools/list' && Array.isArray(response.result?.tools)) {
-      const tools = response.result.tools.filter((tool) => !this.deniedTools.has(tool.name));
+      const tools = response.result.tools.filter((tool) => !this.deniedTools.has(tool.name) && tool.name !== REQUEST_PERSON_TOOL.name);
+      if (this.onPersonRequested) tools.push(REQUEST_PERSON_TOOL);
       return { ...response, result: { ...response.result, tools } };
     }
     if (request.method === 'tools/call' && this.snapshotDir && Array.isArray(response.result?.content)) {

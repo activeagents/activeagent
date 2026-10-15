@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Badge, Button, Card, MicroLabel, MONO, MonoLink, SegmentedControl } from '../primitives';
+import ProjectSessions from './ProjectSessions';
 import ProjectAssistantReads from './ProjectAssistantReads';
 import ProjectBootProgress from './ProjectBootProgress';
 import ProjectBrowser from './ProjectBrowser';
@@ -329,6 +330,7 @@ export default function ProjectDetail({ projectId, onBack, onDeleted }) {
           ...(browserModes.length > 0 || tab === 'browser'
             ? [{ value: 'browser', label: project.sandbox?.browser?.status === 'running' ? 'Browser · live' : 'Browser' }]
             : []),
+          { value: 'sessions', label: 'Sessions' },
         ]}
         value={tab}
         onChange={setTab}
@@ -420,6 +422,8 @@ export default function ProjectDetail({ projectId, onBack, onDeleted }) {
       {tab === 'browser' && (
         <ProjectBrowser project={project} modes={browserModes} watchOnOpen={watchRequested} onChange={() => loadBoot().catch(() => {})} />
       )}
+
+      {tab === 'sessions' && <ProjectSessions project={project} />}
 
       {tab === 'environment' && (
         <>
