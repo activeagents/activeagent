@@ -13,9 +13,17 @@ name: Release
 # fails with an authorization error and the other gem is unaffected.
 #
 # The browser sidecar (browser-sidecar/) is published at the dashboard's
-# version too: the npm package with the NPM_TOKEN secret, and the image to
+# version too: the npm package through npm trusted publishing (OIDC, no
+# stored token) as a staged publish, and the image to
 # ghcr.io/activeagents/browser-sidecar with the workflow's own token. Each is
-# skipped when that version is already published.
+# skipped when that version is already published; the npm job then fails if
+# browser-sidecar/ no longer packs the same as that published version, since
+# a sidecar change needs a new version.
+#
+# A staged publish is not public until a maintainer approves it with 2FA, on
+# npmjs.com or with `npm stage approve` (`npm stage list` shows what waits).
+# The trusted publisher on npmjs.com for @activeagents/browser-sidecar must
+# name this repository and this workflow file (release.yml).
 on:
   push:
     tags: [ "v*" ]
@@ -112,7 +120,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      id-token: write # npm provenance
+      id-token: write # npm trusted publishing (OIDC); provenance comes with it
     defaults:
       run:
         working-directory: browser-sidecar
@@ -120,11 +128,13 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
           registry-url: https://registry.npmjs.org
-      - name: Publish the package unless this version is on npm
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      # Trusted publishing needs npm 11.5.1 or later, and `npm stage` a
+      # recent 11.x; the npm bundled with Node may be older.
+      - name: Update npm
+        run: npm install -g npm@11
+      - name: Stage the package unless this version is on npm
         run: |
           version="$(node -p 'require("./package.json").version')"
           engine="$(sed -nE 's/^ *VERSION = "([^"]+)".*/\1/p' ../actionagent/lib/action_agent/version.rb)"
@@ -133,11 +143,15 @@ jobs:
             exit 1
           fi
           if npm view "@activeagents/browser-sidecar@${version}" version > /dev/null 2>&1; then
+            # Skipping is right only when the sidecar is what was published:
+            # a change released under a published version would never reach npm.
+            ../.github/scripts/browser-sidecar-unchanged.sh . "$version"
             echo "@activeagents/browser-sidecar ${version} is already on npm; skipping."
             exit 0
           fi
           npm ci
-          npm publish --provenance --access public
+          npm stage publish
+          echo "::notice::@activeagents/browser-sidecar ${version} is staged; approve it on npmjs.com or with npm stage approve."
 
   publish-browser-sidecar-image:
     if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
