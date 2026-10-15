@@ -33,7 +33,7 @@ class CodexBackendTest < ActiveSupport::TestCase
       backend.run_code_session(sandbox, session)
 
       assert_equal "codex", captured[:runner]
-      assert_equal [ "codex", "exec", "--json", "--ephemeral", "--sandbox", "workspace-write",
+      assert_equal [ "codex", "exec", "--json", "--sandbox", "workspace-write",
         "--config", 'approval_policy="never"', "--color", "never", "--model", "test-model", "-" ], captured[:argv]
       assert_not_includes captured[:argv], session.prompt
       assert_equal "sk-proj-syntheticFixture", captured[:env]["CODEX_API_KEY"]
@@ -50,6 +50,16 @@ class CodexBackendTest < ActiveSupport::TestCase
     env = Backend.sanitized_environment("PATH" => "/bin", "CODEX_HOME" => "/private/config",
       "CODEX_API_KEY" => "sk-fixture", "CODEX_THREAD_ID" => "host-thread", "OPENAI_BASE_URL" => "https://elsewhere.test")
     assert_equal({ "PATH" => "/bin" }, env)
+  end
+
+  test "a later Codex turn resumes the first turn's thread, its sandbox set as configuration" do
+    session = Struct.new(:model, :turn_index, :resume_session_id).new(nil, 1, "0199f2c4-6a1b-7c3d-9e8f-0a1b2c3d4e5f")
+    assert_equal [ "codex", "exec", "resume", "--json", "--config", 'sandbox_mode="workspace-write"',
+      "--config", 'approval_policy="never"', "0199f2c4-6a1b-7c3d-9e8f-0a1b2c3d4e5f", "-" ],
+      Backend.new.send(:codex_argv, session).tap { |argv| argv[0] = File.basename(argv[0]) }
+
+    flag = Struct.new(:model, :turn_index, :resume_session_id).new(nil, 1, "--last")
+    assert_raises(Backend::Error) { Backend.new.send(:codex_argv, flag) }
   end
 
   test "Codex rejects flag-like model names before starting a process" do

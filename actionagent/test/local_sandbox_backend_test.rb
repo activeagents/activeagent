@@ -22,7 +22,12 @@ class LocalSandboxBackendTest < ActiveSupport::TestCase
       sandbox_type == "app_runtime"
     end
   end
-  CodeSessionDouble = Struct.new(:id, :prompt, :model, keyword_init: true)
+  CodeSessionDouble = Struct.new(:id, :prompt, :model, :turn_index, :resume_session_id, :context_note, keyword_init: true) do
+    def stdin_text
+      context_note ? "<dashboard-note>\n#{context_note}\n</dashboard-note>\n\n#{prompt}" : prompt
+    end
+  end
+  SYSTEM_NOTE = ActionAgent::LocalSandboxBackend::CLAUDE_SYSTEM_NOTE
 
   CONFIG = %i[
     local_sandbox_boot_timeout claude_code_command claude_code_permission_mode claude_code_max_turns claude_code_timeout
@@ -262,7 +267,8 @@ class LocalSandboxBackendTest < ActiveSupport::TestCase
     invocation = JSON.parse(workspace.join("claude/invocation.json").read)
     assert_equal [
       "-p", "--output-format", "stream-json", "--verbose", "--permission-mode", "acceptEdits",
-      "--no-session-persistence", "--permission-prompts", "none", "--max-turns", "3", "--model", "claude-sonnet-4-5"
+      "--no-session-persistence", "--strict-mcp-config", "--append-system-prompt", SYSTEM_NOTE,
+      "--permission-prompts", "none", "--max-turns", "3", "--model", "claude-sonnet-4-5"
     ], invocation["argv"]
     assert_equal "Edit the README, please", invocation["prompt"], "the prompt arrives on stdin"
     assert_equal workspace.join("app").realpath.to_s, File.realpath(invocation["cwd"])
@@ -305,8 +311,62 @@ class LocalSandboxBackendTest < ActiveSupport::TestCase
     assert_equal 0, outcome[:exit_status]
     argv = JSON.parse(workspace(sandbox).join("claude/invocation.json").read)["argv"]
     assert_equal [
-      "-p", "--output-format", "stream-json", "--verbose", "--permission-mode", "acceptEdits", "--no-session-persistence"
+      "-p", "--output-format", "stream-json", "--verbose", "--permission-mode", "acceptEdits", "--no-session-persistence",
+      "--strict-mcp-config", "--append-system-prompt", SYSTEM_NOTE
     ], argv
+  end
+
+  test "a conversation's first turn starts its named session and a later turn resumes it, with the dashboard's note on stdin" do
+    sandbox = boot!
+    uuid = SecureRandom.uuid
+
+    @backend.run_code_session(sandbox, code_session(id: 20, resume_session_id: uuid, turn_index: 0)) { |_event| }
+    first = JSON.parse(workspace(sandbox).join("claude/invocation.json").read)
+    assert_equal [ "--session-id", uuid ], first["argv"].values_at(6, 7)
+    assert_not_includes first["argv"], "--no-session-persistence", "a conversation's session is kept to resume"
+
+    @backend.run_code_session(sandbox, code_session(id: 21, prompt: "Now add a test", resume_session_id: uuid, turn_index: 1,
+      context_note: "Ada took control of the browser at 12:01:03 UTC.")) { |_event| }
+    second = JSON.parse(workspace(sandbox).join("claude/invocation.json").read)
+    assert_equal [ "--resume", uuid ], second["argv"].values_at(6, 7)
+    assert_includes second["argv"], "--strict-mcp-config", "a checkout's own .mcp.json never loads"
+    assert_equal "<dashboard-note>\nAda took control of the browser at 12:01:03 UTC.\n</dashboard-note>\n\nNow add a test", second["prompt"]
+    assert_not(second["argv"].any? { |argument| argument.include?("Now add a test") }, "the message never reaches argv")
+  end
+
+  test "a session id that is not a UUID never reaches the command line" do
+    sandbox = boot!
+    error = assert_raises(ActionAgent::LocalSandboxBackend::Error) do
+      @backend.run_code_session(sandbox, code_session(resume_session_id: "--dangerously-skip-permissions", turn_index: 1)) { |_event| }
+    end
+    assert_match(/not a session id/, error.message)
+  end
+
+  test "with the sandbox's browser running, a turn reaches it with a token of its own, revoked and forgotten after" do
+    sandbox = boot!
+    minted = []
+    revoked = []
+    token = "cl_turnToken0123456789abcdefghijklmnopqrstuvwxyz"
+    fake = Object.new
+    fake.define_singleton_method(:token) { token }
+    fake.define_singleton_method(:mcp_config) { { mcpServers: { browser: { type: "http", url: "http://127.0.0.1:4999/mcp", headers: { "Authorization" => "Bearer #{token}" } } } } }
+    fake.define_singleton_method(:revoke!) { revoked << token }
+    sandbox.define_singleton_method(:browser_running?) { true }
+    ActionAgent::BrowserClientToken.stub(:mint, ->(_sandbox, label:) { minted << label; fake }) do
+      @backend.run_code_session(sandbox, code_session(id: 22, turn_index: 2)) { |_event| }
+    end
+
+    assert_equal [ "Claude Code · turn 3" ], minted
+    invocation = JSON.parse(workspace(sandbox).join("claude/invocation.json").read)
+    argv = invocation["argv"]
+    path = argv[argv.index("--mcp-config") + 1]
+    assert_equal workspace(sandbox).join("claude-mcp/22.json").to_s, path
+    assert_equal "mcp__browser", argv[argv.index("--allowedTools") + 1]
+    assert_not(invocation["env"].values.any? { |value| value.include?(token) }, "the token is in the config file only")
+    assert_equal "600", format("%o", invocation["mcp_config_mode"]), "only this user reads it"
+    assert_equal "Bearer #{token}", invocation.dig("mcp_config", "mcpServers", "browser", "headers", "Authorization")
+    assert_not File.exist?(path), "the config file is removed once the turn ends"
+    assert_equal [ token ], revoked
   end
 
   test "a boot fix's session is given its allowed commands, after the other options" do
@@ -1416,8 +1476,9 @@ class LocalSandboxBackendTest < ActiveSupport::TestCase
     )
   end
 
-  def code_session(id: 7, prompt: "Say hello", model: nil)
-    CodeSessionDouble.new(id: id, prompt: prompt, model: model)
+  def code_session(id: 7, prompt: "Say hello", model: nil, turn_index: nil, resume_session_id: nil, context_note: nil)
+    CodeSessionDouble.new(id: id, prompt: prompt, model: model, turn_index: turn_index, resume_session_id: resume_session_id,
+      context_note: context_note)
   end
 
   def workspace(sandbox)

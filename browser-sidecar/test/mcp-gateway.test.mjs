@@ -259,3 +259,85 @@ test('a successful call is reported once it is done', async () => {
 
   assert.deepEqual(calls, [['browser_tabs', { action: 'select', index: 1 }]]);
 });
+
+test('the first tool result after people took or handed back control says so, once', async () => {
+  let now = Date.UTC(2026, 9, 14, 12, 1, 3);
+  const lock = new ControlLock({ now: () => now });
+  const { instance } = gateway({ gateway: { lock, agentWaitMs: 5000 } });
+  const id = await session(instance);
+
+  const plain = await call(instance, id, 'browser_snapshot', {});
+  assert.equal(plain.body.result.content.length, 1, 'nothing to say before anyone drove');
+
+  lock.acquire('viewer-1', { id: '1', name: 'Jane' });
+  now += 157_000;
+  lock.release('viewer-1');
+
+  const noted = await call(instance, id, 'browser_snapshot', {});
+  assert.equal(noted.body.result.content[0].text,
+    '[dashboard] Jane took control of the browser at 12:01:03 UTC; Jane handed it back at 12:03:40 UTC. ' +
+    'The page may have changed: take a snapshot before acting.');
+  assert.equal(noted.body.result.content.length, 2, 'the result itself follows');
+
+  const again = await call(instance, id, 'browser_snapshot', {});
+  assert.equal(again.body.result.content.length, 1, 'said once');
+
+  const later = await session(instance);
+  assert.equal((await call(instance, later, 'browser_snapshot', {})).body.result.content.length, 1,
+    'a session opened after the change saw no page before it');
+});
+
+test('a note made while someone still drives says so', async () => {
+  const lock = new ControlLock();
+  const { instance } = gateway({ gateway: { lock, agentWaitMs: 5000 } });
+  const id = await session(instance);
+  lock.acquire('viewer-1', { id: '1', name: 'Jane' });
+
+  const looked = await call(instance, id, 'browser_snapshot', {});
+  assert.match(looked.body.result.content[0].text, /Jane took control of the browser at .* UTC\. Jane is still driving it\./);
+});
+
+test('an agent can ask for a person: the tool is listed, answered here, and passed on with its client', async () => {
+  const requests = [];
+  const lock = new ControlLock();
+  const { instance, log } = gateway({ gateway: { lock, onPersonRequested: (request) => requests.push(request) } });
+  const id = await session(instance);
+
+  const listed = await instance.handle({ jsonrpc: '2.0', id: 3, method: 'tools/list' }, id);
+  assert.ok(listed.body.result.tools.some((tool) => tool.name === 'browser_request_person'));
+
+  const before = log.length;
+  const asked = await instance.handle({
+    jsonrpc: '2.0', id: 4, method: 'tools/call',
+    params: { name: 'browser_request_person', arguments: { reason: 'Upload\nthe invoice PDF' } },
+  }, id, { id: 't1', label: 'Claude Code · turn 5' });
+  assert.equal(asked.body.result.isError, undefined);
+  assert.match(asked.body.result.content[0].text, /End your turn now and wait/);
+  assert.deepEqual(requests, [{ reason: 'Upload the invoice PDF', client: 'Claude Code · turn 5' }]);
+  assert.equal(log.length, before, 'the browser never sees it');
+
+  const blank = await call(instance, id, 'browser_request_person', { reason: '   ' });
+  assert.equal(blank.body.result.isError, true);
+  assert.equal(requests.length, 1);
+});
+
+test('without a live view the person tool is neither listed nor answered', async () => {
+  const { instance } = gateway();
+  const id = await session(instance);
+  const listed = await instance.handle({ jsonrpc: '2.0', id: 3, method: 'tools/list' }, id);
+  assert.equal(listed.body.result.tools.some((tool) => tool.name === 'browser_request_person'), false);
+});
+
+test("a waiting call is tagged with its client's label", async () => {
+  const lock = new ControlLock();
+  const { instance } = gateway({ gateway: { lock, agentWaitMs: 5000 } });
+  const id = await session(instance);
+  lock.acquire('viewer-1', { id: '1', name: 'Ada' });
+
+  const clicked = instance.handle({ jsonrpc: '2.0', id: 9, method: 'tools/call', params: { name: 'browser_click', arguments: {} } },
+    id, { id: 't1', label: 'Claude Code · turn 7' });
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  assert.equal(lock.agentWaiting.client, 'Claude Code · turn 7');
+  lock.release('viewer-1');
+  await clicked;
+});

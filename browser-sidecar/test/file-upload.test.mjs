@@ -279,3 +279,36 @@ test("clearing an agent's chooser leaves its other modal states", () => {
   assert.deepEqual(page.states.map((state) => state.fileChooser ?? state.type), [other, 'dialog']);
   assert.doesNotThrow(() => clearAgentFileChooser({}, answered), 'a page without the tab');
 });
+
+test("taking control offers a chooser an agent left open, and answering it clears the agent's wait", async (t) => {
+  const { relay, lock, page, changes } = await setup(t);
+  const chooser = page.openChooser({ multiple: false, accept: '.pdf' });
+  await settled(relay);
+  assert.equal(relay.state, null, 'nobody drives yet: the chooser is the agent\'s');
+  assert.equal(page.states.length, 1);
+
+  lock.acquire('ada-1', ADA);
+  await settled(relay);
+  const offered = relay.state;
+  assert.equal(offered.accept, '.pdf');
+  assert.equal(offered.max_files, 1);
+  assert.deepEqual(changes, [offered]);
+
+  await relay.begin('ada-1', { chooser: offered.id, files: [{ name: 'invoice.pdf', size: 3 }] });
+  assert.equal((await relay.chunk('ada-1', { chooser: offered.id, data: chunk('pdf') })).done, true);
+  assert.deepEqual(chooser.files.map(({ name }) => name), ['invoice.pdf']);
+  assert.equal(page.states.length, 0, "the agent's modal state is cleared once the person answered");
+});
+
+test("an adopted chooser handed back unanswered stays the agent's", async (t) => {
+  const { relay, lock, page } = await setup(t);
+  page.openChooser();
+  lock.acquire('ada-1', ADA);
+  await settled(relay);
+  assert.ok(relay.state);
+
+  lock.release('ada-1');
+  await settled(relay);
+  assert.equal(relay.state, null);
+  assert.equal(page.states.length, 1, 'the agent may still answer it with browser_file_upload');
+});

@@ -98,6 +98,8 @@ ActionAgent::Engine.routes.draw do
       resources :code_sessions, only: [ :index, :create, :show ] do
         member do
           post :cancel
+          # Another turn of the session's conversation.
+          post :messages
         end
       end
       resource :claude_login, only: [ :show, :create, :destroy ], controller: "claude_logins" do
