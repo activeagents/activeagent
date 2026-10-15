@@ -473,7 +473,10 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
           account={account}
         />
 
-        <main className="flex-1 p-6 overflow-auto">
+        {/* The window scrolls, not main, so main clips instead of becoming a
+            scroll container: one that never scrolls would pin sticky panes
+            (a conversation's browser) in place. */}
+        <main className="flex-1 p-6 overflow-x-clip">
           {renderContent()}
         </main>
       </div>
