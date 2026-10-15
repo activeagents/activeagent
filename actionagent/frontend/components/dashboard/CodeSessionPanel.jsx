@@ -84,7 +84,10 @@ export function StatusBadge({ tone = 'neutral', children }) {
 // its diff is shown. One session runs per checkout at a time.
 // `claudeCode` is claudeCodeAuth of the sandbox listing: whether sessions can
 // run, by an API key connected below or this machine's own Claude Code login.
-export default function CodeSessionPanel({ sandbox, claudeCode, codex, onRecheckConnection }) {
+// With `readOnly` it only follows the sandbox's sessions, opening
+// `focusSessionId` (the Project page's view of a boot fix): no composer,
+// no sign-in, and `title` above them.
+export default function CodeSessionPanel({ sandbox, claudeCode, codex, onRecheckConnection, readOnly = false, focusSessionId = null, title = 'Code sessions' }) {
   const { darkMode } = useTheme();
   const base = `/api/sandboxes/${encodeURIComponent(sandbox.session_id)}/code_sessions`;
   const [sessions, setSessions] = useState(null); // summaries, newest first
@@ -120,7 +123,7 @@ export default function CodeSessionPanel({ sandbox, claudeCode, codex, onRecheck
       .then((list) => {
         if (cancelled) return;
         setSessions(list);
-        const open = list.find(isCodeSessionActive) || list[0];
+        const open = list.find((session) => session.id === focusSessionId) || list.find(isCodeSessionActive) || list[0];
         setSelectedId((current) => current ?? open?.id ?? null);
       })
       .catch((e) => {
@@ -130,6 +133,11 @@ export default function CodeSessionPanel({ sandbox, claudeCode, codex, onRecheck
       });
     return () => { cancelled = true; };
   }, [fetchSessions]);
+
+  // A newer session to follow (the Project page started another boot fix).
+  useEffect(() => {
+    if (focusSessionId != null) setSelectedId(focusSessionId);
+  }, [focusSessionId]);
 
   // The selected session: fetched from its first event, then polled for the
   // events after the ones held until it settles. Stops on unmount, on a
@@ -284,12 +292,14 @@ export default function CodeSessionPanel({ sandbox, claudeCode, codex, onRecheck
 
   return (
     <div className={`mt-2 p-3 rounded-lg border space-y-3 ${border}`}>
-      {claudeCode?.mode === 'sandbox_login' && <SandboxClaudeLogin sandbox={sandbox} onChange={onRecheckConnection} />}
+      {!readOnly && claudeCode?.mode === 'sandbox_login' && <SandboxClaudeLogin sandbox={sandbox} onChange={onRecheckConnection} />}
       <div className="flex items-center justify-between">
-        <p className={`text-sm font-medium ${strong}`}>Code sessions</p>
+        <p className={`text-sm font-medium ${strong}`}>{title}</p>
         <p className={`text-xs ${muted}`}>A session edits this checkout and never commits or pushes. Publishing is a separate step, below.</p>
       </div>
 
+      {readOnly && error && <div className={errorBox}>{error}</div>}
+      {!readOnly && (
       <div className="space-y-2">
         <label className={`flex items-center gap-2 text-xs ${muted}`}>
           Agent
@@ -370,6 +380,7 @@ export default function CodeSessionPanel({ sandbox, claudeCode, codex, onRecheck
         </div>
         {error && <div className={errorBox}>{error}</div>}
       </div>
+      )}
 
       {sessions && sessions.length > 0 && (
         <div className="space-y-1">

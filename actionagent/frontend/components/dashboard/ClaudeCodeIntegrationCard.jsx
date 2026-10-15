@@ -9,6 +9,7 @@ import {
   claudeCodeAuth,
   claudeCodeCardState,
 } from '../../utils/codeSessions.mjs';
+import { requestConfirm } from '../../utils/confirm.mjs';
 
 const PROVIDER = 'claude_code';
 
@@ -76,7 +77,12 @@ export default function ClaudeCodeIntegrationCard({ onChange }) {
   };
 
   const remove = async () => {
-    if (!window.confirm('Remove the Claude Code API key? Sessions using a sandbox subscription will keep their login.')) return;
+    if (!(await requestConfirm({
+      title: 'Remove the Claude Code API key?',
+      message: 'Sessions using a sandbox subscription keep their login.',
+      confirmLabel: 'Remove key',
+      danger: true,
+    }))) return;
     try {
       const res = await fetch(`/api/provider_keys/${PROVIDER}`, { method: 'DELETE' });
       if (!res.ok) throw new Error('delete failed');

@@ -1,8 +1,10 @@
 # frozen_string_literal: true
 
 module ActionAgent
-  # Starts a project's setup assistant once a boot of the project failed
-  # (see ProjectSetup.after_boot_failed). Takes ids only; a project or
+  # Starts help for a project once a boot of the project failed: a Claude
+  # Code session in the failed checkout when the owner's Claude Code is
+  # connected (see ProjectBootFix.after_boot_failed), and the setup assistant
+  # otherwise (see ProjectSetup.after_boot_failed). Takes ids only; a project or
   # sandbox deleted since, or a sandbox that is no longer the project's
   # current one, starts nothing.
   class ProjectSetupJob < ApplicationJob
@@ -13,7 +15,7 @@ module ActionAgent
       sandbox = SandboxSession.find_by(id: sandbox_session_id)
       return if project.nil? || sandbox.nil? || !sandbox.failed?
 
-      ProjectSetup.after_boot_failed(project, sandbox)
+      ProjectBootFix.after_boot_failed(project, sandbox) || ProjectSetup.after_boot_failed(project, sandbox)
     end
   end
 end

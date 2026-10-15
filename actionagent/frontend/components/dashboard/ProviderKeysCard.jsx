@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useTheme } from '../../contexts/ThemeContext';
 import { clearProviderModels } from '../../utils/providerModels';
 import { effectiveSourceLabel, keyAuditLine, providerKeysPath, providerRowActions } from '../../utils/providerKeys.mjs';
+import { requestConfirm } from '../../utils/confirm.mjs';
 
 const PROVIDER_META = {
   openai: { label: 'OpenAI', icon: '🤖', placeholder: 'sk-…' },
@@ -98,10 +99,10 @@ export function useProviderKeyEditor({ onKeysChanged, onError, scope }) {
   };
 
   const removeProviderKey = async (provider) => {
-    const question = scope === 'personal'
-      ? "Remove your key? Your runs will use the organization's key, or the platform default."
-      : 'Remove this provider credential? Runs will fall back to the platform default credentials, or fail until a key is configured.';
-    if (!window.confirm(question)) return;
+    const confirmed = await requestConfirm(scope === 'personal'
+      ? { title: 'Remove your key?', message: "Your runs will use the organization's key, or the platform default.", confirmLabel: 'Remove key', danger: true }
+      : { title: 'Remove this provider credential?', message: 'Runs fall back to the platform default credentials, or fail until a key is configured.', confirmLabel: 'Remove credential', danger: true });
+    if (!confirmed) return;
     try {
       const res = await fetch(providerKeysPath(`/api/provider_keys/${provider}`, scope), { method: 'DELETE' });
       if (!res.ok) throw new Error('delete failed');

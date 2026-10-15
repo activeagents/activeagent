@@ -90,6 +90,8 @@ module ActionAgent
       "too_large" => "larger than #{MAX_FILE_BYTES / 1024 / 1024} MB",
       "unreadable" => "could not be read",
       "secret" => "contains a secret of this sandbox or a GitHub token",
+      "local_path_gem" => "points a gem at a path outside the repository (a local engine checkout, say); " \
+        "use a released version or a git source",
       "not_read" => "not read: a preview reads at most #{MAX_FILES} files and #{READ_BUDGET_BYTES / 1024 / 1024} MB, " \
         "so limit the paths to read it"
     }.freeze
@@ -478,6 +480,8 @@ module ActionAgent
         file.refusal = "too_large"
       elsif secret?(file.content, secrets)
         file.refusal = "secret"
+      elsif local_path_gem?(file)
+        file.refusal = "local_path_gem"
       end
       file
     end
@@ -515,6 +519,33 @@ module ActionAgent
       values = sandbox.secret_values
       values << sandbox.github_connection&.access_token
       values.compact.map(&:to_s).select { |value| value.length >= SecretScrubber::MIN_SECRET_LENGTH }.map(&:b).uniq
+    end
+
+    # Bundler files a sandbox may rewrite with gems from its own machine: the
+    # :local backend's add_engine step bundles a dashboard that runs its
+    # engine from a path with `bundle add --path`, and that path means
+    # nothing in the repository.
+    BUNDLER_FILES = %w[Gemfile Gemfile.lock gems.rb gems.locked].freeze
+    # A path: option, or a lockfile PATH remote, that is absolute, in a home
+    # directory or climbs out of the checkout.
+    OUTSIDE_PATH = %r{(?:\bpath:\s*|\bpath\(\s*|^\s+remote:\s+)["']?(?:/|~|\.\./)[^"'\s,)]*}
+
+    # Whether +file+ is a Bundler file that newly points a gem outside the
+    # checkout. One the repository already had is left alone.
+    def local_path_gem?(file)
+      return false unless BUNDLER_FILES.include?(File.basename(file.path)) && file.content
+
+      lockfile = file.path.end_with?(".lock", ".locked")
+      refs = ->(content) { path_references(content.to_s.b, lockfile) }
+      (refs.call(file.content) - refs.call(file.base_content)).any?
+    end
+
+    def path_references(content, lockfile)
+      if lockfile
+        content.scan(/^PATH\n((?:  .*\n?)*)/).flatten.flat_map { |block| block.scan(OUTSIDE_PATH) }
+      else
+        content.lines.reject { |line| line.lstrip.start_with?("#") }.flat_map { |line| line.scan(OUTSIDE_PATH) }
+      end.map(&:strip).uniq
     end
 
     def secret?(content, secrets)

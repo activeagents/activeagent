@@ -111,8 +111,7 @@ module ActionAgent
         provider = PROVIDER_ORDER.find { |name| configured.include?(name) && Project.provider_client_installed?(name) }
         if provider.nil?
           return { available: false,
-                   reason: "No provider key the setup assistant can use. Add one in Settings → Provider API Keys, or enter " \
-                     "the variables the boot needs in the Environment tab" }
+                   reason: "No provider key the setup assistant can use. Add one in Settings → Provider API Keys." }
         end
 
         { available: true, reason: nil, provider: provider, model: DashboardAssistantService::DEFAULT_MODELS.fetch(provider) }
@@ -132,6 +131,7 @@ module ActionAgent
         if active_run(project)
           raise Unavailable, "The setup assistant is still working on the project, or waiting for an answer on its page"
         end
+        raise Unavailable, "Claude Code is fixing the project's boot" if ProjectBootFix.active_session(project)
 
         availability = self.availability(project)
         raise Unavailable, availability[:reason] unless availability[:available]
@@ -150,7 +150,7 @@ module ActionAgent
         return nil unless project.current_sandbox_session_id == sandbox.id
         return nil unless project.auto_setup?
         return nil if project.setup_settings["attempts"].to_i >= MAX_AUTOMATIC_ATTEMPTS
-        return nil if active_run(project)
+        return nil if active_run(project) || ProjectBootFix.active_session(project)
         return nil unless availability(project)[:available]
         return nil if ActionAgent.quota_denial(project.owner, :execution).present?
 

@@ -4,6 +4,9 @@ import {
   answerBody,
   answerProblem,
   canAskSetup,
+  canFixWithClaudeCode,
+  claudeCodeFixText,
+  claudeCodeFixing,
   installPatchPath,
   installPollDelay,
   installPullRequestActions,
@@ -13,6 +16,8 @@ import {
   schemaToolsPayload,
   selectionFromChoices,
   setupInProgress,
+  awaitingAutoSetup,
+  AUTO_SETUP_WAIT_MS,
   setupStatusText,
   toggleColumn,
   waitingLabel,
@@ -110,4 +115,41 @@ test('the install patch path names each chosen file', () => {
   assert.equal(installPatchPath(7, ['Gemfile', 'db/schema.rb'], 'Install'),
     '/api/projects/7/install_pull_request/patch?paths%5B%5D=Gemfile&paths%5B%5D=db%2Fschema.rb&title=Install');
   assert.equal(installPatchPath(7), '/api/projects/7/install_pull_request/patch');
+});
+
+test('the setup card says what Claude Code is doing to a failed boot, and why it is not used', () => {
+  const project = (claudeCode, extra = {}) => ({ sandbox_state: 'failed', setup: { auto: true, available: false, claude_code: claudeCode }, ...extra });
+  const running = project({ available: true, failed_step: 'bundle_install', last_session: { id: 4, status: 'running' } });
+  assert.equal(claudeCodeFixText(running), 'Claude Code is fixing bundle_install…');
+  assert.equal(claudeCodeFixing(running), true);
+  assert.equal(setupInProgress(running), true, 'the page keeps reading the project while Claude Code works');
+  assert.equal(canFixWithClaudeCode(running), false);
+  assert.equal(canAskSetup({ ...running, setup: { ...running.setup, available: true } }), false, 'one helper at a time');
+
+  const off = project({ available: false, reason: 'Claude Code is not connected: connect it in Settings → Integrations' });
+  assert.equal(claudeCodeFixText(off), 'Claude Code does not fix failed boots here: Claude Code is not connected: connect it in Settings → Integrations.');
+  assert.equal(canFixWithClaudeCode(off), false);
+
+  const ready = project({ available: true });
+  assert.equal(canFixWithClaudeCode(ready), true);
+  assert.equal(canFixWithClaudeCode({ ...ready, sandbox_state: 'ready' }), false, 'only a failed boot is fixed');
+  assert.match(claudeCodeFixText(ready), /When a boot fails, Claude Code fixes the step that failed/);
+
+  const nothing = project({ available: true, failed_step: 'bundle_install', last_session: { id: 4, status: 'succeeded' } });
+  assert.match(claudeCodeFixText(nothing), /without a change that got the boot through/);
+  assert.match(claudeCodeFixText({ ...nothing, sandbox_state: 'booting' }), /fixed bundle_install and the boot resumed/);
+  assert.match(claudeCodeFixText(project({ available: true, resume_error: 'quota', last_session: { status: 'succeeded' } })), /did not resume: quota/);
+  assert.equal(claudeCodeFixText({ setup: {} }), null);
+});
+
+test('a just-failed boot keeps the page reading the project until the automatic fix starts', () => {
+  const failed = { sandbox_state: 'failed', setup: { auto: true, available: false, claude_code: { available: true } } };
+  const seen = 1_000_000;
+  assert.equal(awaitingAutoSetup(failed, seen, seen + 3000), true);
+  assert.equal(awaitingAutoSetup(failed, seen, seen + AUTO_SETUP_WAIT_MS), false, 'it gives up after the wait');
+  assert.equal(awaitingAutoSetup({ ...failed, setup: { ...failed.setup, auto: false } }, seen, seen), false, 'not when fixes start only on request');
+  assert.equal(awaitingAutoSetup({ ...failed, setup: { auto: true, available: false, claude_code: { available: false } } }, seen, seen), false,
+    'not when nothing can fix the boot');
+  assert.equal(awaitingAutoSetup({ ...failed, sandbox_state: 'ready' }, seen, seen), false);
+  assert.equal(awaitingAutoSetup(failed, null), false);
 });

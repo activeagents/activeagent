@@ -110,7 +110,13 @@ test('the system init event reads whatever the CLI reported, and other subtypes 
   // The mock backend's init carries only a model.
   assert.deepEqual(eventRows({ type: 'system', subtype: 'init', model: 'mock' }), [{ kind: 'system', text: 'Session started · model mock' }]);
   assert.deepEqual(eventRows({ type: 'system', subtype: 'compact_boundary' }), [{ kind: 'system', text: 'Conversation compacted' }]);
-  assert.deepEqual(eventRows({ type: 'system', subtype: 'hook_response' }), [{ kind: 'system', text: 'System: hook response' }]);
+  assert.deepEqual(eventRows({ type: 'system', subtype: 'status' }), [{ kind: 'system', text: 'System: status' }]);
+  // Bookkeeping the CLI streams is left out of every transcript.
+  assert.deepEqual(eventRows({ type: 'system', subtype: 'hook_started' }), []);
+  assert.deepEqual(eventRows({ type: 'system', subtype: 'hook_response' }), []);
+  assert.deepEqual(eventRows({ type: 'system', subtype: 'thinking_tokens' }), []);
+  assert.deepEqual(eventRows({ type: 'rate_limit_event', rate_limit_info: { status: 'allowed', resetsAt: 1792000000 } }), []);
+  assert.deepEqual(eventRows({ type: 'rate_limit_event', rate_limit_info: { status: 'rejected' } }), [{ kind: 'system', text: 'Rate limit: rejected' }]);
   assert.deepEqual(eventRows({ type: 'system' }), [{ kind: 'system', text: 'System event' }]);
 });
 

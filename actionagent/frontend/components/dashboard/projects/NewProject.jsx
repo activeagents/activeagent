@@ -165,8 +165,6 @@ export default function NewProject({ onCreated, onCancel }) {
         <div style={{ padding: '10px 12px', borderRadius: 8, fontSize: 13, background: 'var(--color-error-soft)', color: 'var(--color-error-text)' }}>{error}</div>
       )}
 
-      {capabilities && <CapabilitiesChecklist capabilities={capabilities} />}
-
       <Card>
         <MicroLabel>Repository</MicroLabel>
         <div style={{ marginTop: 8 }}>
@@ -187,6 +185,8 @@ export default function NewProject({ onCreated, onCancel }) {
         </div>
         {preflight && <div style={{ marginTop: 12 }}><PreflightResult repository={selected} preflight={preflight} /></div>}
       </Card>
+
+      {capabilities && <CapabilitiesChecklist capabilities={capabilities} />}
 
       {preflight && preflight.status !== 'unsupported' && (
         <Card>

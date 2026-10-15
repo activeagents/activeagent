@@ -15,6 +15,7 @@ import {
   criterionGroup, evaluationStanding, headlineRun, headlineSummary, modelCount, notCountedText, plural, runLabel, runSpend,
   samplingFixItems,
 } from '../../utils/evaluationRuns.mjs';
+import { requestConfirm } from '../../utils/confirm.mjs';
 
 // Evaluations, each with every run it has had. An evaluation is a named set
 // of criteria against one agent — scored over its recorded generations, or,
@@ -321,7 +322,13 @@ export default function EvaluationsView({ embedded = false, agentId = null }) {
   // DELETE /api/evaluations/:id has always existed; nothing in the UI called
   // it, so a mis-created evaluation permanently blocked reuse of its name.
   const handleDelete = async (evaluation) => {
-    if (!window.confirm(`Delete "${evaluation.name}"? Its runs are deleted with it.`)) return;
+    if (!(await requestConfirm({
+      title: `Delete ${evaluation.name}?`,
+      message: 'Its runs are deleted with it. This cannot be undone.',
+      confirmLabel: 'Delete evaluation',
+      danger: true,
+      requireText: evaluation.name,
+    }))) return;
     setDeletingId(evaluation.id);
     setLoadError(null);
     try {

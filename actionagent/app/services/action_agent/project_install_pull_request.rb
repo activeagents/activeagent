@@ -17,6 +17,8 @@ module ActionAgent
   #     ever given (Project#schema_tools_models), so that a file a boot
   #     removed can be removed on the branch too
   #   .activeagents/sandbox.yml and .activeagents/evals/<project>.yml
+  #   whatever a Claude Code boot fix changed to get the boot through
+  #     (ProjectBootFix.changed_paths_for)
   #
   # The last two are generated here rather than read from the checkout (see
   # #generated_files): sandbox.yml holds the setup that booted the project
@@ -95,7 +97,8 @@ module ActionAgent
       paths.concat(project.schema_tools_models.map { |model| "#{SandboxBootSpec::SCHEMA_TOOLS_DIR}/#{model.underscore}_tools.rb" })
       paths << evaluation_path
       paths << engine_migration_pattern
-      paths
+      paths.concat(ProjectBootFix.changed_paths_for(project).map { |path| exact_path(path) })
+      paths.uniq
     end
 
     # The REQUIRED_PATHS and engine migrations +publisher+'s sandbox changed
@@ -167,6 +170,11 @@ module ActionAgent
     end
 
     private
+
+    # +path+ as a pattern File.fnmatch matches only itself.
+    def exact_path(path)
+      path.gsub(/[*?\[\]{}\\]/) { |char| "\\#{char}" }
+    end
 
     def engine_migration_pattern
       @engine_migration_pattern ||= begin
