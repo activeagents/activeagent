@@ -7,6 +7,7 @@ import { copyToClipboard } from '../../../utils/clipboard.mjs';
 import {
   expectationText, exportUrl, scenarioForm, scenarioFormProblem, scenarioPayload, toggleId,
 } from '../../../utils/scenarios.mjs';
+import { requestConfirm } from '../../../utils/confirm.mjs';
 
 // One collection (a scenario catalog): its products, their sets and the
 // sets' scenarios, each edited in place. Every change goes through the
@@ -110,7 +111,7 @@ export default function ScenarioCollection({ collectionId, agents, projects, sto
               })}>Write to storage</Button>
             )}
             <Button size="sm" variant="danger" onClick={() => act(async () => {
-              if (!window.confirm(`Delete the collection ${collection.key}? The evaluations its sets became stay, with their runs.`)) return;
+              if (!(await requestConfirm({ title: `Delete the collection ${collection.key}?`, message: 'Its products, sets and scenarios are deleted. The evaluations its sets became stay, with their runs.', confirmLabel: 'Delete collection', danger: true, requireText: collection.key }))) return;
               await requestJson(base, { method: 'DELETE', fallback: 'Delete failed' });
               onDeleted?.();
             })}>Delete</Button>
@@ -223,7 +224,7 @@ function ProductCard({ product, collection, agents, projects, selection, onToggl
             <span style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>{product.set_count} sets · {product.scenario_count} scenarios</span>
             <Button size="sm" variant="ghost" onClick={() => setEditing(true)}>Edit</Button>
             <Button size="sm" variant="danger" onClick={() => act(async () => {
-              if (!window.confirm(`Delete product ${product.key} and its ${product.set_count} sets?`)) return;
+              if (!(await requestConfirm({ title: `Delete product ${product.key}?`, message: `Its ${product.set_count} sets and their scenarios are deleted.`, confirmLabel: 'Delete product', danger: true }))) return;
               await change(path, 'DELETE', undefined, 'Could not delete the product');
             })}>Delete</Button>
           </div>
@@ -310,7 +311,7 @@ function SetCard({ set, product, collection, agents, projects, selection, onTogg
             <Button size="sm" variant="ghost" onClick={() => setExpanded((value) => !value)}>{expanded ? 'Hide' : 'Scenarios'}</Button>
             <Button size="sm" variant="ghost" onClick={() => setEditing(true)}>Edit</Button>
             <Button size="sm" variant="danger" onClick={() => act(async () => {
-              if (!window.confirm(`Delete set ${set.key} and its ${set.scenario_count} scenarios? Its evaluation stays.`)) return;
+              if (!(await requestConfirm({ title: `Delete set ${set.key}?`, message: `Its ${set.scenario_count} scenarios are deleted. Its evaluation stays.`, confirmLabel: 'Delete set', danger: true }))) return;
               await change(path, 'DELETE', undefined, 'Could not delete the set');
             })}>Delete</Button>
           </div>
@@ -339,7 +340,7 @@ function SetCard({ set, product, collection, agents, projects, selection, onTogg
                 onToggle={() => onToggle('scenarioIds', scenario.id)}
                 onEdit={() => setEditingScenario(scenario.id)}
                 onDelete={() => act(async () => {
-                  if (!window.confirm(`Delete scenario ${scenario.key}?`)) return;
+                  if (!(await requestConfirm({ title: `Delete scenario ${scenario.key}?`, confirmLabel: 'Delete scenario', danger: true }))) return;
                   await change(`${path}/scenarios/${scenario.id}`, 'DELETE', undefined, 'Could not delete the scenario');
                 })}
               />
