@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.9.0] - 2026-10-07
+## [1.9.0] - 2026-10-14
 
 Releases `activeagent` and `actionagent` 1.9.0 from one tag. A minor release.
 The dashboard gains **Projects**: a GitHub repository boots in a checkout
@@ -33,8 +33,12 @@ What-to-fix card copies a Markdown fix brief for a coding harness, or hands
 it to Claude Code in the project's checkout sandbox and verifies the change
 against the same scenarios; a user can sign Claude Code in to a sandbox with
 their own Claude subscription (`claude_code_auth = :sandbox_login`, opt-in);
-and Active Storage is one engine option (`config.active_storage`). Carries
-the 1.8.2 owner fix.
+and Active Storage is one engine option (`config.active_storage`). When a
+project's boot fails, Claude Code fixes the step in its checkout and the
+boot resumes; a project's browser opens from its own page; Catalogs become
+**Scenarios**, written, generated from a project's app, exported and
+imported in the dashboard; and destructive actions confirm in the
+dashboard's own dialog. Carries the 1.8.2 owner fix.
 
 Upgrading: run `bin/rails generate action_agent:install --skip` and
 `bin/rails db:migrate`. The generator adds the migrations an install lacks,
@@ -59,7 +63,7 @@ finished must handle. Session Replay is now **Sessions** in the sidebar.
   hands one set to the `Runner` as a `Suite` named `catalog/product/set`,
   `to_yaml` writes the canonical document and `digest` is its SHA-256. A
   `Scenario` now carries free-form `tags` and `params` from the document.
-- **Scenario catalogs on the dashboard** (`actionagent`). The Catalogs page and
+- **Scenario catalogs on the dashboard** (`actionagent`). The Scenarios page and
   `/api/scenario_catalogs` import a catalog from pasted YAML, an uploaded
   file or a connected repository at a ref (`.activeagents/evals/*.yml` by
   default), store it as `scenario_catalogs`, `scenario_products`,
@@ -79,6 +83,42 @@ finished must handle. Session Replay is now **Sessions** in the sidebar.
   The MCP facade gains `catalogs_list`, `catalogs_import` and
   `catalog_set_run`, and `action_agent:catalogs:import`, `:export` and
   `:run` rake tasks do the same from a shell.
+- **Manage scenarios in the dashboard** (`actionagent`). Catalogs are now
+  **Scenarios** in the sidebar, at `/scenarios`, with `/catalogs` redirecting;
+  the tables, the API and the YAML `catalog:` key are unchanged. A collection
+  can be started empty and its products, sets and scenarios added, edited and
+  deleted in place (prompt, notes as the rubric, expected tools, contains and
+  never-contains, tags, enabled, production-only), each change validated as an
+  import validates a document. The **Generate** tab picks a project, runs the
+  explorer in its sandbox's browser beside the live view, and accepts its
+  proposals (the same records as the project's Explorations) into a chosen
+  set. A collection, or any products, sets and scenarios checked, exports as
+  YAML to download or copy; an import (pasted, uploaded or from a repository)
+  previews by key what it creates, overwrites, removes or keeps before it
+  writes, and in the dashboard keeps what the document leaves out by default.
+- **Fix a failed project boot with Claude Code** (`actionagent`). When a
+  project's boot fails with its checkout kept, on a backend that runs Claude
+  Code and resumes boots, and the owner's Claude Code is connected,
+  `ActionAgent::ProjectBootFix` starts a Claude Code session in the checkout
+  with the failed step, the boot's error and the end of the step's log (the
+  project's secrets masked, the log fenced as data, not instructions), asking
+  for the smallest change. The session may run `bundle install`, `lock` and
+  `update`, `gem search`, `list` and `info`, `git status` and `diff`, and
+  `npm`/`yarn install` when a JavaScript step failed, and nothing else. When
+  it changes files the boot resumes from the failed step and the files join
+  the install pull request (the secret scan and the `.github/` exclusion
+  still apply); when it changes nothing the boot stays failed with Claude
+  Code's answer. Claude Code goes first and the setup assistant after it,
+  sharing "Start it when a boot fails" and the three automatic attempts.
+  `POST /api/projects/:id/setup/claude_code` starts one by hand, and the
+  project's Setup card follows the session live.
+- **A project's browser on its page** (`actionagent`). A **Browser** tab
+  beside Overview, Explorations and Environment (`?tab=browser`) starts,
+  watches, takes over and hands back the sandbox's browser; the header offers
+  **Watch live** while it runs. Settings → Integrations stays where every
+  runtime is managed: each sandbox links to its project, and the project
+  page links back as **Manage runtimes**. The New project checklist says
+  what the backend's browser can do instead of "not available yet".
 - **Copy fix prompt** (`actionagent`). Every What-to-fix card on an
   evaluation run has a *Copy fix prompt* button that puts a Markdown brief
   on the clipboard for a coding harness: the agent, evaluation and run by
@@ -693,6 +733,24 @@ finished must handle. Session Replay is now **Sessions** in the sidebar.
 
 ### Changed
 
+- **Confirm destructive actions in the dashboard's own dialog**
+  (`actionagent`). Every `window.confirm` is gone: a `useConfirm()` dialog
+  (an `alertdialog` with a focus trap, Escape to cancel and focus starting on
+  Cancel) asks instead, and deleting a project, an agent, an evaluation or a
+  scenario collection asks for its name to be typed first.
+- **New project shows the repository first** (`actionagent`). The repository
+  picker heads the page and the capabilities checklist folds to one line,
+  opening itself when something blocks; each fix the checklist names links to
+  where it is made.
+- **The install pull request never publishes a local gem path**
+  (`actionagent`). A Gemfile or lockfile change that newly points a gem at a
+  path outside the repository is refused.
+- **Transcripts leave out hook, thinking and rate-limit events**
+  (`actionagent`). A code session's transcript shows what Claude Code did.
+- **Releases check the browser sidecar against npm** (release workflow).
+  `@activeagents/browser-sidecar` is staged through npm trusted publishing
+  (`npm stage publish`, approved by a maintainer with 2FA), and a release
+  fails when `browser-sidecar/` differs from the version already on npm.
 - **Keep the shared Playwright MCP browser out of multi-tenant installs**
   (`actionagent`). With `multi_tenant = true` the toolbox's `playwright_mcp`
   tools are neither offered nor called, and `PlaywrightMCPClient.instance`
