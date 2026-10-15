@@ -13,7 +13,7 @@ module ActionAgent
     MAX_FILES = 50
     EXTENSIONS = %w[.yml .yaml].freeze
 
-    def initialize(owner:, connection:, repository:, ref: nil, path: nil, agents: nil, projects: nil)
+    def initialize(owner:, connection:, repository:, ref: nil, path: nil, agents: nil, projects: nil, mode: "replace")
       @owner = owner
       @connection = connection
       @repository = repository.to_s
@@ -21,10 +21,25 @@ module ActionAgent
       @path = path.to_s.presence || DEFAULT_PATH
       @agents = agents
       @projects = projects
+      @mode = mode
     end
 
     # @return [Array<ScenarioCatalog>] the imported catalogs, one per file
     def call
+      imports.map(&:call)
+    end
+
+    # What #call would change, one ScenarioCatalogImport#preview per file,
+    # each with the file's source_path.
+    # @return [Array<Hash>]
+    def preview
+      imports.map { |import| import.preview.merge(source_path: import.source_path) }
+    end
+
+    private
+
+    # One ScenarioCatalogImport per catalog file at the ref.
+    def imports
       client = @connection.client
       ref = @ref || default_branch(client)
       files = catalog_files(client, ref)
@@ -40,14 +55,12 @@ module ActionAgent
         ScenarioCatalogImport.new(
           owner: @owner, document: content, name: File.basename(file_path, File.extname(file_path)),
           source_kind: "repository", source_path: "#{@repository}@#{ref}:#{file_path}",
-          agents: @agents, projects: @projects
-        ).call
+          agents: @agents, projects: @projects, mode: @mode
+        )
       end
     rescue GithubClient::Error => e
       raise ScenarioCatalogImport::Invalid, "GitHub refused reading #{@repository}: #{e.message}"
     end
-
-    private
 
     def default_branch(client)
       @connection.repository(@repository)&.dig("default_branch").presence || client.repository(@repository)["default_branch"]

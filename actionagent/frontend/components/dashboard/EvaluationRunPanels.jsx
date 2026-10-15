@@ -723,7 +723,7 @@ export function ScenarioDetail({ scenario, run, columns, resultsByKey, running, 
       )}
       {scenario.catalogChanged && (
         <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginBottom: 10 }}>
-          This run used an earlier version of this question. Re-running uses the current catalog.
+          This run used an earlier version of this question. Re-running uses the current version.
         </div>
       )}
       {!run ? (

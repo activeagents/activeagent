@@ -73,7 +73,13 @@ module ActionAgent
       # :replace_scenarios is asked about the evaluation the candidates
       # merge into, or about the exploration when a project's accept will
       # create that evaluation.
+      #
+      # With scenario_set_id, the candidates become scenarios of that set of
+      # one of the owner's scenario catalogs instead (see
+      # Exploration#accept_into_set!), and :replace_scenarios is asked about
+      # its catalog.
       def accept
+        return accept_into_set if params[:scenario_set_id].present?
         return unless authorize_action!(:replace_scenarios, @exploration.target_evaluation || @exploration)
 
         merged = @exploration.accept!(params[:candidate_ids], edits: accept_edits)
@@ -97,6 +103,24 @@ module ActionAgent
       end
 
       private
+
+      def accept_into_set
+        products = ScenarioProduct.where(scenario_catalog_id: owned(ScenarioCatalog).select(:id))
+        set = ScenarioSet.where(scenario_product_id: products.select(:id)).find(params[:scenario_set_id].to_s)
+        return unless authorize_action!(:replace_scenarios, set.catalog)
+
+        merged = @exploration.accept_into_set!(params[:candidate_ids], set: set, edits: accept_edits)
+        render json: detail(@exploration.reload).merge(
+          accepted: merged.slice(:added, :updated, :unchanged),
+          scenario_set: scenario_set_summary(set)
+        )
+      end
+
+      def scenario_set_summary(set)
+        catalog = set.catalog
+        { id: set.id, key: set.key, name: set.name, product_key: set.product.key,
+          catalog: { id: catalog.id, key: catalog.key, name: catalog.name } }
+      end
 
       def set_exploration
         @exploration = owned(Exploration).find(params[:id])
