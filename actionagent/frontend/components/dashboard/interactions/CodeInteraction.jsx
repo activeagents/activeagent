@@ -16,6 +16,12 @@ import {
   mergeConversation,
   pendingPersonRequest,
   showBrowserPreference,
+  splitForKey,
+  splitFromPointer,
+  SPLIT_DEFAULT,
+  SPLIT_MAX,
+  SPLIT_MIN,
+  clampSplit,
   turnLine,
 } from '../../../utils/codeConversations.mjs';
 import { DiffView, StatusBadge, TranscriptRow } from '../CodeSessionPanel';
@@ -92,6 +98,49 @@ export default function CodeInteraction({ rootId, onBack = null }) {
   const workspaceRef = useRef(null);
   const transcriptRef = useRef(null);
   const workspaceHeight = useViewportFill(workspaceRef, Boolean(conversation));
+  const panelsRef = useRef(null);
+  const [split, setSplit] = useState(initialSplit);
+  const [dragging, setDragging] = useState(false);
+  // Side by side only where the panels fill the window (wide screens).
+  const sideBySide = showBrowser && Boolean(workspaceHeight);
+
+  const changeSplit = (value) => {
+    setSplit(value);
+    rememberSplit(value);
+  };
+
+  // Dragging the separator: pointer capture keeps the drag on it even over
+  // the live view's frame. Refs, not state, carry the drag between events,
+  // so a move that comes before the next render still counts.
+  const dragRef = useRef(null);
+  const splitRef = useRef(split);
+  splitRef.current = split;
+  const startDrag = (event) => {
+    if (event.button !== 0 || !panelsRef.current) return;
+    event.preventDefault();
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    dragRef.current = panelsRef.current.getBoundingClientRect();
+    setDragging(true);
+  };
+  const drag = (event) => {
+    if (!dragRef.current) return;
+    const next = splitFromPointer(event.clientX, dragRef.current);
+    splitRef.current = next;
+    setSplit(next);
+  };
+  const endDrag = (event) => {
+    if (!dragRef.current) return;
+    event.currentTarget.releasePointerCapture?.(event.pointerId);
+    dragRef.current = null;
+    setDragging(false);
+    rememberSplit(splitRef.current);
+  };
+  const keySplit = (event) => {
+    const next = splitForKey(split, event.key);
+    if (next === null) return;
+    event.preventDefault();
+    changeSplit(next);
+  };
 
   // The choice lives in the URL (so a link opens the same layout) and is
   // remembered for the next conversation.
@@ -258,8 +307,16 @@ export default function CodeInteraction({ rootId, onBack = null }) {
       {/* Two panels that fill the rest of the window, each scrolling on its
           own: the conversation (composer pinned to its foot) and the
           browser. Stacked, at natural height, on narrow screens. */}
-      <div className={`flex-1 min-h-0 flex flex-col gap-4 ${showBrowser ? 'lg:grid lg:grid-cols-2' : ''}`}>
-        <section className={`${panel} lg:h-full`} aria-label="Conversation">
+      <div
+        ref={panelsRef}
+        className={`flex-1 min-h-0 flex flex-col gap-4 ${sideBySide ? 'lg:flex-row lg:gap-0' : ''} ${dragging ? 'select-none cursor-col-resize' : ''}`}
+      >
+        <section
+          className={`${panel} lg:h-full min-w-0`}
+          style={sideBySide ? { flex: `0 0 ${split}%` } : undefined}
+          aria-label="Conversation"
+          id={`code-interaction-${rootId}-conversation`}
+        >
           <div className={panelHeader}>
             <span className={`text-sm font-medium ${strong}`}>Conversation</span>
             {!showBrowser && (
@@ -293,10 +350,39 @@ export default function CodeInteraction({ rootId, onBack = null }) {
           </form>
         </section>
 
+        {sideBySide && (
+          // Drag, or focus and use the arrow keys (Home/End for the limits,
+          // Enter or a double-click for half and half).
+          <div
+            role="separator"
+            aria-orientation="vertical"
+            aria-label="Resize the conversation and the browser"
+            aria-controls={`code-interaction-${rootId}-conversation`}
+            aria-valuenow={Math.round(split)}
+            aria-valuemin={SPLIT_MIN}
+            aria-valuemax={SPLIT_MAX}
+            tabIndex={0}
+            onPointerDown={startDrag}
+            onPointerMove={drag}
+            onPointerUp={endDrag}
+            onPointerCancel={endDrag}
+            onKeyDown={keySplit}
+            onDoubleClick={() => changeSplit(SPLIT_DEFAULT)}
+            className="group hidden lg:flex w-4 shrink-0 cursor-col-resize items-center justify-center touch-none focus:outline-none"
+            data-testid="code-interaction-separator"
+          >
+            <span
+              className={`h-12 w-1 rounded-full transition-colors ${dragging
+                ? 'bg-red-500'
+                : darkMode ? 'bg-gray-600 group-hover:bg-gray-400 group-focus-visible:bg-red-500' : 'bg-gray-300 group-hover:bg-gray-500 group-focus-visible:bg-red-500'}`}
+            />
+          </div>
+        )}
+
         {showBrowser && (
           <section
             id={`code-interaction-${rootId}-browser`}
-            className={`${panel} lg:h-full`}
+            className={`${panel} lg:h-full min-w-0 flex-1`}
             aria-label="The sandbox’s browser"
             data-testid="code-interaction-browser"
           >
@@ -336,6 +422,24 @@ export default function CodeInteraction({ rootId, onBack = null }) {
 }
 
 const SHOW_BROWSER_KEY = 'activeagents.codeInteraction.showBrowser';
+const SPLIT_KEY = 'activeagents.codeInteraction.split';
+
+function initialSplit() {
+  try {
+    const stored = window.localStorage.getItem(SPLIT_KEY);
+    return stored === null ? SPLIT_DEFAULT : clampSplit(stored);
+  } catch {
+    return SPLIT_DEFAULT;
+  }
+}
+
+function rememberSplit(value) {
+  try {
+    window.localStorage.setItem(SPLIT_KEY, String(value));
+  } catch {
+    // Storage may be off; the split lasts for this page.
+  }
+}
 
 function initialShowBrowser() {
   let stored = null;

@@ -154,3 +154,34 @@ export const showBrowserPreference = (search, stored) => {
   if (param === '1' || param === '0') return param === '1';
   return stored === '1';
 };
+
+// The conversation panel's share of the width beside the browser, as a
+// percentage: dragged or keyed between SPLIT_MIN and SPLIT_MAX, so neither
+// panel gets too narrow to use.
+export const SPLIT_DEFAULT = 50;
+export const SPLIT_MIN = 25;
+export const SPLIT_MAX = 75;
+const SPLIT_STEP = 5;
+
+export const clampSplit = (value) => {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return SPLIT_DEFAULT;
+  return Math.min(SPLIT_MAX, Math.max(SPLIT_MIN, Math.round(number * 10) / 10));
+};
+
+// Where the pointer is, as a share of the row it is dragging across.
+export const splitFromPointer = (clientX, { left, width }) => (
+  width > 0 ? clampSplit(((clientX - left) / width) * 100) : SPLIT_DEFAULT
+);
+
+// The split after a key on the separator, or null for a key it ignores.
+export const splitForKey = (split, key) => {
+  switch (key) {
+    case 'ArrowLeft': return clampSplit(split - SPLIT_STEP);
+    case 'ArrowRight': return clampSplit(split + SPLIT_STEP);
+    case 'Home': return SPLIT_MIN;
+    case 'End': return SPLIT_MAX;
+    case 'Enter': return SPLIT_DEFAULT;
+    default: return null;
+  }
+};
