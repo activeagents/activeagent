@@ -110,15 +110,22 @@ else
   ActiveRecord::Base.establish_connection(adapter: "sqlite3", database: ":memory:")
   ActiveRecord::Migration.verbose = false
 
-  # RubyLLM's railtie requires these under Rails; a release that renames one
-  # reads as a skip naming the file rather than a crash.
+  # RubyLLM's railtie requires these under Rails, in its order; a release
+  # that renames one reads as a skip naming the file rather than a crash.
+  # 2.1 added record (the base class its models inherit from), mcp_credential
+  # and provider_file; they are required where the release has them.
   internals = if V2
-    %w[payload_helpers model tool_call usage batch chat_methods message_methods acts_as]
+    %w[record payload_helpers model tool_call usage batch mcp_credential provider_file chat_methods message_methods acts_as]
   else
     %w[payload_helpers chat_methods message_methods model_methods tool_call_methods acts_as]
   end
+  since_2_1 = %w[record mcp_credential provider_file]
   begin
-    internals.each { |file| require "ruby_llm/active_record/#{file}" }
+    internals.each do |file|
+      next if since_2_1.include?(file) && $LOAD_PATH.none? { |dir| File.exist?(File.join(dir, "ruby_llm/active_record/#{file}.rb")) }
+
+      require "ruby_llm/active_record/#{file}"
+    end
   rescue LoadError => e
     output["records"] = { "skipped" => "ruby_llm #{RubyLLM::VERSION}: #{e.message}" }
     puts JSON.generate(output)
