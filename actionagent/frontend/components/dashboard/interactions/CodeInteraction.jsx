@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { dashboardPath, navigateTo } from '../../../utils/dashboardPath';
 import {
@@ -15,6 +15,7 @@ import {
   CONVERSATION_POLL_INTERVAL_MS,
   mergeConversation,
   pendingPersonRequest,
+  showBrowserPreference,
   turnLine,
 } from '../../../utils/codeConversations.mjs';
 import { DiffView, StatusBadge, TranscriptRow } from '../CodeSessionPanel';
@@ -84,10 +85,23 @@ export default function CodeInteraction({ rootId, onBack = null }) {
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
   const [handoff, setHandoff] = useState(null);
-  const [showBrowser, setShowBrowser] = useState(() => new URLSearchParams(window.location.search).get('browser') === '1');
+  const [showBrowser, setShowBrowserState] = useState(initialShowBrowser);
   const held = useRef(null);
   held.current = conversation;
   const composerRef = useRef(null);
+  const workspaceRef = useRef(null);
+  const transcriptRef = useRef(null);
+  const workspaceHeight = useViewportFill(workspaceRef, Boolean(conversation));
+
+  // The choice lives in the URL (so a link opens the same layout) and is
+  // remembered for the next conversation.
+  const setShowBrowser = (next) => {
+    setShowBrowserState((open) => {
+      const value = typeof next === 'function' ? next(open) : next;
+      rememberShowBrowser(value);
+      return value;
+    });
+  };
 
   const load = useCallback(async () => {
     const query = afterQuery(held.current?.turns);
@@ -113,6 +127,21 @@ export default function CodeInteraction({ rootId, onBack = null }) {
     const timer = setInterval(() => void load(), CONVERSATION_POLL_INTERVAL_MS);
     return () => clearInterval(timer);
   }, [active, load]);
+
+  // Follow the conversation as turns arrive, unless the person scrolled up
+  // to read an earlier one.
+  const turnCount = conversation?.turns?.length || 0;
+  const eventCount = conversation?.turns?.reduce((sum, turn) => sum + (turn.events?.length || 0), 0) || 0;
+  const pinnedToBottom = useRef(true);
+  useEffect(() => {
+    const transcript = transcriptRef.current;
+    if (transcript && pinnedToBottom.current) transcript.scrollTop = transcript.scrollHeight;
+  }, [turnCount, eventCount, workspaceHeight]);
+  const trackPin = () => {
+    const transcript = transcriptRef.current;
+    if (!transcript) return;
+    pinnedToBottom.current = transcript.scrollHeight - transcript.scrollTop - transcript.clientHeight < 48;
+  };
 
   const sandboxId = conversation?.sandbox_session_id;
   const lastTurn = conversation?.turns?.[conversation.turns.length - 1];
@@ -176,9 +205,18 @@ export default function CodeInteraction({ rootId, onBack = null }) {
 
   const status = codeSessionStatus(conversation.status);
 
+  const panelHeader = `flex items-center justify-between gap-2 px-4 py-2 border-b ${darkMode ? 'border-gray-700' : 'border-gray-200'}`;
+  const panel = `rounded-lg border flex flex-col min-h-0 ${darkMode ? 'bg-gray-900 border-gray-700' : 'bg-white border-gray-200'}`;
+  const iconButton = `px-2 py-0.5 text-xs rounded ${darkMode ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-600 hover:bg-gray-100'}`;
+
   return (
-    <div className="space-y-4" data-testid="code-interaction">
-      <div className="flex flex-wrap items-start justify-between gap-3">
+    <div
+      ref={workspaceRef}
+      className="flex flex-col gap-3"
+      style={workspaceHeight ? { height: workspaceHeight } : undefined}
+      data-testid="code-interaction"
+    >
+      <div className="flex flex-wrap items-start justify-between gap-3 shrink-0">
         <div className="space-y-1">
           {onBack && <button type="button" onClick={onBack} className={`text-xs ${muted}`}>← Interactions</button>}
           <h2 className={`text-xl font-bold ${strong}`}>{conversation.display_name}</h2>
@@ -198,29 +236,43 @@ export default function CodeInteraction({ rootId, onBack = null }) {
         </div>
         <div className="flex items-center gap-2">
           {active && <button type="button" onClick={cancel} className={button}>Stop</button>}
-          <button type="button" onClick={() => setShowBrowser((open) => !open)} className={button} aria-pressed={showBrowser}>
-            {showBrowser ? 'Hide browser' : 'Browser'}
+          <button
+            type="button"
+            onClick={() => setShowBrowser((open) => !open)}
+            className={button}
+            aria-pressed={showBrowser}
+            aria-controls={`code-interaction-${rootId}-browser`}
+          >
+            {showBrowser ? 'Hide browser' : 'Show browser'}
           </button>
         </div>
       </div>
 
       {personRequest && !showBrowser && (
-        <p role="alert" className={needsYouClass}>
+        <p role="alert" className={`${needsYouClass} shrink-0`}>
           Claude Code needs you: {personRequest.reason}{' '}
-          <button type="button" onClick={() => setShowBrowser(true)} className="underline">Open the browser</button>
+          <button type="button" onClick={() => setShowBrowser(true)} className="underline">Show the browser</button>
         </p>
       )}
 
-      {/* items-start: a stretched grid item has no room to stick in. */}
-      <div className={showBrowser ? 'grid gap-4 lg:grid-cols-2 items-start' : ''}>
-        <div className="space-y-3">
-          <ol className="space-y-3">
+      {/* Two panels that fill the rest of the window, each scrolling on its
+          own: the conversation (composer pinned to its foot) and the
+          browser. Stacked, at natural height, on narrow screens. */}
+      <div className={`flex-1 min-h-0 flex flex-col gap-4 ${showBrowser ? 'lg:grid lg:grid-cols-2' : ''}`}>
+        <section className={`${panel} lg:h-full`} aria-label="Conversation">
+          <div className={panelHeader}>
+            <span className={`text-sm font-medium ${strong}`}>Conversation</span>
+            {!showBrowser && (
+              <button type="button" onClick={() => setShowBrowser(true)} className={iconButton}>Show browser ›</button>
+            )}
+          </div>
+          <ol ref={transcriptRef} onScroll={trackPin} className="space-y-3 p-4 flex-1 min-h-0 overflow-y-auto">
             {conversation.turns.map((turn) => (
               <Turn key={turn.id} turn={turn} sandboxId={sandboxId} darkMode={darkMode} muted={muted} strong={strong} />
             ))}
           </ol>
 
-          <form onSubmit={send} className={`${card} space-y-2`}>
+          <form onSubmit={send} className={`space-y-2 p-4 border-t shrink-0 ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
             <label htmlFor={`code-interaction-${rootId}-message`} className={`text-xs font-medium ${strong}`}>
               Message {conversation.runner === 'codex' ? 'Codex' : 'Claude Code'}
             </label>
@@ -239,19 +291,25 @@ export default function CodeInteraction({ rootId, onBack = null }) {
             </div>
             {error && <p className={`text-xs ${darkMode ? 'text-red-400' : 'text-red-600'}`} role="alert">{error}</p>}
           </form>
-        </div>
+        </section>
 
         {showBrowser && (
-          // Sticky beside a long transcript, so Take over and Hand back stay
-          // in view; scrolls on its own when taller than the screen.
-          <div
-            className={`${card} space-y-2 lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto`}
+          <section
+            id={`code-interaction-${rootId}-browser`}
+            className={`${panel} lg:h-full`}
+            aria-label="The sandbox’s browser"
             data-testid="code-interaction-browser"
           >
+            <div className={panelHeader}>
+              <span className={`text-sm font-medium ${strong}`}>The sandbox’s browser</span>
+              <button type="button" onClick={() => setShowBrowser(false)} className={iconButton} aria-label="Hide the browser">
+                Hide ×
+              </button>
+            </div>
+            <div className="p-4 space-y-2 flex-1 min-h-0 overflow-y-auto">
             {personRequest && (
               <p role="alert" className={needsYouClass}>Claude Code needs you: {personRequest.reason}</p>
             )}
-            <p className={`text-sm font-medium ${strong}`}>The sandbox’s browser</p>
             {browserRunning ? (
               <LiveView sessionId={sandboxId} watchOnOpen onHandBack={handedBack} handBackLabel="Hand back to Claude Code" />
             ) : (
@@ -269,9 +327,61 @@ export default function CodeInteraction({ rootId, onBack = null }) {
                 , and Claude Code reaches it from its next turn.
               </p>
             )}
-          </div>
+            </div>
+          </section>
         )}
       </div>
     </div>
   );
+}
+
+const SHOW_BROWSER_KEY = 'activeagents.codeInteraction.showBrowser';
+
+function initialShowBrowser() {
+  let stored = null;
+  try {
+    stored = window.localStorage.getItem(SHOW_BROWSER_KEY);
+  } catch {
+    // Storage may be off; the URL alone decides.
+  }
+  return showBrowserPreference(window.location.search, stored);
+}
+
+function rememberShowBrowser(value) {
+  try {
+    window.localStorage.setItem(SHOW_BROWSER_KEY, value ? '1' : '0');
+  } catch {
+    // Storage may be off; the URL still carries the choice.
+  }
+  const url = new URL(window.location.href);
+  url.searchParams.set('browser', value ? '1' : '0');
+  window.history.replaceState(window.history.state, '', url);
+}
+
+// The height that takes +ref+ from where it starts to the bottom of the
+// window, less the dashboard's bottom padding, on wide screens only; null
+// on narrow ones, where the panels stack at their natural height. +ready+
+// says the element is mounted (it isn't while the conversation loads).
+function useViewportFill(ref, ready) {
+  const [height, setHeight] = useState(null);
+  useLayoutEffect(() => {
+    const wide = window.matchMedia('(min-width: 1024px)');
+    const measure = () => {
+      const el = ref.current;
+      if (!el || !wide.matches) {
+        setHeight(null);
+        return;
+      }
+      const top = el.getBoundingClientRect().top + window.scrollY;
+      setHeight(Math.max(420, Math.floor(window.innerHeight - top - 24)));
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    wide.addEventListener('change', measure);
+    return () => {
+      window.removeEventListener('resize', measure);
+      wide.removeEventListener('change', measure);
+    };
+  }, [ref, ready]);
+  return height;
 }

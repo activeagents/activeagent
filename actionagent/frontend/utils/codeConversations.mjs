@@ -145,3 +145,12 @@ export const composerHint = (conversation, { handoff = null } = {}) => {
   if (running) return `Your message waits for the turn that runs${waiting ? ` (and ${plural(waiting, 'more')})` : ''}.${note}`;
   return `Sends the next turn, resuming this conversation.${note}`;
 };
+
+// Whether a conversation opens with its browser panel: an explicit
+// ?browser=1 or ?browser=0 wins, then the person's last choice ("1"/"0"
+// as stored), and hidden when there is neither.
+export const showBrowserPreference = (search, stored) => {
+  const param = new URLSearchParams(search || '').get('browser');
+  if (param === '1' || param === '0') return param === '1';
+  return stored === '1';
+};
