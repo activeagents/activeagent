@@ -66,6 +66,22 @@ module Providers
 
           assert_equal text, response.message.content
         end
+
+        test "a streamed refusal completes" do
+          refusal = "I can't help with that."
+          stub_stream(sse_body(
+            part_events: [
+              { type: "response.refusal.delta", delta: refusal },
+              { type: "response.refusal.done", refusal: }
+            ],
+            final_part: { type: "refusal", refusal: },
+            terminal: "response.completed", status: "completed"
+          ))
+
+          response = StreamAgent.ask.generate_now
+
+          assert_not_nil response
+        end
       end
     end
   end

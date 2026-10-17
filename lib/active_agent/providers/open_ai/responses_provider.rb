@@ -153,6 +153,10 @@ module ActiveAgent
             message[:content] = api_response_event.text
             broadcast_stream_update(message, nil) # Don't double send content
 
+          # -> -> -> Refusal (the response still ends with response.completed)
+          when :"response.refusal.delta", :"response.refusal.done"
+          # No-Op: The message has no refusal field to stream it into
+
           # -> -> -> Content Function Call Append
           when :"response.function_call_arguments.delta", :"response.function_call_arguments.done"
           # No-Op: Wait for FC to Land
