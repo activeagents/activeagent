@@ -14,6 +14,7 @@ PR: pending publication.
   trace links, pagination, filter resets and error states.
 - Dashboard production build: passes; committed JavaScript bundle updated.
 - VitePress production build: passes, including the new User Feedback page.
+- Ruby style check: passes for all five changed Ruby implementation/test files.
 - New migration applied successfully to the SQLite test host.
 
 ## Manual testing
