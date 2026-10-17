@@ -78,6 +78,15 @@ module ActionAgent
       verdict.to_h.stringify_keys.presence if verdict.is_a?(Hash)
     end
 
+    # The model comparison a comparison run recorded (Report#comparison):
+    # each model's pass rate with its interval, every pair's difference and
+    # whether it is decisive, and the conclusion. nil for a single-model
+    # run, or one recorded before runs kept it.
+    def recorded_comparison
+      comparison = scores&.dig("_comparison")
+      comparison if comparison.is_a?(Hash) && comparison.present?
+    end
+
     # How the report names the judge, the way the suite panel does: the
     # judge the recorded verdict names — unless that is only the pass-rate
     # ranking — else the evaluation's judge model. nil when neither is set,
@@ -220,7 +229,7 @@ module ActionAgent
     # writes with Report#to_html. The run's recorded verdict and judge go
     # with it: the report is not to re-rank the rebuilt results by pass
     # rate and show a different judge's pick, verdict or `judged by` than
-    # the suite panel does. Raises ActiveRecord::RecordNotFound via the
+    # the suite panel does, nor resample the comparison the run recorded. Raises ActiveRecord::RecordNotFound via the
     # caller for a run of a generation-sampling evaluation, which has no
     # scenario results to report on.
     #
@@ -276,6 +285,7 @@ module ActionAgent
       }
       kwargs[:judge_usage] = breakdown.judge_usage_run if breakdown && self.class.report_accepts?(:judge_usage)
       kwargs[:release] = release_summary if release_summary && self.class.report_accepts?(:release)
+      kwargs[:comparison] = recorded_comparison if recorded_comparison && self.class.report_accepts?(:comparison)
       self.class.report_class.new(**kwargs)
     end
 

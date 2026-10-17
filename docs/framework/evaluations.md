@@ -474,6 +474,10 @@ scenario × model. `Report#to_h` is JSON-ready. The ActionAgent engine's
 `ScenarioEvaluationRunner` is the reference integration: it supplies the
 replay (an `AgentRun` with a model override), prices tokens, wraps the owner's
 judge credentials, and stores each result as an `EvaluationScenarioResult`.
+It records a comparison run's `Report#comparison` with the run, computed
+once when the run completes (or, for a published report, from the stored
+results), and hands it back as `comparison:` when it rebuilds the report, so
+the report page does not resample on every view.
 
 ## The pieces
 
