@@ -308,6 +308,21 @@ module Providers
         assert_equal LEAD_IN_TURN, requests.last["messages"].last
         assert_equal COLORS, response.message.parsed_json
       end
+
+      ################################################################################
+      # How many times an unparseable answer is retried
+      ################################################################################
+
+      [ 0, 1, 5 ].each do |max_retries|
+        test "max_retries: #{max_retries} sets how many times an unparseable answer is retried" do
+          requests = stub_responses(response_body(text(UNPARSEABLE)))
+
+          response = json_object_provider(model: CURRENT_MODEL, max_retries: max_retries).prompt
+
+          assert_equal 1 + max_retries, requests.size
+          assert_nil response.message.parsed_json
+        end
+      end
     end
   end
 end

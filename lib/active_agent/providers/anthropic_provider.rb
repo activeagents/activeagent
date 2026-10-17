@@ -43,7 +43,7 @@ module ActiveAgent
       def initialize(kwargs = {})
         super
 
-        self.json_format_retry_count = kwargs[:max_retries] || ::Anthropic::Client::DEFAULT_MAX_RETRIES
+        self.json_format_retry_count = options.max_retries
       end
 
       # @todo Add support for Anthropic::BedrockClient and Anthropic::VertexClient
