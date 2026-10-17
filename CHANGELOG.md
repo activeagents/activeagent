@@ -18,6 +18,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Responses provider raised `Unexpected Item Type: web_search_call` on the
   first of them. The tool calls are now kept like in a non-streamed response,
   and their events are skipped.
+- **A streamed Responses answer cut short no longer raises.** When a response
+  hits `max_output_tokens`, the stream ends with `response.incomplete` instead
+  of `response.completed`, and the Responses provider raised `Unexpected
+  Response Chunk Type: response.incomplete`. It now ends the generation with
+  the text streamed so far, like `response.completed`.
 
 ## [1.9.0] - 2026-10-14
 

@@ -111,6 +111,7 @@ module ActiveAgent
         # - `:"response.content_part.done"` - content part completed
         # - `:"response.output_item.done"` - message, reasoning or function call completed
         # - `:"response.completed"` - response finished
+        # - `:"response.incomplete"` - response cut short (e.g. max_output_tokens)
         #
         # @param api_response_event [Hash] streaming chunk with :type key
         # @return [void]
@@ -169,8 +170,9 @@ module ActiveAgent
           when :"response.output_item.done"
             process_stream_output_item_done(api_response_event)
 
-          # Response Completed
-          when :"response.completed"
+          # Response Completed, or cut short (e.g. by max_output_tokens) with
+          # the output it has so far
+          when :"response.completed", :"response.incomplete"
             # Completion, tool loop included, runs from stream_finished! once
             # the stream has drained, so each turn's tool calls run once.
             self.stream_completion_pending = true
