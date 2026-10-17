@@ -143,6 +143,13 @@ module ActiveAgent
             # => {type: :"tool_calls.function.arguments.delta", name: "get_current_weather", index: 0, arguments: "", parsed: nil, arguments_delta: ""}
           when :"tool_calls.function.arguments.done"
             # => => {type: :"tool_calls.function.arguments.done", index: 0, name: "get_current_weather", arguments: "{\"location\":\"Boston, MA\"}", parsed: nil}
+          when :"refusal.delta"
+            # No-Op; the refusal is merged into the message from the :chunk event
+          when :"refusal.done"
+            # A refused message ends here, with no content.done
+            self.stream_completion_pending = true
+          when :"logprobs.content.delta", :"logprobs.content.done", :"logprobs.refusal.delta", :"logprobs.refusal.done"
+            # No-Op; sent when the request asks for logprobs
           else
             fail "Unexpected Response Event Type: #{api_response_event.type}"
           end

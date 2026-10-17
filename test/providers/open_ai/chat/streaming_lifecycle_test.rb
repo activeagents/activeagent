@@ -44,6 +44,42 @@ module Providers
         MockChunkEvent = Struct.new(:type, :chunk, keyword_init: true)
         MockContentDoneEvent = Struct.new(:type, :content, :parsed, keyword_init: true)
 
+        test "process_stream_chunk handles refusal events and completes on refusal.done" do
+          [
+            ::OpenAI::Helpers::Streaming::ChatRefusalDeltaEvent.new(
+              type: :"refusal.delta", delta: "I can't help with that.", snapshot: "I can't help with that."
+            ),
+            ::OpenAI::Helpers::Streaming::ChatRefusalDoneEvent.new(
+              type: :"refusal.done", refusal: "I can't help with that."
+            )
+          ].each do |event|
+            assert_nothing_raised { @provider.send(:process_stream_chunk, event) }
+          end
+
+          # A refused message has no content.done, so refusal.done must end it
+          assert @provider.send(:stream_completion_pending)
+        end
+
+        test "process_stream_chunk handles logprobs events" do
+          logprob = { token: "Hi", logprob: -0.1, bytes: [ 72, 105 ], top_logprobs: [] }
+          [
+            ::OpenAI::Helpers::Streaming::ChatLogprobsContentDeltaEvent.new(
+              type: :"logprobs.content.delta", content: [ logprob ], snapshot: [ logprob ]
+            ),
+            ::OpenAI::Helpers::Streaming::ChatLogprobsContentDoneEvent.new(
+              type: :"logprobs.content.done", content: [ logprob ]
+            ),
+            ::OpenAI::Helpers::Streaming::ChatLogprobsRefusalDeltaEvent.new(
+              type: :"logprobs.refusal.delta", refusal: [ logprob ], snapshot: [ logprob ]
+            ),
+            ::OpenAI::Helpers::Streaming::ChatLogprobsRefusalDoneEvent.new(
+              type: :"logprobs.refusal.done", refusal: [ logprob ]
+            )
+          ].each do |event|
+            assert_nothing_raised { @provider.send(:process_stream_chunk, event) }
+          end
+        end
+
         test "process_stream_chunk emits :open event on first chunk" do
           chunk = MockChunk.new(
             choices: [ MockChoice.new(index: 0, delta: MockDelta.new(content: "Hi", role: "assistant")) ]
