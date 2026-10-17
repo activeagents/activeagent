@@ -596,8 +596,8 @@ class EvalsReportTest < ActiveSupport::TestCase
   def test_markdown_renders_the_judge_column_the_matrix_cost_column_the_cost_per_answer_and_the_total
     markdown = costed_report.to_markdown
 
-    assert_includes markdown, "| Model | Passed | Mean score | Mean latency | Tokens in/out | Cost | Judge | Faults |"
-    assert_includes markdown, "| `gpt-5-mini` | 2/2 (100%) | 100% | — | 180/29 | $0.0032 | ~$0.0010 (1 call) | — |"
+    assert_includes markdown, "| Model | Passed | Mean score | Mean latency | Median / P95 | Tokens in/out | Cost | Judge | Faults |"
+    assert_includes markdown, "| `gpt-5-mini` | 2/2 (100%) | 100% | — | — | 180/29 | $0.0032 | ~$0.0010 (1 call) | — |"
     assert_includes markdown, "| ~$0.0243 | ~$0.0015 (1 call) |"
     assert_includes markdown, "**Total: ~$0.0340** (agent ~$0.0275 · judge ~$0.0065)\n_~ estimated from tokens × model rates_\n"
     assert_includes markdown, "| Scenario | `gpt-5-mini` | `openrouter/meta-llama/llama-3.1-8b` | Cost |"
@@ -619,8 +619,24 @@ class EvalsReportTest < ActiveSupport::TestCase
     assert_not_includes html, "~$", "every cost was reported, so nothing is marked as an estimate"
     assert_not_includes html, "estimated from tokens"
     assert_includes html, %(<div class="micro">Cost</div><div class="value">$0.0100</div><div class="sub">agent only · 10 scenario runs priced</div>)
-    assert_includes markdown, "| Model | Passed | Mean score | Mean latency | Tokens in/out | Cost | Faults |"
+    assert_includes markdown, "| Model | Passed | Mean score | Mean latency | Median / P95 | Tokens in/out | Cost | Faults |"
     assert_includes markdown, "**Total: $0.0100** (agent $0.0100)\n\n**Best model"
+  end
+
+  def test_latency_reads_at_the_median_and_the_95th_percentile_beside_the_mean
+    timed = [ 400, 100, 300, 200 ].each_with_index.map do |ms, i|
+      Result.new(scenario: scenario("s_#{i}"), spec: gpt, replay: replay(duration_ms: ms), scores: {}, score: 1.0, status: "passed")
+    end
+    untimed = Result.new(scenario: scenario("s_0"), spec: llama, replay: replay, scores: {}, score: 1.0, status: "passed")
+    report = Report.new(results: timed + [ untimed ], models: models)
+
+    assert_equal [ 250, 200, 400 ], report.summary_by_model[gpt.label].values_at("avg_duration_ms", "p50_duration_ms", "p95_duration_ms")
+    assert_equal [ nil, nil ], report.summary_by_model[llama.label].values_at("p50_duration_ms", "p95_duration_ms")
+    assert_includes report.to_markdown, "| 250 ms | 200 / 400 ms |"
+    html = report.to_html
+    assert_includes html, %(<td class="num">200ms / 400ms</td>)
+    assert_includes html, "<span>p50 / p95 <b>200ms / 400ms</b></span>"
+    assert_includes html, "<span>p50 / p95 <b>—</b></span>", "a model with no timed replay reads as missing"
   end
 
   def test_html_of_a_single_model_run_has_no_comparison_table_or_filter

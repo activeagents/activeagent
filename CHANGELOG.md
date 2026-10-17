@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **P50 and P95 latency per model in evaluation reports** (`activeagent`).
+  `Report#summary_by_model` adds `p50_duration_ms` and `p95_duration_ms`
+  beside `avg_duration_ms`, by nearest rank as the dashboard's Metrics view
+  computes them, and the Markdown and HTML reports show them next to the
+  mean, which hides the tail (#428).
+
 ## [1.9.1] - 2026-10-16
 
 Releases `activeagent` and `actionagent` 1.9.1, with the matching browser

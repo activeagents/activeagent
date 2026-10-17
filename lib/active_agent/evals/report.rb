@@ -64,7 +64,8 @@ module ActiveAgent
       end
 
       # Per model, keyed by label: scenario count, passes, errors, pass rate,
-      # mean score, mean latency, tokens, cost and fault counts. "cost" sums
+      # mean score, latency (mean, and the P50 and P95 by nearest rank,
+      # Statistics.percentile), tokens, cost and fault counts. "cost" sums
       # the replays that carried a cost — "priced" of the "scenarios", of
       # which "reported" came from the caller and "estimated" from tokens ×
       # a model rate (Result#cost_source) — and is nil when none did.
@@ -90,6 +91,8 @@ module ActiveAgent
             "avg_score" => scored.any? ? (scored.sum / scored.size).round(3) : nil,
             "avg_task_completion" => task_scores.any? ? (task_scores.sum / task_scores.size).round(3) : nil,
             "avg_duration_ms" => durations.any? ? (durations.sum.to_f / durations.size).round : nil,
+            "p50_duration_ms" => Statistics.percentile(durations, 50)&.round,
+            "p95_duration_ms" => Statistics.percentile(durations, 95)&.round,
             "input_tokens" => cohort.sum { |result| result.replay.input_tokens.to_i },
             "output_tokens" => cohort.sum { |result| result.replay.output_tokens.to_i },
             "cost" => costs.any? ? costs.sum.to_f.round(6) : nil,
@@ -529,16 +532,18 @@ module ActiveAgent
       # anything, so the agent's cost and the evaluation's stay two numbers.
       def summary_table
         judged = judge_usage.present?
-        columns = [ "Model", "Passed", "Mean score", "Mean latency", "Tokens in/out", "Cost", ("Judge" if judged), "Faults" ].compact
+        columns = [ "Model", "Passed", "Mean score", "Mean latency", "Median / P95", "Tokens in/out", "Cost", ("Judge" if judged), "Faults" ].compact
         header = [ "| #{columns.join(' | ')} |", "|#{columns.map { '---' }.join('|')}|" ]
         rows = summary_by_model.map do |label, stats|
           faults = stats["faults"].map { |fault, count| "#{fault.tr('_', ' ')} ×#{count}" }.join(", ")
           latency = stats["avg_duration_ms"] ? "#{stats['avg_duration_ms']} ms" : "—"
+          percentiles = stats["p50_duration_ms"] ? "#{stats['p50_duration_ms']} / #{stats['p95_duration_ms']} ms" : "—"
           cells = [
             "`#{label}`",
             Format.passes(stats["passed"], stats["scenarios"], style: :markdown),
             Format.score(stats["avg_score"]),
             latency,
+            percentiles,
             "#{stats['input_tokens']}/#{stats['output_tokens']}",
             Format.money(stats["cost"], estimated: estimated_cost?(stats)),
             (judge_cell(stats) if judged),

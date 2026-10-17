@@ -400,6 +400,16 @@ agent the run scored, `{ "digest", "revision", "label" }`, from
 `ActiveAgent::Release`; it lands in `to_h["release"]` and as a header chip,
 and a dashboard the report is published to pins the run to that version.
 
+## Comparing models
+
+`Report#summary_by_model` gives each model its latency three ways:
+`avg_duration_ms`, and `p50_duration_ms` and `p95_duration_ms`, the median
+and 95th percentile of its timed replays by nearest rank (the value at rank
+ceil(p / 100 × n), the rule the dashboard's Metrics view uses, so the figure
+is always one a replay actually took). The mean hides the tail: two models
+can share a median while one takes twice as long at P95. The Markdown and
+HTML reports show both percentiles beside the mean.
+
 ## In a dashboard
 
 `Runner.new` takes `on_result:` (each `Result` as it lands) and

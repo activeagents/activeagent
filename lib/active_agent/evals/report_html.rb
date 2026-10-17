@@ -151,6 +151,14 @@ module ActiveAgent
         "#{format("%.#{n >= 10_000 ? 1 : 2}f", n / 1_000).sub(/\.?0+\z/, '')}s"
       end
 
+      # "4.02s / 22.2s": a model's P50 and P95 latency; "—" when no replay
+      # was timed.
+      def fmt_percentiles(stats)
+        return "—" if stats["p50_duration_ms"].nil?
+
+        "#{fmt_ms(stats['p50_duration_ms'])} / #{fmt_ms(stats['p95_duration_ms'])}"
+      end
+
       # Money reads "~$0.0243" when any part of it was estimated from tokens
       # × a model rate rather than reported (Format.money); the footer's
       # legend explains the mark once.
@@ -335,7 +343,7 @@ module ActiveAgent
 
         <<~TABLE
           <div class="compare"><table>
-          <thead><tr><th>Model</th><th class="num">Passed</th><th class="num">Mean score</th><th class="num">Avg latency</th><th class="num" title="Average input + output tokens per scenario">Avg tokens</th><th class="num" title="Cohort spend, and per scenario">Cost</th>#{judge_head}<th class="fault">Typical fault</th></tr></thead>
+          <thead><tr><th>Model</th><th class="num">Passed</th><th class="num">Mean score</th><th class="num">Avg latency</th><th class="num" title="Median and 95th percentile latency, nearest rank">P50 / P95</th><th class="num" title="Average input + output tokens per scenario">Avg tokens</th><th class="num" title="Cohort spend, and per scenario">Cost</th>#{judge_head}<th class="fault">Typical fault</th></tr></thead>
           <tbody>#{rows.map { |label, stats| html_comparison_row(label, stats) }.join}</tbody>
           </table></div>
         TABLE
@@ -362,6 +370,7 @@ module ActiveAgent
           <td class="num ratio tone-#{tone_for(ratio)}">#{h(fmt_passes(stats['passed'], total))}</td>
           <td class="num">#{h(fmt_score(stats['avg_score']))}</td>
           <td class="num">#{h(fmt_ms(stats['avg_duration_ms']))}</td>
+          <td class="num">#{h(fmt_percentiles(stats))}</td>
           <td class="num"#{tokens_title}>#{tokens_cell}</td>
           <td class="num"#{cost_title_attr(results_for(label), estimated: estimated)}>#{cost_cell}</td>
           #{judge_cell}<td class="fault">#{typical_fault_text(label, stats)}</td>
@@ -417,7 +426,7 @@ module ActiveAgent
         <<~BLOCK
           <div class="model">
           <div class="line"><span class="name">#{h(short)}</span><span class="provider">#{h(provider)}</span>#{pick}<span class="pass"><span class="bar bar-#{tone}"><span style="width:#{(ratio * 100).round}%"></span></span><span class="ratio tone-#{tone}">#{h(fmt_passes(stats['passed'], total))}</span></span></div>
-          <div class="stats-line"><span>score <b>#{h(fmt_score(stats['avg_score']))}</b></span><span>latency <b>#{h(fmt_ms(stats['avg_duration_ms']))}</b></span><span class="tok"><span class="in">in</span> #{h(fmt_k(stats['input_tokens']))} · <span class="out">out</span> #{h(fmt_k(stats['output_tokens']))}</span><span#{cost_title_attr(results_for(label), estimated: estimated)}>cost <b>#{h(fmt_cost(stats['cost'], estimated: estimated))}</b></span>#{judge_line}</div>
+          <div class="stats-line"><span>score <b>#{h(fmt_score(stats['avg_score']))}</b></span><span>latency <b>#{h(fmt_ms(stats['avg_duration_ms']))}</b></span><span>p50 / p95 <b>#{h(fmt_percentiles(stats))}</b></span><span class="tok"><span class="in">in</span> #{h(fmt_k(stats['input_tokens']))} · <span class="out">out</span> #{h(fmt_k(stats['output_tokens']))}</span><span#{cost_title_attr(results_for(label), estimated: estimated)}>cost <b>#{h(fmt_cost(stats['cost'], estimated: estimated))}</b></span>#{judge_line}</div>
           <div class="faults">#{faults_html}</div>
           </div>
         BLOCK
