@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Interaction feedback in `actionagent`: submit thumbs up/down and optional
+  comments through the authenticated feedback API, then review and filter votes
+  in an agent’s Feedback tab. Includes response span attribution, retry-safe vote
+  updates, workspace scoping, an upgrade migration and user feedback docs (#591).
+
 ## [1.9.0] - 2026-10-14
 
 Releases `activeagent` and `actionagent` 1.9.0 from one tag. A minor release.
