@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **A streamed Responses answer that used a built-in tool no longer raises.**
+  With `tools: [{ type: "web_search_preview" }]` (or file search, image
+  generation, code interpreter, remote MCP), the stream carries the tool's
+  call as an output item (`web_search_call`, ...), its progress events
+  (`response.web_search_call.searching`, ...), and
+  `response.output_text.annotation.added` for the citations, and the
+  Responses provider raised `Unexpected Item Type: web_search_call` on the
+  first of them. The tool calls are now kept like in a non-streamed response,
+  and their events are skipped.
+
 ## [1.9.0] - 2026-10-14
 
 Releases `activeagent` and `actionagent` 1.9.0 from one tag. A minor release.
