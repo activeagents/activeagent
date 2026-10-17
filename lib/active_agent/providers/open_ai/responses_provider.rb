@@ -15,6 +15,18 @@ module ActiveAgent
       class ResponsesProvider < Base
         include ToolChoiceClearing
 
+        # Output items of OpenAI's built-in tools (web search, file search,
+        # image generation, code interpreter, remote MCP).
+        BUILT_IN_TOOL_ITEM_TYPES = %i[
+          web_search_call file_search_call image_generation_call code_interpreter_call mcp_call mcp_list_tools
+        ].freeze
+
+        # Prefixes of the progress events those tools stream.
+        BUILT_IN_TOOL_EVENT_PREFIXES = %w[
+          response.web_search_call. response.file_search_call. response.image_generation_call.
+          response.code_interpreter_call response.mcp_call response.mcp_list_tools.
+        ].freeze
+
         # @return [Class]
         def self.options_klass
           Options
@@ -106,6 +118,12 @@ module ActiveAgent
         def process_stream_chunk(api_response_event)
           instrument("stream_chunk.active_agent", chunk_type: api_response_event.type)
 
+          # Built-in tools report their progress with their own events; the
+          # finished tool call arrives as an output item.
+          if BUILT_IN_TOOL_EVENT_PREFIXES.any? { api_response_event.type.to_s.start_with?(_1) }
+            return
+          end
+
           case api_response_event.type
           # Response Created
           when :"response.created", :"response.in_progress"
@@ -123,6 +141,10 @@ module ActiveAgent
             message = message_stack.find { _1[:id] == api_response_event.item_id }
             message[:content] += api_response_event.delta
             broadcast_stream_update(message, api_response_event.delta)
+
+          # -> -> -> Content Text Citation (e.g. from web search)
+          when :"response.output_text.annotation.added"
+          # No-Op: The text is complete at response.output_text.done
 
           # -> -> -> Content Text Completed [Full Text]
           when :"response.output_text.done"
@@ -174,7 +196,7 @@ module ActiveAgent
             # PATCH: API returns an empty array instead of empty string due to a bug in their serialization
             item_hash = Responses::Transforms.gem_to_hash(api_response_event.item).compact_blank
             message_stack << { content: "" }.merge(item_hash)
-          when :function_call, :reasoning
+          when :function_call, :reasoning, *BUILT_IN_TOOL_ITEM_TYPES
             # No-Op: Wait for the item to land (-> response.output_item.done)
           else
             raise "Unexpected Item Type: #{api_response_event.item.type}"
@@ -194,7 +216,8 @@ module ActiveAgent
           case api_response_event.item.type
           when :message
             # No-Op: Message Up to Date
-          when :function_call, :reasoning
+          when :function_call, :reasoning, *BUILT_IN_TOOL_ITEM_TYPES
+            # Kept like the non-streamed output, which holds every item
             item_hash = Responses::Transforms.gem_to_hash(api_response_event.item)
             message_stack << item_hash
           else
