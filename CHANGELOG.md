@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.9.1] - 2026-10-16
+
+Releases `activeagent` and `actionagent` 1.9.1, with the matching browser
+sidecar version. Adds user feedback to the dashboard. Upgrade by running
+`bin/rails generate action_agent:install --skip` and `bin/rails db:migrate`
+before deploying the updated dashboard (migration 027).
+
 ### Added
 
 - Interaction feedback in `actionagent`: submit thumbs up/down and optional

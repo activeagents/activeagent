@@ -5,7 +5,7 @@ agent interaction, with an optional comment. Open an agent and choose **Feedback
 to review ratings, comments, submission times, end-user references and trace links.
 An optional span ID identifies the particular response within the trace.
 
-This feature requires an actionagent version containing interaction feedback.
+This feature is available in `actionagent` **1.9.1 and later**.
 When upgrading an existing installation, run:
 
 ```sh
