@@ -40,6 +40,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   beside it, the conclusion, and how the intervals were computed. Plain
   CSS on the design tokens: no script, light and dark (#428).
 
+- **Each comparison run keeps its model comparison** (`actionagent`). A
+  scenario run that compares models records `Report#comparison` under
+  `scores["_comparison"]` when it completes; a published report's is
+  worked out from the stored results rather than taken from the payload;
+  and the run's report page renders the recorded intervals instead of
+  resampling on every view. A run recorded before gets one from its
+  results (#428).
+
 ## [1.9.1] - 2026-10-16
 
 Releases `activeagent` and `actionagent` 1.9.1, with the matching browser

@@ -568,12 +568,17 @@ module ActionAgent
     # results as the application reported them — no cost is estimated here,
     # so the summaries stored stay the application's own figures; the API
     # adds the estimates when it serves the run (EvaluationRun#model_summaries).
+    #
+    # The comparison is worked out here from the stored results too, rather
+    # than taken from the payload, like the summaries.
     def summarized_scores(run)
       rebuilt = run.to_report(estimate: false)
+      comparison = rebuilt.comparison if rebuilt.respond_to?(:comparison)
       rebuilt.criterion_scores.merge(
         "_models" => rebuilt.summary_by_model,
-        "_recommendations" => rebuilt.recommendations
-      ).merge(recorded_scores)
+        "_recommendations" => rebuilt.recommendations,
+        "_comparison" => comparison
+      ).compact.merge(recorded_scores)
     end
 
     # --- validation ------------------------------------------------------------
