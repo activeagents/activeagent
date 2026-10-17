@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **A streamed Responses answer that used a built-in tool no longer raises.**
+  With `tools: [{ type: "web_search_preview" }]` (or file search, image
+  generation, code interpreter, remote MCP), the stream carries the tool's
+  call as an output item (`web_search_call`, ...), its progress events
+  (`response.web_search_call.searching`, ...), and
+  `response.output_text.annotation.added` for the citations, and the
+  Responses provider raised `Unexpected Item Type: web_search_call` on the
+  first of them. The tool calls are now kept like in a non-streamed response,
+  and their events are skipped.
+- **A streamed Responses answer cut short no longer raises.** When a response
+  hits `max_output_tokens`, the stream ends with `response.incomplete` instead
+  of `response.completed`, and the Responses provider raised `Unexpected
+  Response Chunk Type: response.incomplete`. It now ends the generation with
+  the text streamed so far, like `response.completed`.
+- **A streamed Responses refusal no longer raises.** The provider raised
+  `Unexpected Response Chunk Type: response.refusal.delta` when the model
+  refused; the refusal events are now skipped and the response completes.
+- **A streamed Responses generation reports its token usage.** The usage of a
+  streamed response is only on its final event, and the Responses provider
+  never read it, so `response.usage` was `nil`. It is now recorded from
+  `response.completed` or `response.incomplete`, as the Chat provider does
+  from its usage chunk.
+
 ## [1.9.0] - 2026-10-14
 
 Releases `activeagent` and `actionagent` 1.9.0 from one tag. A minor release.
