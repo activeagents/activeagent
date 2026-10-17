@@ -123,6 +123,22 @@ Generate schemas from Ruby models for consistency and reusability.
 
 <<< @/../test/docs/actions/structured_output_examples_test.rb#generate_schema_activemodel {ruby:line-numbers}
 
+### Nested ActiveModel Schemas
+
+An ActiveModel class declares an array of objects with `has_many`, naming the class that describes each item:
+
+<<< @/../test/docs/actions/structured_output_examples_test.rb#nested_schema_models {ruby:line-numbers}
+
+The array's items reference that class's schema under `$defs`:
+
+<<< @/../test/docs/actions/structured_output_examples_test.rb#generate_nested_schema {ruby:line-numbers}
+
+- **`class_name`** is the item class's full constant name, resolved when the schema is generated
+- **`has_many`** also declares the attribute, defaulting to an empty array
+- **`strict: true`** requires every property of the nested schema too
+- **Definitions** are keyed by the singular name in lower camel case (`line_items` uses `lineItem`), so a reference still resolves after `prompt` camelizes the schema's keys
+- **Deeper nesting** works: a nested class's own `has_many` definitions go under the root `$defs`. A class that nests itself raises `ArgumentError`
+
 ### From ActiveRecord
 
 ```ruby
