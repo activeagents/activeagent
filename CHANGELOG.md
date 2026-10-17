@@ -48,6 +48,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   resampling on every view. A run recorded before gets one from its
   results (#428).
 
+- **P50 and P95 latency in the dashboard's model comparison**
+  (`actionagent`). The comparison table gains a P50 / P95 column and each
+  model's scorecard a p50 / p95 figure, from the percentiles the run
+  recorded; a run recorded before shows neither (#428).
+
 ## [1.9.1] - 2026-10-16
 
 Releases `activeagent` and `actionagent` 1.9.1, with the matching browser

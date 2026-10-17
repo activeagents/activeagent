@@ -8,7 +8,7 @@ const run = {
   scores: {
     _verdict: { winner: 'phi4-mini:latest', judge: 'qwen3:4b-instruct' },
     _models: {
-      'qwen3:4b-instruct': { provider: 'ollama', model: 'qwen3:4b-instruct', scenarios: 6, passed: 4, avg_score: 0.917, avg_duration_ms: 5219, input_tokens: 1260, output_tokens: 304, cost: 0.000435, faults: { missing_content: 1, low_quality: 1 } },
+      'qwen3:4b-instruct': { provider: 'ollama', model: 'qwen3:4b-instruct', scenarios: 6, passed: 4, avg_score: 0.917, avg_duration_ms: 5219, p50_duration_ms: 4020, p95_duration_ms: 12500, input_tokens: 1260, output_tokens: 304, cost: 0.000435, faults: { missing_content: 1, low_quality: 1 } },
       'llama3.2:3b': { provider: 'ollama', model: 'llama3.2:3b', scenarios: 6, passed: 1, avg_score: 0.733, avg_duration_ms: 11713, input_tokens: 243, output_tokens: 1143, cost: 0.000734, faults: { missing_content: 2, low_quality: 2, missing_capability: 1 } },
       'phi4-mini:latest': { provider: 'ollama', model: 'phi4-mini:latest', scenarios: 6, passed: 5, avg_score: 0.967, avg_duration_ms: 9103, input_tokens: 1203, output_tokens: 398, cost: 0.002795, faults: { low_quality: 1 } },
       'gemma3:4b': { provider: 'ollama', model: 'gemma3:4b', scenarios: 6, passed: 1, avg_score: 0.83, avg_duration_ms: 27014, input_tokens: 154, output_tokens: 1320, cost: 0.005434, faults: { low_quality: 4, missing_content: 1 } },
@@ -21,6 +21,15 @@ const results = [
   { scenario_key: 'late_refund', model: 'qwen3:4b-instruct', status: 'failed', fault: 'missing_content', diagnosis: { summary: 'The answer is missing expected content: credit.' } },
   { scenario_key: 'out_of_scope', model: 'phi4-mini:latest', status: 'failed', fault: 'low_quality', recommendation: 'Say you do not know and point to human support.' },
 ];
+
+test('rows carry the P50 and P95 latency a run recorded, and none for a run recorded before', () => {
+  const rows = modelComparisonRows(run, { results, scenarioCount: 6 });
+  const qwen = rows.find((r) => r.label === 'qwen3:4b-instruct');
+  const phi = rows.find((r) => r.label === 'phi4-mini:latest');
+
+  assert.deepEqual([qwen.p50DurationMs, qwen.p95DurationMs], [4020, 12500]);
+  assert.deepEqual([phi.p50DurationMs, phi.p95DurationMs], [null, null]);
+});
 
 test('rows read best first with passed, mean score, latency, average tokens and cost per scenario', () => {
   const rows = modelComparisonRows(run, { results, scenarioCount: 6 });

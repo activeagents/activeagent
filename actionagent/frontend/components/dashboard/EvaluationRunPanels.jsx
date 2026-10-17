@@ -414,6 +414,8 @@ export function ModelsPanel({ run, columns, results = [], scenarioCount = 0, jud
                 total={total}
                 avgScore={stats?.avg_score}
                 latencyMs={stats?.avg_duration_ms}
+                p50Ms={stats?.p50_duration_ms ?? null}
+                p95Ms={stats?.p95_duration_ms ?? null}
                 inputTokens={stats?.input_tokens}
                 outputTokens={stats?.output_tokens}
                 cost={stats?.cost}
