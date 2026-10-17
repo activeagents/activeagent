@@ -177,6 +177,10 @@ module ActiveAgent
           # Response Completed, or cut short (e.g. by max_output_tokens) with
           # the output it has so far
           when :"response.completed", :"response.incomplete"
+            # The streamed response carries no body for resolve_prompt to read
+            # usage from, so it is recorded from the final event.
+            record_stream_usage(api_response_event.response.usage)
+
             # Completion, tool loop included, runs from stream_finished! once
             # the stream has drained, so each turn's tool calls run once.
             self.stream_completion_pending = true
