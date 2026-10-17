@@ -28,6 +28,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `#conclusion` says in one sentence which pairs are, or that the ranking
   is not decisive evidence of superiority (#428).
 
+- **The model comparison in evaluation reports** (`activeagent`).
+  `Report#comparison` and `to_h["comparison"]` carry it for a report that
+  compares models, the Markdown report gains a Comparison section, and
+  `Report.new(comparison:)` renders one already recorded for the results
+  instead of resampling, as `verdict:` does (#428).
+
 ## [1.9.1] - 2026-10-16
 
 Releases `activeagent` and `actionagent` 1.9.1, with the matching browser

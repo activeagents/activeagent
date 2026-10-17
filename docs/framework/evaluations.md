@@ -340,6 +340,7 @@ whatever they supply:
 | `agent_name:` | How an item names the agent (`"the agent"` by default) |
 | `links:` | Route templates for the actions — `"mcp"` (`"/mcp/%{key}"`), `"tools"`, `"instructions"`. Without them an action still carries its label and hint, with `"path" => nil` |
 | `verdict:` / `judge_label:` | A verdict already recorded for these results, so a report rebuilt from stored results shows the pick that run made rather than ranking them again |
+| `comparison:` | A comparison already recorded for these results (`Comparison#to_h`), so a rebuilt report renders its intervals rather than resampling them (see [Is the gap real?](#is-the-gap-real)) |
 
 Nothing here needs the dashboard: a CI job that hands `Report.new` a resolver
 over its own MCP configuration gets the same cards in its HTML report, and
@@ -449,6 +450,16 @@ comparison.conclusion
   `Comparison.new`; the same results give the same intervals every time.
 - **At 0% or 100%** every resample agrees, so the interval is a point. Read
   it beside the scenario count.
+
+A report that compares models carries the same under `Report#comparison`
+and in `to_h["comparison"]`, and its Markdown adds a Comparison section
+between the summary and the scenario matrix: each model's pass rate with its
+interval, every pair's difference with its interval and whether it is
+decisive, the conclusion, and how the intervals were computed. A
+single-model report has none. `Report.new(comparison:)` takes a comparison
+already recorded for the results, as `verdict:` does, so a report rebuilt
+from a stored run renders the intervals that run recorded instead of
+resampling them.
 
 ## In a dashboard
 
