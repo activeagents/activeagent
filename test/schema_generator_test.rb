@@ -297,6 +297,18 @@ class SchemaGeneratorTest < ActiveSupport::TestCase
     has_many :companies, class_name: "SchemaGeneratorTest::TestCompany"
   end
 
+  class TestRoute
+    include ActiveModel::Model
+    include ActiveModel::Attributes
+    include ActiveAgent::SchemaGenerator
+
+    attribute :name, :string
+    has_many :stops, class_name: "SchemaGeneratorTest::TestAddress"
+
+    validates :name,  length: { minimum: 2, maximum: 50 }
+    validates :stops, length: { minimum: 1, maximum: 5 }
+  end
+
   class NestedSchemaAgent < ActiveAgent::Base
     generate_with :mock, model: "mock-model"
 
@@ -406,6 +418,13 @@ class SchemaGeneratorTest < ActiveSupport::TestCase
     assert_equal [ { city: "London" } ], person.addresses
     assert_equal [], TestPerson.new.addresses
     assert_not_same TestPerson.new.addresses, TestPerson.new.addresses
+  end
+
+  test "a length validation limits a nested array's items, not its characters" do
+    properties = TestRoute.to_json_schema[:schema][:properties]
+
+    assert_equal({ type: "array", items: { "$ref": "#/$defs/stop" }, min_items: 1, max_items: 5 }, properties[:stops])
+    assert_equal({ type: "string", min_length: 2, max_length: 50 }, properties[:name])
   end
 
   test "ActiveRecord models keep ActiveRecord's has_many" do
