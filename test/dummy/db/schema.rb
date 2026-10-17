@@ -898,6 +898,6 @@ ActiveRecord::Schema[8.0].define(version: 27) do
   add_foreign_key "agent_memory_entries", "agent_memories"
   add_foreign_key "agent_messages", "agent_contexts"
   add_foreign_key "posts", "users"
-  add_foreign_key "profiles", "users"  add_foreign_key "active_agent_interaction_feedbacks", "active_agent_telemetry_traces", column: "telemetry_trace_id", on_delete: :cascade
-
+  add_foreign_key "profiles", "users"
+  add_foreign_key "active_agent_interaction_feedbacks", "active_agent_telemetry_traces", column: "telemetry_trace_id", on_delete: :cascade
 end
