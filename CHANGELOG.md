@@ -20,6 +20,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   replay on a common denominator, marked `~` when it is estimated or
   covers only some replays (#428).
 
+- **`ActiveAgent::Evals::Comparison`: is the gap between models real?**
+  (`activeagent`). A 95% interval for each model's pass rate and for the
+  difference between every pair of models, from 5,000 seeded resamples of
+  whole scenarios (a paired bootstrap for the pairs, over the scenarios both
+  ran). A pair is decisive when its interval excludes zero, and
+  `#conclusion` says in one sentence which pairs are, or that the ranking
+  is not decisive evidence of superiority (#428).
+
 ## [1.9.1] - 2026-10-16
 
 Releases `activeagent` and `actionagent` 1.9.1, with the matching browser

@@ -416,6 +416,40 @@ the model's mean cost per priced replay, and the HTML report and the
 dashboard show the same mean per scenario. It reads with a `~` when the
 mean is estimated or covers only some of the model's replays.
 
+### Is the gap real?
+
+A ranking of pass rates says which model did best on these scenarios, not
+whether it would again on others. `ActiveAgent::Evals::Comparison` answers
+that with intervals:
+
+```ruby
+comparison = ActiveAgent::Evals::Comparison.new(results: report.results, models: report.models)
+
+comparison.models["gpt-5-mini"]
+# => { "scenarios" => 42, "pass_rate" => 85.7, "interval" => [73.8, 95.2] }
+comparison.pairs.first
+# => { "models" => ["gpt-5-mini", "qwen3:8b"], "scenarios" => 42, "difference" => 7.1,
+#      "interval" => [0.0, 16.7], "decisive" => false }
+comparison.conclusion
+# => "The pairwise difference interval includes zero: the ranking is not decisive evidence of superiority."
+```
+
+- **The scenario is the unit.** A model's pass rate is the mean over its
+  scenarios, and each interval resamples whole scenarios with replacement
+  5,000 times (the percentile bootstrap, 95% by default).
+- **Pairs are paired.** A pair is compared on the scenarios both models ran,
+  each resample drawing the same scenarios for both, so the interval is for
+  the difference itself rather than two intervals that happen to overlap.
+- **Decisive** means the difference's interval excludes zero. `conclusion`
+  names each decisive pair, or says that none is.
+- **Few scenarios, wide intervals.** With 42 scenarios a 7-point gap is
+  usually noise. Below two scenarios there is no interval at all, and
+  `conclusion` says the models share too few to compare.
+- **Seeded.** `seed:` (0 by default), `resamples:` and `confidence:` go to
+  `Comparison.new`; the same results give the same intervals every time.
+- **At 0% or 100%** every resample agrees, so the interval is a point. Read
+  it beside the scenario count.
+
 ## In a dashboard
 
 `Runner.new` takes `on_result:` (each `Result` as it lands) and
@@ -440,6 +474,7 @@ judge credentials, and stores each result as an `EvaluationScenarioResult`.
 | `Judge` | Prompts and parsing for scoring, refining recommendations, and picking a winner; you supply the completion call |
 | `Runner` | scenarios × models → `Result`s, calling your `replay` and the judge |
 | `Report` | Per-model summary, criterion statistics, recommendations, fix items, verdict; Markdown / JSON / HTML |
+| `Comparison` | Pass-rate intervals per model and per pair of models, from resampling whole scenarios, and whether the ranking is decisive |
 
 ## Suites
 
