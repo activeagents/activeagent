@@ -599,8 +599,8 @@ describes the run you are reading, while the collapsed header keeps
 reporting the latest.
 
 **Models** gives each candidate its pass bar and `k/n`, mean score, mean
-latency, input and output tokens, estimated cost, and the faults it hit as
-badges (or `[+] no faults`). The model that did best carries an
+latency with its P50 and P95, input and output tokens, estimated cost, and
+the faults it hit as badges (or `[+] no faults`). The model that did best carries an
 info-toned `judge's pick` badge — never a green *winner*, because losing a
 comparison by one scenario is not a failing grade — and the **verdict**
 line under the panel is the rationale for the pick. The panel says who made

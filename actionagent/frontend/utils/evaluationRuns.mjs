@@ -210,6 +210,7 @@ export const runCohorts = (run) => {
       label, model: stats.model || label, provider: stats.provider || null,
       samples: stats.scenarios ?? null, passed: stats.passed ?? null, errored: stats.errored ?? 0,
       avg_score: stats.avg_score ?? null, avg_duration_ms: stats.avg_duration_ms ?? null,
+      p50_duration_ms: stats.p50_duration_ms ?? null, p95_duration_ms: stats.p95_duration_ms ?? null,
       input_tokens: stats.input_tokens ?? null, output_tokens: stats.output_tokens ?? null,
       cost: stats.cost ?? null, priced: pricedCount(stats, stats.scenarios), reported: stats.reported ?? null,
       estimated: isEstimated(stats, stats.scenarios), judge_cost: stats.judge_cost ?? null, judge_calls: stats.judge_calls ?? 0,
@@ -677,7 +678,8 @@ export const samplingFixItems = (evaluation, run) => {
 const faultWords = (fault) => String(fault || '').replace(/_/g, ' ');
 
 // One row per model cohort for the comparison table: passed/total, mean
-// score, average latency, average tokens per interaction, cost (over the
+// score, average latency and its P50 / P95, average tokens per
+// interaction, cost (over the
 // `priced` interactions, and per priced interaction, `estimated` when any
 // part was), the judge's spend on the cohort, and the model's
 // typical fault — its most frequent one, with the diagnosis of the
@@ -732,6 +734,10 @@ export const modelComparisonRows = (run, { results = [], scenarioCount = 0, labe
       passRate: total ? passed / total : null,
       avgScore: avgScore == null ? null : Number(avgScore),
       avgDurationMs: cohort.avg_duration_ms ?? null,
+      // The run's recorded nearest-rank percentiles; a run recorded before
+      // reports kept them, and a sampling run, has none.
+      p50DurationMs: cohort.p50_duration_ms ?? null,
+      p95DurationMs: cohort.p95_duration_ms ?? null,
       inputTokens: cohort.input_tokens ?? null,
       outputTokens: cohort.output_tokens ?? null,
       avgInputTokens: perInteraction(cohort.input_tokens),
