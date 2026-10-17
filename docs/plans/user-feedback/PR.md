@@ -4,7 +4,9 @@ Issue: https://github.com/activeagents/activeagent/issues/591
 
 Branch: `feat/591-interaction-feedback`
 
-PR: pending publication.
+PR: https://github.com/activeagents/activeagent/pull/597
+
+Status: open for review and testing; local validation passes.
 
 ## Validation
 
