@@ -136,6 +136,7 @@ The array's items reference that class's schema under `$defs`:
 - **`class_name`** is the item class's full constant name, resolved when the schema is generated
 - **`has_many`** also declares the attribute, defaulting to an empty array
 - **`strict: true`** requires every property of the nested schema too
+- **`validates :addresses, length: { minimum: 1 }`** limits the array's item count with `minItems` and `maxItems`
 - **Definitions** are keyed by the singular name in lower camel case (`line_items` uses `lineItem`), so a reference still resolves after `prompt` camelizes the schema's keys
 - **Deeper nesting** works: a nested class's own `has_many` definitions go under the root `$defs`. A class that nests itself raises `ArgumentError`
 

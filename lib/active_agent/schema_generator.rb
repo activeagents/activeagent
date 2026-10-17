@@ -490,11 +490,14 @@ module ActiveAgent
               when ActiveModel::Validations::PresenceValidator
                 schema[:required] << attribute.to_sym unless schema[:required].include?(attribute.to_sym)
               when ActiveModel::Validations::LengthValidator
+                # An array, such as a has_many, is limited by its item count.
+                min_key, max_key = schema[:properties][attribute.to_sym][:type] == "array" ? [ :min_items, :max_items ] : [ :min_length, :max_length ]
+
                 if validator.options[:minimum]
-                  schema[:properties][attribute.to_sym][:min_length] = validator.options[:minimum]
+                  schema[:properties][attribute.to_sym][min_key] = validator.options[:minimum]
                 end
                 if validator.options[:maximum]
-                  schema[:properties][attribute.to_sym][:max_length] = validator.options[:maximum]
+                  schema[:properties][attribute.to_sym][max_key] = validator.options[:maximum]
                 end
               when ActiveModel::Validations::NumericalityValidator
                 if validator.options[:greater_than]
