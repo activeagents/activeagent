@@ -132,7 +132,9 @@ module ActiveAgent
           size.times { sum += values[random.rand(size)] }
           sum / size
         end
-        tail = (1 - @confidence) / 2 * 100
+        # A rational tail, so 95% leaves exactly 2.5: in floating point it
+        # is 2.5000000000000022, whose nearest rank is one too high.
+        tail = (1 - @confidence.rationalize) / 2 * 100
         [ percent(Statistics.percentile(means, tail)), percent(Statistics.percentile(means, 100 - tail)) ]
       end
 
