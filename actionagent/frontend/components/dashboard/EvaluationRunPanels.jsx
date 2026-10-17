@@ -3,11 +3,12 @@ import { Badge, Button, Card, Chip, Empty, Glyph, MicroLabel, MonoLink, MONO } f
 import { fmtK, fmtMs, splitModelLabel } from '../../utils/format';
 import { COST_LEGEND, costTitle, fmtPasses, fmtScore, fmtSpend } from '../../utils/evalFormat.mjs';
 import {
-  RUNS_PAGE, costPer, fixItemCountsByModel, fixItemsForModel, isEstimated, modelComparisonRows, plural, pricedCount, runSpend,
+  RUNS_PAGE, comparisonPlot, costPer, fixItemCountsByModel, fixItemsForModel, isEstimated, modelComparisonRows, plural, pricedCount, runSpend,
   runTotalOf, runsMeta, withModelBreakdown,
 } from '../../utils/evaluationRuns.mjs';
 import ModelScorecard from './evaluations/ModelScorecard';
 import ModelComparisonTable from './evaluations/ModelComparisonTable';
+import ComparisonIntervals from './evaluations/ComparisonIntervals';
 import CopyFixPromptButton, { dashboardUrl } from './evaluations/CopyFixPromptButton';
 import ImplementFixButton from './evaluations/ImplementFixButton';
 import ReplayLink from './replay/ReplayLink';
@@ -367,7 +368,8 @@ function CallLine({ calls, empty, style }) {
 // ---------------------------------------------------------------------------
 // MODELS
 
-// One scorecard per model cohort of the selected run — passes, score,
+// The comparison table, then the pass-rate intervals the run recorded, then
+// one scorecard per model cohort of the selected run — passes, score,
 // latency, tokens and what the replays cost under it — then the judge's
 // verdict when the run compared cohorts. A model's card carries the agent's
 // spend only; the judge's is the run's (see RunsList and CriteriaFooter).
@@ -392,6 +394,8 @@ export function ModelsPanel({ run, columns, results = [], scenarioCount = 0, jud
           judgeEstimated={judgeEstimated}
         />
       )}
+      {/* Whether the gap between them is real, from the run's recorded comparison. */}
+      {columns.length > 1 && <ComparisonIntervals plot={comparisonPlot(run)} />}
       {columns.length > 0 && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 12 }}>
           {columns.map((label) => {

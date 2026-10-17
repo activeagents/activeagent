@@ -24,9 +24,10 @@ before(async () => {
         import { ThemeProvider } from './contexts/ThemeContext.jsx';
         import ModelComparisonTable from './components/dashboard/evaluations/ModelComparisonTable.jsx';
         import ModelScorecard from './components/dashboard/evaluations/ModelScorecard.jsx';
+        import ComparisonIntervals from './components/dashboard/evaluations/ComparisonIntervals.jsx';
         import { ModelsPanel } from './components/dashboard/EvaluationRunPanels.jsx';
 
-        const views = { ModelComparisonTable, ModelScorecard, ModelsPanel };
+        const views = { ModelComparisonTable, ModelScorecard, ModelsPanel, ComparisonIntervals };
         export const render = (name, props) =>
           renderToStaticMarkup(React.createElement(ThemeProvider, null, React.createElement(views[name], props)));
       `,
@@ -84,4 +85,53 @@ test("the run's Models panel hands each scorecard its recorded P50 / P95", () =>
   const html = render('ModelsPanel', { run, columns: ['qwen3:4b-instruct'], scenarioCount: 6 });
 
   assert.match(html, /p50 \/ p95 <span[^>]*>4\.02s \/ 22\.2s<\/span>/);
+});
+
+// What ScenarioEvaluationRunner records under _comparison for a two-model run.
+const recordedComparison = {
+  method: { statistic: 'pass rate', interval: 'percentile bootstrap', unit: 'scenario', resamples: 5000, confidence: 0.95, seed: 0 },
+  models: {
+    'ollama/qwen3:8b': { scenarios: 42, pass_rate: 78.6, interval: [66.7, 90.5] },
+    'gpt-5-mini': { scenarios: 42, pass_rate: 85.7, interval: [73.8, 95.2] },
+  },
+  ranking: ['gpt-5-mini', 'ollama/qwen3:8b'],
+  pairs: [{ models: ['gpt-5-mini', 'ollama/qwen3:8b'], scenarios: 42, difference: 7.1, interval: [-4.8, 19.0], decisive: false }],
+  conclusion: 'The pairwise difference interval includes zero: the ranking is not decisive evidence of superiority.',
+};
+const comparingRun = (scores = {}) => ({
+  status: 'complete',
+  scores: {
+    _models: {
+      'gpt-5-mini': { provider: 'openai', model: 'gpt-5-mini', scenarios: 42, passed: 36 },
+      'ollama/qwen3:8b': { provider: 'ollama', model: 'qwen3:8b', scenarios: 42, passed: 33 },
+    },
+    ...scores,
+  },
+});
+
+test("the Models panel plots the run's recorded intervals best first, with the conclusion under them", () => {
+  const html = render('ModelsPanel', { run: comparingRun({ _comparison: recordedComparison }), columns: ['gpt-5-mini', 'ollama/qwen3:8b'], scenarioCount: 42 });
+  const plot = html.slice(html.indexOf('data-testid="comparison-intervals"'));
+
+  assert.ok(html.indexOf('data-testid="model-comparison-table"') < html.indexOf('data-testid="comparison-intervals"'), 'the plot follows the table');
+  assert.deepEqual([...plot.matchAll(/data-testid="comparison-interval-row" data-model="([^"]+)"/g)].map((match) => match[1]), ['gpt-5-mini', 'ollama/qwen3:8b']);
+  assert.match(plot, /Pass rate · 95% CI/);
+  assert.match(plot, /data-testid="comparison-interval-range" style="[^"]*left:73\.8%;width:21\.4%;/);
+  assert.match(plot, /<strong[^>]*>85\.7%<\/strong> 73\.8 to 95\.2 · 42 scenarios/);
+  assert.match(plot, /data-testid="comparison-conclusion">The pairwise difference interval includes zero: the ranking is not decisive evidence of superiority\.</);
+  assert.match(plot, /95% CI from 5,000 resamples of whole scenarios/);
+});
+
+test('a run that recorded no comparison draws no plot', () => {
+  const html = render('ModelsPanel', { run: comparingRun(), columns: ['gpt-5-mini', 'ollama/qwen3:8b'], scenarioCount: 42 });
+
+  assert.doesNotMatch(html, /comparison-intervals/);
+});
+
+test('a model with too few scenarios gets a dot and no range', () => {
+  const plot = { rows: [{ label: 'gpt-5-mini', passRate: 100, interval: null, scenarios: 1 }, { label: 'qwen3:8b', passRate: 0, interval: null, scenarios: 1 }], conclusion: 'The models share too few scenarios to compare.', confidence: 95, resamples: 5000 };
+  const html = render('ComparisonIntervals', { plot });
+
+  assert.doesNotMatch(html, /comparison-interval-range/);
+  assert.match(html, /<strong[^>]*>100%<\/strong> no interval · 1 scenario</);
 });

@@ -53,6 +53,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   model's scorecard a p50 / p95 figure, from the percentiles the run
   recorded; a run recorded before shows neither (#428).
 
+- **The model comparison plotted in the dashboard** (`actionagent`). A
+  run that compared models shows, under its comparison table, each model's
+  pass rate inside its 95% interval, best first, with the run's
+  conclusion and how the intervals were computed, from the comparison the
+  run recorded (#428).
+
 ## [1.9.1] - 2026-10-16
 
 Releases `activeagent` and `actionagent` 1.9.1, with the matching browser

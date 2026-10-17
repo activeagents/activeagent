@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { fixItemCountsByModel, fixItemsForModel, modelComparisonRows, typicalFaultText, withModelBreakdown } from '../utils/evaluationRuns.mjs';
+import { comparisonPlot, fixItemCountsByModel, fixItemsForModel, modelComparisonRows, typicalFaultText, withModelBreakdown } from '../utils/evaluationRuns.mjs';
 
 // A finished scenario run: the runner's per-model summaries plus results.
 const run = {
@@ -180,4 +180,25 @@ test('a filtered fix item counts and names only what that model produced', () =>
   assert.equal(forB[1].count, 1);
   // Unfiltered items keep the run-wide figures.
   assert.equal(fixItemsForModel(attributed, 'all')[0].count, 3);
+});
+
+test("comparisonPlot reads the run's recorded comparison, best first, and nothing when there is none", () => {
+  const comparison = {
+    method: { resamples: 5000, confidence: 0.9 },
+    models: { a: { scenarios: 10, pass_rate: 60, interval: [30, 90] }, b: { scenarios: 1, pass_rate: 100, interval: null } },
+    ranking: ['b', 'a'],
+    conclusion: 'Not decisive.',
+  };
+  const plot = comparisonPlot({ scores: { _comparison: comparison } });
+
+  assert.deepEqual(plot.rows, [
+    { label: 'b', passRate: 100, interval: null, scenarios: 1 },
+    { label: 'a', passRate: 60, interval: [30, 90], scenarios: 10 },
+  ]);
+  assert.equal(plot.conclusion, 'Not decisive.');
+  assert.equal(plot.confidence, 90);
+  assert.equal(plot.resamples, 5000);
+  assert.equal(comparisonPlot({ scores: {} }), null);
+  assert.equal(comparisonPlot({ scores: { _comparison: { ...comparison, ranking: ['a'] } } }), null, 'one model compares nothing');
+  assert.equal(comparisonPlot(null), null);
 });

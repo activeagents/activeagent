@@ -691,6 +691,34 @@ const faultWords = (fault) => String(fault || '').replace(/_/g, ' ');
 //
 // `labelFor(result)` maps a result to its column label (the suite panel's
 // labelForResult); it defaults to the result's model name.
+// The run's model comparison as the Models panel plots it: one row per
+// model, best first, with its pass rate and interval in percent and its
+// scenario count, plus the conclusion and the caption's confidence and
+// resample count. Read from what the run recorded (`_comparison`, the
+// framework's Report#comparison); null for a single-model run, or one
+// recorded before runs kept a comparison, so the panel draws nothing
+// rather than resampling in the browser.
+export const comparisonPlot = (run) => {
+  const comparison = run?.scores?._comparison;
+  if (!comparison || typeof comparison !== 'object' || !Array.isArray(comparison.ranking) || comparison.ranking.length < 2) return null;
+
+  const method = comparison.method || {};
+  return {
+    rows: comparison.ranking.map((label) => {
+      const stats = comparison.models?.[label] || {};
+      return {
+        label,
+        passRate: stats.pass_rate ?? null,
+        interval: Array.isArray(stats.interval) && stats.interval.length === 2 ? stats.interval : null,
+        scenarios: stats.scenarios ?? 0,
+      };
+    }),
+    conclusion: comparison.conclusion || null,
+    confidence: Math.round(Number(method.confidence ?? 0.95) * 100),
+    resamples: method.resamples ?? null,
+  };
+};
+
 export const modelComparisonRows = (run, { results = [], scenarioCount = 0, labelFor = (r) => r?.model, columns = null } = {}) => {
   const cohorts = runCohorts(run);
   const byLabel = new Map(cohorts.map((cohort) => [cohort.label, cohort]));
