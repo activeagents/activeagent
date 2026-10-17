@@ -34,6 +34,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `Report.new(comparison:)` renders one already recorded for the results
   instead of resampling, as `verdict:` does (#428).
 
+- **A ranked interval plot in the HTML evaluation report** (`activeagent`).
+  Under the comparison table, each model's pass rate is a dot inside its
+  95% interval on a fixed 0 to 100% axis, best first, with the figures
+  beside it, the conclusion, and how the intervals were computed. Plain
+  CSS on the design tokens: no script, light and dark (#428).
+
 ## [1.9.1] - 2026-10-16
 
 Releases `activeagent` and `actionagent` 1.9.1, with the matching browser

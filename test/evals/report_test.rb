@@ -700,10 +700,40 @@ class EvalsReportTest < ActiveSupport::TestCase
     assert_includes markdown, "| `gpt-5-mini` vs `openrouter/meta-llama/llama-3.1-8b` | — | — | 0 | no |"
   end
 
+  def test_html_plots_each_models_interval_best_first_with_the_conclusion_under_it
+    html = report.to_html
+    plot = html[%r{<div class="intervals">(.*?)</div>\n</div>}m, 1].to_s
+
+    assert_includes plot, %(<div class="micro sm">Pass rate · 95% CI</div>)
+    names = plot.scan(%r{<span class="iv-name">([^<]+)</span>}).flatten
+    assert_equal %w[llama-3.1-8b gpt-5-mini], names, "best first, as the comparison ranks them"
+    assert_includes plot, %(<span class="iv-range" style="left:20.0%;width:80.0%"></span><span class="iv-point" style="left:60.0%"></span>)
+    assert_includes plot, %(<span class="iv-figures"><b>60.0%</b> 20.0 to 100.0 · 5 scenarios</span>)
+    assert_includes plot, %(<span class="iv-tick" style="left:50%">50%</span>)
+    assert_includes plot, %(<p class="iv-conclusion">The pairwise difference interval includes zero: the ranking is not decisive evidence of superiority.</p>)
+    assert_includes plot, %(<p class="iv-caption">95% CI from 5,000 resamples of whole scenarios</p>)
+    assert_operator html.index(%(<div class="compare">)), :<, html.index(%(<div class="intervals">)), "the plot follows the comparison table"
+    assert_not_includes html, "<script"
+  end
+
+  def test_html_plot_draws_no_range_where_there_were_too_few_scenarios
+    html = report(results: results.select { |result| result.scenario.key == "s_inbox" }).to_html
+
+    assert_includes html, %(<span class="iv-track"><span class="iv-point" style="left:100.0%"></span></span><span class="iv-figures"><b>100.0%</b> no interval · 1 scenario</span>)
+    assert_includes html, %(<p class="iv-conclusion">The models share too few scenarios to compare.</p>)
+  end
+
+  def test_html_plot_renders_a_recorded_comparison_and_escapes_it
+    recorded = report.comparison.merge("conclusion" => "<b>Recorded</b>.")
+
+    assert_includes report(comparison: recorded).to_html, %(<p class="iv-conclusion">&lt;b&gt;Recorded&lt;/b&gt;.</p>)
+  end
+
   def test_html_of_a_single_model_run_has_no_comparison_table_or_filter
     html = report(models: models.first(1), results: results.select { |r| r.label == models.first.label }).to_html
 
     assert_not_includes html, %(class="compare")
     assert_not_includes html, %(name="fix-model")
+    assert_not_includes html, %(<div class="intervals">)
   end
 end
