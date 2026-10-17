@@ -186,7 +186,7 @@ class EvalsReportTest < ActiveSupport::TestCase
   def test_to_h_and_to_json_are_unchanged_by_fix_items
     parsed = JSON.parse(report(tool_resolver: resolver, links: LINKS).to_json)
 
-    assert_equal %w[models criteria recommendations verdict metadata results], parsed.keys
+    assert_equal %w[models criteria recommendations verdict comparison metadata results], parsed.keys
     assert_not parsed.key?("fix_items")
     assert_equal 10, parsed["results"].size
   end
@@ -548,7 +548,7 @@ class EvalsReportTest < ActiveSupport::TestCase
 
   def test_to_h_carries_the_release_and_the_judge_usage_only_when_there_are_any
     plain = report.to_h
-    assert_equal %w[models criteria recommendations verdict metadata results], plain.keys
+    assert_equal %w[models criteria recommendations verdict comparison metadata results], plain.keys
     assert plain["results"].none? { |result| result.key?("judge_usage") }
     assert_equal plain.to_json, report.to_json.then { |json| JSON.parse(json).to_json }, "nothing new leaks into the JSON"
 
@@ -637,6 +637,67 @@ class EvalsReportTest < ActiveSupport::TestCase
     assert_includes html, %(<td class="num">200ms / 400ms</td>)
     assert_includes html, "<span>p50 / p95 <b>200ms / 400ms</b></span>"
     assert_includes html, "<span>p50 / p95 <b>—</b></span>", "a model with no timed replay reads as missing"
+  end
+
+  def test_a_comparing_report_carries_the_comparison_of_its_results
+    comparison = report.comparison
+
+    assert_equal ActiveAgent::Evals::Comparison.new(results: results, models: models).to_h, comparison
+    assert_equal comparison, report.to_h["comparison"]
+    assert_equal [ llama.label, gpt.label ], comparison["ranking"]
+    assert_equal [ 40.0, [ 0.0, 80.0 ], false ], comparison["pairs"].sole.values_at("difference", "interval", "decisive")
+  end
+
+  def test_a_single_model_report_has_no_comparison
+    single = report(models: models.first(1), results: results.select { |result| result.label == gpt.label })
+
+    assert_nil single.comparison
+    assert_not single.to_h.key?("comparison")
+    assert_not_includes single.to_markdown, "## Comparison"
+  end
+
+  def test_a_recorded_comparison_is_rendered_instead_of_resampling
+    recorded = { method: { resamples: 5_000, confidence: 0.95, seed: 0 }, ranking: [ gpt.label, llama.label ],
+                 models: { gpt.label => { scenarios: 5, pass_rate: 20.0, interval: [ 0.0, 60.0 ] },
+                           llama.label => { scenarios: 5, pass_rate: 60.0, interval: [ 20.0, 100.0 ] } },
+                 pairs: [], conclusion: "Recorded." }
+    rebuilt = report(comparison: recorded)
+
+    assert_equal "Recorded.", rebuilt.comparison["conclusion"]
+    assert_equal [ gpt.label, llama.label ], rebuilt.to_h.dig("comparison", "ranking"), "the recorded ranking, with string keys"
+    assert_includes rebuilt.to_markdown, "\nRecorded.\n"
+    assert_includes rebuilt.to_markdown, "| `gpt-5-mini` | 20.0% | 0.0 to 60.0 | 5 |", "nested keys are read as strings too"
+    assert_nil report(models: models.first(1), results: results.first(1), comparison: recorded).comparison,
+               "a single-model report compares nothing, whatever it is handed"
+  end
+
+  def test_markdown_compares_the_models_between_the_summary_and_the_matrix
+    markdown = report.to_markdown
+    section = markdown[/## Comparison\n.*?\n_95% CI.*?_\n/m]
+
+    assert section, "the comparison renders as one section"
+    assert_operator markdown.index("**Best model"), :<, markdown.index("## Comparison")
+    assert_operator markdown.index("## Comparison"), :<, markdown.index("| Scenario |")
+    assert_includes section, "| Model | Pass rate | 95% CI | Scenarios |"
+    assert_includes section, "| `openrouter/meta-llama/llama-3.1-8b` | 60.0% | 20.0 to 100.0 | 5 |\n| `gpt-5-mini` | 20.0% | 0.0 to 60.0 | 5 |"
+    assert_includes section, "| `openrouter/meta-llama/llama-3.1-8b` vs `gpt-5-mini` | +40.0 points | 0.0 to 80.0 | 5 | no |"
+    assert_includes section, "\nThe pairwise difference interval includes zero: the ranking is not decisive evidence of superiority.\n"
+    assert_includes section, "_95% CI from 5,000 resamples of whole scenarios (seed 0)._"
+  end
+
+  def test_markdown_writes_a_dash_where_there_were_too_few_scenarios_for_an_interval
+    markdown = report(results: results.select { |result| result.scenario.key == "s_inbox" }).to_markdown
+
+    assert_includes markdown, "| `gpt-5-mini` | 100.0% | — | 1 |"
+    assert_includes markdown, "| — | 1 | no |"
+    assert_includes markdown, "\nThe models share too few scenarios to compare.\n"
+  end
+
+  def test_markdown_writes_a_dash_for_a_model_with_no_results
+    markdown = report(results: results.select { |result| result.label == gpt.label }).to_markdown
+
+    assert_includes markdown, "| `openrouter/meta-llama/llama-3.1-8b` | — | — | 0 |"
+    assert_includes markdown, "| `gpt-5-mini` vs `openrouter/meta-llama/llama-3.1-8b` | — | — | 0 | no |"
   end
 
   def test_html_of_a_single_model_run_has_no_comparison_table_or_filter

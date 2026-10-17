@@ -37,9 +37,12 @@ module ActiveAgent
       # @param release [Hash, nil] the release of the agent under evaluation,
       #   `{ "digest", "revision", "label" }`, so the report names the code
       #   it scored: in `to_h["release"]` and as a header chip.
+      # @param comparison [Hash, nil] a comparison already recorded for these
+      #   results (Comparison#to_h). A report rebuilt from a persisted run
+      #   renders the intervals that run recorded instead of resampling them.
       def initialize(results:, models:, judge: nil, instructions: nil, threshold: PASS_THRESHOLD, metadata: {},
                      tool_resolver: nil, agent_name: nil, links: {}, verdict: nil, judge_label: nil,
-                     judge_usage: nil, release: nil)
+                     judge_usage: nil, release: nil, comparison: nil)
         @results = results
         @models = models
         @judge = judge
@@ -53,6 +56,7 @@ module ActiveAgent
         @recorded_verdict = verdict.is_a?(Hash) ? verdict.to_h.stringify_keys.presence : nil
         @run_judge_usage = judge_usage.is_a?(Hash) ? judge_usage.to_h.stringify_keys.presence : nil
         @release = release.is_a?(Hash) ? release.to_h.stringify_keys.compact.presence : nil
+        @recorded_comparison = comparison.is_a?(Hash) ? comparison.to_h.deep_stringify_keys.presence : nil
       end
 
       # The release of the agent this report scored, `{ "digest",
@@ -270,14 +274,27 @@ module ActiveAgent
         verdict&.dig("winner")
       end
 
-      # Adds "judge_usage" and "release" only when there is one to add, so
-      # a report built the way it always was serializes exactly as before.
+      # Whether the gap between the models is real (Comparison#to_h): each
+      # model's pass rate with its interval, every pair's difference with
+      # its interval and whether it is decisive, and the conclusion. The
+      # comparison recorded for these results when one was handed in. nil
+      # for a single model.
+      def comparison
+        return nil unless comparing?
+
+        @comparison ||= @recorded_comparison || Comparison.new(results: @results, models: @models).to_h
+      end
+
+      # Adds "judge_usage" and "release" only when there is one to add, and
+      # "comparison" only when comparing models, so a single-model report
+      # built the way it always was serializes exactly as before.
       def to_h
         {
           "models" => summary_by_model,
           "criteria" => criterion_scores,
           "recommendations" => recommendations,
           "verdict" => verdict,
+          "comparison" => comparison,
           "judge" => @judge_label || @judge&.label,
           "judge_usage" => judge_usage,
           "release" => release,
@@ -301,6 +318,7 @@ module ActiveAgent
         lines.concat(total_lines)
         lines << "**Best model: #{winner}**" if winner
         lines << ""
+        lines.concat(comparison_lines)
         lines.concat(matrix_table)
         lines.concat(detail_lines)
         lines.concat(recommendation_lines)
@@ -586,6 +604,38 @@ module ActiveAgent
         lines = [ "**Total: #{Format.money(costs['total'], estimated: costs['estimated'])}** (#{parts.join(' · ')})" ]
         lines << "_#{Format::LEGEND}_" if costs["estimated"]
         lines << ""
+      end
+
+      # Each model's pass rate with its interval, best first, then every
+      # pair's difference with its interval, the conclusion, and how the
+      # intervals were computed. Nothing for a single model.
+      def comparison_lines
+        return [] unless comparison
+
+        method = comparison["method"]
+        confidence = "#{(method['confidence'].to_f * 100).round}% CI"
+        lines = [ "## Comparison", "", "| Model | Pass rate | #{confidence} | Scenarios |", "|---|---|---|---|" ]
+        comparison["ranking"].each do |label|
+          stats = comparison["models"][label]
+          lines << "| `#{label}` | #{rate_text(stats['pass_rate'])} | #{interval_text(stats['interval'])} | #{stats['scenarios']} |"
+        end
+        lines += [ "", "| Pair | Difference | #{confidence} | Shared scenarios | Decisive |", "|---|---|---|---|---|" ]
+        comparison["pairs"].each do |pair|
+          a, b = pair["models"]
+          difference = pair["difference"] ? format("%+.1f points", pair["difference"]) : "—"
+          lines << "| `#{a}` vs `#{b}` | #{difference} | #{interval_text(pair['interval'])} | #{pair['scenarios']} | #{pair['decisive'] ? 'yes' : 'no'} |"
+        end
+        lines += [ "", comparison["conclusion"].to_s, "",
+                   "_#{confidence} from #{Format.delimited(method['resamples'])} resamples of whole scenarios (seed #{method['seed']})._", "" ]
+      end
+
+      def rate_text(rate)
+        rate ? "#{rate}%" : "—"
+      end
+
+      # "73.8 to 95.2", or "—" when there were too few scenarios.
+      def interval_text(interval)
+        interval ? "#{interval.first} to #{interval.last}" : "—"
       end
 
       # The scenario matrix, with a trailing Cost column: what the scenario
