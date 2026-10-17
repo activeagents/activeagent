@@ -322,6 +322,7 @@ module ActiveAgent
           <div class="panel">
           <div class="panel-head"><span class="micro">Models</span><span class="right">judged by #{h(judged_by)}</span></div>
           #{html_comparison_table if comparing?}
+          #{html_intervals}
           #{blocks.join}
           #{verdict_row}
           </div>
@@ -347,6 +348,41 @@ module ActiveAgent
           <tbody>#{rows.map { |label, stats| html_comparison_row(label, stats) }.join}</tbody>
           </table></div>
         TABLE
+      end
+
+      # The ranked interval plot under the comparison table (Report#comparison):
+      # one row per model, best first, its pass rate a dot inside its interval
+      # on a fixed 0-100% axis, so a narrow gap is not magnified, with the
+      # figures written out beside it; then the conclusion and how the
+      # intervals were computed. Nothing for a single model.
+      def html_intervals
+        return "" unless comparison
+
+        method = comparison["method"]
+        confidence = "#{(method['confidence'].to_f * 100).round}% CI"
+        rows = comparison["ranking"].map { |label| html_interval_row(label, comparison["models"][label] || {}) }
+        ticks = [ 0, 25, 50, 75, 100 ].map { |tick| %(<span class="iv-tick" style="left:#{tick}%">#{tick}%</span>) }
+
+        <<~PLOT
+          <div class="intervals">
+          <div class="micro sm">Pass rate · #{h(confidence)}</div>
+          #{rows.join}
+          <div class="iv-row iv-axis" aria-hidden="true"><span></span><span class="iv-track">#{ticks.join}</span><span></span></div>
+          <p class="iv-conclusion">#{h(comparison['conclusion'])}</p>
+          <p class="iv-caption">#{h(confidence)} from #{h(Format.delimited(method['resamples']))} resamples of whole scenarios</p>
+          </div>
+        PLOT
+      end
+
+      def html_interval_row(label, stats)
+        rate = stats["pass_rate"]
+        low, high = stats["interval"]
+        range = high ? %(<span class="iv-range" style="left:#{low}%;width:#{(high - low).round(1)}%"></span>) : ""
+        point = rate ? %(<span class="iv-point" style="left:#{rate}%"></span>) : ""
+        figures = "<b>#{rate ? "#{rate}%" : '—'}</b> #{high ? "#{low} to #{high}" : 'no interval'} · #{h(plural(stats['scenarios'].to_i, 'scenario'))}"
+
+        %(<div class="iv-row"><span class="iv-name">#{h(short_name(model_by_label(label)))}</span>) +
+          %(<span class="iv-track">#{range}#{point}</span><span class="iv-figures">#{figures}</span></div>\n)
       end
 
       def html_comparison_row(label, stats)
@@ -839,6 +875,20 @@ module ActiveAgent
         .pick-model input { position: absolute; opacity: 0; width: 0; height: 0; }
         .pick-model:has(input:checked) { border-color: var(--color-accent-ui); background: var(--color-accent-ui-tint); color: var(--color-accent-ui); }
         .clean { font-family: var(--font-mono); font-size: 11px; color: var(--color-success-text); }
+        .intervals { padding: 10px 12px; border-top: 1px solid var(--color-border-light); display: flex; flex-direction: column; gap: 6px; }
+        .iv-row { display: grid; grid-template-columns: minmax(120px, 200px) minmax(160px, 1fr) minmax(190px, auto); align-items: center; gap: 12px; }
+        .iv-name { font-family: var(--font-mono); font-size: 12px; font-weight: 600; color: var(--color-text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .iv-track { position: relative; height: 14px; }
+        .iv-track::before { content: ""; position: absolute; left: 0; right: 0; top: 6px; height: 2px; background: var(--color-muted); }
+        .iv-range { position: absolute; top: 3px; height: 8px; box-sizing: border-box; border: 1px solid var(--color-info); border-radius: 999px; background: var(--color-info-soft); }
+        .iv-point { position: absolute; top: 2px; width: 10px; height: 10px; margin-left: -5px; border-radius: 50%; background: var(--color-info); }
+        .iv-figures { font-family: var(--font-mono); font-size: 11px; color: var(--color-text-secondary); white-space: nowrap; }
+        .iv-figures b { color: var(--color-text-primary); }
+        .iv-axis .iv-track::before { display: none; }
+        .iv-tick { position: absolute; top: 0; transform: translateX(-50%); font-family: var(--font-mono); font-size: 10px; color: var(--color-text-muted); }
+        .iv-conclusion { margin: 4px 0 0; font-size: 12px; line-height: 18px; color: var(--color-text-cell); }
+        .iv-caption { margin: 0; font-family: var(--font-mono); font-size: 10px; color: var(--color-text-muted); }
+        @media (max-width: 640px) { .iv-row { grid-template-columns: 1fr; gap: 4px; } .iv-axis { display: none; } }
         .verdict { padding: 10px 12px; border-top: 1px solid var(--color-border-light); font-size: 12px; line-height: 18px; color: var(--color-text-cell); }
         .verdict .micro { margin-right: 8px; }
         .fixes { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 12px; }

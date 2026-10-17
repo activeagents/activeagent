@@ -456,7 +456,11 @@ and in `to_h["comparison"]`, and its Markdown adds a Comparison section
 between the summary and the scenario matrix: each model's pass rate with its
 interval, every pair's difference with its interval and whether it is
 decisive, the conclusion, and how the intervals were computed. A
-single-model report has none. `Report.new(comparison:)` takes a comparison
+single-model report has none. The HTML report plots it under the comparison
+table: one row per model, best first, its pass rate a dot inside its
+interval on a fixed 0 to 100% axis (so a narrow gap is not magnified), with
+the figures written beside it, then the conclusion and how the intervals
+were computed. `Report.new(comparison:)` takes a comparison
 already recorded for the results, as `verdict:` does, so a report rebuilt
 from a stored run renders the intervals that run recorded instead of
 resampling them.
