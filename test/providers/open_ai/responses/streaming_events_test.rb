@@ -67,6 +67,24 @@ module Providers
           assert_equal text, response.message.content
         end
 
+        test "a streamed response reports its usage, whether completed or cut short" do
+          [ [ "response.completed", "completed", nil ],
+            [ "response.incomplete", "incomplete", { reason: "max_output_tokens" } ] ].each do |terminal, status, incomplete_details|
+            stub_stream(sse_body(
+              part_events: [
+                { type: "response.output_text.delta", delta: "Grass is green.", logprobs: [] },
+                { type: "response.output_text.done", text: "Grass is green.", logprobs: [] }
+              ],
+              final_part: { type: "output_text", text: "Grass is green.", annotations: [] },
+              terminal:, status:, incomplete_details:
+            ))
+
+            usage = StreamAgent.ask.generate_now.usage
+
+            assert_equal [ 10, 5 ], [ usage&.input_tokens, usage&.output_tokens ], terminal
+          end
+        end
+
         test "a streamed refusal completes" do
           refusal = "I can't help with that."
           stub_stream(sse_body(

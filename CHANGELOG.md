@@ -26,6 +26,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **A streamed Responses refusal no longer raises.** The provider raised
   `Unexpected Response Chunk Type: response.refusal.delta` when the model
   refused; the refusal events are now skipped and the response completes.
+- **A streamed Responses generation reports its token usage.** The usage of a
+  streamed response is only on its final event, and the Responses provider
+  never read it, so `response.usage` was `nil`. It is now recorded from
+  `response.completed` or `response.incomplete`, as the Chat provider does
+  from its usage chunk.
 
 ## [1.9.0] - 2026-10-14
 
