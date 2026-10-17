@@ -15,6 +15,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   computes them, and the Markdown and HTML reports show them next to the
   mean, which hides the tail (#428).
 
+- **Cost per 1,000 scenario runs in the Markdown report** (`activeagent`).
+  The summary table gains `Cost / 1,000`, each model's mean cost per priced
+  replay on a common denominator, marked `~` when it is estimated or
+  covers only some replays (#428).
+
 ## [1.9.1] - 2026-10-16
 
 Releases `activeagent` and `actionagent` 1.9.1, with the matching browser

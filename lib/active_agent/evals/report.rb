@@ -528,11 +528,13 @@ module ActiveAgent
 
       # --- Markdown ----------------------------------------------------------
 
-      # The per-model table. A Judge column joins it when a judge spent
-      # anything, so the agent's cost and the evaluation's stay two numbers.
+      # The per-model table. Cost / 1,000 puts every model on one
+      # denominator however many of its scenarios ran. A Judge column joins
+      # it when a judge spent anything, so the agent's cost and the
+      # evaluation's stay two numbers.
       def summary_table
         judged = judge_usage.present?
-        columns = [ "Model", "Passed", "Mean score", "Mean latency", "Median / P95", "Tokens in/out", "Cost", ("Judge" if judged), "Faults" ].compact
+        columns = [ "Model", "Passed", "Mean score", "Mean latency", "Median / P95", "Tokens in/out", "Cost", "Cost / 1,000", ("Judge" if judged), "Faults" ].compact
         header = [ "| #{columns.join(' | ')} |", "|#{columns.map { '---' }.join('|')}|" ]
         rows = summary_by_model.map do |label, stats|
           faults = stats["faults"].map { |fault, count| "#{fault.tr('_', ' ')} ×#{count}" }.join(", ")
@@ -546,12 +548,21 @@ module ActiveAgent
             percentiles,
             "#{stats['input_tokens']}/#{stats['output_tokens']}",
             Format.money(stats["cost"], estimated: estimated_cost?(stats)),
+            per_thousand_cell(stats),
             (judge_cell(stats) if judged),
             faults.presence || "—"
           ].compact
           "| #{cells.join(' | ')} |"
         end
         header + rows
+      end
+
+      # "$3.6300": what 1,000 scenario runs cost at the model's mean cost
+      # per priced replay, marked "~" when that mean is estimated or covers
+      # only some of the replays. "—" when none was priced.
+      def per_thousand_cell(stats)
+        per = cost_per_priced(stats)
+        per ? Format.money(per * 1_000, estimated: estimated_cost?(stats)) : "—"
       end
 
       # "~$0.0030 (3 calls)" for a model's judge spend, "—" when the judge

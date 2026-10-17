@@ -596,9 +596,9 @@ class EvalsReportTest < ActiveSupport::TestCase
   def test_markdown_renders_the_judge_column_the_matrix_cost_column_the_cost_per_answer_and_the_total
     markdown = costed_report.to_markdown
 
-    assert_includes markdown, "| Model | Passed | Mean score | Mean latency | Median / P95 | Tokens in/out | Cost | Judge | Faults |"
-    assert_includes markdown, "| `gpt-5-mini` | 2/2 (100%) | 100% | — | — | 180/29 | $0.0032 | ~$0.0010 (1 call) | — |"
-    assert_includes markdown, "| ~$0.0243 | ~$0.0015 (1 call) |"
+    assert_includes markdown, "| Model | Passed | Mean score | Mean latency | Median / P95 | Tokens in/out | Cost | Cost / 1,000 | Judge | Faults |"
+    assert_includes markdown, "| `gpt-5-mini` | 2/2 (100%) | 100% | — | — | 180/29 | $0.0032 | $1.6000 | ~$0.0010 (1 call) | — |"
+    assert_includes markdown, "| ~$0.0243 | ~$12.1650 | ~$0.0015 (1 call) |", "an estimated cohort reads its rate per 1,000 as an estimate"
     assert_includes markdown, "**Total: ~$0.0340** (agent ~$0.0275 · judge ~$0.0065)\n_~ estimated from tokens × model rates_\n"
     assert_includes markdown, "| Scenario | `gpt-5-mini` | `openrouter/meta-llama/llama-3.1-8b` | Cost |"
     assert_includes markdown, "| ✅ 100% | ✅ 100% | ~$0.0255 (judge ~$0.0025) |"
@@ -619,7 +619,7 @@ class EvalsReportTest < ActiveSupport::TestCase
     assert_not_includes html, "~$", "every cost was reported, so nothing is marked as an estimate"
     assert_not_includes html, "estimated from tokens"
     assert_includes html, %(<div class="micro">Cost</div><div class="value">$0.0100</div><div class="sub">agent only · 10 scenario runs priced</div>)
-    assert_includes markdown, "| Model | Passed | Mean score | Mean latency | Median / P95 | Tokens in/out | Cost | Faults |"
+    assert_includes markdown, "| Model | Passed | Mean score | Mean latency | Median / P95 | Tokens in/out | Cost | Cost / 1,000 | Faults |"
     assert_includes markdown, "**Total: $0.0100** (agent $0.0100)\n\n**Best model"
   end
 

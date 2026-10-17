@@ -410,6 +410,12 @@ is always one a replay actually took). The mean hides the tail: two models
 can share a median while one takes twice as long at P95. The Markdown and
 HTML reports show both percentiles beside the mean.
 
+Cost is compared on one denominator however many scenarios each model ran:
+the Markdown summary's `Cost / 1,000` is what 1,000 scenario runs cost at
+the model's mean cost per priced replay, and the HTML report and the
+dashboard show the same mean per scenario. It reads with a `~` when the
+mean is estimated or covers only some of the model's replays.
+
 ## In a dashboard
 
 `Runner.new` takes `on_result:` (each `Result` as it lands) and
