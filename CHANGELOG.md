@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **A streamed Anthropic answer with citations no longer raises.** Claude
+  streams the citations of a text block as `citations_delta` deltas when it
+  cites a document or a web search result, and the Anthropic provider raised
+  `Unexpected delta type: citations_delta` on the first one. The delta is now
+  skipped like `input_json_delta`: the full block, citations included, arrives
+  at `content_block_stop`.
+
 ## [1.9.0] - 2026-10-14
 
 Releases `activeagent` and `actionagent` 1.9.0 from one tag. A minor release.
