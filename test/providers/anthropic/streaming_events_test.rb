@@ -34,6 +34,30 @@ module Providers
         end
       end
 
+      # Replies that cite a document or a web search result stream their
+      # citations as `citations_delta` deltas on the text block.
+      test "handles a citations_delta without raising" do
+        event = ::Anthropic::Models::RawContentBlockDeltaEvent.new(
+          type: :content_block_delta,
+          index: 0,
+          delta: {
+            type: :citations_delta,
+            citation: {
+              type: :char_location,
+              cited_text: "The grass is green.",
+              document_index: 0,
+              document_title: "Facts",
+              start_char_index: 0,
+              end_char_index: 19
+            }
+          }
+        )
+
+        assert_nothing_raised do
+          @provider.send(:process_stream_chunk, event)
+        end
+      end
+
       test "handles :thinking event without raising" do
         event = MockEvent.new(type: :thinking)
 
