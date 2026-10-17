@@ -190,6 +190,17 @@ class EvalsComparisonTest < ActiveSupport::TestCase
     assert_includes compare(*cohorts, confidence: 0.5).conclusion.to_s + compare([ gpt, "p" * 30 ], [ qwen, "f" * 30 ], confidence: 0.9).conclusion, "(90% CI"
   end
 
+  def test_the_lower_bound_is_the_resample_at_the_tail_s_exact_rank
+    # 2.5% of 40 resamples is rank 1, the lowest, which every confidence of
+    # 95% or more agrees on. Computed as (1 - 0.95) / 2 × 100 in floating
+    # point the tail is 2.5000000000000022, and its rank 2.
+    cohorts = [ [ gpt, "pf" * 21 ], [ qwen, "pfpp" * 10 ] ]
+    lowest = compare(*cohorts, resamples: 40, confidence: 1.0)
+
+    assert_equal lowest.models[gpt.label]["interval"].first, compare(*cohorts, resamples: 40).models[gpt.label]["interval"].first
+    assert_equal lowest.pairs.sole["interval"].first, compare(*cohorts, resamples: 40).pairs.sole["interval"].first
+  end
+
   def test_a_single_model_has_no_pairs_and_no_conclusion
     comparison = compare([ gpt, "ppf" ])
 
