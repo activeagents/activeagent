@@ -23,6 +23,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   of `response.completed`, and the Responses provider raised `Unexpected
   Response Chunk Type: response.incomplete`. It now ends the generation with
   the text streamed so far, like `response.completed`.
+- **A streamed Responses refusal no longer raises.** The provider raised
+  `Unexpected Response Chunk Type: response.refusal.delta` when the model
+  refused; the refusal events are now skipped and the response completes.
 
 ## [1.9.0] - 2026-10-14
 
