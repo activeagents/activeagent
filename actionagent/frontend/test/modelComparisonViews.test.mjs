@@ -128,6 +128,19 @@ test('a run that recorded no comparison draws no plot', () => {
   assert.doesNotMatch(html, /comparison-intervals/);
 });
 
+// A row of its own would size its figures column to its own text, giving
+// each track, and the axis under them, a different width.
+test("the plot's rows and axis share one grid, so the ticks line up with the dots", () => {
+  const plot = { rows: [{ label: 'gpt-5-mini', passRate: 85.7, interval: [73.8, 95.2], scenarios: 42 }, { label: 'qwen3:8b', passRate: 7.1, interval: [0, 16.7], scenarios: 42 }], conclusion: 'x', confidence: 95, resamples: 5000 };
+  const html = render('ComparisonIntervals', { plot });
+
+  assert.match(html, /<div style="display:grid;grid-template-columns:minmax\(64px, 200px\) minmax\(96px, 1fr\) auto;[^"]*" data-testid="comparison-intervals">/);
+  const rows = [...html.matchAll(/<div style="([^"]*)" data-testid="comparison-interval-row"/g)].map((match) => match[1]);
+  assert.deepEqual(rows, ['display:contents', 'display:contents']);
+  assert.match(html, /<div style="display:contents" aria-hidden="true"><span><\/span><span style="position:relative/, 'the axis is a row of the same grid');
+  assert.match(html, /grid-column:1 \/ -1[^"]*" data-testid="comparison-conclusion"/, 'the conclusion spans the plot');
+});
+
 test('a model with too few scenarios gets a dot and no range', () => {
   const plot = { rows: [{ label: 'gpt-5-mini', passRate: 100, interval: null, scenarios: 1 }, { label: 'qwen3:8b', passRate: 0, interval: null, scenarios: 1 }], conclusion: 'The models share too few scenarios to compare.', confidence: 95, resamples: 5000 };
   const html = render('ComparisonIntervals', { plot });

@@ -723,6 +723,18 @@ class EvalsReportTest < ActiveSupport::TestCase
     assert_includes html, %(<p class="iv-conclusion">The models share too few scenarios to compare.</p>)
   end
 
+  # A row of its own would size its figures column to its own text, giving
+  # each track, and the axis under them, a different width.
+  def test_html_plot_rows_and_axis_share_one_grid_so_the_ticks_line_up_with_the_dots
+    html = report.to_html
+
+    assert_match(/\.intervals \{[^}]*display: grid; grid-template-columns: minmax\(120px, 200px\) minmax\(160px, 1fr\) minmax\(190px, auto\);/, html)
+    assert_includes html, ".iv-row { display: contents; }"
+    assert_no_match(/\.iv-row \{[^}]*grid-template-columns/, html)
+    assert_includes html, ".intervals > .micro, .iv-conclusion, .iv-caption { grid-column: 1 / -1; }"
+    assert_includes html, "@media (max-width: 640px) { .intervals { grid-template-columns: minmax(0, 1fr);"
+  end
+
   def test_html_plot_renders_a_recorded_comparison_and_escapes_it
     recorded = report.comparison.merge("conclusion" => "<b>Recorded</b>.")
 

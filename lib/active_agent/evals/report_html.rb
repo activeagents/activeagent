@@ -354,7 +354,9 @@ module ActiveAgent
       # one row per model, best first, its pass rate a dot inside its interval
       # on a fixed 0-100% axis, so a narrow gap is not magnified, with the
       # figures written out beside it; then the conclusion and how the
-      # intervals were computed. Nothing for a single model.
+      # intervals were computed. Nothing for a single model. The rows and the
+      # axis share one grid (.iv-row is display: contents), so every track
+      # spans the same width and a tick sits under the dots it names.
       def html_intervals
         return "" unless comparison
 
@@ -875,8 +877,9 @@ module ActiveAgent
         .pick-model input { position: absolute; opacity: 0; width: 0; height: 0; }
         .pick-model:has(input:checked) { border-color: var(--color-accent-ui); background: var(--color-accent-ui-tint); color: var(--color-accent-ui); }
         .clean { font-family: var(--font-mono); font-size: 11px; color: var(--color-success-text); }
-        .intervals { padding: 10px 12px; border-top: 1px solid var(--color-border-light); display: flex; flex-direction: column; gap: 6px; }
-        .iv-row { display: grid; grid-template-columns: minmax(120px, 200px) minmax(160px, 1fr) minmax(190px, auto); align-items: center; gap: 12px; }
+        .intervals { padding: 10px 12px; border-top: 1px solid var(--color-border-light); display: grid; grid-template-columns: minmax(120px, 200px) minmax(160px, 1fr) minmax(190px, auto); align-items: center; gap: 6px 12px; }
+        .intervals > .micro, .iv-conclusion, .iv-caption { grid-column: 1 / -1; }
+        .iv-row { display: contents; }
         .iv-name { font-family: var(--font-mono); font-size: 12px; font-weight: 600; color: var(--color-text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .iv-track { position: relative; height: 14px; }
         .iv-track::before { content: ""; position: absolute; left: 0; right: 0; top: 6px; height: 2px; background: var(--color-muted); }
@@ -888,7 +891,7 @@ module ActiveAgent
         .iv-tick { position: absolute; top: 0; transform: translateX(-50%); font-family: var(--font-mono); font-size: 10px; color: var(--color-text-muted); }
         .iv-conclusion { margin: 4px 0 0; font-size: 12px; line-height: 18px; color: var(--color-text-cell); }
         .iv-caption { margin: 0; font-family: var(--font-mono); font-size: 10px; color: var(--color-text-muted); }
-        @media (max-width: 640px) { .iv-row { grid-template-columns: 1fr; gap: 4px; } .iv-axis { display: none; } }
+        @media (max-width: 640px) { .intervals { grid-template-columns: minmax(0, 1fr); row-gap: 4px; } .iv-row + .iv-row .iv-name { margin-top: 6px; } .iv-axis { display: none; } }
         .verdict { padding: 10px 12px; border-top: 1px solid var(--color-border-light); font-size: 12px; line-height: 18px; color: var(--color-text-cell); }
         .verdict .micro { margin-right: 8px; }
         .fixes { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 12px; }
