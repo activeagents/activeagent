@@ -100,6 +100,7 @@ export default defineConfig({
           { text: 'Configuration', link: '/framework/configuration' },
           { text: 'Instrumentation', link: '/framework/instrumentation' },
           { text: 'Telemetry', link: '/framework/telemetry' },
+          { text: 'User Feedback', link: '/framework/feedback' },
           { text: 'Dev Console (Dashboard Engine)', link: '/framework/dashboard' },
           { text: 'Browser Sessions', link: '/framework/browser-sessions' },
           { text: 'Evaluations', link: '/framework/evaluations' },

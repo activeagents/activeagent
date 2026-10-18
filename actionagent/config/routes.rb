@@ -32,6 +32,9 @@ ActionAgent::Engine.routes.draw do
     # Authenticated like trace ingest, with a bearer token.
     resources :evaluation_reports, only: [ :create ]
 
+    post "feedback", to: "feedback_ingest#create"
+    get "feedback", to: "feedbacks#index"
+
     # A JSON API has no :new or :edit forms to serve.
     resources :agents, except: [ :new, :edit ] do
       member do

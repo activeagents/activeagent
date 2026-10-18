@@ -3218,3 +3218,9 @@ end
 
 See [Persistence (SolidAgent)](/solid_agent) for the rest of what that gem
 records — the tool exchange, long-term memory, runs and cost.
+
+## User feedback
+
+Collect thumbs up/down with optional comments and review votes in the agent’s
+Feedback tab. See [User feedback](./feedback) for submission, authentication,
+upgrade instructions and dashboard filters.
