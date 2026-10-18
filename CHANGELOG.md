@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Nested arrays of objects in ActiveModel schemas** (`activeagent`).
+  `has_many :addresses, class_name: "Address"` on an ActiveModel class that
+  includes `ActiveAgent::SchemaGenerator` makes `to_json_schema` emit the
+  attribute as an array of `$ref`s to the item class's schema, which goes
+  under the root `$defs`. `strict:` and `additional_properties:` reach the
+  nested schema, a nested class's own definitions move up to the root, and
+  a class that nests itself raises `ArgumentError`. A length validation on
+  the array sets its item count (`min_items` / `max_items`) rather than a
+  string's length. `has_many` also declares the attribute with an
+  empty-array default, and is added only to a class without one, so
+  ActiveRecord's is untouched (#260).
+
 ## [1.9.1] - 2026-10-16
 
 Releases `activeagent` and `actionagent` 1.9.1, with the matching browser

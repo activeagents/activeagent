@@ -107,6 +107,26 @@ module Docs
       end
       # endregion user_model_with_schema
 
+      # region nested_schema_models
+      class Address
+        include ActiveModel::Model
+        include ActiveModel::Attributes
+        include ActiveAgent::SchemaGenerator
+
+        attribute :street, :string
+        attribute :city, :string
+      end
+
+      class Customer
+        include ActiveModel::Model
+        include ActiveModel::Attributes
+        include ActiveAgent::SchemaGenerator
+
+        attribute :name, :string
+        has_many :addresses, class_name: Address.name
+      end
+      # endregion nested_schema_models
+
       class ExtractionAgent < ApplicationAgent
         generate_with :openai, model: "gpt-4o"
 
@@ -206,6 +226,21 @@ module Docs
           assert_includes json_schema[:schema][:properties].keys, :age
           assert_includes json_schema[:schema][:required], :name
           assert_includes json_schema[:schema][:required], :email
+        end
+
+        test "generate nested schema from activemodel" do
+          # region generate_nested_schema
+          json_schema = Customer.to_json_schema(strict: true, name: "customer")
+
+          json_schema[:schema][:properties][:addresses]
+          # => { type: "array", items: { "$ref": "#/$defs/address" } }
+          json_schema[:schema][:"$defs"][:address]
+          # => { type: "object", properties: { street: {...}, city: {...} }, required: [:city, :street], ... }
+          # endregion generate_nested_schema
+
+          assert_equal({ type: "array", items: { "$ref": "#/$defs/address" } }, json_schema[:schema][:properties][:addresses])
+          assert_equal Address.to_json_schema(strict: true)[:schema], json_schema[:schema][:"$defs"][:address]
+          assert_equal [ :city, :street ], json_schema[:schema][:"$defs"][:address][:required]
         end
 
         test "use generated schema in agent" do

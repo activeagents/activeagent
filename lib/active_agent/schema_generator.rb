@@ -34,6 +34,21 @@ module ActiveAgent
   #
   #   ContactForm.to_json_schema
   #
+  # @example ActiveModel with a nested array of objects
+  #   class Person
+  #     include ActiveModel::Model
+  #     include ActiveModel::Attributes
+  #     include ActiveAgent::SchemaGenerator
+  #
+  #     attribute :name, :string
+  #     has_many :addresses, class_name: "Address"
+  #   end
+  #
+  #   Person.to_json_schema
+  #   # => { name: "person", schema: { type: "object", properties: {
+  #   #      name: {...}, addresses: { type: "array", items: { "$ref": "#/$defs/address" } } },
+  #   #      ..., "$defs": { address: { type: "object", ... } } } }
+  #
   # @see Builder
   module SchemaGenerator
     extend ActiveSupport::Concern
@@ -46,6 +61,13 @@ module ActiveAgent
       else
         # Fallback for any class that includes this module
         extend ActiveModelClassMethods
+      end
+
+      # The railtie includes this module into ActiveRecord::Base too, whose
+      # has_many must stay ActiveRecord's.
+      unless respond_to?(:has_many)
+        extend ActiveModelAssociations
+        class_attribute :schema_associations, instance_accessor: false, default: {}.freeze
       end
     end
 
@@ -106,6 +128,34 @@ module ActiveAgent
       end
     end
 
+    # Nested schemas for ActiveModel classes, which have no associations of
+    # their own. Added only to a class without a +has_many+ already.
+    module ActiveModelAssociations
+      # Declares an array of objects described by another schema class.
+      #
+      # {ActiveModelClassMethods#to_json_schema} emits the attribute as an
+      # array whose items are a +$ref+ to that class's schema, which goes under
+      # the root +$defs+ keyed by the singular name in lower camel case
+      # (+addresses+ becomes +address+, +line_items+ becomes +lineItem+), so the
+      # reference survives an agent's prompt camelizing the schema's keys.
+      #
+      # Also declares the attribute, defaulting to an empty array, so the
+      # model accepts the data the schema describes.
+      #
+      # @param name [Symbol] the attribute holding the array
+      # @param class_name [String] full constant name of the item class, which
+      #   generates JSON Schema too; resolved when the schema is generated
+      # @return [void]
+      #
+      # @example
+      #   has_many :addresses, class_name: "Address"
+      def has_many(name, class_name:)
+        self.schema_associations = schema_associations.merge(name.to_sym => class_name).freeze
+
+        attribute name, default: -> { [] }
+      end
+    end
+
     # Internal builder class for constructing JSON Schemas from model classes.
     #
     # This class handles the actual schema generation logic, supporting both
@@ -122,24 +172,7 @@ module ActiveAgent
       #
       # @raise [ArgumentError] If model_class is not an ActiveRecord or ActiveModel class
       def self.json_schema_from_model(model_class, options = {})
-        schema = {
-          type: "object",
-          properties: {},
-          required: [],
-          additional_properties: options.fetch(:additional_properties, false)
-        }
-
-        if defined?(ActiveRecord::Base) && model_class < ActiveRecord::Base
-          schema = build_activerecord_schema(schema, model_class, options)
-        elsif defined?(ActiveModel::Model) && model_class.include?(ActiveModel::Model)
-          schema = build_activemodel_schema(schema, model_class, options)
-        else
-          raise ArgumentError, "Model must be an ActiveRecord or ActiveModel class"
-        end
-
-        # OpenAI strict mode requires all properties to be in the required array
-        # So we add all properties to required if strict mode is enabled
-        schema[:required] = schema[:properties].keys.sort if options[:strict]
+        schema = object_schema(model_class, options)
 
         {
           name: options[:name] || model_class.name.underscore,
@@ -150,6 +183,37 @@ module ActiveAgent
 
       class << self
         private
+
+        # Builds the object schema of a model class, without the name and
+        # strict flag {json_schema_from_model} wraps it in.
+        #
+        # @param model_class [Class] The ActiveRecord or ActiveModel class
+        # @param options [Hash] Schema generation options
+        # @param ancestors [Array<Class>] the classes nesting this one, outermost first
+        #
+        # @return [Hash] The object schema
+        def object_schema(model_class, options, ancestors = [])
+          schema = {
+            type: "object",
+            properties: {},
+            required: [],
+            additional_properties: options.fetch(:additional_properties, false)
+          }
+
+          if defined?(ActiveRecord::Base) && model_class < ActiveRecord::Base
+            schema = build_activerecord_schema(schema, model_class, options)
+          elsif defined?(ActiveModel::Model) && model_class.include?(ActiveModel::Model)
+            schema = build_activemodel_schema(schema, model_class, options, ancestors)
+          else
+            raise ArgumentError, "Model must be an ActiveRecord or ActiveModel class"
+          end
+
+          # OpenAI strict mode requires all properties to be in the required array
+          # So we add all properties to required if strict mode is enabled
+          schema[:required] = schema[:properties].keys.sort if options[:strict]
+
+          schema
+        end
 
         # Builds a JSON Schema from an ActiveRecord model.
         #
@@ -187,14 +251,16 @@ module ActiveAgent
 
         # Builds a JSON Schema from an ActiveModel class.
         #
-        # Extracts attribute types and validations to build a schema representation.
+        # Extracts attribute types, nested schemas and validations to build a
+        # schema representation.
         #
         # @param schema [Hash] The schema hash to populate
         # @param model_class [Class] The ActiveModel class
         # @param options [Hash] Schema generation options
+        # @param ancestors [Array<Class>] the classes nesting this one, outermost first
         #
         # @return [void]
-        def build_activemodel_schema(schema, model_class, options)
+        def build_activemodel_schema(schema, model_class, options, ancestors)
           if model_class.respond_to?(:attribute_types)
             model_class.attribute_types.each do |name, type|
               next if options[:exclude]&.include?(name.to_sym)
@@ -204,6 +270,10 @@ module ActiveAgent
             end
           else
             raise ArgumentError, "#{model_class.name} does not define any attributes. Use `attribute :name, :type` to define attributes."
+          end
+
+          if model_class.respond_to?(:schema_associations)
+            schema = add_activemodel_associations_to_schema(schema, model_class, options, ancestors)
           end
 
           if model_class.respond_to?(:validators)
@@ -356,6 +426,51 @@ module ActiveAgent
           schema
         end
 
+        # Adds the arrays an ActiveModel class declares with
+        # {ActiveModelAssociations#has_many}, each item a +$ref+ to the nested
+        # class's schema under +$defs+.
+        #
+        # A +$ref+ resolves against the root of the schema, so the definitions
+        # a nested class collects move up into this schema's +$defs+.
+        #
+        # @param schema [Hash] The schema hash to populate
+        # @param model_class [Class] The ActiveModel class
+        # @param options [Hash] Schema generation options
+        # @param ancestors [Array<Class>] the classes nesting this one, outermost first
+        #
+        # @return [Hash]
+        # @raise [ArgumentError] when a class nests itself, or two different
+        #   schemas would share a definition name
+        def add_activemodel_associations_to_schema(schema, model_class, options, ancestors)
+          path        = ancestors + [ model_class ]
+          definitions = {}
+
+          model_class.schema_associations.each do |name, class_name|
+            next if options[:exclude]&.include?(name)
+
+            nested_class = class_name.constantize
+            if path.include?(nested_class)
+              raise ArgumentError, "#{model_class.name}.has_many :#{name} is recursive (#{(path + [ nested_class ]).map(&:name).join(' > ')}); recursive schemas are not supported"
+            end
+
+            key    = name.to_s.singularize.camelize(:lower).to_sym
+            nested = object_schema(nested_class, options.slice(:strict, :additional_properties), path)
+
+            [ [ key, nested ], *nested.delete(:$defs) ].each do |definition_key, definition|
+              if definitions.key?(definition_key) && definitions[definition_key] != definition
+                raise ArgumentError, "#{model_class.name} nests two different schemas under the definition #{definition_key.inspect}"
+              end
+
+              definitions[definition_key] = definition
+            end
+
+            schema[:properties][name] = { type: "array", items: { "$ref": "#/$defs/#{key}" } }
+          end
+
+          schema[:$defs] = definitions if definitions.any?
+          schema
+        end
+
         # Adds validation constraints to the schema.
         #
         # Translates ActiveModel validations (presence, length, numericality,
@@ -375,11 +490,14 @@ module ActiveAgent
               when ActiveModel::Validations::PresenceValidator
                 schema[:required] << attribute.to_sym unless schema[:required].include?(attribute.to_sym)
               when ActiveModel::Validations::LengthValidator
+                # An array, such as a has_many, is limited by its item count.
+                min_key, max_key = schema[:properties][attribute.to_sym][:type] == "array" ? [ :min_items, :max_items ] : [ :min_length, :max_length ]
+
                 if validator.options[:minimum]
-                  schema[:properties][attribute.to_sym][:min_length] = validator.options[:minimum]
+                  schema[:properties][attribute.to_sym][min_key] = validator.options[:minimum]
                 end
                 if validator.options[:maximum]
-                  schema[:properties][attribute.to_sym][:max_length] = validator.options[:maximum]
+                  schema[:properties][attribute.to_sym][max_key] = validator.options[:maximum]
                 end
               when ActiveModel::Validations::NumericalityValidator
                 if validator.options[:greater_than]
