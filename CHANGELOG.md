@@ -16,6 +16,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `Unexpected Response Event Type`. They are now handled, and `refusal.done`
   ends the generation, since a refused message never gets a `content.done`.
 
+## [1.9.1] - 2026-10-16
+
+Releases `activeagent` and `actionagent` 1.9.1, with the matching browser
+sidecar version. Adds user feedback to the dashboard. Upgrade by running
+`bin/rails generate action_agent:install --skip` and `bin/rails db:migrate`
+before deploying the updated dashboard (migration 027).
+
+### Added
+
+- Interaction feedback in `actionagent`: submit thumbs up/down and optional
+  comments through the authenticated feedback API, then review and filter votes
+  in an agent’s Feedback tab. Includes response span attribution, retry-safe vote
+  updates, workspace scoping, an upgrade migration and user feedback docs (#591).
+
 ## [1.9.0] - 2026-10-14
 
 Releases `activeagent` and `actionagent` 1.9.0 from one tag. A minor release.

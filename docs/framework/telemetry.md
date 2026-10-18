@@ -407,3 +407,9 @@ end
 - **[Instrumentation](/framework/instrumentation)** - Local logging with ActiveSupport::Notifications
 - **[Usage Statistics](/actions/usage)** - Token usage and cost tracking
 - **[Configuration](/framework/configuration)** - General framework configuration
+
+## User feedback
+
+Collect thumbs up/down with optional comments and review votes in the agent’s
+Feedback tab. See [User feedback](./feedback) for submission, authentication,
+upgrade instructions and dashboard filters.
