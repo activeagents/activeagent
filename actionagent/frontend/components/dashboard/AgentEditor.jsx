@@ -10,6 +10,7 @@ import InteractionsView from './InteractionsView';
 import EvaluationsView from './EvaluationsView';
 import AgentAnalytics from './AgentAnalytics';
 import AgentToolsTab from './AgentToolsTab';
+import AgentFeedbackTab from './AgentFeedbackTab';
 import { requestConfirm } from '../../utils/confirm.mjs';
 
 // The agent detail page carries two tab groups on one row: how the agent is
@@ -336,7 +337,7 @@ export default function AgentEditor({ agent, meta, onSave, onDelete, onRun, onDu
             </div>
           )}
           {activeTab === 'evals' && <EvaluationsView embedded agentId={agent.id} />}
-          {activeTab === 'feedback' && <FeedbackTab colors={colors} />}
+          {activeTab === 'feedback' && <AgentFeedbackTab agentId={agent.id} colors={colors} />}
         </div>
       ) : (
         <div
@@ -792,29 +793,6 @@ function CodeTab({ code, colors }) {
       >
         <code>{code || 'Loading...'}</code>
       </pre>
-    </div>
-  );
-}
-
-// Feedback has no recorded source yet — there is no feedback model or
-// endpoint in the app, so the tab states that plainly rather than charting
-// invented numbers.
-function FeedbackTab({ colors }) {
-  return (
-    <div
-      style={{
-        background: colors.cardBg,
-        border: `1px solid ${colors.cardBorder}`,
-        borderRadius: '12px',
-        padding: '20px'
-      }}
-    >
-      <EmptyState
-        colors={colors}
-        glyph="[?]"
-        title="No feedback recorded"
-        hint="Thumbs and comments are not captured yet. Once an interaction feedback source is recorded, CSAT and per-trace comments appear here."
-      />
     </div>
   );
 }
