@@ -227,7 +227,10 @@ test('a call that changes the page is refused, naming who drives, when control i
   const meta = refused.body.result._meta[TAKEOVER_META];
   assert.equal(meta.held_by, 'Ada');
   assert.equal(meta.since, new Date(lock.holder.since).toISOString());
-  assert.ok(meta.waited_ms >= 30);
+  // Node runs a timer once its millisecond clock, truncated, has moved on by
+  // the wait, so a 30ms wait can end just over 29ms after it began, and
+  // Date.now() then reads 29.
+  assert.ok(meta.waited_ms >= 29, `waited ${meta.waited_ms}ms`);
   assert.equal(log.length, before, 'the browser never saw the call');
 });
 
