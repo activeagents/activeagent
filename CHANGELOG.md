@@ -21,6 +21,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   empty-array default, and is added only to a class without one, so
   ActiveRecord's is untouched (#260).
 
+### Fixed
+
+- **Structured-output schema normalization preserves field names**
+  (`activeagent`). `prompt` converts JSON Schema keywords to camel case
+  without renaming properties or definitions, keeping multiword attributes
+  and `has_many` associations consistent with `required` and `$ref` in
+  strict schemas. Literal data in `default`, `const`, `enum` and `examples`
+  is preserved too (#260).
+
 ## [1.9.1] - 2026-10-16
 
 Releases `activeagent` and `actionagent` 1.9.1, with the matching browser
