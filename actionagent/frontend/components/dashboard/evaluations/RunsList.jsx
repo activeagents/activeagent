@@ -323,6 +323,9 @@ function RailRow({ row, selected = false, tabIndex = -1, card = false, onOpen, n
   const { run } = row;
   const note = noteFor ? noteFor(run) : null;
   const progress = card && run.status === 'running' ? runProgress(row.bars) : null;
+  // A failed run's error line stands where its bars would: only a model the
+  // run did reach keeps one.
+  const bars = combinedBars(run.status === 'failed' ? row.bars.filter((bar) => bar.passed != null && bar.total != null) : row.bars);
   const open = () => onOpen?.(run);
   return (
     <div
@@ -344,7 +347,9 @@ function RailRow({ row, selected = false, tabIndex = -1, card = false, onOpen, n
         ...style,
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+      {/* A card is as narrow as 200px: its badge may drop to a line of its own
+          rather than truncate the run's age to "2 d…". */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, flexWrap: card ? 'wrap' : 'nowrap' }}>
         <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: 'var(--color-text-primary)' }}>{`#${row.number}`}</span>
         <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--color-text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{row.when}</span>
         <VersionChip run={run} />
@@ -352,7 +357,7 @@ function RailRow({ row, selected = false, tabIndex = -1, card = false, onOpen, n
           <RunBadge run={run} short testId={row.latest ? 'suite-pass-badge' : undefined} />
         </span>
       </div>
-      {combinedBars(row.bars).map((bar) => <RailBar key={bar.label || 'all'} bar={bar} />)}
+      {bars.map((bar) => <RailBar key={bar.label || 'all'} bar={bar} />)}
       {progress && (
         <SegmentedBar
           parts={[{ value: progress.passed, tone: 'success' }, { value: progress.failed, tone: 'error' }]}
@@ -526,10 +531,12 @@ export function RunRail({
           data-testid="runs-rail-toggle"
           aria-expanded={expanded}
           onClick={() => setExpanded((value) => !value)}
-          className="hover:bg-[var(--color-hover)]"
+          // The resting background is a class too: an inline one would win
+          // over the hover utility.
+          className="bg-transparent hover:bg-[var(--color-hover)]"
           style={{
             display: 'block', width: '100%', textAlign: 'left', padding: '6px 12px', border: 0, borderTop: '1px solid var(--color-border-light)',
-            background: 'none', cursor: 'pointer', fontFamily: MONO, fontSize: 11, color: 'var(--color-text-secondary)',
+            cursor: 'pointer', fontFamily: MONO, fontSize: 11, color: 'var(--color-text-secondary)',
           }}
         >
           {expanded ? `[-] latest ${limit}` : `[+] ${plural(hidden, 'earlier run')}`}

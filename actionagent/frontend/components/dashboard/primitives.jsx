@@ -85,19 +85,25 @@ export function MicroLabel({ children, size = 11, color = 'var(--color-text-seco
 }
 
 // A selectable chip. Pill (radius 999) by default, radius 6 when `square`.
-export function Chip({ selected = false, onClick, children, square = false, mono = false, title, style, testId }) {
+// `disabled` dims it to half and takes it out of the Tab order (its `title`
+// says why), so a chip that cannot be used yet is not a live button that
+// does nothing.
+export function Chip({ selected = false, onClick, children, square = false, mono = false, disabled = false, title, style, testId }) {
   return (
     <button
       type="button"
       data-testid={testId}
-      onClick={onClick}
+      onClick={disabled ? undefined : onClick}
+      disabled={disabled}
+      aria-disabled={disabled || undefined}
       title={title}
       style={{
-        padding: '4px 10px', borderRadius: square ? 6 : 999, cursor: onClick ? 'pointer' : 'default',
+        padding: '4px 10px', borderRadius: square ? 6 : 999, cursor: onClick && !disabled ? 'pointer' : 'default',
         fontFamily: mono ? MONO : 'inherit', fontSize: mono ? 11 : 12, fontWeight: mono ? 400 : 500,
         background: selected ? 'var(--color-accent-ui-tint)' : 'var(--color-card)',
         border: `1px solid ${selected ? 'var(--color-accent-ui)' : 'var(--color-border)'}`,
         color: selected ? 'var(--color-accent-ui)' : mono ? 'var(--color-text-muted)' : 'var(--color-text-cell)',
+        opacity: disabled ? 0.5 : undefined,
         ...style,
       }}
     >

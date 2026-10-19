@@ -90,13 +90,43 @@ export function runScenarioCount(run, columns = [], scenarios = []) {
   return 0;
 }
 
-// Passed / total for one model of a run — from the run's summary once it is
-// complete, otherwise counted from the results that have landed.
+// Passed / failed / total for one model of a run — from the run's summary
+// once it is complete, otherwise counted from the results that have landed.
+// `failed` is what settled without passing (a running run's progress bar
+// draws it red; the summary's is the scenarios that did not pass).
 export function modelPassStats(run, label, results = [], scenarioCount = 0) {
   const stats = run?.scores?._models?.[label];
-  if (stats && stats.scenarios != null) return { passed: stats.passed || 0, total: stats.scenarios || 0 };
+  if (stats && stats.scenarios != null) {
+    const passed = stats.passed || 0;
+    const total = stats.scenarios || 0;
+    return { passed, failed: Math.max(total - passed, 0), total };
+  }
   const mine = results.filter((r) => labelForResult(run, r) === label);
-  return { passed: mine.filter(isPassed).length, total: scenarioCount || mine.length };
+  return {
+    passed: mine.filter(isPassed).length,
+    failed: mine.filter((r) => isSettled(r) && !isPassed(r)).length,
+    total: scenarioCount || mine.length,
+  };
+}
+
+// The bars a run's rail row, header tile and box header draw: one per model
+// column — its passes over its scenarios, from the run's summary once it is
+// complete, else counted from `results` (the shown run's landed results; a
+// run that is not shown has none loaded, so its bars read from its summary
+// alone). A model the run recorded nothing for and is not replaying — it
+// failed before it reached that model — gets null counts, which every bar
+// draws as a dash: a `0/100` there would say two hundred replays all failed
+// when none ran.
+export function runBars(run, results = [], evaluation = null, scenarios = []) {
+  const columns = modelColumns(run, results, evaluation);
+  const count = runScenarioCount(run, columns, scenarios);
+  return columns.map((label) => {
+    const bar = { label, short: splitModelLabel(label).short };
+    const counted = run?.scores?._models?.[label]?.scenarios != null
+      || inProgress(run)
+      || results.some((r) => labelForResult(run, r) === label);
+    return counted ? { ...bar, ...modelPassStats(run, label, results, count) } : { ...bar, passed: null, failed: null, total: null };
+  });
 }
 
 // Passed / total scenario runs (scenario × model) of a run.
@@ -459,10 +489,16 @@ const EMPTY_LIST = [];
 const EMPTY_MAP = {};
 const EMPTY_SET = new Set();
 
-// A scenario key as a querySelector attribute value.
-const escapeKey = (key) => (typeof CSS !== 'undefined' && typeof CSS.escape === 'function'
+// A scenario key as a querySelector attribute value (the panel uses it too,
+// to focus the row a fix card opened).
+export const escapeKey = (key) => (typeof CSS !== 'undefined' && typeof CSS.escape === 'function'
   ? CSS.escape(String(key))
   : String(key).replace(/["\\]/g, '\\$&'));
+
+// How long a smooth scroll the box issued may still be gliding; a layout
+// change under the cursor inside this window resumes the glide rather than
+// snapping to where it would have ended.
+const SMOOTH_SCROLL_MS = 600;
 
 const cssLength = (value) => (typeof value === 'number' ? `${value}px` : value);
 
@@ -565,6 +601,7 @@ const ScenarioRow = React.memo(function ScenarioRow({
       data-nav={key}
       data-current={current ? 'true' : undefined}
       role="button"
+      aria-expanded={open}
       tabIndex={tabIndex}
       // A narrow box drops the key from the line; the row's tooltip keeps it.
       title={steps && !showKey ? `${keyText} · ${scenario.prompt || ''}` : undefined}
@@ -703,7 +740,6 @@ export function ScenarioMatrix({
 
   const scrollRef = useRef(null);
   const headerRef = useRef(null);
-  const detailRef = useRef(null);
   const [headerHeight, setHeaderHeight] = useState(50);
   const [detailHeight, setDetailHeight] = useState(0);
   const headerHeightRef = useRef(headerHeight);
@@ -745,26 +781,51 @@ export function ScenarioMatrix({
     return () => observer.disconnect();
   }, []);
 
-  // The open drill-down's height, by which the box grows past its cap.
-  useIsoLayoutEffect(() => {
-    const el = detailRef.current;
+  // The open drill-down's wrapper, as it comes and goes. Its height is what
+  // the box grows by past its cap — measured on arrival, watched while it is
+  // there, 0 once it is gone — and its arrival puts the row directly under
+  // the column header and its group row, so the drill-down starts in view.
+  // Keyed on the element rather than on openKey because the wrapper also
+  // leaves and returns while the row stays open: a fold of its group, a
+  // filter that hides the row and is cleared again. Each return is a new
+  // element to measure, watch and position; an effect on openKey would see
+  // none of them. Runs in the commit's layout phase, before paint.
+  const attachDetail = useCallback((el) => {
     if (!el) {
       setDetailHeight(0);
       return undefined;
     }
     const measure = () => setDetailHeight(el.offsetHeight);
     measure();
-    if (typeof ResizeObserver === 'undefined') return undefined;
-    const observer = new ResizeObserver(measure);
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [openKey]);
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measure);
+    observer?.observe(el);
+    const box = scrollRef.current;
+    const row = el.previousElementSibling;
+    if (box && row?.hasAttribute('data-scenario-key')) {
+      const groupRow = row.closest('[data-group]')?.querySelector('[data-testid="scenario-group-row"]');
+      box.scrollTo({
+        top: openRowScrollTop({ rowTop: row.offsetTop, headerHeight: headerHeightRef.current, groupRowHeight: groupRow?.offsetHeight ?? 0 }),
+        behavior: 'smooth',
+      });
+    }
+    return () => {
+      observer?.disconnect();
+      setDetailHeight(0);
+    };
+  }, []);
 
   // Following: a cursor that moved scrolls smoothly to a third of the way
   // down the box; a cursor whose surroundings moved (a group folded, a
   // filter or the detail level changed) is put back there before paint.
+  // When the surroundings move while that glide is still going — the group
+  // above the cursor folds the moment the cursor enters the next one, the
+  // usual case in scenario-major order — the box is shifted by the fold
+  // before paint, so the row stays where the glide had it, and the glide is
+  // issued again to the new target rather than cut short with a hop.
   // Nothing moves on an unchanged poll, or while the cursor is hidden.
   const lastCursor = useRef(null);
+  const lastTarget = useRef(null);
+  const glidingUntil = useRef(0);
   useIsoLayoutEffect(() => {
     const box = scrollRef.current;
     if (!box || !following || !currentKey) {
@@ -775,25 +836,20 @@ export function ScenarioMatrix({
     if (!row) return;
     const target = cursorScrollTop({ rowTop: row.offsetTop, headerHeight, boxHeight: box.clientHeight });
     if (Math.abs(target - box.scrollTop) > 4) {
-      if (currentKey !== lastCursor.current) box.scrollTo({ top: target, behavior: 'smooth' });
-      else box.scrollTop = target;
+      const gliding = Date.now() < glidingUntil.current && lastTarget.current != null;
+      if (currentKey !== lastCursor.current) {
+        box.scrollTo({ top: target, behavior: 'smooth' });
+        glidingUntil.current = Date.now() + SMOOTH_SCROLL_MS;
+      } else if (gliding) {
+        box.scrollTop = Math.max(0, box.scrollTop - (lastTarget.current - target));
+        box.scrollTo({ top: target, behavior: 'smooth' });
+      } else {
+        box.scrollTop = target;
+      }
     }
     lastCursor.current = currentKey;
+    lastTarget.current = target;
   }, [currentKey, following, collapsedGroups, rows, detail, headerHeight]);
-
-  // An opened row goes directly under the column header and its group row,
-  // so its drill-down starts in view.
-  useIsoLayoutEffect(() => {
-    const box = scrollRef.current;
-    if (!box || !openKey) return;
-    const row = box.querySelector(`[data-scenario-key="${escapeKey(openKey)}"]`);
-    if (!row) return;
-    const groupRow = row.closest('[data-group]')?.querySelector('[data-testid="scenario-group-row"]');
-    box.scrollTo({
-      top: openRowScrollTop({ rowTop: row.offsetTop, headerHeight: headerHeightRef.current, groupRowHeight: groupRow?.offsetHeight ?? 0 }),
-      behavior: 'smooth',
-    });
-  }, [openKey]);
 
   // Keeps a row the arrow keys landed on out from under the sticky header
   // and its group row, and within the box.
@@ -848,9 +904,14 @@ export function ScenarioMatrix({
       }}
     >
       <div style={{ minWidth }}>
+        {/* The header's muted tint sits on an opaque surface: rows scroll
+            under it, and the dark theme's tint alone is 95% transparent. */}
         <div
           ref={headerRef}
-          style={{ display: 'grid', gridTemplateColumns: grid, gap, padding: '8px 12px', background: 'var(--color-muted)', alignItems: 'end', position: 'sticky', top: 0, zIndex: 2 }}
+          style={{
+            display: 'grid', gridTemplateColumns: grid, gap, padding: '8px 12px', alignItems: 'end', position: 'sticky', top: 0, zIndex: 2,
+            backgroundColor: 'var(--color-surface)', backgroundImage: 'linear-gradient(var(--color-muted), var(--color-muted))',
+          }}
         >
           <MicroLabel size={10} color="var(--color-text-muted)">{steps ? 'Step' : 'Scenario'}</MicroLabel>
           {!steps && <MicroLabel size={10} color="var(--color-text-muted)">Expects</MicroLabel>}
@@ -959,7 +1020,7 @@ export function ScenarioMatrix({
                       onToggle={toggleRow}
                       onFocus={focusNav}
                     />
-                    {open && <div ref={detailRef}>{renderDetail?.(scenario)}</div>}
+                    {open && <div ref={attachDetail}>{renderDetail?.(scenario)}</div>}
                   </div>
                 );
               })}

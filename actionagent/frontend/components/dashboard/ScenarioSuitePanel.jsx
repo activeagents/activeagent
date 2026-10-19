@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { navigateTo } from '../../utils/dashboardPath';
 import { Button, Chip, Empty, MicroLabel, MonoLink, MONO } from './primitives';
-import { splitModelLabel } from '../../utils/format';
 import { scenarioRowsForRun } from '../../utils/evaluationHistory.mjs';
 import {
   DETAILS_KEPT, KEY_COLUMN_MIN_WIDTH, PANEL_GUTTER, RAIL_BREAKPOINT, RAIL_GAP, RAIL_WIDTH, RUNS_SHOWN, STEPS_HEIGHT,
@@ -20,8 +19,8 @@ import CriteriaFooter from './evaluations/CriteriaFooter';
 import { scenariosToText } from '../../utils/scenarioSuiteText.mjs';
 import {
   FixList, ModelsPanel, ScenarioDetail, ScenarioMatrix,
-  fixItemsFor, inProgress, isPassed, isSettled, labelForResult, modelColumns, modelPassStats, plural,
-  runScenarioCount, runScenarioKeys, runTotalOf, runTotals,
+  escapeKey, fixItemsFor, inProgress, isPassed, isSettled, labelForResult, modelColumns, plural,
+  runBars, runScenarioCount, runScenarioKeys, runTotalOf, runTotals,
 } from './EvaluationRunPanels';
 
 // The expanded body of a scenario-suite evaluation, read like a build page:
@@ -137,9 +136,6 @@ export default function ScenarioSuitePanel({
   const [detailChoice, setDetailChoice] = useState(() => readDetailChoice(storage()));
   // Row order: the suite's, or failed groups and rows first.
   const [order, setOrder] = useState('suite');
-  // Bumped after every poll that leaves the run unfinished, so the next poll
-  // is scheduled even when nothing else about the run changed.
-  const [pollTick, setPollTick] = useState(0);
 
   const rootRef = useRef(null);
   const boxRef = useRef(null);
@@ -151,8 +147,9 @@ export default function ScenarioSuitePanel({
   const rowCache = useRef(new Map());
   const resultsByKeyRef = useRef({});
   const detailsRef = useRef(details);
-  // Set when the tab comes back: the next poll fires at once.
-  const immediatePoll = useRef(false);
+  const selectedRef = useRef(selectedRunId);
+  // The poll's timer, re-armed from inside its own callback.
+  const pollTimer = useRef(null);
   const width = useMeasuredWidth(rootRef);
 
   // --- layout -----------------------------------------------------------
@@ -207,9 +204,11 @@ export default function ScenarioSuitePanel({
     }
   }, [evaluationId]);
 
-  // The details the fetch reconciles against: the state as last rendered.
+  // The details the fetch reconciles against, and the run shown: the state
+  // as last rendered, for the effects that read it after an await.
   useIsoLayoutEffect(() => {
     detailsRef.current = details;
+    selectedRef.current = selectedRunId;
   });
 
   // A run with its results. One request per run id is in flight at a time;
@@ -286,9 +285,16 @@ export default function ScenarioSuitePanel({
           return;
         }
       }
+      // The run shown so far (the index's latest run) stays shown while the
+      // page still lists it — a run started elsewhere since the index was
+      // read does not take its place — else the latest is shown. Whichever
+      // it is, that is the run fetched: a selection whose detail was never
+      // requested would read "loading results…" for good.
       const wanted = inPage ? initialRunId : null;
-      setSelectedRunId((current) => wanted || (current && suite?.runs?.some((r) => r.id === current) ? current : latestId));
-      if (wanted || latestId) fetchRunDetail(wanted || latestId);
+      const current = selectedRef.current;
+      const next = wanted || (current && suite?.runs?.some((r) => r.id === current) ? current : latestId);
+      setSelectedRunId(next);
+      if (next) fetchRunDetail(next);
     })();
     return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -309,49 +315,48 @@ export default function ScenarioSuitePanel({
 
   // A run replays every scenario through the provider, so it finishes in the
   // background; poll the run being viewed (or the latest, when that is the
-  // one still going) until it settles. Nothing is armed while the tab is
-  // hidden, and a timer that fires hidden neither fetches nor re-arms: the
-  // visibility listener below restarts polling, at once, when the tab is
-  // back. The wait grows with the polled run's result count, since every
-  // poll re-sends every result.
+  // one still going) until it settles. The timer re-arms itself from inside
+  // its callback — a poll that found the run still going, failed or was
+  // refused touches no state, so an unchanged poll re-renders nothing at
+  // all. Nothing is armed while the tab is hidden, and a timer that fires
+  // hidden neither fetches nor re-arms: the visibility listener restarts
+  // polling, at once, when the tab is back. The wait grows with the polled
+  // run's result count, since every poll re-sends every result.
   const pollId = inProgress(selectedRun) ? selectedRun.id : inProgress(latestRun) ? latestRun.id : null;
   useEffect(() => {
-    if (!pollId || hidden()) return undefined;
-    const delay = immediatePoll.current ? 0 : pollIntervalFor(detailsRef.current[pollId]?.results?.length ?? 0);
-    immediatePoll.current = false;
+    if (!pollId) return undefined;
     let cancelled = false;
-    const timer = setTimeout(async () => {
-      if (hidden()) return;
-      let latest = null;
-      try {
-        latest = await fetchRunDetail(pollId);
-      } catch (_error) {
-        latest = null;
-      }
-      if (cancelled) return;
-      if (latest && !inProgress(latest)) {
-        await fetchSuite();
-        onChanged?.();
-        return;
-      }
-      // A poll that failed, was refused, or found the run still going leaves
-      // this effect's inputs untouched, so re-arm it explicitly rather than
-      // leaving the run stuck on "running".
-      setPollTick((tick) => tick + 1);
-    }, delay);
-    return () => { cancelled = true; clearTimeout(timer); };
-  }, [pollId, pollTick, fetchRunDetail, fetchSuite, onChanged]);
-
-  useEffect(() => {
-    if (!pollId || typeof document === 'undefined') return undefined;
-    const onVisibility = () => {
-      if (document.visibilityState !== 'visible') return;
-      immediatePoll.current = true;
-      setPollTick((tick) => tick + 1);
+    const interval = () => pollIntervalFor(detailsRef.current[pollId]?.results?.length ?? 0);
+    const arm = (delay) => {
+      clearTimeout(pollTimer.current);
+      pollTimer.current = setTimeout(async () => {
+        if (cancelled || hidden()) return;
+        let latest = null;
+        try {
+          latest = await fetchRunDetail(pollId);
+        } catch (_error) {
+          latest = null;
+        }
+        if (cancelled) return;
+        if (latest && !inProgress(latest)) {
+          await fetchSuite();
+          onChanged?.();
+          return;
+        }
+        arm(interval());
+      }, delay);
     };
-    document.addEventListener('visibilitychange', onVisibility);
-    return () => document.removeEventListener('visibilitychange', onVisibility);
-  }, [pollId]);
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') arm(0);
+    };
+    if (!hidden()) arm(interval());
+    if (typeof document !== 'undefined') document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      cancelled = true;
+      clearTimeout(pollTimer.current);
+      if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, [pollId, fetchRunDetail, fetchSuite, onChanged]);
 
   // The checkout sandboxes a run can replay against. Listing them is a
   // convenience: a dashboard without sandboxes (or one that refuses the
@@ -566,14 +571,21 @@ export default function ScenarioSuitePanel({
   const criteriaKeys = Object.keys(run?.scores || {}).filter((key) => !key.startsWith('_'));
 
   // The rows of the runs list: one pass bar per model column of each run.
-  // The selected run's bars count from the results that have landed, so a
-  // run still replaying fills in as it goes.
-  const barsFor = useCallback((candidate) => {
-    const mine = candidate.id === run?.id ? results : [];
-    const cols = modelColumns(candidate, mine, evaluation);
-    const count = runScenarioCount(candidate, cols, scenarios);
-    return cols.map((label) => ({ label, short: splitModelLabel(label).short, ...modelPassStats(candidate, label, mine, count) }));
-  }, [run, results, evaluation, scenarios]);
+  // Bars count from the results that have landed for that run — the shown
+  // run's, or a cached run's: the polled run keeps landing while an older
+  // run is shown, so its rail card fills in as it goes instead of reading
+  // 0/n from a summary it does not have yet. A run with nothing loaded
+  // reads from its summary; a run that recorded nothing for a model draws
+  // a dash there, not a 0/n.
+  const barsFor = useCallback(
+    (candidate) => runBars(
+      candidate,
+      candidate.id === run?.id ? results : (details[candidate.id]?.results || []).filter((r) => r && r.scenario_key),
+      evaluation,
+      scenarios,
+    ),
+    [run, results, details, evaluation, scenarios],
+  );
 
   // Movement is only read against a run of the same shape — the same
   // scenarios under the same number of models — so a partial run (one
@@ -707,7 +719,9 @@ export default function ScenarioSuitePanel({
   // are on screen. Filters are cleared and its group unfolded first — the
   // row is often one a chip, "failed only" or a fold is currently hiding —
   // and the page scrolls to the box, where the matrix puts the row under
-  // its header.
+  // its header. Focus moves to the row with it: the card that was activated
+  // is a screen below, and from the row Esc, ↑ and ↓ work as they would
+  // had the row been opened in place.
   const openScenario = useCallback((keys) => {
     const key = Array.isArray(keys) ? keys[0] : keys;
     if (!key) return;
@@ -725,7 +739,10 @@ export default function ScenarioSuitePanel({
     setFollowing(false);
     // The box renders the row after the filters clear; the page scroll waits a frame.
     requestAnimationFrame(() => {
-      boxRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      const box = boxRef.current;
+      if (!box) return;
+      box.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      box.querySelector(`[data-scenario-key="${escapeKey(key)}"]`)?.focus({ preventScroll: true });
     });
   }, [matrixScenarios]);
 
@@ -978,7 +995,7 @@ export default function ScenarioSuitePanel({
                   {order === 'failed-first' ? '[x] failed first' : '[ ] failed first'}
                 </Chip>
               ) : (
-                <Chip square mono style={{ background: 'transparent', opacity: 0.5 }} title="applies once the run completes" testId="suite-order-toggle">
+                <Chip square mono disabled style={{ background: 'transparent' }} title="applies once the run completes" testId="suite-order-toggle">
                   [ ] failed first
                 </Chip>
               )
@@ -1053,12 +1070,14 @@ export default function ScenarioSuitePanel({
         </div>
       )}
 
-      {/* Footer */}
+      {/* Footer. The run's total closes its spend line: the suite has no
+          SpendStrip to carry it. */}
       <CriteriaFooter
         evaluation={evaluation}
         run={run}
         keys={criteriaKeys.length ? criteriaKeys : null}
         spend={runSpend(run)}
+        spendTotal
         reportPath={reportPath}
         onDelete={onDelete}
         deleting={deleting}
