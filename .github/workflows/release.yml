@@ -14,16 +14,15 @@ name: Release
 #
 # The browser sidecar (browser-sidecar/) is published at the dashboard's
 # version too: the npm package through npm trusted publishing (OIDC, no
-# stored token) as a staged publish, and the image to
+# stored token), and the image to
 # ghcr.io/activeagents/browser-sidecar with the workflow's own token. Each is
 # skipped when that version is already published; the npm job then fails if
 # browser-sidecar/ no longer packs the same as that published version, since
 # a sidecar change needs a new version.
 #
-# A staged publish is not public until a maintainer approves it with 2FA, on
-# npmjs.com or with `npm stage approve` (`npm stage list` shows what waits).
-# The trusted publisher on npmjs.com for @activeagents/browser-sidecar must
-# name this repository and this workflow file (release.yml).
+# The package is public as soon as the job succeeds; there is no staging
+# step. The trusted publisher on npmjs.com for @activeagents/browser-sidecar
+# must name this repository and this workflow file (release.yml).
 on:
   push:
     tags: [ "v*" ]
@@ -130,11 +129,11 @@ jobs:
         with:
           node-version: 24
           registry-url: https://registry.npmjs.org
-      # Trusted publishing needs npm 11.5.1 or later, and `npm stage` a
-      # recent 11.x; the npm bundled with Node may be older.
+      # Trusted publishing needs npm 11.5.1 or later; the npm bundled with
+      # Node may be older.
       - name: Update npm
         run: npm install -g npm@11
-      - name: Stage the package unless this version is on npm
+      - name: Publish the package unless this version is on npm
         run: |
           version="$(node -p 'require("./package.json").version')"
           engine="$(sed -nE 's/^ *VERSION = "([^"]+)".*/\1/p' ../actionagent/lib/action_agent/version.rb)"
@@ -150,8 +149,8 @@ jobs:
             exit 0
           fi
           npm ci
-          npm stage publish
-          echo "::notice::@activeagents/browser-sidecar ${version} is staged; approve it on npmjs.com or with npm stage approve."
+          npm publish
+          echo "::notice::@activeagents/browser-sidecar ${version} is published."
 
   publish-browser-sidecar-image:
     if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
