@@ -1,11 +1,13 @@
-import React, { useState } from 'react';
-import { Badge, Button, Card, Chip, Empty, Glyph, MicroLabel, MonoLink, MONO } from './primitives';
+import React, { useCallback, useRef, useState } from 'react';
+import { Badge, Button, Card, Chip, Empty, Glyph, MicroLabel, MonoLink, MONO, PassBar } from './primitives';
 import { fmtK, fmtMs, splitModelLabel } from '../../utils/format';
 import { COST_LEGEND, costTitle, fmtPasses, fmtScore, fmtSpend } from '../../utils/evalFormat.mjs';
 import {
-  RUNS_PAGE, costPer, fixItemCountsByModel, fixItemsForModel, isEstimated, modelComparisonRows, plural, pricedCount, runSpend,
-  runTotalOf, runsMeta, withModelBreakdown,
+  RUNS_PAGE, costPer, cursorScrollTop, fixItemCountsByModel, fixItemsForModel, groupStep, isEstimated, modelComparisonRows,
+  openRowScrollTop, plural, pricedCount, runScenarioKeys, runSpend, runTotalOf, runnableKeys, runsMeta, scenarioStep, scenarioTime,
+  selectionModelLabels, selectionOf, stepsMinWidth, toolsMinWidth, withModelBreakdown,
 } from '../../utils/evaluationRuns.mjs';
+import { useIsoLayoutEffect } from '../../hooks/useMeasuredWidth';
 import ModelScorecard from './evaluations/ModelScorecard';
 import ModelComparisonTable from './evaluations/ModelComparisonTable';
 import CopyFixPromptButton, { dashboardUrl } from './evaluations/CopyFixPromptButton';
@@ -14,14 +16,15 @@ import ReplayLink from './replay/ReplayLink';
 import { fixPromptMarkdown } from '../../utils/fixPrompt.mjs';
 
 // The panels a scenario suite's expanded body is built from — Models, the
-// scenario matrix and a scenario's drill-down, What to fix — plus the
-// derivations they share. The runs list is evaluations/RunsList, shared with
-// the sampling evaluations. Everything here is presentational: state,
-// fetching and mutations live in ScenarioSuitePanel.
+// step box (the scenario × model matrix read like a build's steps) and a
+// scenario's drill-down, What to fix — plus the derivations they share. The
+// runs rail is evaluations/RunsList, shared with the sampling evaluations;
+// the run's header card is evaluations/RunHeader. Everything here is
+// presentational: state, fetching and mutations live in ScenarioSuitePanel.
 
-// The run-history helpers moved to the shared vocabulary module; re-exported
-// so their existing importers keep working.
-export { RUNS_PAGE, plural, runTotalOf, runsMeta };
+// The run-history helpers and a run's selection readers moved to the shared
+// vocabulary module; re-exported so their existing importers keep working.
+export { RUNS_PAGE, plural, runScenarioKeys, runTotalOf, runsMeta, selectionModelLabels, selectionOf };
 
 // ---------------------------------------------------------------------------
 // Derivations
@@ -42,15 +45,6 @@ export const faultName = (fault) => String(fault || '').replace(/_/g, ' ');
 export const isPassed = (result) => result?.status === 'passed';
 export const isSettled = (result) => !!result && result.status !== 'pending';
 export const inProgress = (run) => !!run && ['pending', 'running'].includes(run.status);
-
-// A pending run's selection is the request as posted ({ group } / { keys } /
-// { models: ["a", "b"] }); once the runner starts it becomes the resolved
-// summary ({ scenario_keys, models: [{ label, provider, model }] }). Both are
-// read here.
-const selectionOf = (run) => run?.selection || run?.scores?._selection || {};
-
-export const selectionModelLabels = (run) =>
-  (selectionOf(run).models || []).map((m) => (typeof m === 'string' ? m : m?.label)).filter(Boolean);
 
 // The model columns of a run, in the order they were requested.
 export function modelColumns(run, results = [], evaluation = null) {
@@ -85,23 +79,6 @@ export function describeModel(run, label) {
   const stats = run?.scores?._models?.[label];
   const spec = (selectionOf(run).models || []).find((m) => m && typeof m === 'object' && m.label === label);
   return splitModelLabel(label, stats?.provider || spec?.provider || '');
-}
-
-// The scenario keys a run covers: the resolved selection once the runner
-// started; before that, what the request implies against the suite.
-export function runScenarioKeys(run, scenarios = []) {
-  const selection = selectionOf(run);
-  if (Array.isArray(selection.scenario_keys) && selection.scenario_keys.length) return selection.scenario_keys;
-  if (!run) return [];
-  if (Array.isArray(selection.keys) && selection.keys.length) return selection.keys;
-  if (Array.isArray(selection.scenario_ids) && selection.scenario_ids.length) {
-    const ids = selection.scenario_ids.map(String);
-    return scenarios.filter((s) => ids.includes(String(s.id))).map((s) => s.key);
-  }
-  const enabled = scenarios.filter((s) => s.enabled !== false);
-  if (selection.group) return enabled.filter((s) => s.group === selection.group).map((s) => s.key);
-  if (inProgress(run)) return enabled.map((s) => s.key);
-  return [];
 }
 
 export function runScenarioCount(run, columns = [], scenarios = []) {
@@ -338,8 +315,25 @@ export const sumScenarioCosts = (entries = []) => {
   return { cost, judgeCost, total: (cost || 0) + (judgeCost || 0), estimated: present.some((entry) => entry.estimated) };
 };
 
-function CostBlock({ entry, testId }) {
+// A cost cell: the agent's figure over the judge's, or — `compact`, the
+// steps level's one line — the total, with the two shares in its title.
+function CostBlock({ entry, compact = false, testId }) {
   if (!entry) return <span style={{ ...mono(12), textAlign: 'right' }} data-testid={testId}>—</span>;
+  if (compact) {
+    const total = entry.total ?? (entry.cost != null || entry.judgeCost != null ? (entry.cost || 0) + (entry.judgeCost || 0) : null);
+    const shares = [];
+    if (entry.cost != null) shares.push(`agent ${fmtSpend(entry.cost, { estimated: entry.estimated })}`);
+    if (entry.judgeCost != null) shares.push(`judge ${fmtSpend(entry.judgeCost, { estimated: entry.estimated })}`);
+    return (
+      <span
+        data-testid={testId}
+        title={shares.join(' · ') || undefined}
+        style={{ fontFamily: MONO, fontSize: 11, fontWeight: 600, color: 'var(--color-text-primary)', textAlign: 'right', whiteSpace: 'nowrap' }}
+      >
+        {fmtSpend(total, { estimated: entry.estimated })}
+      </span>
+    );
+  }
   return (
     <span style={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0, textAlign: 'right', fontFamily: MONO, fontSize: 11, color: 'var(--color-text-secondary)' }} data-testid={testId}>
       <span style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>{fmtSpend(entry.cost, { estimated: entry.estimated })}</span>
@@ -447,13 +441,39 @@ export function ModelsPanel({ run, columns, results = [], scenarioCount = 0, jud
 }
 
 // ---------------------------------------------------------------------------
-// SCENARIOS matrix
+// SCENARIOS — the step box
 
-const gridFor = (columns) => `minmax(240px, 1.6fr) 150px ${columns.map(() => 'minmax(170px, 1fr)').join(' ')} 120px`;
+// The box's grid at each detail level for `n` model columns. `steps` is one
+// line a scenario — glyph · key · prompt · a cell per model · cost · time;
+// `tools` is the fuller row — the two-line scenario, EXPECTS, three-line
+// result cells with their tool calls and cost. stepsMinWidth / toolsMinWidth
+// are what these add up to, so the box scrolls sideways inside itself
+// rather than squeezing a column.
+const gridFor = (level, n) => (level === 'tools'
+  ? ['minmax(220px, 1.6fr)', '130px', ...Array(n).fill('minmax(160px, 1fr)'), '110px'].join(' ')
+  : ['minmax(200px, 1.6fr)', ...Array(n).fill('minmax(130px, 1fr)'), '80px', '48px'].join(' '));
 
-// No result yet reads "…" while the run is still replaying it; a scenario
-// outside the run's selection (or one whose replay never landed) reads "—".
-function ResultCell({ result, expects, pending }) {
+const GRID_GAP = { tools: 10, steps: 8 };
+
+const EMPTY_LIST = [];
+const EMPTY_MAP = {};
+const EMPTY_SET = new Set();
+
+// A scenario key as a querySelector attribute value.
+const escapeKey = (key) => (typeof CSS !== 'undefined' && typeof CSS.escape === 'function'
+  ? CSS.escape(String(key))
+  : String(key).replace(/["\\]/g, '\\$&'));
+
+const cssLength = (value) => (typeof value === 'number' ? `${value}px` : value);
+
+const isFormField = (el) => ['INPUT', 'TEXTAREA', 'SELECT'].includes(el?.tagName);
+
+// No result yet reads "…" while the run is still replaying it (or its
+// results are still being fetched); a scenario outside the run's selection
+// (or one whose replay never landed) reads "—". `compact` is the steps
+// level's one line — glyph, score and fault — with the tool calls, the cost
+// and the time in its title.
+function ResultCell({ result, expects, pending, compact = false }) {
   if (!result) {
     return <span style={{ ...mono(12), fontWeight: 600 }}>{pending ? '…' : '—'}</span>;
   }
@@ -461,6 +481,18 @@ function ResultCell({ result, expects, pending }) {
   const pass = isPassed(result);
   const color = pass ? 'var(--color-success)' : 'var(--color-error)';
   const calls = callList(result.tool_calls, expects);
+  if (compact) {
+    const fault = result.fault ? faultName(result.fault) : result.status === 'errored' ? 'errored' : null;
+    const cost = resultCostText(result);
+    const title = `${calls.map((call) => call.label).join(' ') || 'no tools called'}${cost ? ` · ${cost}` : ''}${result.duration_ms != null ? ` · ${fmtMs(result.duration_ms)}` : ''}`;
+    return (
+      <span title={title} style={{ display: 'flex', alignItems: 'baseline', gap: 6, minWidth: 0, fontFamily: MONO, fontSize: 12, whiteSpace: 'nowrap' }}>
+        <span style={{ fontWeight: 700, color, flexShrink: 0 }}>{pass ? '[+]' : '[!]'}</span>
+        <span style={{ fontWeight: 600, color, flexShrink: 0 }}>{fmtScore(result.score)}</span>
+        {fault && <span style={{ fontSize: 11, color: 'var(--color-error-text)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>{fault}</span>}
+      </span>
+    );
+  }
   return (
     <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 3 }}>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, flexWrap: 'wrap', fontFamily: MONO, fontSize: 12 }}>
@@ -476,16 +508,174 @@ function ResultCell({ result, expects, pending }) {
   );
 }
 
-// `rows` are the scenarios to show, in suite order, already filtered. Each
-// carries `.key`, `.prompt`, `.group`, `.expectations`. Group rows are
-// inserted where the group changes.
-export function ScenarioMatrix({ rows, columns, run, resultsByKey, runKeys, running, openKey, onToggleRow, emptyLabel, renderDetail }) {
-  const grid = gridFor(columns);
-  const hasGroups = rows.some((s) => s.group);
-  const costOf = (scenario) => scenarioCost(run, scenario.key, resultsByKey[scenario.key]);
-  const estimatedAnywhere = rows.some((scenario) => costOf(scenario)?.estimated);
+// A scenario's step marker, the way a build lists its steps. `none` is the
+// catalog before any run; `loading` a run whose results are still being
+// fetched — never `missing`, which would say the run ended without them.
+export const STEP_MARK = {
+  passed: { text: '[+]', color: 'var(--color-success)', title: 'passed on every model' },
+  failed: { text: '[!]', color: 'var(--color-error)', title: 'failed on at least one model' },
+  running: { text: '[~]', color: 'var(--color-warning-text)', title: 'running' },
+  queued: { text: '[ ]', color: 'var(--color-text-muted)', title: 'queued' },
+  missing: { text: '[?]', color: 'var(--color-text-muted)', title: 'the run ended without its results' },
+  skipped: { text: '[-]', color: 'var(--color-text-muted)', title: 'not in this run' },
+  none: { text: '[ ]', color: 'var(--color-text-muted)', title: 'not run yet' },
+  loading: { text: '[ ]', color: 'var(--color-text-muted)', title: 'loading results…' },
+};
 
-  // Group rows in order of first appearance.
+const sameCost = (a, b) => a === b
+  || (!!a && !!b && a.cost === b.cost && a.judgeCost === b.judgeCost && a.total === b.total && a.estimated === b.estimated);
+
+// Every prop by identity — the catalog row (scenarioRowsForRun's cache), its
+// results (groupResultsByKey) and the columns (the panel's ref) keep theirs
+// while nothing about them changed — except the cost and the time, which
+// are rebuilt each render and compared by value. The two callbacks are the
+// matrix's stable ones, so they are not compared.
+const rowPropsEqual = (prev, next) =>
+  prev.scenario === next.scenario && prev.results === next.results && prev.columns === next.columns
+  && prev.step === next.step && prev.current === next.current && prev.open === next.open
+  && prev.detail === next.detail && prev.showKey === next.showKey && prev.grid === next.grid
+  && prev.inSelection === next.inSelection && prev.running === next.running && prev.loading === next.loading
+  && prev.tabIndex === next.tabIndex && sameCost(prev.costEntry, next.costEntry) && prev.timeMs === next.timeMs;
+
+// One step of the box: a scenario's row at the given detail level. Memoised
+// on rowPropsEqual, so a poll that lands two results re-renders two rows.
+// `results` is the scenario's results keyed by column; `costEntry` and
+// `timeMs` are what the COST and TIME cells read; `tabIndex` is the box's
+// roving one. `onToggle(key)` opens or closes the drill-down; `onFocus(key,
+// event)` tells the box which row holds focus.
+const ScenarioRow = React.memo(function ScenarioRow({
+  scenario, results, columns, step, current, open, detail, showKey, grid, inSelection, running, loading, costEntry, timeMs, tabIndex,
+  onToggle, onFocus,
+}) {
+  const key = scenario.key;
+  const steps = detail === 'steps';
+  const expects = expectList(scenario, 'tools');
+  const disabled = scenario.enabled === false;
+  const mark = STEP_MARK[step] || STEP_MARK.none;
+  const keyText = `${key}${disabled ? ' · disabled' : ''}`;
+  const glyph = (
+    <span data-testid="scenario-step" title={mark.title} style={{ ...mono(11, mark.color), fontWeight: 700, flexShrink: 0 }}>{mark.text}</span>
+  );
+  const chip = { fontFamily: MONO, fontSize: 11, padding: '2px 6px', border: '1px solid var(--color-border)', borderRadius: 4, color: 'var(--color-text-cell)', whiteSpace: 'nowrap' };
+  return (
+    <div
+      data-testid="scenario-row"
+      data-scenario-key={key}
+      data-step={step}
+      data-nav={key}
+      data-current={current ? 'true' : undefined}
+      role="button"
+      tabIndex={tabIndex}
+      // A narrow box drops the key from the line; the row's tooltip keeps it.
+      title={steps && !showKey ? `${keyText} · ${scenario.prompt || ''}` : undefined}
+      onClick={() => onToggle(key)}
+      onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onToggle(key); } }}
+      onFocus={(event) => onFocus(key, event)}
+      className={open ? undefined : 'hover:bg-[var(--color-hover)]'}
+      style={{
+        display: 'grid', gridTemplateColumns: grid, gap: GRID_GAP[detail] ?? GRID_GAP.steps, padding: steps ? '6px 12px' : '10px 12px',
+        alignItems: steps ? 'center' : undefined,
+        borderTop: '1px solid var(--color-border-light)', cursor: 'pointer',
+        background: open ? 'var(--color-muted)' : undefined,
+        boxShadow: current ? 'inset 2px 0 0 var(--color-warning)' : undefined,
+        opacity: disabled ? 0.5 : 1,
+      }}
+    >
+      {steps ? (
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, minWidth: 0 }}>
+          {glyph}
+          {showKey && (
+            <span style={{ ...mono(11), minWidth: 0, maxWidth: '40%', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{keyText}</span>
+          )}
+          <span
+            title={showKey ? scenario.prompt : undefined}
+            style={{
+              flex: 1, minWidth: 0, fontSize: 13, color: scenario.orphan ? 'var(--color-text-muted)' : 'var(--color-text-primary)',
+              whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+            }}
+          >
+            {scenario.prompt}
+          </span>
+        </div>
+      ) : (
+        <>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ ...mono(11), marginBottom: 2, display: 'flex', gap: 6 }}>
+              {glyph}
+              <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>{keyText}</span>
+            </div>
+            <div style={{ fontSize: 13, lineHeight: '18px', color: 'var(--color-text-primary)', textWrap: 'pretty' }}>{scenario.prompt}</div>
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, alignContent: 'flex-start', minWidth: 0 }}>
+            {expects.map((name) => (
+              <span key={name} style={chip}>{name}</span>
+            ))}
+            {expects.length === 0 && expectList(scenario, 'contains').map((pattern) => (
+              <span key={`contains-${pattern}`} style={chip} title="the answer must contain this">{`contains: ${pattern}`}</span>
+            ))}
+          </div>
+        </>
+      )}
+      {columns.map((label) => (
+        <ResultCell
+          key={label}
+          result={results?.[label]}
+          expects={expects}
+          pending={(running || loading) && inSelection}
+          compact={steps}
+        />
+      ))}
+      <CostBlock entry={costEntry} compact={steps} testId="scenario-row-cost" />
+      {steps && (
+        <span data-testid="scenario-row-time" style={{ ...mono(11), textAlign: 'right', whiteSpace: 'nowrap' }}>{fmtMs(timeMs)}</span>
+      )}
+    </div>
+  );
+}, rowPropsEqual);
+
+// The step box: the shown run's scenarios read like a build's steps, in a
+// box that scrolls on its own under a sticky column header (the models'
+// live standing) and sticky, collapsible group rows.
+//
+// `rows` are the scenarios to show, in the order to show them, already
+// filtered; each carries `.key`, `.prompt`, `.group`, `.expectations`.
+// `stepsByKey` is every scenario's step (the panel computes it over the
+// whole suite, so the cursor cannot hide behind a filter); `currentKey` is
+// the step the build is on. `detail` is 'steps' (one line a scenario) or
+// 'tools' (the fuller rows); a catalog with no model columns always reads
+// as tools. `collapsedGroups` / `onToggleGroup` fold groups; `openKey` /
+// `onToggleRow` open a drill-down (`renderDetail(scenario)` draws it under
+// its row, and the box grows by its height so it is never clipped);
+// `following` / `onStopFollowing` are the panel's follow state — while on,
+// the box keeps the cursor a third of the way down and holds it there when
+// the layout under it moves. `boxRef` receives the scrolling element.
+export function ScenarioMatrix({
+  rows = EMPTY_LIST, columns = EMPTY_LIST, run = null, resultsByKey = EMPTY_MAP, runKeys = EMPTY_SET, running = false, loading = false,
+  stepsByKey = null, currentKey = null, bars = EMPTY_LIST, detail = 'steps', showKey = true, collapsedGroups = EMPTY_SET, onToggleGroup,
+  openKey = null, onToggleRow, following = false, onStopFollowing, emptyLabel, maxHeight = null, renderDetail, boxRef = null,
+  testId = 'scenario-matrix',
+}) {
+  // The catalog alone (no run, so no model columns) keeps the fuller
+  // layout: the question beside what it expects.
+  const level = columns.length === 0 ? 'tools' : detail;
+  const steps = level === 'steps';
+  const grid = gridFor(level, columns.length);
+  const gap = GRID_GAP[level];
+  const minWidth = steps ? stepsMinWidth(columns.length) : toolsMinWidth(columns.length);
+
+  const inSelection = (scenario) => runKeys.has(scenario.key) || Boolean(resultsByKey[scenario.key]);
+  // The panel's steps, or — rendered on its own — the same reading.
+  const fallbackStep = (scenario) => {
+    if (!run) return 'none';
+    if (loading) return inSelection(scenario) ? 'loading' : 'skipped';
+    return scenarioStep(resultsByKey[scenario.key], columns, { inRun: inSelection(scenario), running });
+  };
+  const stepOf = (scenario) => stepsByKey?.[scenario.key] ?? fallbackStep(scenario);
+  const costByKey = new Map(rows.map((scenario) => [scenario.key, scenarioCost(run, scenario.key, resultsByKey[scenario.key])]));
+  const estimatedAnywhere = [...costByKey.values()].some((entry) => entry?.estimated);
+
+  // Group blocks in order of first appearance, so the panel's order holds.
+  const hasGroups = rows.some((s) => s.group);
   const groups = [];
   rows.forEach((scenario) => {
     const name = scenario.group || '';
@@ -496,91 +686,280 @@ export function ScenarioMatrix({ rows, columns, run, resultsByKey, runKeys, runn
     }
     group.rows.push(scenario);
   });
+  // A fold only applies where a group row is drawn to unfold it again.
+  const isCollapsed = (name) => (name || hasGroups) && collapsedGroups.has(name);
+
+  // One Tab stop in the box: the row that last had focus while it is still
+  // drawn, else the open row, else the cursor, else the first row or group
+  // row. Every other row is reachable with the arrow keys.
+  const [activeNav, setActiveNav] = useState(null);
+  const navs = [];
+  groups.forEach((group) => {
+    if (group.name || hasGroups) navs.push(`group:${group.name}`);
+    if (!isCollapsed(group.name)) group.rows.forEach((scenario) => navs.push(scenario.key));
+  });
+  const drawn = new Set(navs);
+  const tabStop = [activeNav, openKey, currentKey].find((id) => id != null && drawn.has(id)) ?? navs[0] ?? null;
+
+  const scrollRef = useRef(null);
+  const headerRef = useRef(null);
+  const detailRef = useRef(null);
+  const [headerHeight, setHeaderHeight] = useState(50);
+  const [detailHeight, setDetailHeight] = useState(0);
+  const headerHeightRef = useRef(headerHeight);
+  // The latest callbacks, so the rows' handlers can stay the same functions
+  // across renders.
+  const latest = useRef({});
+  useIsoLayoutEffect(() => {
+    headerHeightRef.current = headerHeight;
+    latest.current = { onToggleRow, onStopFollowing };
+  });
+
+  const setBox = useCallback((el) => {
+    scrollRef.current = el;
+    if (boxRef) boxRef.current = el;
+  }, [boxRef]);
+  const toggleRow = useCallback((key) => latest.current.onToggleRow?.(key), []);
+  // Focus arriving from outside the box stops the follow, so an auto-fold
+  // can never take the focused row away.
+  const focusNav = useCallback((id, event) => {
+    setActiveNav(id);
+    const box = scrollRef.current;
+    if (box && !box.contains(event.relatedTarget)) latest.current.onStopFollowing?.();
+  }, []);
+  const stopFollowing = () => onStopFollowing?.();
+
+  // The sticky header's height: where the group rows stick, and what the
+  // scroll targets allow for.
+  useIsoLayoutEffect(() => {
+    const el = headerRef.current;
+    if (!el) return undefined;
+    const measure = () => {
+      const height = el.offsetHeight;
+      if (height) setHeaderHeight((previous) => (previous === height ? previous : height));
+    };
+    measure();
+    if (typeof ResizeObserver === 'undefined') return undefined;
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  // The open drill-down's height, by which the box grows past its cap.
+  useIsoLayoutEffect(() => {
+    const el = detailRef.current;
+    if (!el) {
+      setDetailHeight(0);
+      return undefined;
+    }
+    const measure = () => setDetailHeight(el.offsetHeight);
+    measure();
+    if (typeof ResizeObserver === 'undefined') return undefined;
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [openKey]);
+
+  // Following: a cursor that moved scrolls smoothly to a third of the way
+  // down the box; a cursor whose surroundings moved (a group folded, a
+  // filter or the detail level changed) is put back there before paint.
+  // Nothing moves on an unchanged poll, or while the cursor is hidden.
+  const lastCursor = useRef(null);
+  useIsoLayoutEffect(() => {
+    const box = scrollRef.current;
+    if (!box || !following || !currentKey) {
+      lastCursor.current = currentKey;
+      return;
+    }
+    const row = box.querySelector(`[data-scenario-key="${escapeKey(currentKey)}"]`);
+    if (!row) return;
+    const target = cursorScrollTop({ rowTop: row.offsetTop, headerHeight, boxHeight: box.clientHeight });
+    if (Math.abs(target - box.scrollTop) > 4) {
+      if (currentKey !== lastCursor.current) box.scrollTo({ top: target, behavior: 'smooth' });
+      else box.scrollTop = target;
+    }
+    lastCursor.current = currentKey;
+  }, [currentKey, following, collapsedGroups, rows, detail, headerHeight]);
+
+  // An opened row goes directly under the column header and its group row,
+  // so its drill-down starts in view.
+  useIsoLayoutEffect(() => {
+    const box = scrollRef.current;
+    if (!box || !openKey) return;
+    const row = box.querySelector(`[data-scenario-key="${escapeKey(openKey)}"]`);
+    if (!row) return;
+    const groupRow = row.closest('[data-group]')?.querySelector('[data-testid="scenario-group-row"]');
+    box.scrollTo({
+      top: openRowScrollTop({ rowTop: row.offsetTop, headerHeight: headerHeightRef.current, groupRowHeight: groupRow?.offsetHeight ?? 0 }),
+      behavior: 'smooth',
+    });
+  }, [openKey]);
+
+  // Keeps a row the arrow keys landed on out from under the sticky header
+  // and its group row, and within the box.
+  const reveal = (el) => {
+    const box = scrollRef.current;
+    if (!box || !el) return;
+    const groupRow = el.hasAttribute('data-scenario-key')
+      ? el.closest('[data-group]')?.querySelector('[data-testid="scenario-group-row"]')
+      : null;
+    const covered = headerHeightRef.current + (groupRow?.offsetHeight ?? 0);
+    if (el.offsetTop - covered < box.scrollTop) box.scrollTop = Math.max(0, el.offsetTop - covered);
+    else if (el.offsetTop + el.offsetHeight > box.scrollTop + box.clientHeight) box.scrollTop = el.offsetTop + el.offsetHeight - box.clientHeight;
+  };
+
+  const handleKeyDown = (event) => {
+    if (isFormField(event.target)) return;
+    const box = scrollRef.current;
+    if (!box) return;
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      const all = [...box.querySelectorAll('[data-nav]')];
+      if (!all.length) return;
+      // From the focused row or group row — or, from inside an open
+      // drill-down, from the row it belongs to.
+      let index = all.indexOf(event.target);
+      if (index < 0) index = all.findIndex((el) => el.hasAttribute('data-scenario-key') && el.parentElement?.contains(event.target));
+      const next = index < 0 ? all[0] : all[Math.min(Math.max(index + (event.key === 'ArrowDown' ? 1 : -1), 0), all.length - 1)];
+      event.preventDefault();
+      onStopFollowing?.();
+      if (next && next !== event.target) {
+        next.focus({ preventScroll: true });
+        reveal(next);
+      }
+      return;
+    }
+    if (event.key === 'Escape' && openKey) {
+      onToggleRow?.(openKey);
+      box.querySelector(`[data-scenario-key="${escapeKey(openKey)}"]`)?.focus({ preventScroll: true });
+    }
+  };
 
   return (
-    <div style={{ border: '1px solid var(--color-border-light)', borderRadius: 10, overflowX: 'auto' }}>
-      <div style={{ minWidth: Math.max(880, 520 + 180 * columns.length) }}>
-        <div style={{ display: 'grid', gridTemplateColumns: grid, gap: 12, padding: '8px 12px', background: 'var(--color-muted)', alignItems: 'end' }}>
-          <MicroLabel size={10} color="var(--color-text-muted)">Scenario</MicroLabel>
-          <MicroLabel size={10} color="var(--color-text-muted)">Expects</MicroLabel>
+    <div
+      ref={setBox}
+      data-testid={testId}
+      data-detail={level}
+      onWheel={stopFollowing}
+      onTouchMove={stopFollowing}
+      onKeyDown={handleKeyDown}
+      style={{
+        border: '1px solid var(--color-border-light)', borderRadius: 10, overflow: 'auto', position: 'relative', scrollbarGutter: 'stable',
+        maxHeight: maxHeight ? (detailHeight ? `calc(${cssLength(maxHeight)} + ${detailHeight}px)` : cssLength(maxHeight)) : undefined,
+      }}
+    >
+      <div style={{ minWidth }}>
+        <div
+          ref={headerRef}
+          style={{ display: 'grid', gridTemplateColumns: grid, gap, padding: '8px 12px', background: 'var(--color-muted)', alignItems: 'end', position: 'sticky', top: 0, zIndex: 2 }}
+        >
+          <MicroLabel size={10} color="var(--color-text-muted)">{steps ? 'Step' : 'Scenario'}</MicroLabel>
+          {!steps && <MicroLabel size={10} color="var(--color-text-muted)">Expects</MicroLabel>}
           {columns.map((label) => {
             const { short, provider } = describeModel(run, label);
+            const bar = bars.find((b) => b.label === label);
             return (
               <span key={label} style={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0 }} title={label}>
                 <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 600, color: 'var(--color-text-primary)' }}>{short}</span>
-                <span style={mono(10)}>{provider || ' '}</span>
+                <span style={mono(10)}>{provider || ' '}</span>
+                {bar && bar.passed != null && bar.total != null && (
+                  <PassBar passed={bar.passed} total={bar.total} height={4} valueWidth={48} style={{ marginTop: 3 }} />
+                )}
               </span>
             );
           })}
           <span style={{ textAlign: 'right' }} title="What the scenario cost across every model, and what judging it cost">
             <MicroLabel size={10} color="var(--color-text-muted)">Cost</MicroLabel>
           </span>
+          {steps && (
+            <span style={{ textAlign: 'right' }} title="The slowest answer across the run's models">
+              <MicroLabel size={10} color="var(--color-text-muted)">Time</MicroLabel>
+            </span>
+          )}
         </div>
 
         {groups.map((group) => {
-          const inRun = group.rows.filter((s) => runKeys.has(s.key) || resultsByKey[s.key]);
-          const passes = columns.map((label) => {
+          const name = group.name;
+          const collapsed = isCollapsed(name);
+          const navId = `group:${name}`;
+          const inRun = group.rows.filter(inSelection);
+          const mark = STEP_MARK[groupStep(group.rows.map(stepOf))] || STEP_MARK.none;
+          const cells = columns.map((label) => {
+            if (!inRun.length) return { label, text: 'not in this run', color: 'var(--color-text-muted)', weight: 400 };
+            if (loading) return { label, text: 'loading…', color: 'var(--color-text-muted)', weight: 400 };
             const settled = inRun.filter((s) => isSettled(resultsByKey[s.key]?.[label]));
+            if (running && !settled.length) return { label, text: 'queued', color: 'var(--color-text-muted)', weight: 400 };
             const passed = settled.filter((s) => isPassed(resultsByKey[s.key][label])).length;
             const total = inRun.length;
             const color = total && passed === total ? 'var(--color-success-text)' : passed === 0 ? 'var(--color-error-text)' : 'var(--color-text-cell)';
-            return { label, text: total ? `${fmtPasses(passed, total)} passed` : '—', color };
+            return { label, text: `${fmtPasses(passed, total)} passed`, color, weight: 600 };
           });
-          const subtotal = sumScenarioCosts(group.rows.map(costOf));
+          const subtotal = sumScenarioCosts(group.rows.map((s) => costByKey.get(s.key)));
           return (
-            <div key={group.name || '__ungrouped'}>
-              {(group.name || hasGroups) && (
-                <div style={{ display: 'grid', gridTemplateColumns: grid, gap: 12, padding: '7px 12px', borderTop: '1px solid var(--color-border-light)', background: 'var(--color-background)', alignItems: 'center' }}>
-                  <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--color-text-primary)' }}>{group.name || 'ungrouped'}</span>
-                  <span style={mono(11)}>{plural(group.rows.length, 'scenario')}</span>
-                  {passes.map((p) => (
-                    <span key={p.label} style={{ fontFamily: MONO, fontSize: 11, fontWeight: 600, color: p.color }}>{p.text}</span>
+            <div key={name || '__ungrouped'} data-group={name}>
+              {(name || hasGroups) && (
+                <div
+                  data-testid="scenario-group-row"
+                  data-group={name}
+                  data-collapsed={collapsed ? 'true' : 'false'}
+                  data-nav={navId}
+                  role="button"
+                  aria-expanded={!collapsed}
+                  tabIndex={tabStop === navId ? 0 : -1}
+                  onClick={() => onToggleGroup?.(name)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      onToggleGroup?.(name);
+                    } else if ((event.key === 'ArrowLeft' && !collapsed) || (event.key === 'ArrowRight' && collapsed)) {
+                      event.preventDefault();
+                      onToggleGroup?.(name);
+                    }
+                  }}
+                  onFocus={(event) => focusNav(navId, event)}
+                  style={{
+                    display: 'grid', gridTemplateColumns: grid, gap, padding: '7px 12px', alignItems: 'center',
+                    borderTop: '1px solid var(--color-border-light)', background: 'var(--color-background)', cursor: 'pointer',
+                    position: 'sticky', top: headerHeight, zIndex: 1,
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                    <Glyph kind="chevron" open={!collapsed} />
+                    <span data-testid="scenario-group-step" title={mark.title} style={{ ...mono(11, mark.color), fontWeight: 700, flexShrink: 0 }}>{mark.text}</span>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--color-text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{name || 'ungrouped'}</span>
+                    {steps && <span style={{ ...mono(11), whiteSpace: 'nowrap' }}>{`· ${plural(group.rows.length, 'scenario')}`}</span>}
+                  </div>
+                  {!steps && <span style={mono(11)}>{plural(group.rows.length, 'scenario')}</span>}
+                  {cells.map((cell) => (
+                    <span key={cell.label} style={{ fontFamily: MONO, fontSize: 11, fontWeight: cell.weight, color: cell.color, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{cell.text}</span>
                   ))}
-                  <CostBlock entry={subtotal} testId="scenario-group-cost" />
+                  <CostBlock entry={subtotal} compact={steps} testId="scenario-group-cost" />
+                  {steps && <span />}
                 </div>
               )}
-              {group.rows.map((scenario) => {
+              {!collapsed && group.rows.map((scenario) => {
                 const open = openKey === scenario.key;
-                const expects = expectList(scenario, 'tools');
-                const inSelection = runKeys.has(scenario.key) || Boolean(resultsByKey[scenario.key]);
-                const disabled = scenario.enabled === false;
                 return (
                   <div key={scenario.key}>
-                    <div
-                      data-testid="scenario-row"
-                      data-scenario-key={scenario.key}
-                      onClick={() => onToggleRow(scenario.key)}
-                      className={open ? undefined : 'hover:bg-[var(--color-hover)]'}
-                      style={{
-                        display: 'grid', gridTemplateColumns: grid, gap: 12, padding: '10px 12px',
-                        borderTop: '1px solid var(--color-border-light)', cursor: 'pointer',
-                        background: open ? 'var(--color-muted)' : undefined,
-                        opacity: disabled ? 0.5 : 1,
-                      }}
-                    >
-                      <div style={{ minWidth: 0 }}>
-                        <div style={{ ...mono(11), marginBottom: 2 }}>{`${scenario.key}${disabled ? ' · disabled' : ''}`}</div>
-                        <div style={{ fontSize: 13, lineHeight: '18px', color: 'var(--color-text-primary)', textWrap: 'pretty' }}>{scenario.prompt}</div>
-                      </div>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, alignContent: 'flex-start', minWidth: 0 }}>
-                        {expects.map((name) => (
-                          <span key={name} style={{ fontFamily: MONO, fontSize: 11, padding: '2px 6px', border: '1px solid var(--color-border)', borderRadius: 4, color: 'var(--color-text-cell)', whiteSpace: 'nowrap' }}>{name}</span>
-                        ))}
-                        {expects.length === 0 && expectList(scenario, 'contains').map((pattern) => (
-                          <span key={`contains-${pattern}`} style={{ fontFamily: MONO, fontSize: 11, padding: '2px 6px', border: '1px solid var(--color-border)', borderRadius: 4, color: 'var(--color-text-cell)', whiteSpace: 'nowrap' }} title="the answer must contain this">{`contains: ${pattern}`}</span>
-                        ))}
-                      </div>
-                      {columns.map((label) => (
-                        <ResultCell
-                          key={label}
-                          result={resultsByKey[scenario.key]?.[label]}
-                          expects={expects}
-                          pending={running && inSelection}
-                        />
-                      ))}
-                      <CostBlock entry={costOf(scenario)} testId="scenario-row-cost" />
-                    </div>
-                    {open && renderDetail(scenario)}
+                    <ScenarioRow
+                      scenario={scenario}
+                      results={resultsByKey[scenario.key]}
+                      columns={columns}
+                      step={stepOf(scenario)}
+                      current={scenario.key === currentKey}
+                      open={open}
+                      detail={level}
+                      showKey={showKey}
+                      grid={grid}
+                      inSelection={inSelection(scenario)}
+                      running={running}
+                      loading={loading}
+                      costEntry={costByKey.get(scenario.key) ?? null}
+                      timeMs={scenarioTime(resultsByKey[scenario.key], columns)}
+                      tabIndex={tabStop === scenario.key ? 0 : -1}
+                      onToggle={toggleRow}
+                      onFocus={focusNav}
+                    />
+                    {open && <div ref={detailRef}>{renderDetail?.(scenario)}</div>}
                   </div>
                 );
               })}
@@ -744,9 +1123,16 @@ export function ScenarioDetail({ scenario, run, columns, resultsByKey, running, 
 // ---------------------------------------------------------------------------
 // WHAT TO FIX
 
+// `onRerun(item, runnable)`, when given, puts a `re-run n scenarios ->` link
+// on each card for the scenarios it names that can still be replayed —
+// `runnable` is `runnableFor(item)`'s { keys, dropped } (by default,
+// runnableKeys over the suite's catalog), so a disabled or removed scenario
+// is never posted and a card with none left says so.
 export function FixList({
   items, columns = [], agentName, onNavigate, onOpenScenario, run = null, results = [], evaluation = null, runNumber = null, scenarios = [],
+  onRerun = null, runnableFor = null,
 }) {
+  const runnable = (item) => (runnableFor ? runnableFor(item) : runnableKeys(item.scenario_keys || [], scenarios));
   // Which model cohort the list is read for. A fault one model keeps
   // making is that model's to fix — more instruction, a different tool —
   // so the list narrows to what the runner attributed to it, counted for
@@ -818,6 +1204,7 @@ export function FixList({
         const server = item.server;
         const enabled = server?.status === 'enabled';
         const agent = agentName || 'the agent';
+        const rerun = onRerun ? runnable(item) : null;
         return (
           <div
             key={`${item.fault}-${index}`}
@@ -878,6 +1265,19 @@ export function FixList({
                 <Button size="sm" onClick={() => onNavigate?.(item.action.path)}>{item.action.label}</Button>
               )}
               {item.action?.hint && <span style={{ ...mono(11), whiteSpace: 'nowrap' }}>{item.action.hint}</span>}
+              {rerun && (rerun.keys.length ? (
+                <MonoLink onClick={() => onRerun(item, rerun)} title="Replay these scenarios under the models in the picker" testId="fix-item-rerun">
+                  {`re-run ${plural(rerun.keys.length, 'scenario')}`}
+                </MonoLink>
+              ) : (
+                <span
+                  style={{ ...mono(11), whiteSpace: 'nowrap' }}
+                  title={`${rerun.dropped.join(', ')} · disabled or no longer in the suite`}
+                  data-testid="fix-item-rerun-none"
+                >
+                  re-run · none enabled
+                </span>
+              ))}
               <CopyFixPromptButton build={() => promptFor(item)} style={{ marginLeft: 'auto' }} />
               <ImplementFixButton item={item} evaluation={evaluation} run={run} />
             </div>

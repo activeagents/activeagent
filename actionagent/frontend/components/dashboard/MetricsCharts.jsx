@@ -1,5 +1,6 @@
-import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
+import React, { useRef } from 'react';
 import { MONO, MicroLabel, Card } from './primitives';
+import useMeasuredWidth from '../../hooks/useMeasuredWidth';
 
 // Chart building blocks for the APM-style Metrics view: the golden-signal
 // tiles, the six time-series panels and the right-rail list panels, plus the
@@ -67,28 +68,6 @@ export const markerFlip = (mk, plotWidth) => {
   const rightRoom = plotWidth - leftRoom;
   if (flip) return !(leftRoom < need && rightRoom > leftRoom);
   return rightRoom < need && leftRoom > rightRoom;
-};
-
-// The plot's rendered width, kept current by a ResizeObserver (window
-// resize when the browser lacks one). 0 until measured — and always 0 in
-// a static render — which leaves marker labels on the 55% rule.
-const useIsoLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
-const useMeasuredWidth = (ref) => {
-  const [width, setWidth] = useState(0);
-  useIsoLayoutEffect(() => {
-    const el = ref.current;
-    if (!el) return undefined;
-    const measure = () => setWidth(el.clientWidth);
-    measure();
-    if (typeof ResizeObserver === 'undefined') {
-      window.addEventListener('resize', measure);
-      return () => window.removeEventListener('resize', measure);
-    }
-    const observer = new ResizeObserver(measure);
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [ref]);
-  return width;
 };
 
 // Polyline points in the 100×100 viewBox. Buckets without a value are
@@ -179,6 +158,7 @@ export function ChartPanel({
   height = CHART_HEIGHT,
 }) {
   const plotRef = useRef(null);
+  // 0 until measured (always, in a static render), which leaves marker labels on the 55% rule.
   const plotWidth = useMeasuredWidth(plotRef);
   const dashed = '1px dashed var(--color-text-secondary)';
   return (

@@ -208,11 +208,38 @@ export function PassBar({ passed, total, label, labelWidth = 128, width, height 
   );
 }
 
+// A segmented bar: one track on --color-border-light, one span per part sized
+// value/total in its tone's strong color (a two-tone run progress bar, say:
+// passed green · failed red · the rest the track). `rest` carries role and
+// aria attributes through, so a caller can make it a progressbar.
+export function SegmentedBar({ parts = [], total = 0, height = 4, radius = 2, style, testId, title, ...rest }) {
+  return (
+    <div
+      data-testid={testId}
+      title={title}
+      style={{ display: 'flex', height, borderRadius: radius, overflow: 'hidden', background: 'var(--color-border-light)', ...style }}
+      {...rest}
+    >
+      {parts.map((part, index) => (
+        <span
+          key={index}
+          style={{
+            width: `${total > 0 ? (100 * (Number(part.value) || 0)) / total : 0}%`,
+            background: (TONE[part.tone] || TONE.muted).strong,
+            transition: 'width 300ms',
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
 // A mono in-app link ending in `->`, in the info color.
-export function MonoLink({ children, onClick, href = '#', color = 'var(--color-info)', size = 11, style, title }) {
+export function MonoLink({ children, onClick, href = '#', color = 'var(--color-info)', size = 11, style, title, testId }) {
   return (
     <a
       href={href}
+      data-testid={testId}
       title={title}
       onClick={(event) => { if (onClick) { event.preventDefault(); onClick(event); } }}
       style={{ fontFamily: MONO, fontSize: size, color, textDecoration: 'none', ...style }}
