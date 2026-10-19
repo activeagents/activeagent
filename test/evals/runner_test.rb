@@ -29,6 +29,28 @@ class EvalsRunnerTest < ActiveSupport::TestCase
     assert_includes ActiveAgent::Evals::Runner::DEFAULT_REFINE_FAULTS, "ungrounded_answer"
   end
 
+  def test_a_closed_refine_gate_skips_the_recommendation_but_keeps_the_fault
+    task = scenario("tickets_1", "what tickets are on my plate?", group: "tickets")
+    recommend_prompts = []
+    judge = fake_judge do |_instructions, prompt|
+      recommend_prompts << prompt if prompt.include?("Detected fault")
+      '{"score": 0.9, "recommendation": "Add a tool that lists the caller tickets."}'
+    end
+    asked = 0
+    runner = ActiveAgent::Evals::Runner.new(
+      scenarios: [ task ], models: [ spec("test-model") ], judge: judge, available_tools: { "search_docs" => "Search the docs" },
+      replay: ->(*) { replay(answer: "You have 3 open tickets: #412 Login bug and #388 Export timeout.", tool_calls: []) },
+      refine_gate: -> { asked += 1; false }
+    )
+
+    result = runner.call.results.first
+
+    assert_equal 1, asked, "the gate is asked once, for the one refinable fault"
+    assert_empty recommend_prompts
+    assert_equal "ungrounded_answer", result.fault
+    assert_nil result.diagnosis["judge"]
+  end
+
   def test_context_wrapper_covers_replay_judging_and_recommendation_before_on_result
     events = []
     current = nil

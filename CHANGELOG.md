@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Parallel scenario evaluations in `actionagent`: with
+  `config.scenario_evaluation_fan_out = true`, a run enqueues one
+  `EvaluationReplayJob` per scenario × model, each stored replay is scored by
+  its own `EvaluationJudgeJob`, and the last result to be scored completes the
+  run with the scores a sequential run writes. Runs as wide as the host's
+  `:agents` queue. Off by default; browser and host-adapter runs stay
+  sequential (#422).
+- `ActiveAgent::Evals::Runner.new(refine_gate:)`, a callable asked before each
+  recommendation call so per-scenario runners share one run-wide judge limit.
+
 ## [1.9.1] - 2026-10-16
 
 Releases `activeagent` and `actionagent` 1.9.1, with the matching browser

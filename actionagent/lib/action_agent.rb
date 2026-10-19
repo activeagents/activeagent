@@ -685,6 +685,20 @@ module ActionAgent
     # @return [Proc, nil]
     attr_accessor :scenario_evaluation_adapter_resolver
 
+    # Whether a scenario evaluation runs as background jobs, one per
+    # scenario x model (EvaluationReplayJob) followed by one to score it
+    # (EvaluationJudgeJob), instead of as one job that replays the suite in
+    # order. The jobs run on the :agents queue, so a run is as parallel as
+    # the host's workers for that queue: a single-worker box stays
+    # sequential. The last result to be scored completes the run.
+    #
+    # A run that drives a sandbox's browser, and a run a host adapter
+    # (scenario_evaluation_adapter_resolver) replays, stay sequential: the
+    # browser is one page, and the adapter owns its own scheduling.
+    # Off unless set.
+    # @return [Boolean]
+    attr_accessor :scenario_evaluation_fan_out
+
     # How many answerable candidates an exploration's review pre-selects for
     # acceptance: an Integer, or a Proc called with (owner) that returns one.
     # A platform can cap a free plan's suite this way. Unset, or nil from the
@@ -1243,6 +1257,7 @@ module ActionAgent
       @capture_dashboard_sessions = true
 
       @scenario_evaluation_adapter_resolver = nil
+      @scenario_evaluation_fan_out = false
       @table_name_prefix = "active_agent_"
       @agent_polymorphic_name = nil
       @encrypt_credentials = true
