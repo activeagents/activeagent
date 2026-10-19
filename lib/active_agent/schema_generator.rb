@@ -136,8 +136,8 @@ module ActiveAgent
       # {ActiveModelClassMethods#to_json_schema} emits the attribute as an
       # array whose items are a +$ref+ to that class's schema, which goes under
       # the root +$defs+ keyed by the singular name in lower camel case
-      # (+addresses+ becomes +address+, +line_items+ becomes +lineItem+), so the
-      # reference survives an agent's prompt camelizing the schema's keys.
+      # (+addresses+ becomes +address+, +line_items+ becomes +lineItem+).
+      # The prompt preserves both property and definition names.
       #
       # Also declares the attribute, defaulting to an empty array, so the
       # model accepts the data the schema describes.

@@ -10,6 +10,8 @@ require_relative "dummy/app/models/post"
 require_relative "dummy/app/models/profile"
 
 class SchemaGeneratorTest < ActiveSupport::TestCase
+  include WebMock::API
+
   # region basic_user_model
   class TestUser
     include ActiveModel::Model
@@ -223,7 +225,7 @@ class SchemaGeneratorTest < ActiveSupport::TestCase
     include ActiveModel::Attributes
     include ActiveAgent::SchemaGenerator
 
-    attribute :code, :string
+    attribute :promo_code, :string
   end
 
   class TestLineItem
@@ -312,9 +314,17 @@ class SchemaGeneratorTest < ActiveSupport::TestCase
   class NestedSchemaAgent < ActiveAgent::Base
     generate_with :mock, model: "mock-model"
 
-    def extract
-      prompt(message: "Extract the order", response_format: { type: "json_schema", json_schema: TestOrder.to_json_schema(strict: true) })
+    def extract(model = TestOrder)
+      prompt(message: "Extract the order", response_format: { type: "json_schema", json_schema: model.to_json_schema(strict: true, name: "order") })
     end
+  end
+
+  class ResponsesNestedSchemaAgent < NestedSchemaAgent
+    generate_with :openai, model: "gpt-4o-mini", api_version: :responses, access_token: "test-key"
+  end
+
+  class ChatNestedSchemaAgent < NestedSchemaAgent
+    generate_with :openai, model: "gpt-4o-mini", api_version: :chat, access_token: "test-key"
   end
 
   ADDRESS_SCHEMA = {
@@ -379,12 +389,84 @@ class SchemaGeneratorTest < ActiveSupport::TestCase
     assert_not schema[:"$defs"][:lineItem].key?(:"$defs")
   end
 
-  test "a multi-word definition still resolves after prompt camelizes the schema's keys" do
+  test "a strict nested schema reaches the provider with its field names and references intact" do
     sent = NestedSchemaAgent.extract.generate_now.raw_request[:response_format][:json_schema][:schema]
 
-    reference = sent[:properties][:lineItems][:items][:"$ref"]
-    assert_equal "#/$defs/lineItem", reference
-    assert sent[:"$defs"].key?(reference.delete_prefix("#/$defs/").to_sym)
+    assert_equal(
+      {
+        type: "object",
+        properties: {
+          order_number: { type: "string" },
+          line_items: { type: "array", items: { "$ref": "#/$defs/lineItem" } }
+        },
+        required: [ :line_items, :order_number ],
+        additionalProperties: false,
+        "$defs": {
+          lineItem: {
+            type: "object",
+            properties: { sku: { type: "string" }, discounts: { type: "array", items: { "$ref": "#/$defs/discount" } } },
+            required: [ :discounts, :sku ],
+            additionalProperties: false
+          },
+          discount: { type: "object", properties: { promo_code: { type: "string" } }, required: [ :promo_code ], additionalProperties: false }
+        }
+      },
+      sent
+    )
+  end
+
+  class TestItemList
+    include ActiveModel::Model
+    include ActiveModel::Attributes
+    include ActiveAgent::SchemaGenerator
+
+    has_many :line_items, class_name: "SchemaGeneratorTest::TestLineItem"
+  end
+
+  test "a strict schema with only a multiword association requires the property it sends" do
+    sent = NestedSchemaAgent.extract(TestItemList).generate_now.raw_request[:response_format][:json_schema][:schema]
+
+    assert_equal [ :line_items ], sent[:properties].keys
+    assert_equal sent[:properties].keys, sent[:required]
+    assert_equal "#/$defs/lineItem", sent[:properties][:line_items][:items][:"$ref"]
+  end
+
+  [ ResponsesNestedSchemaAgent, ChatNestedSchemaAgent ].each do |agent|
+    test "#{agent.name.demodulize} sends a consistent strict schema on the wire" do
+      chat = agent == ChatNestedSchemaAgent
+      endpoint = chat ? "https://api.openai.com/v1/chat/completions" : "https://api.openai.com/v1/responses"
+      content = { order_number: "demo", line_items: [ { sku: "SKU-1", discounts: [ { promo_code: "DEMO" } ] } ] }.to_json
+      reply = if chat
+        { id: "chatcmpl_schema", object: "chat.completion", model: "gpt-4o-mini",
+          choices: [ { index: 0, message: { role: "assistant", content: content }, finish_reason: "stop" } ],
+          usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 } }
+      else
+        { id: "resp_schema", object: "response", status: "completed", model: "gpt-4o-mini",
+          output: [ { type: "message", id: "msg_schema", role: "assistant", status: "completed",
+                      content: [ { type: "output_text", text: content, annotations: [] } ] } ],
+          usage: { input_tokens: 1, output_tokens: 1, total_tokens: 2 } }
+      end
+      body = nil
+      stub_request(:post, endpoint).to_return do |request|
+        body = JSON.parse(request.body)
+        { status: 200, headers: { "Content-Type" => "application/json" }, body: reply.to_json }
+      end
+
+      agent.extract.generate_now
+
+      format = chat ? body.dig("response_format", "json_schema") : body.dig("text", "format")
+      assert_equal "order", format["name"]
+      assert_equal true, format["strict"]
+      schema = format.fetch("schema")
+      assert_equal [ "order_number", "line_items" ], schema.fetch("properties").keys
+      [ schema, *schema.fetch("$defs").values ].each do |object|
+        assert_equal object.fetch("properties").keys.sort, object.fetch("required").sort
+        assert_equal false, object["additionalProperties"]
+      end
+      assert_equal "#/$defs/lineItem", schema.dig("properties", "line_items", "items", "$ref")
+      assert_equal "#/$defs/discount", schema.dig("$defs", "lineItem", "properties", "discounts", "items", "$ref")
+      assert_equal [ "promo_code" ], schema.dig("$defs", "discount", "properties").keys
+    end
   end
 
   test "a class that nests itself raises" do
