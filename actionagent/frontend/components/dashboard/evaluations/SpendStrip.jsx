@@ -39,10 +39,11 @@ export const agentUnit = (spend) => (spend?.agent?.unit === 'replay' ? 'replay' 
 export const fmtRate = (value, estimated = false) => fmtSpend(value, { estimated });
 
 // The same split as one mono line, for a footer: "agent ~$0.4400 · 8 replays
-// · ~$0.0550 each · judge ~$0.1200 · 24 calls · total ~$0.5600". The total
-// closes the line when the run has one, because the suite's footer is the
-// only place it is read.
-export const spendText = (spend) => {
+// · ~$0.0550 each · judge ~$0.1200 · 24 calls". With `total`, the run's
+// total closes the line ("· total ~$0.5600"): the suite's footer asks for
+// it, having no strip to show it in; the sampling pages' footers (the run
+// page's sits right under the strip's TOTAL tile) leave it out.
+export const spendText = (spend, { total = false } = {}) => {
   if (!spend) return null;
   const parts = [];
   if (spend.agent) {
@@ -51,16 +52,19 @@ export const spendText = (spend) => {
     parts.push(agent.join(' · '));
   }
   if (spend.judge) parts.push(`judge ${fmtSpend(spend.judge.cost, { estimated: spend.judge.estimated })} · ${plural(spend.judge.calls, 'call')}`);
-  if (spend.total != null) parts.push(`total ${fmtSpend(spend.total, { estimated: spend.totalEstimated })}`);
+  if (total && spend.total != null) parts.push(`total ${fmtSpend(spend.total, { estimated: spend.totalEstimated })}`);
   return parts.join(' · ');
 };
 
 // One stat tile of a strip: mono uppercase label · 18px mono/700 value ·
-// 11px mono sub-line, divided from the tile before it unless `first`.
+// 11px mono sub-line. Its left and top borders are the seams of the grid it
+// sits in: each is pulled a pixel over the neighbour's edge (and over the
+// card's, where the card clips it), so a row the grid wraps is divided like
+// the first, from the first cell on, with no stray line at a row's start.
 // `value` and `sub` take a node as readily as text. `role`, `tabIndex`,
 // `onClick` and `onKeyDown` make the tile a control (the header's TO FIX
 // cell is a button); `valueTestId` marks the figure for a test.
-export function StatCell({ label, value, sub, title, valueColor, testId, valueTestId, first = false, onClick, onKeyDown, role, tabIndex, style }) {
+export function StatCell({ label, value, sub, title, valueColor, testId, valueTestId, onClick, onKeyDown, role, tabIndex, style }) {
   return (
     <div
       data-testid={testId}
@@ -69,7 +73,10 @@ export function StatCell({ label, value, sub, title, valueColor, testId, valueTe
       tabIndex={tabIndex}
       onClick={onClick}
       onKeyDown={onKeyDown}
-      style={{ padding: '10px 16px', minWidth: 0, borderLeft: first ? 'none' : '1px solid var(--color-border-light)', ...style }}
+      style={{
+        padding: '10px 16px', minWidth: 0, marginLeft: -1, marginTop: -1,
+        borderLeft: '1px solid var(--color-border-light)', borderTop: '1px solid var(--color-border-light)', ...style,
+      }}
     >
       <MicroLabel size={10} color={MUTED}>{label}</MicroLabel>
       <div data-testid={valueTestId} style={{ marginTop: 4, fontFamily: MONO, fontSize: 18, fontWeight: 700, lineHeight: 1.1, color: valueColor || 'var(--color-text-primary)' }}>{value}</div>
@@ -85,7 +92,7 @@ const PENDING_FIGURE = { value: '…', valueColor: MUTED, sub: 'priced when the 
 // The agent's side. A run that failed before replaying anything has no
 // operating cost to show, so it reads "—" rather than "nothing replayed or
 // sampled" (which is a complete run that recorded no interactions).
-export function AgentCostCell({ spend, pending = false, failed = false, first = false }) {
+export function AgentCostCell({ spend, pending = false, failed = false }) {
   const agent = spend?.agent || null;
   const tokens = agent && (agent.inputTokens != null || agent.outputTokens != null)
     ? ` · in ${fmtK(agent.inputTokens)} · out ${fmtK(agent.outputTokens)}`
@@ -99,7 +106,7 @@ export function AgentCostCell({ spend, pending = false, failed = false, first = 
           ? `${plural(agent.count, agentUnit(spend))}${agent.perInteraction != null ? ` · ${fmtRate(agent.perInteraction, agent.estimated)} per interaction` : ''}${tokens}`
           : 'nothing replayed or sampled',
       };
-  return <StatCell first={first} label="Agent cost" title={AGENT_TITLE} testId="run-spend-agent" {...figure} />;
+  return <StatCell label="Agent cost" title={AGENT_TITLE} testId="run-spend-agent" {...figure} />;
 }
 
 // The judge's side. `judgedBy` is the run's judge as the evaluation names
@@ -127,7 +134,7 @@ export default function SpendStrip({ spend, judgedBy = null, testId = 'run-spend
   return (
     <Card padding={0} testId={testId} style={{ overflow: 'hidden' }}>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
-        <AgentCostCell first spend={spend} />
+        <AgentCostCell spend={spend} />
         <JudgeCostCell spend={spend} judgedBy={judgedBy} />
         <StatCell
           label="Total"

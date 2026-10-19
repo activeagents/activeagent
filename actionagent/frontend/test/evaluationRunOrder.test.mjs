@@ -18,6 +18,9 @@ const bundlePath = fileURLToPath(new URL(`../node_modules/.cache/evaluation-run-
 const at = '2026-01-05T10:00:00Z';
 
 let render;
+// The panel's bar recipe (one bar per model of a run), for a rail rendered
+// on its own with the bars the panel would give it.
+let runBars;
 
 // ThemeProvider reads the saved theme while it renders (and readDetailChoice
 // the remembered detail level): the stub answers 'light' to every key, so a
@@ -39,10 +42,12 @@ before(async () => {
         import EvaluationRunDetail from './components/dashboard/evaluations/EvaluationRunDetail.jsx';
         import RunsList, { RunRail } from './components/dashboard/evaluations/RunsList.jsx';
         import RunHeader from './components/dashboard/evaluations/RunHeader.jsx';
+        import { runBars } from './components/dashboard/EvaluationRunPanels.jsx';
 
         const views = { ScenarioSuitePanel, EvaluationRunDetail, RunsList, RunRail, RunHeader };
         export const render = (name, props) =>
           renderToStaticMarkup(React.createElement(ThemeProvider, null, React.createElement(views[name], props)));
+        export { runBars };
       `,
       resolveDir: root,
       loader: 'jsx',
@@ -56,7 +61,7 @@ before(async () => {
   });
   mkdirSync(dirname(bundlePath), { recursive: true });
   writeFileSync(bundlePath, outputFiles[0].text);
-  ({ render } = await import(pathToFileURL(bundlePath).href));
+  ({ render, runBars } = await import(pathToFileURL(bundlePath).href));
 });
 
 after(() => rmSync(bundlePath, { force: true }));
@@ -127,7 +132,7 @@ test('a scenario suite reads its run header, then its runs, then the scenario re
   assert.match(between(html, 'data-testid="criteria-footer"'), /total/, 'the footer spend line carries the run total');
 
   // One Tab stop per container — one rail row, one box row — and the header's
-  // TO FIX tile, a button by contract (the spec's "two" counts the containers).
+  // TO FIX tile, a button by contract: three in all.
   assert.equal(count(html, /tabindex="0"/g), 3);
   const header = between(html, 'data-testid="suite-run-header"', 'data-testid="suite-detail-toggle"');
   assert.equal(count(header, /tabindex="0"/g), 1);
@@ -173,6 +178,7 @@ test('a run whose results have not landed reads as loading', () => {
   assert.match(failedOnly, /\[ \] failed only$/, 'the failed-only count waits for the results');
   assert.doesNotMatch(failedOnly, /·/);
   assert.match(between(html, 'data-testid="suite-run-passed"', 'data-testid="suite-run-models"'), /1\/1 · 100%/, 'PASSED reads from the summary');
+  assert.doesNotMatch(between(html, 'data-testid="suite-run-models"', 'data-testid="run-spend-agent"'), /0\/1/, 'no per-model count is claimed before the results land');
   assert.match(html, /\[ \] loading…/, 'What to fix waits for the results');
 });
 
@@ -218,13 +224,74 @@ test('a run that failed before replaying hides the models and fixes', () => {
   assert.doesNotMatch(html, /suite-models-panel/);
   assert.doesNotMatch(html, /fix-list/);
   assert.doesNotMatch(html, /suite-order-toggle/);
-  assert.match(between(html, 'data-testid="suite-runs-panel"', 'data-testid="scenario-matrix"'), /\[!\] Provider refused/);
+  const rail = between(html, 'data-testid="suite-runs-panel"', 'data-testid="scenario-matrix"');
+  assert.match(rail, /\[!\] Provider refused/);
+
+  // Nothing was replayed, so no bar claims a count: the MODELS tile draws a
+  // dash per model, the rail row's error line stands where its bars would,
+  // and the box's column header names the model alone. TO FIX, with no
+  // What to fix to open, is a figure rather than a button.
+  const models = between(html, 'data-testid="suite-run-models"', 'data-testid="run-spend-agent"');
+  assert.doesNotMatch(models, /\d+\/\d+</, 'a run that never replayed shows no 0/n');
+  assert.match(models, />—</);
+  assert.doesNotMatch(rail, /\d+\/\d+</);
+  assert.doesNotMatch(between(html, 'data-testid="scenario-matrix"', 'data-testid="scenario-row"'), /\d+\/\d+</);
+  assert.doesNotMatch(between(header, 'data-testid="suite-to-fix"', '</div>'), /tabindex|role="button"/);
+  assert.equal(count(header, /tabindex="0"/g), 0);
 
   // A selection the runner never resolved still covers the whole suite.
   const unresolved = render('ScenarioSuitePanel', suite({ ...failed, selection: { models: ['gpt-5-mini'] } }));
   assert.match(unresolved, /data-scenario-key="a" data-step="missing"/);
   assert.match(unresolved, /data-scenario-key="b" data-step="missing"/);
   assert.match(between(unresolved, 'data-testid="suite-run-header"', 'data-testid="suite-runs-panel"'), /2 scenarios/);
+  assert.doesNotMatch(between(unresolved, 'data-testid="suite-run-models"', 'data-testid="run-spend-agent"'), /\d+\/\d+</, 'nor does a run of the whole suite that never started it');
+});
+
+test("a running run's strip card draws what failed so far, and a run's bars read from what it recorded", () => {
+  const scenarioC = { id: 3, key: 'c', prompt: 'Refund order 4821', group: null, enabled: true, expectations: {} };
+  const catalog = [scenarioA, scenarioB, scenarioC];
+  const barsFor = (run) => runBars(run, run.results || [], railEvaluation, catalog);
+  const running = {
+    id: 13, status: 'running', created_at: at, selection: { scenario_keys: ['a', 'b', 'c'], models: [spec] }, scores: {},
+    results: [result('a', 'passed', { score: 0.9 }), result('b', 'failed', { score: 0.4, fault: 'expected_tool_not_called' }), result('c', 'pending')],
+  };
+  assert.deepEqual(barsFor(running), [{ label: 'gpt-5-mini', short: 'gpt-5-mini', passed: 1, failed: 1, total: 3 }]);
+
+  const html = render('RunRail', { runs: [running], evaluation: railEvaluation, layout: 'strip', limit: 3, selectedId: 13, barsFor });
+  const bar = between(html, 'data-testid="evaluation-run-progress"', '</div>');
+  assert.match(bar, /title="1 of 3 passed so far · 1 failed"/);
+  const widths = [...bar.matchAll(/width:([\d.]+)%/g)].map((match) => Number(match[1]));
+  assert.equal(widths.length, 2, 'a passed part and a failed part');
+  assert.ok(widths.every((width) => width > 0), `both parts are drawn: ${widths.join(', ')}`);
+
+  // From the summary once the run is complete; nothing at all for a model a
+  // failed run never reached.
+  assert.deepEqual(
+    barsFor({ id: 8, status: 'complete', scores: { _models: { 'gpt-5-mini': { scenarios: 3, passed: 2 } } } }),
+    [{ label: 'gpt-5-mini', short: 'gpt-5-mini', passed: 2, failed: 1, total: 3 }],
+  );
+  assert.deepEqual(
+    barsFor({ id: 9, status: 'failed', selection: { models: [spec] }, scores: {}, results: [] }),
+    [{ label: 'gpt-5-mini', short: 'gpt-5-mini', passed: null, failed: null, total: null }],
+  );
+});
+
+test("the run total closes the suite's spend line only; the sampling run page has its TOTAL tile", () => {
+  const run = {
+    id: 3, status: 'complete', created_at: at, completed_at: at, samples_evaluated: 4, samples_passed: 3,
+    scores: { response_present: { score: 0.5, passed: 2, total: 4 } },
+    usage: { samples: 4, cost: 0.44, judge: { calls: 24, cost: 0.12, by_kind: {} } },
+  };
+  const html = render('EvaluationRunDetail', {
+    evaluation: { id: 2, name: 'Sampled replies', agent: { id: 5, name: 'SupportAgent' }, criteria: [] },
+    runs: [run],
+    runId: 3,
+  });
+
+  assert.equal(count(html, /data-testid="run-spend-total"/g), 1);
+  const footer = between(html, 'data-testid="criteria-footer"');
+  assert.match(footer, /judge ~\$0\.1200 · 24 calls</, 'the spend line ends with the judge');
+  assert.doesNotMatch(footer, /total/, 'the strip above already shows it');
 });
 
 test('a partial run is labelled and folds the rest', () => {

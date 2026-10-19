@@ -14,15 +14,18 @@ import { spendText } from './SpendStrip';
 //
 // `keys` names the criteria to list — a scenario run scores keys the
 // evaluation never declared (expected_tools, task_completion) — defaulting
-// to the evaluation's own.
-export default function CriteriaFooter({ evaluation, run = null, keys = null, spend = null, reportPath = null, onDelete, deleting = false, deleteLabel = 'Delete evaluation' }) {
+// to the evaluation's own. `spendTotal` closes the spend line with the
+// run's total, for a page with no SpendStrip to show it in (the suite).
+export default function CriteriaFooter({
+  evaluation, run = null, keys = null, spend = null, spendTotal = false, reportPath = null, onDelete, deleting = false, deleteLabel = 'Delete evaluation',
+}) {
   const criteria = (keys || (evaluation.criteria || []).map((criterion) => criterion.key)).map((key) => findCriterion(evaluation, key));
   const muted = { fontFamily: MONO, fontSize: 11, color: 'var(--color-text-muted)' };
   const cell = { fontFamily: MONO, fontSize: 11, color: 'var(--color-text-cell)' };
   const sourceTag = (text, testId, title) => (
     <span data-testid={testId} title={title} style={{ ...muted, fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.04em', marginLeft: 2 }}>{text}</span>
   );
-  const usage = spendText(spend);
+  const usage = spendText(spend, { total: spendTotal });
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6, paddingTop: 12, borderTop: '1px solid var(--color-border-light)' }} data-testid="criteria-footer">

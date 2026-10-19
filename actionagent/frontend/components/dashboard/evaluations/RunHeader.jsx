@@ -130,7 +130,10 @@ export default function RunHeader({
       title: 'Samples passed, against the run before',
       empty: complete && !delta ? 'Movement is read against the run before, which is not loaded' : 'Movement is read once the run completes',
     },
-    { key: 'badge', width: 132, content: <RunBadge run={run} testId="suite-run-badge" /> },
+    // No fixed width: the badge's own text sets the column. A 132px column
+    // clipped "162/200 · 81% passed" at the card's edge, and a four-model
+    // run reads longer still; nothing below has to line up with it.
+    { key: 'badge', content: <RunBadge run={run} testId="suite-run-badge" /> },
   ];
 
   // --- line 2: the tiles -------------------------------------------------
@@ -190,6 +193,10 @@ export default function RunHeader({
       jumpToFix();
     }
   };
+  // TO FIX is a button while there is a What to fix to go to; a failed run
+  // renders none, so its tile is a plain figure, not a Tab stop to nowhere.
+  const fixControl = failed ? {} : { role: 'button', tabIndex: 0, onClick: jumpToFix, onKeyDown: jumpOnKey, style: { cursor: 'pointer' } };
+  const fixTitle = `The faults this run found, grouped into fixes${failed ? '' : ' — opens What to fix'}`;
 
   return (
     <Card padding={0} testId="suite-run-header" style={{ overflow: 'hidden' }}>
@@ -233,10 +240,10 @@ export default function RunHeader({
         </span>
       </div>
 
-      {/* Line 2: the five tiles. */}
+      {/* Line 2: the five tiles (their own borders are the grid's seams, on
+          every row the grid wraps them to). */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
         <StatCell
-          first
           label="Passed"
           title="Results that passed, over every scenario × model the run covers"
           testId="suite-run-passed"
@@ -251,17 +258,7 @@ export default function RunHeader({
         />
         <AgentCostCell spend={spend} pending={running} failed={failed} />
         <JudgeCostCell spend={spend} judgedBy={judgedBy} pending={running} failed={failed} />
-        <StatCell
-          label="To fix"
-          title="The faults this run found, grouped into fixes — opens What to fix"
-          testId="suite-to-fix"
-          role="button"
-          tabIndex={0}
-          onClick={jumpToFix}
-          onKeyDown={jumpOnKey}
-          style={{ cursor: 'pointer' }}
-          {...fixes}
-        />
+        <StatCell label="To fix" title={fixTitle} testId="suite-to-fix" {...fixControl} {...fixes} />
       </div>
 
       {/* Line 3: how far the run is, or why it stopped. */}
@@ -272,9 +269,11 @@ export default function RunHeader({
           height={4}
           radius={0}
           role="progressbar"
+          aria-label="Results in"
           aria-valuemin={0}
           aria-valuemax={expectedResults}
           aria-valuenow={settledCount}
+          aria-valuetext={`${settledCount} of ${expectedResults} results in${settledFailed ? `, ${settledFailed} failed` : ''}`}
           testId="suite-run-progress-bar"
         />
       )}
