@@ -86,18 +86,68 @@ export function leavesView(event, previousAt) {
   return event.timeStamp - previousAt <= LEAVE_VIEW_MS;
 }
 
+// The bytes in one file_chunk message, before base64: what the sidecar takes.
+export const UPLOAD_CHUNK_BYTES = 32 * 1024;
+
+// Returns `bytes` (a Uint8Array) as base64, a slice at a time so a large
+// chunk does not overflow String.fromCharCode's arguments.
+export function encodeChunk(bytes) {
+  let binary = '';
+  for (let offset = 0; offset < bytes.length; offset += 0x8000) {
+    binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000));
+  }
+  return btoa(binary);
+}
+
+function sizeLabel(bytes) {
+  if (bytes >= 1024 * 1024) return `${Math.round((bytes / (1024 * 1024)) * 10) / 10} MB`;
+  if (bytes >= 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${bytes} bytes`;
+}
+
+// Returns what the files a person chose for `chooser` (the sidecar's
+// file_chooser) upload as: { files: [{ name, size }], total }, or { error }
+// when the sidecar would refuse them.
+export function uploadPlan(files, chooser) {
+  const list = Array.from(files || []);
+  if (!chooser) return { error: 'The page is no longer asking for a file.' };
+  if (list.length === 0) return { error: 'Choose a file to upload.' };
+  const limit = chooser.multiple ? chooser.max_files : 1;
+  if (list.length > limit) return { error: limit === 1 ? 'This field takes one file.' : `This field takes at most ${limit} files.` };
+  const large = list.find((file) => file.size > chooser.max_file_bytes);
+  if (large) return { error: `${large.name} is larger than ${sizeLabel(chooser.max_file_bytes)}.` };
+
+  return { files: list.map((file) => ({ name: file.name, size: file.size })), total: list.reduce((sum, file) => sum + file.size, 0) };
+}
+
+// Returns how an upload under way reads, from `upload` ({ sent, total }).
+export function uploadProgressLabel(upload) {
+  if (!upload) return null;
+  const percent = upload.total > 0 ? Math.min(100, Math.floor((upload.sent / upload.total) * 100)) : 100;
+  return `Uploading ${sizeLabel(upload.total)}… ${percent}%`;
+}
+
+// Returns what a viewer who is not driving is told while the page waits for
+// a file, or null when it is not waiting, or this viewer is driving.
+export function fileChooserWaitLabel(state) {
+  if (!state.fileChooser || state.control.mine) return null;
+  if (state.control.yours) return 'The page is asking for a file. Choose it in the view you are driving from.';
+  return `The page is asking ${state.control.by || 'the person driving'} for a file.`;
+}
+
 export const initialLiveViewState = {
   ready: false,
   control: { held: false, mine: false, yours: false, by: null, since: null },
   agent: { waiting: false, tool: null, since: null },
   page: null,
   frameSize: null,
+  fileChooser: null,
   error: null,
 };
 
 // Returns the view's state after one message from the sidecar, or after one
 // of the view's own: { type: "clear_error" }, or { type: "reset" } when its
-// connection closed. A frame changes only the frame's size: its pixels are
+// connection closed. A failed upload shows as the view's error. A frame changes only the frame's size: its pixels are
 // drawn, not kept in state.
 export function liveViewReducer(state, message) {
   switch (message?.type) {
@@ -108,6 +158,7 @@ export function liveViewReducer(state, message) {
         control: { ...initialLiveViewState.control, ...message.control },
         agent: message.agent || initialLiveViewState.agent,
         page: message.page || null,
+        fileChooser: message.file_chooser || null,
       };
     case 'frame':
       if (state.frameSize?.width === message.width && state.frameSize?.height === message.height) return state;
@@ -121,6 +172,10 @@ export function liveViewReducer(state, message) {
       return { ...state, agent: { waiting: message.waiting, tool: message.tool, since: message.since } };
     case 'page':
       return { ...state, page: message.page || null };
+    case 'file_chooser':
+      return { ...state, fileChooser: message.chooser || null };
+    case 'file_upload':
+      return message.status === 'failed' ? { ...state, error: message.message || 'The upload failed' } : state;
     case 'error':
       return { ...state, error: message.message || 'The browser refused that' };
     case 'clear_error':

@@ -81,6 +81,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   empty-array default, and is added only to a class without one, so
   ActiveRecord's is untouched (#260).
 
+- Upload files to a page through the sandbox browser's live view: a file chooser the page opens while someone drives is answered from the driver's own machine (picker or drop), over the live-view WebSocket. Ships in 1.9.2 with `@activeagents/browser-sidecar` 1.9.2.
+
 ### Changed
 
 - **A scenario suite's page reads like a build page** (`actionagent`). The
