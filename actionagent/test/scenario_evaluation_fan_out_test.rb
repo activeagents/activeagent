@@ -127,7 +127,10 @@ class ActionAgentScenarioEvaluationFanOutTest < ActiveSupport::TestCase
     %w[response_present _recommendations _verdict].each do |key|
       assert_equal sequential.scores[key], fanned.scores[key], key
     end
-    comparable = ->(summary) { summary.transform_values { |model| model.except("avg_duration_ms") } }
+    # The latency figures are wall-clock: a replay's duration is not the same
+    # from one run to the next, so neither the mean nor the percentiles are
+    # comparable between the two runs.
+    comparable = ->(summary) { summary.transform_values { |model| model.except("avg_duration_ms", "p50_duration_ms", "p95_duration_ms") } }
     assert_equal comparable.call(sequential.scores["_models"]), comparable.call(fanned.scores["_models"])
   end
 
