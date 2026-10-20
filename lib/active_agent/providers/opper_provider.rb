@@ -51,6 +51,14 @@ module ActiveAgent
 
       protected
 
+      # Executes an embedding request via Opper's OpenAI-compatible API.
+      #
+      # @param parameters [Hash]
+      # @return [Hash] symbolized API response
+      def api_embed_execute(parameters)
+        client.embeddings.create(**parameters).as_json.deep_symbolize_keys
+      end
+
       # @see BaseProvider#api_response_normalize
       # @param api_response [OpenAI::Models::ChatCompletion]
       # @return [Hash] normalized response hash
