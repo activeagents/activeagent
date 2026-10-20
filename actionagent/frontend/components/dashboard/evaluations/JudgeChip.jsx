@@ -61,7 +61,8 @@ export default function JudgeChip({ evaluation, run, label, onChanged, testId = 
         style={{ ...mono(), display: 'inline-flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
       >
         <span>judged by <span style={{ color: 'var(--color-info)' }}>{label}</span></span>
-        {info.auto && <Badge tone="warning" size={10} title="No judge model is pinned: the provider chose this one">auto</Badge>}
+        {info.auto && <Badge tone="warning" size={10} title="No judge model is pinned: the provider chose">auto</Badge>}
+        {info.answered.length > 1 && <Badge tone="error" size={10} title="More than one model judged this run">{`${info.answered.length} models`}</Badge>}
       </button>
       {open && (
         <Card padding="12px 14px" testId={`${testId}-panel`} style={{ display: 'flex', flexDirection: 'column', gap: 10, maxWidth: 560 }}>
@@ -108,7 +109,7 @@ export default function JudgeChip({ evaluation, run, label, onChanged, testId = 
               {info.pinned ? `next run: ${info.pinned}` : `next run: ${info.providerDefault || `${info.provider} default`}`}
             </span>
             <MonoLink href={dashboardPath(SETTINGS_KEYS_PATH)} onClick={() => navigateTo(SETTINGS_KEYS_PATH)}>
-              {`${info.provider || 'provider'} key in Settings ->`}
+              {`${info.provider || 'provider'} key in Settings`}
             </MonoLink>
           </div>
           {error && <div style={{ fontSize: 12, color: 'var(--color-error-text)' }}>{error}</div>}
