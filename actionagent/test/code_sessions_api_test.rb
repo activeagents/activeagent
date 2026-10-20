@@ -99,6 +99,7 @@ class CodeSessionsApiTest < ActionDispatch::IntegrationTest
     ActionAgent.current_account_resolver = nil
     ActionAgent.multi_tenant = false
     ActionAgent.claude_code_auth = :api_key
+    ActionAgent.codex_auth = :api_key
   end
 
   test "a session runs in a ready checkout, and its transcript is polled from an offset" do
@@ -636,10 +637,75 @@ class CodeSessionsApiTest < ActionDispatch::IntegrationTest
     assert_refused(@sandbox, :unprocessable_entity, /connect an OpenAI API key/,
       params: { prompt: "Check README", runner: "codex" })
 
+    get "/activeagents/api/sandboxes"
+    body = JSON.parse(response.body)
+    assert_equal "api_key", body["codex_auth"]
+    assert_equal false, body["codex_connected"]
+    assert_not body.key?("codex_login"), "only a machine's own login has a login status"
+
     ActionAgent::ProviderKey.create!(provider: "codex", credential: "sk-proj-fixtureCodexKey")
+    get "/activeagents/api/sandboxes"
+    assert_equal true, JSON.parse(response.body)["codex_connected"]
+
     ActionAgent.sandbox_service = :mock
     assert_refused(@sandbox, :unprocessable_entity, /cannot run Codex/,
       params: { prompt: "Check README", runner: "codex" })
+  end
+
+  test "with codex_auth :local_login a Codex session needs this machine's Codex login, not a stored key" do
+    ActionAgent.codex_auth = :local_login
+    ActionAgent.sandbox_service = :scripted_local
+    logged_out = { logged_in: false, auth_method: nil, api_provider: nil }
+    logged_in = { logged_in: true, auth_method: "ChatGPT", api_provider: nil }
+
+    ActionAgent::LocalSandboxBackend.stub(:codex_login_status, logged_out) do
+      assert_refused(@sandbox, :unprocessable_entity, /Codex is not logged in on this machine: run `codex login`/,
+        params: { prompt: "Check README", runner: "codex" })
+
+      get "/activeagents/api/sandboxes"
+      body = JSON.parse(response.body)
+      assert_equal true, body["codex_sessions_supported"]
+      assert_equal "local_login", body["codex_auth"]
+      assert_equal false, body["codex_connected"]
+      assert_equal({ "logged_in" => false, "auth_method" => nil }, body["codex_login"])
+    end
+
+    ScriptedBackend.script = lambda do |emit|
+      emit.call("type" => "thread.started", "thread_id" => "codex-fixture-2")
+      emit.call("type" => "item.completed", "item" => { "type" => "agent_message", "text" => "Done" })
+      emit.call("type" => "turn.completed", "usage" => { "input_tokens" => 1, "output_tokens" => 1 })
+      { exit_status: 0, diff: "", stderr_tail: "" }
+    end
+    ActionAgent::LocalSandboxBackend.stub(:codex_login_status, logged_in) do
+      get "/activeagents/api/sandboxes"
+      body = JSON.parse(response.body)
+      assert_equal true, body["codex_connected"]
+      assert_equal({ "logged_in" => true, "auth_method" => "ChatGPT" }, body["codex_login"])
+
+      post sessions_path, params: { prompt: "Check README", runner: "codex" }, as: :json
+      assert_response :created, response.body
+      perform_enqueued_jobs
+      session = ActionAgent::CodeSession.sole
+      assert session.succeeded?, session.error_message
+      assert_equal "local_login", session.credential_mode
+      assert_equal [ [ @sandbox.session_id, session.id, "Check README" ] ], ScriptedBackend.runs
+    end
+  end
+
+  test "Codex :local_login is refused on a backend other than :local, with the reason" do
+    ActionAgent.codex_auth = :local_login
+    use_scripted_backend
+
+    assert_refused(@sandbox, :unprocessable_entity, /own Codex login, so it works only with the :local sandbox backend, not scripted/,
+      params: { prompt: "Check README", runner: "codex" })
+
+    get "/activeagents/api/sandboxes"
+    body = JSON.parse(response.body)
+    assert_equal false, body["codex_sessions_supported"]
+    assert_equal "local_login", body["codex_auth"]
+    assert_equal false, body["codex_connected"]
+    assert_equal({ "logged_in" => false, "auth_method" => nil }, body["codex_login"])
+    assert_equal true, body["code_sessions_supported"], "Claude Code is unaffected"
   end
 
   test "Codex native events produce a scrubbed result and preserve runner identity" do

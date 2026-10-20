@@ -33,6 +33,7 @@ import {
   transcriptRows,
   upsertBy,
   claudeCodeNotConnectedHint,
+  codexNotConnectedHint,
 } from '../../utils/codeSessions.mjs';
 
 // The composer's limit, as the model validates it.
@@ -195,10 +196,7 @@ export default function CodeSessionPanel({ sandbox, claudeCode, codex, onRecheck
   const watchedId = activeSession && activeSession.id !== selectedId ? activeSession.id : null;
   // Why the composer is locked: Claude Code cannot run (no API key, or this
   // machine is not logged in), or the checkout is busy with another session.
-  const notConnected = runner === 'codex'
-    ? (!codex?.supported ? { text: 'This sandbox backend does not support Codex.' }
-      : !codex?.connected ? { text: 'Connect an OpenAI API key in the Codex integration below.' } : null)
-    : claudeCodeNotConnectedHint(claudeCode);
+  const notConnected = runner === 'codex' ? codexNotConnectedHint(codex) : claudeCodeNotConnectedHint(claudeCode);
   const blockedReason = notConnected ? 'not_connected' : activeSession ? 'busy' : null;
   useEffect(() => {
     if (watchedId == null) return undefined;
