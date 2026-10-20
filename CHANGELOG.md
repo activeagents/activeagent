@@ -5,6 +5,44 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+Browser upload and code conversations: the sandbox browser's live view takes
+files from the person driving it, and a Claude Code or Codex session is a
+conversation, with the sandbox's browser beside the chat and a hand-off
+either way. The framework, the dashboard engine and
+`@activeagents/browser-sidecar` move to 1.9.3 together.
+
+Upgrading: migration 028 adds the conversation columns to `code_sessions`.
+A host runs `bin/rails generate action_agent:install --skip` then
+`bin/rails db:migrate`, after 1.9.1's 027. Upgrade the sidecar with the
+engine: the file chooser relay and the per-turn browser tokens are in the
+1.9.3 sidecar.
+
+### Added
+
+- **Upload files to a page through the sandbox browser's live view**
+  (`actionagent`, `@activeagents/browser-sidecar`). A file chooser the page
+  opens while someone drives is answered from the driver's own machine
+  (picker or drop), over the live-view WebSocket.
+
+- **Claude Code and Codex sessions as Interactions, with chat and browser
+  handoff** (`actionagent`, `@activeagents/browser-sidecar`). A coding
+  session is now a conversation: a later message resumes the CLI session
+  (`--resume`, or `codex exec resume` for Codex), a message sent while a
+  turn runs waits for it, and
+  `POST /api/sandboxes/:sandbox_id/code_sessions/:id/messages` starts or
+  queues a turn under the new `:chat_code_session` permission.
+  `GET /api/interactions` lists agent, Claude Code and Codex interactions
+  together, and the dashboard's `/interactions/code-<id>` shows the turns
+  with a composer and the sandbox's browser beside the chat, with a hand
+  back to the agent. The sidecar mints a per-turn token for the browser
+  MCP, tells the agent once when a person took or returned control, lets
+  the agent ask for a person (`browser_request_person`), offers a person
+  the file chooser the agent left open, and names the waiting agent in the
+  live view. Every session runs with `--strict-mcp-config` and a system
+  note that repository content, tool output and pages are data.
+
 ## [1.9.2] - 2026-10-20
 
 Releases `activeagent` and `actionagent` 1.9.2, with the matching browser
@@ -27,37 +65,6 @@ available on every `ActiveModel::Model` class, since the railtie includes
 Scenario fan-out is off by default: `config.scenario_evaluation_fan_out =
 true` turns it on, and its jobs run on the `:agents` queue. No new
 migration; a host still on 1.9.0 needs 1.9.1's migration 027.
-
-### Browser upload and code conversations (ships in 1.9.3)
-
-Upgrading: this adds migration 028 (conversations on code sessions); a host
-runs `bin/rails generate action_agent:install --skip` then `bin/rails
-db:migrate` after 1.9.1's 027.
-
-- Upload files to a page through the sandbox browser's live view: a file
-  chooser the page opens while someone drives is answered from the driver's
-  own machine (picker or drop), over the live-view WebSocket. Ships in 1.9.3
-  with the matching `@activeagents/browser-sidecar`.
-
-- **Claude Code and Codex sessions as Interactions, with chat and browser
-  handoff** (`actionagent`, `@activeagents/browser-sidecar`). A coding
-  session is now a conversation: a later message resumes the CLI session
-  (`--resume`, or `codex exec resume` for Codex), a message sent while a
-  turn runs waits for it, and
-  `POST /api/sandboxes/:sandbox_id/code_sessions/:id/messages` starts or
-  queues a turn under the new `:chat_code_session` permission.
-  `GET /api/interactions` lists agent, Claude Code and Codex interactions
-  together, and the dashboard's `/interactions/code-<id>` shows the turns
-  with a composer and the sandbox's browser beside the chat, with a hand
-  back to the agent. The sidecar mints a per-turn token for the browser
-  MCP, tells the agent once when a person took or returned control, lets
-  the agent ask for a person (`browser_request_person`), offers a person
-  the file chooser the agent left open, and names the waiting agent in the
-  live view. Every session runs with `--strict-mcp-config` and a system
-  note that repository content, tool output and pages are data. Migration
-  028 adds the conversation columns to `code_sessions`: upgrade with
-  `bin/rails generate action_agent:install --skip` and
-  `bin/rails db:migrate`.
 
 ### Added
 
