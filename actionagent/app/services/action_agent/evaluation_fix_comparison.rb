@@ -6,8 +6,11 @@ module ActionAgent
       @session = session
     end
 
+    # +after+ is pending while the verification run is in progress and, with
+    # a fanned-out run, while its stored replay waits to be scored: not a
+    # result yet, so not a regression.
     def self.change(before, after)
-      return "pending" unless after
+      return "pending" if after.nil? || after.pending?
       return after.passed? ? "added_pass" : "added_fail" unless before
       return after.passed? ? "unchanged_pass" : "regressed" if before.passed?
       after.passed? ? "fixed" : "still_failing"
