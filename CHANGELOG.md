@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **Streamed tool calls without an `index` are no longer split into
+  fragments.** OpenAI-compatible servers (Gemini's compatibility endpoint,
+  some Ollama and OpenRouter backends) stream tool calls without the `index`
+  that ties argument fragments to their call, and the Chat provider turned
+  every fragment into its own tool call with partial arguments. A fragment
+  now continues the call with the same `id`, or the last call when it has no
+  `id` and no function name.
+
 ## [1.9.2] - 2026-10-20
 
 Releases `activeagent` and `actionagent` 1.9.2, with the matching browser
