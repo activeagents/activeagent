@@ -1,4 +1,8 @@
 import assert from 'node:assert/strict';
+import { EventEmitter } from 'node:events';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import test from 'node:test';
 
 import { WebSocket } from 'ws';
@@ -6,6 +10,7 @@ import { WebSocket } from 'ws';
 import { ControlLock } from '../lib/control-lock.mjs';
 import { acceptedHosts } from '../lib/guard.mjs';
 import { createHttpServer } from '../lib/http-server.mjs';
+import { FileChooserRelay } from '../lib/file-upload.mjs';
 import { CLOSE_CODES, LiveServer } from '../lib/live-server.mjs';
 import { TicketVerifier, signTicket, ticketKey } from '../lib/live-ticket.mjs';
 
@@ -47,14 +52,50 @@ class FakeScreencast {
   }
 }
 
-async function start(t, { graceMs = 10_000, authTimeoutMs = 2000, maxConnections } = {}) {
+// A context with one page that opens file choosers on demand, each keeping
+// the files it is given.
+class FakeContext extends EventEmitter {
+  constructor() {
+    super();
+    this.page = new EventEmitter();
+  }
+
+  pages() {
+    return [this.page];
+  }
+
+  openChooser({ multiple = false } = {}) {
+    const chooser = {
+      files: null,
+      page: () => this.page,
+      isMultiple: () => multiple,
+      element: () => ({ getAttribute: async () => null }),
+      setFiles: async (paths) => {
+        chooser.files = await Promise.all(paths.map((path) => readFile(path, 'utf8')));
+      },
+    };
+    this.page.emit('filechooser', chooser);
+    return chooser;
+  }
+}
+
+async function start(t, { graceMs = 10_000, authTimeoutMs = 2000, maxConnections, withUploads = false } = {}) {
   const screencast = new FakeScreencast();
   const lock = new ControlLock({ graceMs });
+  let uploads = null;
+  let context = null;
+  if (withUploads) {
+    const dir = await mkdtemp(join(tmpdir(), 'live-uploads-'));
+    t.after(() => rm(dir, { recursive: true, force: true }));
+    context = new FakeContext();
+    uploads = new FileChooserRelay({ context, lock, dir });
+    uploads.attach();
+  }
   const markers = [];
   const logs = [];
   const live = new LiveServer({
     verifier: new TicketVerifier({ key: ticketKey(TOKEN), sessionId: SESSION }),
-    lock, screencast, authTimeoutMs, maxConnections,
+    lock, screencast, uploads, authTimeoutMs, maxConnections,
     onMarker: (marker) => markers.push(marker),
     log: (line) => logs.push(line),
   });
@@ -67,7 +108,7 @@ async function start(t, { graceMs = 10_000, authTimeoutMs = 2000, maxConnections
     live.close();
     server.close();
   });
-  return { port, live, lock, screencast, markers, logs };
+  return { port, live, lock, screencast, markers, logs, context, uploads };
 }
 
 // A viewer's connection, keeping every message it is sent.
@@ -175,6 +216,7 @@ test('a viewer is told the state and sent the last frame, then every frame, whil
     control: { held: false, mine: false, yours: false, by: null, since: null },
     agent: { waiting: false, tool: null, since: null },
     page: { url: 'http://127.0.0.1:4100/orders', tab: 1, tabs: 1 },
+    file_chooser: null,
   });
   assert.deepEqual(await message(client, 'frame'), { type: 'frame', data: 'ZnJhbWUtMQ==', width: 1280, height: 800 });
   assert.equal(screencast.streaming, true);
@@ -340,4 +382,47 @@ test('connections past the limit are turned away', async (t) => {
   const extra = connect(port);
   await extra.opened;
   assert.equal((await extra.closed).code, CLOSE_CODES.full);
+});
+
+test('the person driving answers a file chooser through the live view; everyone else is told to wait', async (t) => {
+  const { port, context, markers, logs } = await start(t, { withUploads: true });
+  const ada = await viewer(port);
+  const bea = await viewer(port, { sub: '2', name: 'Bea' });
+  takeControl(ada);
+  await message(ada, 'control', (state) => state.mine);
+
+  const chooser = context.openChooser({ multiple: true });
+  const offered = (await message(ada, 'file_chooser', (received) => received.chooser)).chooser;
+  assert.equal(offered.multiple, true);
+  assert.equal((await message(bea, 'file_chooser', (received) => received.chooser)).chooser.id, offered.id, 'watchers see it too');
+
+  bea.send({ type: 'file_upload', chooser: offered.id, files: [{ name: 'stolen.txt', size: 1 }] });
+  assert.equal((await message(bea, 'file_upload')).code, 'not_driving');
+
+  ada.send({ type: 'file_upload', chooser: offered.id, files: [{ name: 'a.txt', size: 3 }, { name: 'b.txt', size: 2 }] });
+  ada.send({ type: 'file_chunk', chooser: offered.id, data: Buffer.from('abc').toString('base64') });
+  ada.send({ type: 'file_chunk', chooser: offered.id, data: Buffer.from('de').toString('base64') });
+  assert.equal((await message(ada, 'file_upload', (received) => received.status === 'done')).chooser, offered.id);
+  assert.deepEqual(chooser.files, ['abc', 'de']);
+  await message(bea, 'file_chooser', (received) => received.chooser === null);
+
+  assert.deepEqual(markers.at(-1), { label: 'file_uploaded', source: 'human', user: { id: '1', name: 'Ada' }, files: 2, bytes: 5 });
+  assert.ok(!logs.join('\n').includes('a.txt'), 'file names are not logged');
+
+  const second = context.openChooser();
+  const late = await viewer(port, { sub: '3', name: 'Cy' });
+  const ready = late.messages.find((received) => received.type === 'ready');
+  assert.ok(ready.file_chooser?.id, 'a viewer who joins is told of the chooser on offer');
+  ada.send({ type: 'file_cancel', chooser: ready.file_chooser.id });
+  await message(late, 'file_chooser', (received) => received.chooser === null);
+  assert.equal(second.files, null);
+});
+
+test('without an upload relay a file message is refused', async (t) => {
+  const { port } = await start(t);
+  const ada = await viewer(port);
+  takeControl(ada);
+  await message(ada, 'control', (state) => state.mine);
+  ada.send({ type: 'file_upload', chooser: 'x', files: [{ name: 'a', size: 1 }] });
+  assert.equal((await message(ada, 'error')).code, 'uploads_off');
 });
