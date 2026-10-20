@@ -146,10 +146,16 @@ module ActiveAgent
       # @param class_name [String] full constant name of the item class, which
       #   generates JSON Schema too; resolved when the schema is generated
       # @return [void]
+      # @raise [ArgumentError] when the class does not include
+      #   +ActiveModel::Attributes+, which declares the attribute
       #
       # @example
       #   has_many :addresses, class_name: "Address"
       def has_many(name, class_name:)
+        unless respond_to?(:attribute)
+          raise ArgumentError, "#{self.name || inspect}.has_many :#{name} needs ActiveModel::Attributes to declare the attribute; include it before calling has_many"
+        end
+
         self.schema_associations = schema_associations.merge(name.to_sym => class_name).freeze
 
         attribute name, default: -> { [] }
