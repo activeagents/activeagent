@@ -82,17 +82,29 @@ module ActionAgent
       # `evaluation: { archived: true | false }` archives the evaluation —
       # it keeps its runs but leaves the index, the pooled pass rate and the
       # agent's scorecard — or brings it back. A new run brings it back too.
+      # `evaluation: { judge_model: "…" }` pins the model the judge runs on
+      # from the next run; blank unpins it, back to the provider's default.
       def update
         evaluation = evaluations_scope.find(params[:id])
-        archived = params.require(:evaluation)[:archived]
-        if archived.nil?
+        attributes = params.require(:evaluation)
+        archived = attributes[:archived]
+        pin_judge = attributes.key?(:judge_model)
+        if archived.nil? && !pin_judge
           return render json: { errors: [ "evaluation.archived must be true or false" ] }, status: :unprocessable_entity
         end
 
-        ActiveModel::Type::Boolean.new.cast(archived) ? evaluation.archive! : evaluation.unarchive!
+        judge_model = attributes[:judge_model].to_s.strip.presence
+        if judge_model && judge_model.length > MAX_JUDGE_MODEL
+          return render json: { errors: [ "evaluation.judge_model is longer than #{MAX_JUDGE_MODEL} characters" ] }, status: :unprocessable_entity
+        end
+
+        evaluation.update!(judge_model: judge_model) if pin_judge
+        ActiveModel::Type::Boolean.new.cast(archived) ? evaluation.archive! : evaluation.unarchive! unless archived.nil?
 
         render json: { evaluation: serialize(evaluation.reload) }
       end
+
+      MAX_JUDGE_MODEL = 200
 
       # Runs listed per evaluation on GET /api/evaluations/:id. The rest of
       # the history stays reachable by run id; `run_count` says how long it is.

@@ -775,8 +775,23 @@ module ActionAgent
       # The judge's own spend, apart from the replays' (which the results
       # carry and EvaluationRun#usage sums). A host adapter that runs its own
       # judge is out of reach of this meter, so its runs record none.
-      scores["_judge_usage"] = judge_usage if judge_usage
+      if judge_usage
+        scores["_judge_usage"] = judge_usage
+        name_judge!(scores, report.judge&.label)
+      end
       scores
+    end
+
+    # Records who judged once the calls are in. A judge with no model pinned
+    # started out labelled by its provider; it is renamed after the model
+    # that answered, here and on the verdict it wrote.
+    def name_judge!(scores, provisional)
+      scores["_judge"] = judge_descriptor
+      label = judge_display_label
+      return unless label && provisional && scores["_judge_label"] == provisional
+
+      scores["_judge_label"] = label
+      scores["_verdict"]["judge"] = label if scores["_verdict"].is_a?(Hash) && scores["_verdict"]["judge"] == provisional
     end
 
     # --- judge ------------------------------------------------------------
@@ -843,7 +858,7 @@ module ActionAgent
     def evals_judge
       return nil unless judge_available?
 
-      @evals_judge ||= Evals::Judge.new(label: @evaluation.judge_model.presence || judge_provider.to_s) do |instructions:, prompt:, kind:|
+      @evals_judge ||= Evals::Judge.new(label: judge_display_label) do |instructions:, prompt:, kind:|
         judge_generate(kind, message: prompt, instructions: instructions).message&.content
       end
     end
