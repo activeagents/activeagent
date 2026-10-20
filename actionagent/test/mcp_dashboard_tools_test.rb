@@ -246,6 +246,12 @@ class McpDashboardToolsTest < ActionDispatch::IntegrationTest
     assert_equal 1, failed["results"].size
     assert_equal [ "failed" ], failed["results"].map { |entry| entry["status"] }
     assert_equal 0, failed["results_omitted"]
+
+    # A replay a fanned-out run has stored but not yet scored is pending: not a result that failed.
+    run.scenario_results.create!(scenario: run.scenario_results.first.scenario, model: "gamma", provider: "mock", status: :pending)
+    failed = structured(call_tool("evaluation_runs_get", { evaluation_id: @suite.id, run_id: run.id, failed_only: true }))
+    assert_equal 1, failed["results_total"]
+    assert_equal [ "failed" ], failed["results"].map { |entry| entry["status"] }
   end
 
   test "a remote Ollama host's API key is masked like the other credentials" do
