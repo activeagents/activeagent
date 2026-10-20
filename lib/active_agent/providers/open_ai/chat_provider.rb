@@ -117,6 +117,10 @@ module ActiveAgent
             return if api_message.nil?
 
             # If we have a delta, we need to update a message in the stack
+            if (finish_reason = api_message.try(:finish_reason))
+              self.stream_finish_reason = finish_reason.to_s
+            end
+
             message = find_or_create_message(api_message.index)
             message_merge_delta(message, api_message.delta.deep_to_h)
 

@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **A streamed generation now reports why it stopped.** `response.finish_reason`
+  (and `stop_reason`), and the `finish_reason` of the `prompt.active_agent`
+  event, were `nil` for every streamed Chat and Anthropic generation, since a
+  stream has no response body to read it from. The Chat provider now records
+  the chunk's `finish_reason` and the Anthropic provider the `message_delta`'s
+  `stop_reason`, and the response falls back to it.
+
 ## [1.9.2] - 2026-10-20
 
 Releases `activeagent` and `actionagent` 1.9.2, with the matching browser
