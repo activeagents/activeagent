@@ -81,6 +81,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   empty-array default, and is added only to a class without one, so
   ActiveRecord's is untouched (#260).
 
+### Changed
+
+- **A scenario suite's page reads like a build page** (`actionagent`). The
+  page opened on a summary, every run, the costs, the models and every
+  scenario stacked down the page, so on a suite of 100 scenarios and 12 runs
+  the selected run's results started three screens down. It now opens on the
+  selected run: a run header with the run's passed count, models, agent and
+  judge spend, a to-fix count and a progress bar; beside it a rail of runs,
+  each with a pass bar per model, and a box of the run's scenarios that
+  scrolls on its own, one line per step (`[+]` passed, `[!]` failed, `[~]`
+  running, `[ ]` queued, `[?]` errored, `[-]` skipped) under a sticky header
+  and foldable group rows, with a step's detail opening in place. A toolbar
+  filters the steps to failed only, puts failed first, shows the tool cells
+  and follows the running step until the person scrolls. Models, what to fix
+  and the footer follow below; a failed run shows its error in the header
+  instead of models. Selecting a run keeps the page where it is, polling
+  backs off and stops in a hidden tab, and below 940px the rail becomes a
+  strip of the latest runs. The same suite is now 2,786px tall where it was
+  11,354px (#602).
+
 ### Fixed
 
 - **`max_retries` sets the Anthropic `json_object` retries** (`activeagent`).
