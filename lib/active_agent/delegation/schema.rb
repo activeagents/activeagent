@@ -56,15 +56,25 @@ module ActiveAgent
           schema
         end
 
-        # @param hash [Hash] JSON Schema object
+        # @param hash [Hash] JSON Schema object, or the +{ name:, schema:, strict: }+
+        #   wrapper {ActiveAgent::SchemaGenerator} returns around one
         # @return [Schema]
         def from_hash(hash)
           hash = hash.deep_symbolize_keys
+          strict = nil
+          if !hash.key?(:properties) && hash[:schema].is_a?(Hash)
+            # SchemaGenerator's wrapper carries +strict: true+ only when the
+            # schema was built for strict mode; otherwise it is not strict.
+            strict = hash[:strict] == true
+            hash = hash[:schema]
+          end
 
           new.tap do |schema|
             (hash[:properties] || {}).each { |name, definition| schema.property(name, definition) }
             schema.required(*Array(hash[:required]))
             schema.additional_properties(hash.fetch(:additionalProperties, hash.fetch(:additional_properties, false)))
+            schema.definitions(hash[:$defs]) if hash[:$defs]
+            schema.strict(strict) unless strict.nil?
           end
         end
       end
@@ -73,6 +83,8 @@ module ActiveAgent
         @properties           = {}
         @required             = []
         @additional_properties = false
+        @definitions           = {}
+        @strict                = nil
       end
 
       # @return [Boolean] true when nothing has been declared
@@ -158,6 +170,29 @@ module ActiveAgent
         @additional_properties = value
       end
 
+      # Declares whether the schema was built for a provider's strict mode,
+      # as the +strict:+ of the wrapper {ActiveAgent::SchemaGenerator} returns
+      # says. Strict mode wants every property in +required+; a
+      # SchemaGenerator schema names only the attributes a presence
+      # validation covers unless it was built with +strict: true+, so a
+      # class is sent as it declared itself (see #to_response_format).
+      #
+      # @param value [Boolean]
+      # @return [void]
+      def strict(value = true)
+        @strict = value
+      end
+
+      # Declares the subschemas that properties reference with
+      # +"$ref": "#/$defs/name"+, such as the nested schemas
+      # {ActiveAgent::SchemaGenerator} emits for associations.
+      #
+      # @param definitions [Hash{Symbol => Hash}]
+      # @return [void]
+      def definitions(definitions)
+        @definitions = @definitions.merge(definitions.deep_symbolize_keys)
+      end
+
       # @return [Array<Symbol>] declared property names
       def keys
         @properties.keys
@@ -177,27 +212,30 @@ module ActiveAgent
           type: "object",
           properties: @properties.deep_dup,
           required: @required.map(&:to_s),
-          additionalProperties: @additional_properties
-        }
+          additionalProperties: @additional_properties,
+          "$defs": (@definitions.deep_dup if @definitions.any?)
+        }.compact
       end
       alias_method :to_h, :to_json_schema
 
       # JSON Schema for a +response_format+ payload.
       #
-      # ActiveAgent camelizes response-format schema *keys* on the way to the
-      # provider, but the +required+ array holds string *values* — so they are
-      # camelized here to keep the emitted schema internally consistent.
-      # {Assistant#parsed_json} underscores the keys again on the way back, so
-      # agent code only ever sees snake_case.
+      # ActiveAgent sends property names to the provider as declared, so the
+      # +required+ array names them as declared too.
+      # {Assistant#parsed_json} underscores the keys of the answer, so agent
+      # code only ever sees snake_case.
       #
       # @param name [String] schema name reported to the provider
-      # @param strict [Boolean]
+      # @param strict [Boolean, nil] nil follows the source: what a
+      #   SchemaGenerator class declared (not strict unless built with
+      #   +strict: true+, since its +required+ otherwise lists only the
+      #   presence-validated attributes, which strict mode refuses), else true
       # @return [Hash]
-      def to_response_format(name:, strict: true)
-        schema = to_json_schema
-        schema[:required] = schema[:required].map { |key| key.camelize(:lower) }
+      def to_response_format(name:, strict: nil)
+        strict = @strict if strict.nil?
+        strict = true if strict.nil?
 
-        { name: name, schema: schema, strict: strict }
+        { name: name, schema: to_json_schema, strict: strict }
       end
 
       # Validates a parsed payload against the declared required properties.

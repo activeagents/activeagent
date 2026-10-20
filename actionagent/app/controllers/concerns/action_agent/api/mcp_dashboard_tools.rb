@@ -270,7 +270,7 @@ module ActionAgent
             properties: {
               evaluation_id: { type: "integer", description: "The evaluation's id" },
               run_id: { type: "integer", description: "The run's id; the latest run when omitted" },
-              failed_only: { type: "boolean", description: "Only results that did not pass" },
+              failed_only: { type: "boolean", description: "Only results that failed or errored (a running run's pending results are neither)" },
               limit: { type: "integer", description: "At most this many results (default #{RESULT_LIMIT}, max #{MAX_RESULT_LIMIT})" }
             },
             required: [ "evaluation_id" ]
@@ -737,7 +737,7 @@ module ActionAgent
 
         results = run.scenario_results.includes(:scenario, :agent_run).joins(:scenario)
           .order(EvaluationScenario.arel_table[:position], EvaluationScenario.arel_table[:id], :model)
-        results = results.where.not(status: :passed) if boolean_argument(:failed_only)
+        results = results.where(status: %i[failed errored]) if boolean_argument(:failed_only)
         total = results.count
         page = results.limit(limit).to_a
         recorded = recorded_trace_ids(page.filter_map { |result| result.agent_run&.trace_id })

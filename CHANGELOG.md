@@ -7,6 +7,210 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+Releases `activeagent` and `actionagent` 1.9.2, with the matching browser
+sidecar: evaluations at scale (the scenario suite as a build page, model
+comparison with intervals and P95 latency, opt-in parallel scenario runs,
+the judge named after its model), provider streaming fixes (Anthropic
+citations, OpenAI Chat refusals and logprobs, Responses built-in tools),
+nested `has_many` schemas, and delegation contracts from `SchemaGenerator`
+classes.
+
+Upgrading: structured-output property names are now sent to the provider,
+and answered, as declared. A `response_format` schema with multiword
+property names (`first_name`) used to reach the provider camelized
+(`firstName`) while `required` stayed snake_case, which strict mode
+rejected; both are now as declared. `parsed_json` is unaffected; code that
+reads `message.content` itself, or matches on request payloads, sees
+`first_name` where it saw `firstName`. In a Rails app, `has_many` is
+available on every `ActiveModel::Model` class, since the railtie includes
+`SchemaGenerator` there, not only on classes that include it themselves.
+Scenario fan-out is off by default: `config.scenario_evaluation_fan_out =
+true` turns it on, and its jobs run on the `:agents` queue. No new
+migration; a host still on 1.9.0 needs 1.9.1's migration 027.
+
+### Added
+
+- **P50 and P95 latency per model in evaluation reports** (`activeagent`).
+  `Report#summary_by_model` adds `p50_duration_ms` and `p95_duration_ms`
+  beside `avg_duration_ms`, by nearest rank as the dashboard's Metrics view
+  computes them, and the Markdown and HTML reports show them next to the
+  mean, which hides the tail (#428).
+
+- **Cost per 1,000 scenario runs in the Markdown report** (`activeagent`).
+  The summary table gains `Cost / 1,000`, each model's mean cost per priced
+  replay on a common denominator, marked `~` when it is estimated or
+  covers only some replays (#428).
+
+- **`ActiveAgent::Evals::Comparison`: is the gap between models real?**
+  (`activeagent`). A 95% interval for each model's pass rate and for the
+  difference between every pair of models, from 5,000 seeded resamples of
+  whole scenarios (a paired bootstrap for the pairs, over the scenarios both
+  ran). A pair is decisive when its interval excludes zero, and
+  `#conclusion` says in one sentence which pairs are, or that the ranking
+  is not decisive evidence of superiority (#428).
+
+- **The model comparison in evaluation reports** (`activeagent`).
+  `Report#comparison` and `to_h["comparison"]` carry it for a report that
+  compares models, the Markdown report gains a Comparison section, and
+  `Report.new(comparison:)` renders one already recorded for the results
+  instead of resampling, as `verdict:` does (#428).
+
+- **A ranked interval plot in the HTML evaluation report** (`activeagent`).
+  Under the comparison table, each model's pass rate is a dot inside its
+  95% interval on a fixed 0 to 100% axis, best first, with the figures
+  beside it, the conclusion, and how the intervals were computed. Plain
+  CSS on the design tokens: no script, light and dark (#428).
+
+- **Each comparison run keeps its model comparison** (`actionagent`). A
+  scenario run that compares models records `Report#comparison` under
+  `scores["_comparison"]` when it completes; a published report's is
+  worked out from the stored results rather than taken from the payload;
+  and the run's report page renders the recorded intervals instead of
+  resampling on every view. A run recorded before gets one from its
+  results (#428).
+
+- **P50 and P95 latency in the dashboard's model comparison**
+  (`actionagent`). The comparison table gains a P50 / P95 column and each
+  model's scorecard a p50 / p95 figure, from the percentiles the run
+  recorded; a run recorded before shows neither (#428).
+
+- **The model comparison plotted in the dashboard** (`actionagent`). A
+  run that compared models shows, under its comparison table, each model's
+  pass rate inside its 95% interval, best first, with the run's
+  conclusion and how the intervals were computed, from the comparison the
+  run recorded (#428).
+
+- Parallel scenario evaluations in `actionagent`: with
+  `config.scenario_evaluation_fan_out = true`, a run enqueues one
+  `EvaluationReplayJob` per scenario × model, each stored replay is scored by
+  its own `EvaluationJudgeJob`, and the last result to be scored completes the
+  run with the scores a sequential run writes. Runs as wide as the host's
+  `:agents` queue. Off by default; browser and host-adapter runs stay
+  sequential (#422).
+- `ActiveAgent::Evals::Runner.new(refine_gate:)`, a callable asked before each
+  recommendation call so per-scenario runners share one run-wide judge limit.
+
+- **Nested arrays of objects in ActiveModel schemas** (`activeagent`).
+  `has_many :addresses, class_name: "Address"` on an ActiveModel class that
+  includes `ActiveAgent::SchemaGenerator` makes `to_json_schema` emit the
+  attribute as an array of `$ref`s to the item class's schema, which goes
+  under the root `$defs`. `strict:` and `additional_properties:` reach the
+  nested schema, a nested class's own definitions move up to the root, and
+  a class that nests itself raises `ArgumentError`. A length validation on
+  the array sets its item count (`min_items` / `max_items`) rather than a
+  string's length. `has_many` also declares the attribute with an
+  empty-array default, and is added only to a class without one, so
+  ActiveRecord's is untouched (#260).
+
+- **Evaluation runs record their judge** (`actionagent`), in
+  `scores["_judge"]`: the `EvaluationJudgeAgent` it runs as, its provider,
+  the model it asked for and where that setting came from (the evaluation,
+  the provider key, the host's config, or the provider's default), and the
+  models that answered, with call counts. The suite's Models panel shows
+  "judged by <model>" with an `auto` badge when no model is pinned, and
+  opens the judge's configuration, with a field that pins `judge_model` on
+  the evaluation through `PATCH /api/evaluations/:id` (#605).
+
+
+### Changed
+
+- **A scenario suite's page reads like a build page** (`actionagent`). The
+  page opened on a summary, every run, the costs, the models and every
+  scenario stacked down the page, so on a suite of 100 scenarios and 12 runs
+  the selected run's results started three screens down. It now opens on the
+  selected run: a run header with the run's passed count, models, agent and
+  judge spend, a to-fix count and a progress bar; beside it a rail of runs,
+  each with a pass bar per model, and a box of the run's scenarios that
+  scrolls on its own, one line per step (`[+]` passed, `[!]` failed, `[~]`
+  running, `[ ]` queued, `[?]` errored, `[-]` skipped) under a sticky header
+  and foldable group rows, with a step's detail opening in place. A toolbar
+  filters the steps to failed only, puts failed first, shows the tool cells
+  and follows the running step until the person scrolls. Models, what to fix
+  and the footer follow below; a failed run shows its error in the header
+  instead of models. Selecting a run keeps the page where it is, polling
+  backs off and stops in a hidden tab, and below 940px the rail becomes a
+  strip of the latest runs. The same suite is now 2,786px tall where it was
+  11,354px (#602).
+
+### Fixed
+
+- **`max_retries` sets the Anthropic `json_object` retries** (`activeagent`).
+  `AnthropicProvider` read the count from its constructor's arguments after
+  `BaseProvider` had already moved `max_retries` into the provider's options,
+  so an unparseable `json_object` answer was always retried twice, whatever
+  `max_retries` said, on Anthropic and on Bedrock, which inherits it. The
+  count now comes from the options: `max_retries: 0` sends the request once,
+  `max_retries: 5` up to six times, and the default is still two retries
+  (#531).
+- **A streamed Anthropic answer with citations no longer raises.** Claude
+  streams the citations of a text block as `citations_delta` deltas when it
+  cites a document or a web search result, and the Anthropic provider raised
+  `Unexpected delta type: citations_delta` on the first one. The delta is now
+  skipped like `input_json_delta`: the full block, citations included, arrives
+  at `content_block_stop`.
+- **A streamed OpenAI Chat refusal, or a stream with logprobs, no longer
+  raises.** The openai gem's chat stream emits `refusal.delta` and
+  `refusal.done` when the model refuses, and `logprobs.*` events when the
+  request sets `logprobs`, and the Chat provider failed on them with
+  `Unexpected Response Event Type`. They are now handled, and `refusal.done`
+  ends the generation, since a refused message never gets a `content.done`.
+- **A streamed Responses answer that used a built-in tool no longer raises.**
+  With `tools: [{ type: "web_search_preview" }]` (or file search, image
+  generation, code interpreter, remote MCP), the stream carries the tool's
+  call as an output item (`web_search_call`, ...), its progress events
+  (`response.web_search_call.searching`, ...), and
+  `response.output_text.annotation.added` for the citations, and the
+  Responses provider raised `Unexpected Item Type: web_search_call` on the
+  first of them. The tool calls are now kept like in a non-streamed response,
+  and their events are skipped.
+- **A streamed Responses answer cut short no longer raises.** When a response
+  hits `max_output_tokens`, the stream ends with `response.incomplete` instead
+  of `response.completed`, and the Responses provider raised `Unexpected
+  Response Chunk Type: response.incomplete`. It now ends the generation with
+  the text streamed so far, like `response.completed`.
+- **A streamed Responses refusal no longer raises.** The provider raised
+  `Unexpected Response Chunk Type: response.refusal.delta` when the model
+  refused; the refusal events are now skipped and the response completes.
+- **A streamed Responses generation reports its token usage.** The usage of a
+  streamed response is only on its final event, and the Responses provider
+  never read it, so `response.usage` was `nil`. It is now recorded from
+  `response.completed` or `response.incomplete`, as the Chat provider does
+  from its usage chunk.
+- **Delegation contracts built from a `SchemaGenerator` class**
+  (`activeagent`). `delegation ..., schema: TicketForm` and
+  `returns TicketForm` produced a contract with no properties, because
+  `to_json_schema` wraps the schema in `{ name:, schema:, strict: }` and
+  the contract read only a top-level `properties`. The wrapper is now
+  unwrapped, and `$defs` are kept so the `$ref`s that nested schemas use
+  still resolve. A contract built from a class is sent with the strict
+  setting the class declared: `Model.to_json_schema` is not strict unless
+  asked, and its `required` then names only the presence-validated
+  attributes, which OpenAI's strict mode refuses, so `returns Model` goes
+  out with `strict: false` and `returns Model.to_json_schema(strict: true)`
+  strict with every attribute required.
+
+- **Structured-output schema normalization preserves field names**
+  (`activeagent`). `prompt` converts JSON Schema keywords to camel case
+  without renaming properties or definitions, keeping multiword attributes
+  and `has_many` associations consistent with `required` and `$ref` in
+  strict schemas. Literal data in `default`, `const`, `enum` and `examples`
+  is preserved too (#260).
+
+  Property names now reach the provider as declared, so a `first_name`
+  attribute is sent as `first_name` rather than `firstName`, and the model
+  answers with that key. `parsed_json` underscores keys either way, so code
+  reading it is unaffected; code reading the raw `message.content`, or
+  matching on request payloads, sees snake_case where it saw camelCase.
+
+  A delegation's `returns` schema follows suit: its `required` entries are
+  no longer camelized, so a multiword required key such as `max_points`
+  matches its property in strict mode instead of being sent as
+  `maxPoints`.
+- **A judge with no `judge_model` is labelled with the model that
+  answered** (`actionagent`), not its provider ("judged by openrouter").
+  OpenRouter's default, `openrouter/auto`, routes each call, so a run judged
+  by more than one model is labelled "<provider> default" (#605).
+
 ## [1.9.1] - 2026-10-16
 
 Releases `activeagent` and `actionagent` 1.9.1, with the matching browser

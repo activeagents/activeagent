@@ -113,6 +113,12 @@ response_format: { type: "json_schema", name: "user", schema: { type: "object", 
 
 The nested `json_schema:` form is the one used throughout these docs, and the one `{action}.json` views produce.
 
+`prompt` converts Ruby-style JSON Schema keywords such as `additional_properties`
+and `min_length` to `additionalProperties` and `minLength`. Property and definition
+names stay as declared, including underscores, so `required` entries and `$ref`
+paths keep pointing to them. Literal values in `default`, `const`, `enum` and
+`examples` are preserved too.
+
 ## Schema Generation
 
 Generate schemas from Ruby models for consistency and reusability.
@@ -122,6 +128,23 @@ Generate schemas from Ruby models for consistency and reusability.
 <<< @/../test/docs/actions/structured_output_examples_test.rb#user_model_with_schema {ruby:line-numbers}
 
 <<< @/../test/docs/actions/structured_output_examples_test.rb#generate_schema_activemodel {ruby:line-numbers}
+
+### Nested ActiveModel Schemas
+
+An ActiveModel class declares an array of objects with `has_many`, naming the class that describes each item:
+
+<<< @/../test/docs/actions/structured_output_examples_test.rb#nested_schema_models {ruby:line-numbers}
+
+The array's items reference that class's schema under `$defs`:
+
+<<< @/../test/docs/actions/structured_output_examples_test.rb#generate_nested_schema {ruby:line-numbers}
+
+- **`class_name`** is the item class's full constant name, resolved when the schema is generated
+- **`has_many`** also declares the attribute, defaulting to an empty array
+- **`strict: true`** requires every property of the nested schema too
+- **`validates :addresses, length: { minimum: 1 }`** limits the array's item count with `minItems` and `maxItems`
+- **Definitions** are keyed by the singular name in lower camel case (`line_items` uses `lineItem`). The property stays `line_items` in both `properties` and `required` when sent to the provider
+- **Deeper nesting** works: a nested class's own `has_many` definitions go under the root `$defs`. A class that nests itself raises `ArgumentError`
 
 ### From ActiveRecord
 

@@ -195,6 +195,91 @@ class DelegationTest < ActiveSupport::TestCase
     assert_equal [ :subject ], ActiveAgent::Delegation::Schema.build(model).required_keys
   end
 
+  class TicketForm
+    include ActiveModel::Model
+    include ActiveModel::Attributes
+    include ActiveAgent::SchemaGenerator
+
+    attribute :subject, :string
+    attribute :priority, :integer
+
+    validates :subject, presence: true
+  end
+
+  test "a schema can be built from a class using SchemaGenerator" do
+    sub = Class.new(ApplicationAgent) do
+      generate_with :mock, model: "mock-model"
+
+      delegation :create, description: "Draft a support ticket", schema: TicketForm
+
+      def create(subject:, priority: nil) = prompt(message: subject)
+    end
+    parent = Class.new(ApplicationAgent) { delegate_to sub }
+
+    tool = parent.delegated_tools.find { |candidate| candidate[:name] == "create" }
+
+    assert_equal %i[subject priority], tool[:parameters][:properties].keys
+    assert_equal({ type: "string" }, tool[:parameters][:properties][:subject])
+    assert_equal [ "subject" ], tool[:parameters][:required]
+  end
+
+  test "a schema keeps the definitions its references point to" do
+    post = { type: "object", properties: { title: { type: "string" } }, required: [ "title" ] }
+    json = ActiveAgent::Delegation::Schema.build(
+      name: "author",
+      schema: {
+        type: "object",
+        properties: { posts: { type: "array", items: { "$ref": "#/$defs/post" } } },
+        "$defs": { post: post }
+      }
+    ).to_json_schema
+
+    assert_equal "#/$defs/post", json[:properties][:posts][:items][:"$ref"]
+    assert_equal({ post: post }, json[:"$defs"])
+    assert_not ActiveAgent::Delegation::Schema.build(TicketForm).to_json_schema.key?(:"$defs")
+  end
+
+  test "a response format from a SchemaGenerator class follows the class's strict setting" do
+    assert_not TicketForm.to_json_schema[:strict], "SchemaGenerator is not strict unless asked"
+
+    format = ActiveAgent::Delegation::Schema.build(TicketForm).to_response_format(name: "create_result")
+
+    assert_equal false, format[:strict], "strict mode wants every property required; the class declared one of two"
+    assert_equal [ "subject" ], format[:schema][:required]
+
+    strict = ActiveAgent::Delegation::Schema.build(TicketForm.to_json_schema(strict: true)).to_response_format(name: "create_result")
+
+    assert_equal true, strict[:strict]
+    assert_equal %w[priority subject], strict[:schema][:required], "every attribute, as the generator sorts them"
+    assert_equal true, ActiveAgent::Delegation::Schema.build(TicketForm).to_response_format(name: "x", strict: true)[:strict]
+    assert_equal true, ActiveAgent::Delegation::Schema.build { string :subject, required: true }.to_response_format(name: "x")[:strict]
+  end
+
+  test "returns with a SchemaGenerator class reaches the provider with the class's strict setting" do
+    JsonProvider.payload          = { subject: "Printer on fire" }
+    JsonProvider.response_formats = []
+    JsonProvider.requests         = []
+    sub = Class.new(ApplicationAgent) do
+      generate_with :mock, model: "mock-model"
+
+      delegation :create, description: "Draft a support ticket", returns: TicketForm do
+        string :text, required: true, description: "What happened"
+      end
+
+      def create(text:) = prompt(message: text)
+    end
+    sub._prompt_provider_klass = JsonProvider
+    parent = scripted_agent([ :create, { text: "Printer on fire" } ], delegate: sub)
+
+    parent.research.generate_now
+
+    format = JsonProvider.response_formats.compact.first
+    assert_equal false, format[:json_schema][:strict]
+    assert_equal [ "subject" ], format[:json_schema][:schema][:required]
+    assert_equal %w[subject priority], format[:json_schema][:schema][:properties].keys.map(&:to_s)
+    assert_equal({ subject: "Printer on fire" }, ScriptedProvider.results.first)
+  end
+
   test "a contract without a description is refused" do
     error = assert_raises(ArgumentError) do
       Class.new(ApplicationAgent) { delegation :summarize, description: "" }
@@ -696,8 +781,47 @@ class DelegationTest < ActiveSupport::TestCase
 
     format = schema.to_response_format(name: "result")
 
-    assert_equal [ "maxPoints" ], format[:required] || format[:schema][:required]
+    assert_equal [ "max_points" ], format[:schema][:required]
+    assert_equal format[:schema][:properties].keys.map(&:to_s), format[:schema][:required]
     assert format[:strict]
+  end
+
+  test "a multiword returns schema reaches the provider with matching properties and required keys" do
+    JsonProvider.payload          = { max_points: 3, key_points: [ { point_text: "One" } ] }
+    JsonProvider.response_formats = []
+    JsonProvider.requests         = []
+
+    sub = Class.new(ApplicationAgent) do
+      generate_with :mock, model: "mock-model"
+
+      delegation :summarize, description: "Condense a document into key points" do
+        string :text, required: true, description: "Full document text"
+
+        returns do
+          integer :max_points, required: true, description: "How many points were asked for"
+          array :key_points, required: true, description: "The points" do
+            string :point_text, required: true, description: "One point"
+          end
+        end
+      end
+
+      def summarize(text:) = prompt(message: text)
+    end
+    sub._prompt_provider_klass = JsonProvider
+
+    parent = scripted_agent([ :summarize, { text: "doc" } ], delegate: sub)
+    parent.research.generate_now
+
+    format = JsonProvider.response_formats.compact.first
+    schema = format[:json_schema][:schema]
+    items  = schema[:properties][:key_points][:items]
+
+    assert format[:json_schema][:strict]
+    assert_equal %w[max_points key_points], schema[:properties].keys.map(&:to_s)
+    assert_equal %w[max_points key_points], schema[:required]
+    assert_equal %w[point_text], items[:properties].keys.map(&:to_s)
+    assert_equal %w[point_text], items[:required]
+    assert_equal({ max_points: 3, key_points: [ { point_text: "One" } ] }, ScriptedProvider.results.first)
   end
 
   ##### Params ##############################################################
