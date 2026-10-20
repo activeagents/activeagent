@@ -397,11 +397,36 @@ module ActiveAgent
 
       if response_format[:type].to_sym == :json_schema
         response_format = nest_flat_json_schema(response_format)
-        response_format[:json_schema] = prompt_view_schema(response_format[:json_schema])
-        response_format[:json_schema].deep_transform_keys! { _1.to_s.camelize(:lower) }
+        response_format[:json_schema] = normalize_json_schema(prompt_view_schema(response_format[:json_schema]))
       end
 
       response_format
+    end
+
+    # Convert Ruby-style schema keywords without changing property names,
+    # definition names, references or literal data (default, const, enum,
+    # examples). Only schema-valued keywords are traversed. Named maps keep
+    # their keys, so required entries and $ref paths still address them.
+    #
+    # @api private
+    def normalize_json_schema(schema)
+      return schema.map { |item| normalize_json_schema(item) } if schema.is_a?(Array)
+      return schema unless schema.is_a?(Hash)
+
+      schema.to_h do |key, value|
+        keyword = key.to_s.camelize(:lower)
+        normalized = case keyword
+        when "properties", "patternProperties", "$defs", "definitions", "dependentSchemas", "dependencies"
+          value.is_a?(Hash) ? value.transform_values { |definition| normalize_json_schema(definition) } : value
+        when "schema", "items", "prefixItems", "additionalItems", "contains", "additionalProperties",
+             "unevaluatedItems", "unevaluatedProperties", "propertyNames", "contentSchema",
+             "allOf", "anyOf", "oneOf", "not", "if", "then", "else"
+          normalize_json_schema(value)
+        else
+          value
+        end
+        [ keyword, normalized ]
+      end
     end
 
     # Moves a json_schema given flat, with its name, schema and strict flag

@@ -69,6 +69,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `ActiveAgent::Evals::Runner.new(refine_gate:)`, a callable asked before each
   recommendation call so per-scenario runners share one run-wide judge limit.
 
+- **Nested arrays of objects in ActiveModel schemas** (`activeagent`).
+  `has_many :addresses, class_name: "Address"` on an ActiveModel class that
+  includes `ActiveAgent::SchemaGenerator` makes `to_json_schema` emit the
+  attribute as an array of `$ref`s to the item class's schema, which goes
+  under the root `$defs`. `strict:` and `additional_properties:` reach the
+  nested schema, a nested class's own definitions move up to the root, and
+  a class that nests itself raises `ArgumentError`. A length validation on
+  the array sets its item count (`min_items` / `max_items`) rather than a
+  string's length. `has_many` also declares the attribute with an
+  empty-array default, and is added only to a class without one, so
+  ActiveRecord's is untouched (#260).
+
 ### Fixed
 
 - **`max_retries` sets the Anthropic `json_object` retries** (`activeagent`).
@@ -120,6 +132,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the contract read only a top-level `properties`. The wrapper is now
   unwrapped, and `$defs` are kept so the `$ref`s that nested schemas use
   still resolve.
+
+- **Structured-output schema normalization preserves field names**
+  (`activeagent`). `prompt` converts JSON Schema keywords to camel case
+  without renaming properties or definitions, keeping multiword attributes
+  and `has_many` associations consistent with `required` and `$ref` in
+  strict schemas. Literal data in `default`, `const`, `enum` and `examples`
+  is preserved too (#260).
+
+  Property names now reach the provider as declared, so a `first_name`
+  attribute is sent as `first_name` rather than `firstName`, and the model
+  answers with that key. `parsed_json` underscores keys either way, so code
+  reading it is unaffected; code reading the raw `message.content`, or
+  matching on request payloads, sees snake_case where it saw camelCase.
+
+  A delegation's `returns` schema follows suit: its `required` entries are
+  no longer camelized, so a multiword required key such as `max_points`
+  matches its property in strict mode instead of being sent as
+  `maxPoints`.
 
 ## [1.9.1] - 2026-10-16
 
