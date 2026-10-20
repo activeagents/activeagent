@@ -197,7 +197,10 @@ module ActiveAgent
                 raw_response.dig(:choices, 0, :finish_reason) ||
                   raw_response.dig(:choices, 0, :message, :finish_reason) ||
                   # Anthropic format: stop_reason
-                  raw_response[:stop_reason]
+                  raw_response[:stop_reason] ||
+                  # OpenAI Responses format: why it was cut short, else its status
+                  raw_response.dig(:incomplete_details, :reason) ||
+                  raw_response[:status]
               end
             end
           end
