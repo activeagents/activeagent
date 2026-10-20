@@ -15,6 +15,18 @@ module ActiveAgent
       class ResponsesProvider < Base
         include ToolChoiceClearing
 
+        # Output items of OpenAI's built-in tools (web search, file search,
+        # image generation, code interpreter, remote MCP).
+        BUILT_IN_TOOL_ITEM_TYPES = %i[
+          web_search_call file_search_call image_generation_call code_interpreter_call mcp_call mcp_list_tools
+        ].freeze
+
+        # Prefixes of the progress events those tools stream.
+        BUILT_IN_TOOL_EVENT_PREFIXES = %w[
+          response.web_search_call. response.file_search_call. response.image_generation_call.
+          response.code_interpreter_call response.mcp_call response.mcp_list_tools.
+        ].freeze
+
         # @return [Class]
         def self.options_klass
           Options
@@ -99,12 +111,19 @@ module ActiveAgent
         # - `:"response.content_part.done"` - content part completed
         # - `:"response.output_item.done"` - message, reasoning or function call completed
         # - `:"response.completed"` - response finished
+        # - `:"response.incomplete"` - response cut short (e.g. max_output_tokens)
         #
         # @param api_response_event [Hash] streaming chunk with :type key
         # @return [void]
         # @see Base#process_stream_chunk
         def process_stream_chunk(api_response_event)
           instrument("stream_chunk.active_agent", chunk_type: api_response_event.type)
+
+          # Built-in tools report their progress with their own events; the
+          # finished tool call arrives as an output item.
+          if BUILT_IN_TOOL_EVENT_PREFIXES.any? { api_response_event.type.to_s.start_with?(_1) }
+            return
+          end
 
           case api_response_event.type
           # Response Created
@@ -124,11 +143,19 @@ module ActiveAgent
             message[:content] += api_response_event.delta
             broadcast_stream_update(message, api_response_event.delta)
 
+          # -> -> -> Content Text Citation (e.g. from web search)
+          when :"response.output_text.annotation.added"
+          # No-Op: The text is complete at response.output_text.done
+
           # -> -> -> Content Text Completed [Full Text]
           when :"response.output_text.done"
             message = message_stack.find { _1[:id] == api_response_event.item_id }
             message[:content] = api_response_event.text
             broadcast_stream_update(message, nil) # Don't double send content
+
+          # -> -> -> Refusal (the response still ends with response.completed)
+          when :"response.refusal.delta", :"response.refusal.done"
+          # No-Op: The message has no refusal field to stream it into
 
           # -> -> -> Content Function Call Append
           when :"response.function_call_arguments.delta", :"response.function_call_arguments.done"
@@ -147,8 +174,13 @@ module ActiveAgent
           when :"response.output_item.done"
             process_stream_output_item_done(api_response_event)
 
-          # Response Completed
-          when :"response.completed"
+          # Response Completed, or cut short (e.g. by max_output_tokens) with
+          # the output it has so far
+          when :"response.completed", :"response.incomplete"
+            # The streamed response carries no body for resolve_prompt to read
+            # usage from, so it is recorded from the final event.
+            record_stream_usage(api_response_event.response.usage)
+
             # Completion, tool loop included, runs from stream_finished! once
             # the stream has drained, so each turn's tool calls run once.
             self.stream_completion_pending = true
@@ -174,7 +206,7 @@ module ActiveAgent
             # PATCH: API returns an empty array instead of empty string due to a bug in their serialization
             item_hash = Responses::Transforms.gem_to_hash(api_response_event.item).compact_blank
             message_stack << { content: "" }.merge(item_hash)
-          when :function_call, :reasoning
+          when :function_call, :reasoning, *BUILT_IN_TOOL_ITEM_TYPES
             # No-Op: Wait for the item to land (-> response.output_item.done)
           else
             raise "Unexpected Item Type: #{api_response_event.item.type}"
@@ -194,7 +226,8 @@ module ActiveAgent
           case api_response_event.item.type
           when :message
             # No-Op: Message Up to Date
-          when :function_call, :reasoning
+          when :function_call, :reasoning, *BUILT_IN_TOOL_ITEM_TYPES
+            # Kept like the non-streamed output, which holds every item
             item_hash = Responses::Transforms.gem_to_hash(api_response_event.item)
             message_stack << item_hash
           else
