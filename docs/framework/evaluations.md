@@ -441,10 +441,22 @@ how to stay under them. Each worker thread holds a database connection
 while it waits on the provider, so keep the pool at least as large as the
 thread count.
 
-A retried replay job does not replay a pair that already has a stored
-result, and a job that fails outside the replay stores an errored result,
-so a run always completes. A run that drives a sandbox's browser, and one a
-host adapter replays, stay sequential.
+The agent's tool roster is discovered once, before the replays, and every
+scoring job reads it from the run, so a diagnosis names the same tools
+whichever job wrote it. A replay job delivered again does not replay a pair
+that already has a stored result, a judge job delivered again does not score
+a result twice, a job that fails with an exception outside the replay stores
+an errored result, and a failure while completing the run marks it failed. A
+scenario removed from the suite while a run is in flight is left out of that
+run's results. What no job can recover from is a job lost outright: a worker
+killed without a graceful shutdown drops the job it was running
+(`ApplicationJob` does not retry), and the run stays in progress with nothing
+queued, as a sequential run's one job would. A run that drives a sandbox's
+browser, and one a host adapter replays, stay sequential.
+
+A fanned-out run keys its results by provider and model, so a selection that
+lists one model under two labels (`gpt-5-mini` and `openai/gpt-5-mini`) is
+refused rather than replayed once and reported under one of them.
 
 ## The pieces
 

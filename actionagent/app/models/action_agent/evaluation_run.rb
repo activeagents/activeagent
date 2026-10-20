@@ -234,7 +234,10 @@ module ActionAgent
     # The engine runs against every activeagent since 1.4, so the report
     # kwargs that arrived later are passed only when Report.new takes them.
     def to_report(links: report_links, estimate: true)
-      rows = scenario_results.includes(:scenario).sort_by do |row|
+      # A replay not yet scored (a fanned-out run in progress) is not a
+      # result the report can grade, so it is left out rather than read as
+      # a failure.
+      rows = scenario_results.where.not(status: :pending).includes(:scenario).sort_by do |row|
         [ row.evaluated_scenario["position"].to_i, row.evaluation_scenario_id, row.model ]
       end
       breakdown = cost_breakdown if estimate
@@ -319,7 +322,11 @@ module ActionAgent
     # for it, and — when estimating — how its cost was priced.
     def replay_metadata_for(row, breakdown)
       metadata = row.replay_metadata.dup
-      reported_judge = row.diagnosis.is_a?(Hash) ? row.diagnosis["_judge_usage"] : nil
+      # A fanned-out run's results each keep what their scoring job spent on
+      # the judge, already folded into the run's meter. The meter is the
+      # run's figure (EvaluationRunCost#result_judge reads it the same way),
+      # so the parts are not counted a second time.
+      reported_judge = row.diagnosis.is_a?(Hash) && !judge_usage_meter ? row.diagnosis["_judge_usage"] : nil
       metadata["judge_usage"] = reported_judge if reported_judge.is_a?(Hash)
       return metadata unless breakdown
 
