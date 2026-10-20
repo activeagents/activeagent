@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **`max_retries` sets the Anthropic `json_object` retries** (`activeagent`).
+  `AnthropicProvider` read the count from its constructor's arguments after
+  `BaseProvider` had already moved `max_retries` into the provider's options,
+  so an unparseable `json_object` answer was always retried twice, whatever
+  `max_retries` said, on Anthropic and on Bedrock, which inherits it. The
+  count now comes from the options: `max_retries: 0` sends the request once,
+  `max_retries: 5` up to six times, and the default is still two retries
+  (#531).
+
 ## [1.9.1] - 2026-10-16
 
 Releases `activeagent` and `actionagent` 1.9.1, with the matching browser
