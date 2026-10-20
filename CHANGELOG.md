@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Delegation contracts built from a `SchemaGenerator` class**
+  (`activeagent`). `delegation ..., schema: TicketForm` and
+  `returns TicketForm` produced a contract with no properties, because
+  `to_json_schema` wraps the schema in `{ name:, schema:, strict: }` and
+  the contract read only a top-level `properties`. The wrapper is now
+  unwrapped, and `$defs` are kept so the `$ref`s that nested schemas use
+  still resolve.
+
 ## [1.9.1] - 2026-10-16
 
 Releases `activeagent` and `actionagent` 1.9.1, with the matching browser
