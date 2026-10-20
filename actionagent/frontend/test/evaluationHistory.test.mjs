@@ -26,6 +26,62 @@ test('unrun catalog entries remain selectable and recorded removed questions rem
   assert.equal(rows[1].id, null);
 });
 
+test('rows keep their identity across polls when nothing about them changed', () => {
+  const a = { id: 1, key: 'a', prompt: 'Install the gem', group: 'Install', enabled: true };
+  const b = { id: 2, key: 'b', prompt: 'Generate an agent', group: 'Agents', enabled: true };
+  const d = { id: 4, key: 'd', prompt: 'Not run yet', group: 'Agents', enabled: true };
+  const result = (key, model, status) => ({ id: `${key}-${model}`, scenario_key: key, model, status, prompt: `${key}?`, group: 'Install' });
+  const resultsByKey = {
+    a: { mini: result('a', 'mini', 'passed'), sonnet: result('a', 'sonnet', 'pending') },
+    b: { mini: result('b', 'mini', 'passed') },
+    c: { mini: result('c', 'mini', 'failed') },
+  };
+  const cache = new Map();
+
+  // An unchanged poll hands every row back: the merged rows, the orphan, and
+  // the catalog object itself for a scenario the run has no result for.
+  const first = scenarioRowsForRun([a, b, d], resultsByKey, cache);
+  const second = scenarioRowsForRun([a, b, d], resultsByKey, cache);
+  assert.equal(first.length, 4);
+  first.forEach((row, index) => assert.equal(second[index], row));
+  assert.equal(first[2], d);
+  assert.equal(first[3].orphan, true);
+  assert.equal(cache.has('d'), false);
+  assert.deepEqual(cache.get('a'), { scenario: a, first: resultsByKey.a.mini, row: first[0] });
+  assert.deepEqual(cache.get('c'), { scenario: null, first: resultsByKey.c.mini, row: first[3] });
+
+  // A landed result replaces only its own row; the row snapshots from the
+  // first result, so a change to a later model's result keeps it as well.
+  const landed = { ...resultsByKey, a: { ...resultsByKey.a, mini: { ...resultsByKey.a.mini, status: 'failed' } } };
+  const third = scenarioRowsForRun([a, b, d], landed, cache);
+  assert.notEqual(third[0], second[0]);
+  assert.deepEqual(third[0], second[0]);
+  assert.equal(third[1], second[1]);
+  assert.equal(third[3], second[3]);
+  const later = { ...landed, a: { ...landed.a, sonnet: { ...landed.a.sonnet, status: 'passed' } } };
+  assert.equal(scenarioRowsForRun([a, b, d], later, cache)[0], third[0]);
+
+  // A refreshed catalog entry rebuilds its row and no other.
+  const fourth = scenarioRowsForRun([a, { ...b, prompt: 'Generate an agent class' }, d], later, cache);
+  assert.notEqual(fourth[1], third[1]);
+  assert.equal(fourth[1].prompt, 'b?');
+  assert.equal(fourth[1].catalogChanged, true);
+  assert.equal(fourth[0], third[0]);
+  assert.equal(fourth[3], third[3]);
+
+  // A recorded question that leaves the catalog, or joins it, is rebuilt
+  // rather than read from the other side's entry.
+  const fifth = scenarioRowsForRun([a, d], later, cache);
+  assert.equal(fifth[2].key, 'b');
+  assert.equal(fifth[2].orphan, true);
+  assert.notEqual(fifth[2], fourth[1]);
+  assert.equal(cache.get('b').scenario, null);
+
+  // Without a cache every call builds fresh rows.
+  assert.notEqual(scenarioRowsForRun([a], resultsByKey)[0], scenarioRowsForRun([a], resultsByKey)[0]);
+  assert.deepEqual(scenarioRowsForRun([a, b, d], resultsByKey), first);
+});
+
 test('evaluation deep links validate IDs and optionally select a saved report', () => {
   assert.deepEqual(evaluationLink('?evaluation=12'), { evaluationId: '12', runId: null });
   assert.deepEqual(evaluationLink('?evaluation=12&run=8'), { evaluationId: '12', runId: '8' });

@@ -1,9 +1,15 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
-  criterionExpectation, criterionGroup, criterionLabel, isEstimated, judgeCallsText, judgeLabel, judgeSourceText, keepSandboxChoice,
-  modelScorecard, costPer, pricedCount, runCohorts, runDelta, runLabel, runNumber, runRequestBody, runSandboxLabel, runSandboxOptions,
-  runSpend, runsMeta, samplingFixItems, sandboxLabel, spendSummary, spendTotalLabel, versionChip, versionDelta,
+  DETAILS_KEPT, DETAIL_STORAGE_KEY, KEY_COLUMN_MIN_WIDTH, PANEL_GUTTER, RAIL_BARS_MAX, RAIL_BREAKPOINT, RAIL_GAP, RAIL_WIDTH,
+  STEPS_HEIGHT, STRIP_LIST_HEIGHT,
+  combinedBars, criterionExpectation, criterionGroup, criterionLabel, currentStepKey, cursorScrollTop, fmtClock, fmtDuration,
+  groupResultsByKey, groupStep, groupsOutsideRun, isEstimated, judgeCallsText, judgeLabel, judgeSourceText, keepDetails, keepSandboxChoice,
+  modelScorecard, costPer, openRowScrollTop, orderScenarioRows, pollIntervalFor, pricedCount, readDetailChoice, reconcileResults,
+  rerunFailedKeys, runCohorts, runDelta, runElapsedMs, runLabel, runNumber, runRequestBody, runRequestSelection, runSandboxLabel,
+  runSandboxOptions, runScenarioKeys, runSelectionLabel, runSpend, runnableKeys, runsMeta, sameResult, samplingFixItems, scenarioStep,
+  scenarioTime, selectionModelLabels, selectionOf, shownRunIndexes, sandboxLabel, spendSummary, spendTotalLabel, stepsMinWidth,
+  toolsMinWidth, versionChip, versionDelta, writeDetailChoice,
 } from '../utils/evaluationRuns.mjs';
 
 const sampling = {
@@ -315,4 +321,278 @@ test('a run can target one of the caller ready checkout sandboxes, and names it'
   assert.equal(keepSandboxChoice('1a2b3c4d-0000', options), '1a2b3c4d-0000');
   assert.equal(keepSandboxChoice('5e6f7a8b-0000', options), '', 'a sandbox that is no longer ready is dropped');
   assert.equal(keepSandboxChoice('', options), '');
+});
+
+test('a capped run list shows the latest runs, and keeps an older selected one', () => {
+  const runs = [{ id: 9 }, { id: 8 }, { id: 7 }, { id: 6 }, { id: 5 }];
+  assert.deepEqual(shownRunIndexes(runs, { limit: 3 }), [0, 1, 2]);
+  assert.deepEqual(shownRunIndexes(runs, { limit: 3, selectedId: 5 }), [0, 1, 2, 4]);
+  assert.deepEqual(shownRunIndexes(runs, { limit: 3, selectedId: 8 }), [0, 1, 2]);
+  assert.deepEqual(shownRunIndexes(runs), [0, 1, 2, 3, 4]);
+  assert.deepEqual(shownRunIndexes(runs.slice(0, 2), { limit: 3 }), [0, 1]);
+});
+
+test('a scenario reads as a build step of the run', () => {
+  const columns = ['gpt-5-mini', 'claude-haiku-5-5'];
+  const passed = { status: 'passed' };
+  const failed = { status: 'failed' };
+  const pending = { status: 'pending' };
+  assert.equal(scenarioStep({}, columns, { inRun: false, running: true }), 'skipped');
+  assert.equal(scenarioStep({}, columns, { inRun: true, running: true }), 'queued');
+  assert.equal(scenarioStep({ 'gpt-5-mini': pending }, columns, { inRun: true, running: true }), 'running');
+  assert.equal(scenarioStep({ 'gpt-5-mini': passed }, columns, { inRun: true, running: true }), 'running');
+  assert.equal(scenarioStep({ 'gpt-5-mini': passed, 'claude-haiku-5-5': passed }, columns, { inRun: true, running: true }), 'passed');
+  assert.equal(scenarioStep({ 'gpt-5-mini': passed, 'claude-haiku-5-5': failed }, columns, { inRun: true }), 'failed');
+  assert.equal(scenarioStep({ 'gpt-5-mini': failed }, columns, { inRun: true, running: false }), 'failed');
+  assert.equal(scenarioStep({ 'gpt-5-mini': passed }, columns, { inRun: true, running: false }), 'missing');
+  assert.equal(scenarioStep({}, columns, { inRun: true, running: false }), 'missing');
+});
+
+test('the step list has a cursor', () => {
+  // Suite order, with a passed row before the running one.
+  const steps = [{ key: 'a', step: 'passed' }, { key: 'b', step: 'running' }, { key: 'c', step: 'queued' }, { key: 'd', step: 'running' }];
+  assert.equal(currentStepKey(steps), 'b', 'the first running step, not the first step');
+  assert.equal(currentStepKey([{ key: 'a', step: 'passed' }, { key: 'c', step: 'queued' }, { key: 'd', step: 'queued' }]), 'c', 'the first queued step when nothing is replaying');
+  assert.equal(currentStepKey([{ key: 'a', step: 'passed' }, { key: 'b', step: 'failed' }]), null, 'a settled run has no cursor');
+  assert.equal(currentStepKey([{ key: 'a', step: 'loading' }, { key: 'b', step: 'loading' }]), null, 'a result still being fetched is never the cursor');
+  assert.equal(currentStepKey([]), null);
+});
+
+test('a group reads as one step', () => {
+  assert.equal(groupStep([]), 'none');
+  assert.equal(groupStep(['none', 'none']), 'none');
+  assert.equal(groupStep(['skipped', 'skipped']), 'skipped');
+  assert.equal(groupStep(['passed', 'passed']), 'passed');
+  assert.equal(groupStep(['passed', 'failed']), 'failed');
+  assert.equal(groupStep(['passed', 'queued']), 'running', 'queued and settled rows together are a group in progress');
+  assert.equal(groupStep(['queued', 'queued']), 'queued');
+  assert.equal(groupStep(['running', 'queued']), 'running');
+  assert.equal(groupStep(['loading', 'loading']), 'loading');
+  assert.equal(groupStep(['passed', 'missing']), 'missing');
+  assert.equal(groupStep(['skipped', 'passed']), 'passed', 'skipped rows are ignored once any row is in the run');
+  assert.equal(groupStep(['skipped', 'none']), 'skipped', 'a group outside a run reads skipped, not none');
+});
+
+test('failed-first keeps suite order inside the stable sort', () => {
+  // Three groups with 0, 2 and 1 failures, in suite order; `ungrouped` has none.
+  const rows = [
+    { key: 'a1', group: 'Agents' }, { key: 'a2', group: 'Agents' },
+    { key: 'e1', group: 'Evaluations' }, { key: 'e2', group: 'Evaluations' }, { key: 'e3', group: 'Evaluations' },
+    { key: 'i1', group: 'Install' }, { key: 'i2', group: 'Install' },
+    { key: 'u1' },
+  ];
+  const steps = { a1: 'passed', a2: 'passed', e1: 'passed', e2: 'failed', e3: 'failed', i1: 'passed', i2: 'failed', u1: 'passed' };
+  const stepOf = (row) => steps[row.key];
+
+  assert.equal(orderScenarioRows(rows, stepOf, 'suite'), rows, 'suite order is the input array itself');
+  const ordered = orderScenarioRows(rows, stepOf, 'failed-first');
+  assert.notEqual(ordered, rows);
+  assert.deepEqual(ordered.map((row) => row.key), ['e2', 'e3', 'e1', 'i2', 'i1', 'a1', 'a2', 'u1']);
+  assert.deepEqual(rows.map((row) => row.key), ['a1', 'a2', 'e1', 'e2', 'e3', 'i1', 'i2', 'u1'], 'the input is not reordered in place');
+
+  // Groups with the same failed count keep their first-appearance order.
+  const tied = orderScenarioRows(rows, (row) => (row.key === 'a2' || row.key === 'i2' ? 'failed' : 'passed'), 'failed-first');
+  assert.deepEqual(tied.map((row) => row.key), ['a2', 'a1', 'i2', 'i1', 'e1', 'e2', 'e3', 'u1']);
+});
+
+test('groups outside a partial run start folded', () => {
+  const scenarios = [{ key: 'a', group: 'Install' }, { key: 'b', group: 'Install' }, { key: 'c', group: 'Agents' }, { key: 'd' }];
+  assert.deepEqual(groupsOutsideRun(scenarios.slice(0, 3), new Set(['a'])), new Set(['Agents']));
+  assert.deepEqual(groupsOutsideRun(scenarios, new Set(['a'])), new Set(['Agents', '']), 'ungrouped scenarios count under the empty name');
+  assert.deepEqual(groupsOutsideRun(scenarios, new Set(['b', 'd'])), new Set(['Agents']));
+  assert.deepEqual(groupsOutsideRun(scenarios, new Set()), new Set(), 'a run that covers nothing folds nothing');
+  assert.deepEqual(groupsOutsideRun(scenarios, ['c']), new Set(['Install', '']), 'an array of keys is read the same way');
+});
+
+test('a partial run says what it covered', () => {
+  const scenarios = [...Array.from({ length: 100 }, (_, i) => ({ key: `s${i}`, enabled: true })), { key: 'off', enabled: false }];
+  const keysOf = (count) => scenarios.slice(0, count).map((s) => s.key);
+  assert.equal(runSelectionLabel({ selection: { group: 'Install & setup' } }, scenarios), 'partial: Install & setup');
+  assert.equal(runSelectionLabel({ selection: { scenario_keys: keysOf(16) } }, scenarios), '16 of 100 scenarios');
+  assert.equal(runSelectionLabel({ status: 'pending', selection: { keys: ['s1'] } }, scenarios), '1 of 100 scenarios');
+  assert.equal(runSelectionLabel({ selection: { scenario_keys: keysOf(100) } }, scenarios), null, 'every enabled scenario is the whole suite');
+  assert.equal(runSelectionLabel({ selection: { models: ['m'] } }, scenarios), null);
+  assert.equal(runSelectionLabel(null, scenarios), null);
+});
+
+test('only enabled, present scenarios are replayed', () => {
+  const scenarios = [{ key: 'a' }, { key: 'b', enabled: true }, { key: 'c', enabled: true }, { key: 'off', enabled: false }];
+  assert.deepEqual(runnableKeys(['a', 'b', 'b', 'gone', 'off'], scenarios), { keys: ['a', 'b'], dropped: ['gone', 'off'] });
+  assert.deepEqual(runnableKeys([], scenarios), { keys: [], dropped: [] });
+
+  const results = [
+    { scenario_key: 'a', status: 'passed' },
+    { scenario_key: 'off', status: 'failed' },
+    { scenario_key: 'b', status: 'errored' },
+    { scenario_key: 'a', status: 'failed' },
+    { scenario_key: 'b', status: 'failed' },
+    { scenario_key: 'c', status: 'pending' },
+  ];
+  assert.deepEqual(rerunFailedKeys(results, scenarios), { keys: ['b', 'a'], dropped: ['off'] }, 'failed and errored keys in first-appearance order; pending is not a failure');
+  assert.deepEqual(rerunFailedKeys([], scenarios), { keys: [], dropped: [] });
+
+  assert.deepEqual(runRequestSelection({ selection: { group: 'Install' } }, scenarios), { group: 'Install' });
+  assert.deepEqual(runRequestSelection({ selection: { scenario_keys: ['a', 'off', 'gone'] } }, scenarios), { keys: ['a'] });
+  assert.deepEqual(runRequestSelection({ status: 'pending', selection: { keys: ['b', 'off'] } }, scenarios), { keys: ['b'] });
+  assert.deepEqual(runRequestSelection({ selection: { models: ['m'] } }, scenarios), {});
+  assert.deepEqual(runRequestSelection(null, scenarios), {});
+});
+
+test('a run that failed before resolving its selection still covers the suite', () => {
+  const scenarios = [{ id: 1, key: 'a', group: 'Install' }, { id: 2, key: 'b', group: 'Agents', enabled: false }, { id: 3, key: 'c', group: 'Agents' }];
+  assert.deepEqual(runScenarioKeys({ status: 'failed', selection: { models: ['m'] } }, scenarios), ['a', 'c']);
+  assert.deepEqual(runScenarioKeys({ status: 'failed', selection: { models: ['m'] } }, scenarios.slice(0, 2)), ['a']);
+  assert.deepEqual(runScenarioKeys({ status: 'complete', selection: { models: ['m'] } }, scenarios), [], 'a complete run with nothing recorded covered nothing');
+  assert.deepEqual(runScenarioKeys({ status: 'failed', selection: { keys: ['b'] } }, scenarios), ['b'], 'recorded keys still win');
+  assert.deepEqual(runScenarioKeys({ status: 'running', selection: { models: ['m'] } }, scenarios), ['a', 'c']);
+  assert.deepEqual(runScenarioKeys({ status: 'complete', scores: { _selection: { scenario_keys: ['c'] } } }, scenarios), ['c']);
+  assert.deepEqual(runScenarioKeys({ status: 'pending', selection: { group: 'Agents' } }, scenarios), ['c']);
+  assert.deepEqual(runScenarioKeys({ status: 'pending', selection: { scenario_ids: [3, '1'] } }, scenarios), ['a', 'c']);
+  assert.deepEqual(runScenarioKeys(null, scenarios), []);
+
+  assert.deepEqual(selectionOf({ scores: { _selection: { group: 'g' } } }), { group: 'g' });
+  assert.deepEqual(selectionOf(null), {});
+  assert.deepEqual(selectionModelLabels({ selection: { models: ['x', { label: 'y', model: 'y-1' }, { model: 'unlabelled' }] } }), ['x', 'y']);
+});
+
+test('elapsed and duration', () => {
+  const created = '2026-01-05T10:00:00Z';
+  const completed = '2026-01-05T10:12:04Z';
+  const now = Date.parse(created) + 134000;
+  assert.equal(runElapsedMs({ status: 'complete', created_at: created, completed_at: completed, usage: { runtime_ms: 700000 } }, now), 700000, 'the recorded runtime wins');
+  assert.equal(runElapsedMs({ status: 'complete', created_at: created, completed_at: completed, usage: {} }, now), 724000);
+  assert.equal(runElapsedMs({ status: 'running', created_at: created }, now), 134000);
+  assert.equal(runElapsedMs({ status: 'pending', created_at: created }, now), null);
+  assert.equal(runElapsedMs({ status: 'failed', created_at: created, completed_at: completed }, now), null);
+  assert.equal(runElapsedMs({ status: 'running' }, now), null);
+  assert.equal(runElapsedMs(null, now), null);
+
+  assert.equal(fmtClock(134000), '02:14');
+  assert.equal(fmtClock(3734000), '1:02:14');
+  assert.equal(fmtClock(0), '00:00');
+  assert.equal(fmtClock(null), '—');
+  assert.equal(fmtDuration(58000), '58s');
+  assert.equal(fmtDuration(724000), '12m 04s');
+  assert.equal(fmtDuration(3720000), '1h 02m');
+  assert.equal(fmtDuration(null), '—');
+});
+
+test('polls back off with the result count', () => {
+  assert.equal(pollIntervalFor(0), 3000);
+  assert.equal(pollIntervalFor(500), 3000);
+  assert.equal(pollIntervalFor(501), 6000);
+  assert.equal(pollIntervalFor(2000), 6000);
+  assert.equal(pollIntervalFor(2001), 10000);
+  assert.equal(pollIntervalFor(undefined), 3000);
+});
+
+test('a poll keeps the identity of results that did not change', () => {
+  const a = { id: 1, scenario_key: 'a', model: 'm', status: 'passed', score: 0.9, fault: null, cost: 0.001, judge_usage: { cost: 0.002 }, output: 'hello' };
+  const b = { id: 2, scenario_key: 'b', model: 'm', status: 'pending', score: null, fault: null, cost: null, judge_usage: null, output: null };
+
+  const unchanged = reconcileResults([a, b], [{ ...a, output: 'world' }, { ...b }]);
+  assert.equal(unchanged.changed, false, 'the same length and content, output text aside');
+  assert.equal(unchanged.results[0], a);
+  assert.equal(unchanged.results[1], b);
+
+  const landed = reconcileResults([a, b], [{ ...a }, { ...b, status: 'passed', score: 1, output: 'done' }]);
+  assert.equal(landed.changed, true);
+  assert.equal(landed.results[0], a, 'the untouched result keeps its object');
+  assert.notEqual(landed.results[1], b, 'pending → passed is a new object');
+  assert.equal(landed.results[1].status, 'passed');
+
+  const grown = reconcileResults([a], [{ ...a }, { ...b }]);
+  assert.equal(grown.changed, true, 'a result landing is a change');
+  assert.deepEqual([grown.results[0], grown.results.length], [a, 2]);
+  assert.deepEqual(reconcileResults([], []), { results: [], changed: false });
+  assert.deepEqual(reconcileResults(undefined, [a]), { results: [a], changed: true });
+
+  assert.equal(sameResult(a, { ...a, output: 'hello!' }), false, 'a longer output is a change');
+  assert.equal(sameResult(a, { ...a, judge_usage: { cost: 0.003 } }), false);
+  assert.equal(sameResult(a, { ...a, cost: 0.0011 }), false);
+  assert.equal(sameResult(a, { ...a, fault: 'late' }), false);
+  assert.equal(sameResult(a, { ...a, id: 9 }), false);
+  assert.equal(sameResult(b, { ...b, judge_usage: undefined }), true, 'no judge cost either way');
+
+  const labelFor = (result) => result.model;
+  const first = groupResultsByKey([a, b], labelFor);
+  assert.deepEqual(Object.keys(first), ['a', 'b']);
+  assert.equal(first.a.m, a);
+  const second = groupResultsByKey([a, b], labelFor, first);
+  assert.equal(second, first, 'nothing changed: the map itself');
+  const b2 = { ...b, status: 'passed' };
+  const third = groupResultsByKey([a, b2], labelFor, first);
+  assert.notEqual(third, first);
+  assert.equal(third.a, first.a, 'a key whose results are identical keeps its object');
+  assert.notEqual(third.b, first.b);
+  assert.equal(third.b.m, b2);
+  const c = { id: 3, scenario_key: 'a', model: 'n', status: 'passed' };
+  const fourth = groupResultsByKey([a, c], labelFor, first);
+  assert.notEqual(fourth.a, first.a, 'a key that gained a column is new');
+  assert.deepEqual(Object.keys(fourth.a), ['m', 'n']);
+  assert.deepEqual(groupResultsByKey([{ id: 4, status: 'passed' }], labelFor), {}, 'a result without a scenario key is skipped');
+
+  const bars = [1, 2, 3].map((n) => ({ label: `m${n}`, short: `m${n}`, passed: n, total: 10 }));
+  assert.equal(combinedBars(bars), bars, 'three bars are left alone');
+  const four = [...bars, { label: 'm4', short: 'm4', passed: 4, total: 10 }];
+  assert.deepEqual(combinedBars(four), [{ label: 'combined', short: '4 models', passed: 10, total: 40, title: 'm1 1/10 · m2 2/10 · m3 3/10 · m4 4/10' }]);
+  assert.equal(combinedBars(four, 4), four);
+});
+
+test("the box's scroll targets", () => {
+  assert.equal(cursorScrollTop({ rowTop: 1000, headerHeight: 50, boxHeight: 530 }), 790);
+  assert.equal(cursorScrollTop({ rowTop: 100, headerHeight: 50, boxHeight: 530 }), 0, 'clamped at the top');
+  assert.equal(openRowScrollTop({ rowTop: 1000, headerHeight: 50, groupRowHeight: 36 }), 914);
+  assert.equal(openRowScrollTop({ rowTop: 1000, headerHeight: 50 }), 950, 'no group row to leave room for');
+  assert.equal(openRowScrollTop({ rowTop: 20, headerHeight: 50 }), 0, 'clamped at the top');
+});
+
+test('the remembered detail level is validated', () => {
+  assert.equal(readDetailChoice({ getItem: () => 'tools' }), 'tools');
+  assert.equal(readDetailChoice({ getItem: () => 'steps' }), 'steps');
+  assert.equal(readDetailChoice({ getItem: () => 'light' }), null, "the harness's stub answers every key with the theme");
+  assert.equal(readDetailChoice({ getItem: () => null }), null);
+  assert.equal(readDetailChoice({ getItem: () => { throw new Error('blocked'); } }), null);
+  assert.equal(readDetailChoice(null), null);
+  assert.equal(readDetailChoice(undefined), null);
+
+  const stored = {};
+  const storage = { setItem: (key, value) => { stored[key] = value; }, removeItem: (key) => { delete stored[key]; } };
+  writeDetailChoice(storage, 'tools');
+  assert.deepEqual(stored, { [DETAIL_STORAGE_KEY]: 'tools' });
+  assert.equal(DETAIL_STORAGE_KEY, 'aa.evaluations.detail');
+  writeDetailChoice(storage, null);
+  assert.deepEqual(stored, {}, 'null forgets the choice');
+  assert.doesNotThrow(() => writeDetailChoice({ setItem: () => { throw new Error('quota'); } }, 'steps'));
+  assert.doesNotThrow(() => writeDetailChoice({ setItem() {} }, null), 'a storage without removeItem is left alone');
+  assert.doesNotThrow(() => writeDetailChoice(null, 'steps'));
+});
+
+test('the details cache keeps only what the person can get back to', () => {
+  const details = { 1: { id: 1 }, 2: { id: 2 }, 3: { id: 3 }, 4: { id: 4 } };
+  const kept = keepDetails(details, [4, 1, null, 4]);
+  assert.deepEqual(Object.keys(kept), ['1', '4']);
+  assert.equal(kept[4], details[4]);
+  assert.equal(keepDetails(details, [1, 2, 3, 4]), details, 'nothing to evict keeps the map itself');
+  assert.deepEqual(keepDetails(details, []), {});
+  assert.deepEqual(keepDetails(undefined, [1]), {});
+
+  const columns = ['gpt-5-mini', 'claude-haiku-5-5'];
+  assert.equal(scenarioTime({ 'gpt-5-mini': { status: 'passed', duration_ms: 5200 }, 'claude-haiku-5-5': { status: 'failed', duration_ms: 5900 } }, columns), 5900);
+  assert.equal(scenarioTime({ 'gpt-5-mini': { status: 'pending', duration_ms: 9000 }, 'claude-haiku-5-5': { status: 'passed', duration_ms: 1200 } }, columns), 1200, 'a pending result has no time yet');
+  assert.equal(scenarioTime({ 'gpt-5-mini': { status: 'passed' } }, columns), null);
+  assert.equal(scenarioTime({}, columns), null);
+  assert.equal(scenarioTime(undefined, columns), null);
+  assert.equal(scenarioTime({ other: { status: 'passed', duration_ms: 1 } }, columns), null, 'only the given columns count');
+
+  assert.equal(stepsMinWidth(2), 644);
+  assert.equal(toolsMinWidth(2), 844);
+  assert.equal(stepsMinWidth(3), 782);
+  assert.ok(RAIL_WIDTH + RAIL_GAP + stepsMinWidth(2) <= RAIL_BREAKPOINT, 'a two-model steps grid fits beside the rail at the breakpoint');
+
+  // The figures the panel, the rail and the box share.
+  assert.deepEqual(
+    { PANEL_GUTTER, STEPS_HEIGHT, STRIP_LIST_HEIGHT, RAIL_BARS_MAX, DETAILS_KEPT, KEY_COLUMN_MIN_WIDTH },
+    { PANEL_GUTTER: 32, STEPS_HEIGHT: 'clamp(360px, calc(100vh - 240px), 900px)', STRIP_LIST_HEIGHT: 320, RAIL_BARS_MAX: 3, DETAILS_KEPT: 3, KEY_COLUMN_MIN_WIDTH: 720 },
+  );
 });
