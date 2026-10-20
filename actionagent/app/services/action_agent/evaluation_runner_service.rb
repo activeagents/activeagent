@@ -275,7 +275,7 @@ module ActionAgent
       @judge_usage["cost"] = (@judge_usage["cost"] || 0.0) + cost if cost
       @judge_usage["model"] ||= model
       @judge_usage["by_kind"][kind.to_s] = @judge_usage["by_kind"].fetch(kind.to_s, 0) + 1
-      @judge_usage["models"][model] = @judge_usage["models"].fetch(model, 0) + 1 if model
+      (@judge_usage["models"] ||= {})[model] = @judge_usage["models"].fetch(model, 0) + 1 if model
     end
 
     # The judge as a run records it (scores["_judge"]): the agent class it

@@ -114,3 +114,10 @@ test('a run with no recorded judge shows its label alone', async () => {
   assert.equal(container.textContent, 'judged by claude-opus-5');
   assert.equal(container.querySelector('button'), null);
 });
+
+test('a run judged by several models says how many', async () => {
+  const run = { scores: { _judge: { provider: 'openrouter', model: null, model_source: 'provider_default', answered: { a: 15, b: 10, c: 3 } } } };
+  await view.act(async () => view.rerender(root, { evaluation: { id: 7 }, run, label: 'openrouter default' }));
+  assert.match(container.textContent, /judged by openrouter default/);
+  assert.match(container.textContent, /3 models/);
+});
