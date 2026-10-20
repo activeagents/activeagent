@@ -724,3 +724,79 @@ export const claudeCodeNotConnectedHint = (auth) => {
   }
   return { text: 'Connect an Anthropic API key under Claude Code below to run sessions in this checkout.', loginHint: null, after: null };
 };
+
+// --- How Codex authenticates --------------------------------------------------
+//
+// GET /api/sandboxes says whether the backend runs Codex, how this install
+// authenticates it (ActionAgent.codex_auth) and whether the caller's is
+// usable:
+//
+//   codex_sessions_supported  the backend runs Codex, in this mode
+//   codex_auth                "api_key" | "local_login"
+//   codex_connected           true when sessions can run
+//   codex_login               { logged_in, auth_method } — local_login only
+//
+// "api_key" runs sessions on an OpenAI API key the owner connects here, billed
+// to that key's project. "local_login" runs them on the dashboard machine's
+// own Codex login (`codex login`: a ChatGPT plan, or a key the CLI holds),
+// which the dashboard never sees.
+
+export const CODEX_LOCAL_LOGIN = 'local_login';
+export const CODEX_LOGIN_COMMAND = 'codex login';
+
+// The sandbox listing's Codex fields, read defensively: anything but
+// "local_login" is the API-key mode, and only a literal true counts.
+export const codexAuth = (data) => {
+  const login = isObject(data?.codex_login) ? data.codex_login : {};
+  const localLogin = data?.codex_auth === CODEX_LOCAL_LOGIN;
+  return {
+    supported: data?.codex_sessions_supported === true,
+    mode: localLogin ? CODEX_LOCAL_LOGIN : CLAUDE_CODE_API_KEY,
+    connected: data?.codex_connected === true,
+    loggedIn: localLogin && login.logged_in === true,
+    authMethod: localLogin && typeof login.auth_method === 'string' && login.auth_method ? login.auth_method : null,
+  };
+};
+
+// What the Codex card shows, from the listing's fields (codexAuth) and the
+// stored key's row from /api/provider_keys (null while either loads).
+//
+//   view       "loading" | "local_login" | "api_key"
+//   status     the line under the card's title
+//   tone       "success" | "error" | "neutral"
+//   keyForm    whether the card offers to connect, update or remove a key
+//   loginHint  the command to run on this machine, when logged out
+export const codexCardState = (auth, keyRow) => {
+  const loading = { view: 'loading', status: 'Loading…', tone: 'neutral', keyForm: false, loginHint: null };
+  if (!auth) return loading;
+  if (auth.mode === CODEX_LOCAL_LOGIN) {
+    const how = auth.authMethod ? ` (${auth.authMethod})` : '';
+    return {
+      view: CODEX_LOCAL_LOGIN,
+      status: auth.loggedIn ? `Using this machine's Codex login · logged in${how}` : "Using this machine's Codex login · not logged in",
+      tone: auth.loggedIn ? 'success' : 'error',
+      keyForm: false,
+      loginHint: auth.loggedIn ? null : CODEX_LOGIN_COMMAND,
+    };
+  }
+  if (!keyRow) return loading;
+  return {
+    view: CLAUDE_CODE_API_KEY,
+    status: keyRow.configured ? `Connected · ${keyRow.hint}` : 'Not connected',
+    tone: keyRow.configured ? 'success' : 'neutral',
+    keyForm: true,
+    loginHint: null,
+  };
+};
+
+// Why the session panel's composer is locked for want of Codex, or null when
+// it can run. Nothing known yet reads as unsupported, as the Agent menu's
+// Codex entry does.
+export const codexNotConnectedHint = (auth) => {
+  if (!auth || auth.supported !== true) return { text: 'This sandbox backend does not support Codex.', loginHint: null, after: null };
+  if (auth.connected === true) return null;
+  if (auth.mode === CODEX_LOCAL_LOGIN) {
+    return { text: 'Codex is not logged in on this machine. Run', loginHint: CODEX_LOGIN_COMMAND, after: 'as the user the dashboard runs as.' };
+  }
+  return { text: 'Connect an OpenAI API key in the Codex integration below.', loginHint: null, after: null };
+};

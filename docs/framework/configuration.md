@@ -380,6 +380,9 @@ section covers the sandbox and Claude Code options:
 | `claude_code_auth` | `:api_key` (or `:local_login` for the local machine; `:sandbox_login` for per-user sandbox sign-in) |
 | `claude_code_login_timeout` | `300` seconds (bounded to 1–600) |
 | `claude_code_hosted_login_enabled` | `false`; remote adapters must also implement the login lifecycle |
+| `codex_command` | `"codex"` |
+| `codex_timeout` | `1800` seconds |
+| `codex_auth` | `:api_key` (or `:local_login` for the local machine's own Codex login) |
 
 **[Self-Hosted Dashboard](/framework/self-hosted-observability)** adds
 `ingest_api_key`, `current_account_resolver`, `trace_retention`,
