@@ -1031,7 +1031,7 @@ export default function ScenarioSuitePanel({
 
       {/* Models — not for a run that failed before it replayed anything. */}
       {run && run.status !== 'failed' && (
-        <ModelsPanel run={run} columns={columns} results={results} scenarioCount={scenarioCount} judgedBy={judgedBy} verdict={verdict} />
+        <ModelsPanel run={run} columns={columns} results={results} scenarioCount={scenarioCount} judgedBy={judgedBy} verdict={verdict} evaluation={evaluation} onJudgeChanged={onChanged} />
       )}
 
       {/* What to fix. The heading takes focus from the header's TO FIX tile. */}

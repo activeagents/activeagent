@@ -81,6 +81,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   empty-array default, and is added only to a class without one, so
   ActiveRecord's is untouched (#260).
 
+- **Evaluation runs record their judge** (`actionagent`), in
+  `scores["_judge"]`: the `EvaluationJudgeAgent` it runs as, its provider,
+  the model it asked for and where that setting came from (the evaluation,
+  the provider key, the host's config, or the provider's default), and the
+  models that answered, with call counts. The suite's Models panel shows
+  "judged by <model>" with an `auto` badge when no model is pinned, and
+  opens the judge's configuration, with a field that pins `judge_model` on
+  the evaluation through `PATCH /api/evaluations/:id` (#605).
+
+
 ### Changed
 
 - **A scenario suite's page reads like a build page** (`actionagent`). The
@@ -175,6 +185,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   no longer camelized, so a multiword required key such as `max_points`
   matches its property in strict mode instead of being sent as
   `maxPoints`.
+- **A judge with no `judge_model` is labelled with the model that
+  answered** (`actionagent`), not its provider ("judged by openrouter").
+  OpenRouter's default, `openrouter/auto`, routes each call, so a run judged
+  by more than one model is labelled "<provider> default" (#605).
 
 ## [1.9.1] - 2026-10-16
 
