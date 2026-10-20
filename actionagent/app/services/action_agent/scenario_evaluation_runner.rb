@@ -151,8 +151,13 @@ module ActionAgent
     # running. Each replay is stored as a pending result and scored by its
     # own EvaluationJudgeJob, so the agent's next replay need not wait for
     # the judge. The job that scores the last pending result completes the
-    # run, under a lock on it, with the same scores the sequential path
-    # writes.
+    # run with the same scores the sequential path writes.
+    #
+    # The agent's tool roster is discovered once, before the replays, and
+    # kept with the run's bookkeeping (scores["_fan_out"]) for every job to
+    # read, as the sequential path resolves it once per run: a diagnosis
+    # names the same tools whichever job wrote it, and the run's discovery
+    # warning does not depend on which job completed the run.
 
     # Replays one scenario under one model and stores the answer as a pending
     # result, then enqueues its scoring. A result already stored for the
@@ -168,15 +173,21 @@ module ActionAgent
         replay = fan_out_replay(task, spec)
         row = run.with_lock { stored_result(run, scenario, spec) || store_replay(run, scenario, task, spec, replay) }
       end
-      EvaluationJudgeJob.perform_later(row.id, @selection.to_h) if row.pending?
+      EvaluationJudgeJob.perform_later(row.id, @selection.to_h, run.id) if row.pending?
       row
     end
 
     # Scores, diagnoses and stores one pending result, then completes the run
     # when it was the last.
+    #
+    # A job delivered again for a result that is already scored, or that a
+    # concurrent delivery has claimed, scores nothing. It still checks
+    # whether the run is complete: the earlier delivery may have stored the
+    # last result and stopped before completing the run.
     def judge_result!(row)
       run = row.evaluation_run
-      return unless run.running? && row.pending?
+      return unless run.running?
+      return finish_fan_out!(run) unless row.pending? && claim_result!(row)
 
       spec = fan_out_specs(run).fetch([ row.provider.to_s, row.model ]) do
         Evals::ModelSpec.new(label: row.model, provider: row.provider.to_s, model: row.model)
@@ -199,17 +210,21 @@ module ActionAgent
     end
 
     # Stores +error+ as the result of a pair whose job failed outside the
-    # replay (which records its own errors), so the run still completes.
+    # replay (which records its own errors), so the run still completes. A
+    # scenario removed from the suite during the run has no result to
+    # store; the run completes without it (see #finish_fan_out!).
     def fail_result!(run, scenario_id, spec_value, error)
-      scenario = @evaluation.scenarios.find_by(id: scenario_id)
-      return unless scenario && run.running?
+      return unless run.running?
 
-      spec = model_spec_from(spec_value)
-      run.with_lock do
-        row = stored_result(run, scenario, spec)
-        task = Evals::Scenario.from_hash(scenario.as_json_summary)
-        row ||= store_replay(run, scenario, task, spec, Evals::Replay.failed(error))
-        row.update!(status: :errored, error_message: row.error_message.presence || error_text(error)) if row.pending?
+      scenario = @evaluation.scenarios.find_by(id: scenario_id)
+      if scenario
+        spec = model_spec_from(spec_value)
+        run.with_lock do
+          row = stored_result(run, scenario, spec)
+          task = Evals::Scenario.from_hash(scenario.as_json_summary)
+          row ||= store_replay(run, scenario, task, spec, Evals::Replay.failed(error))
+          row.update!(status: :errored, error_message: row.error_message.presence || error_text(error)) if row.pending?
+        end
       end
       finish_fan_out!(run)
     end
@@ -222,6 +237,36 @@ module ActionAgent
       finish_fan_out!(run)
     end
 
+    # Completes the run once every selected scenario x model has a scored
+    # result, with the scores, verdict and judge usage a sequential run
+    # writes. A scenario removed from the suite during the run is no longer
+    # waited for (its results went with it), so the run completes without it.
+    #
+    # Nothing is computed under a lock. The verdict is a judge call, and a
+    # lock on the run is, on SQLite, the write lock on the whole database:
+    # held for the call, it would stall every other writer. The lock covers
+    # only the check that the run is still running and the one write that
+    # completes it. Of two jobs that both find the run finished, one
+    # completes it and the other's work is dropped, at the cost of a second
+    # verdict call in that rare tie.
+    def finish_fan_out!(run)
+      run.reload
+      return unless run.running?
+
+      specs = fan_out_specs(run)
+      rows = run.scenario_results.includes(:agent_run).to_a
+      return if rows.size < expected_results(run, specs) || rows.any?(&:pending?)
+
+      attributes = begin
+        completion_attributes(run, rows, specs)
+      rescue StandardError => e
+        { status: :failed, error_message: e.message, completed_at: Time.current }
+      end
+      run.with_lock do
+        run.update!(attributes) if run.running?
+      end
+    end
+
     private
 
     def fan_out?(adapter)
@@ -230,14 +275,32 @@ module ActionAgent
     end
 
     def fan_out!(run, scenarios, specs)
+      refuse_duplicate_specs!(specs)
       ensure_judge_defined_kpis! if @evaluation.judge_defined?
-      update_fan_out_state!(run) { |state| state.merge("judge_usage" => judge_usage) } if judge_usage
+      # Discovered here, before any lock is taken and before a sandbox the
+      # run replays against can expire; the jobs read it from the run.
+      roster = { "tools" => tool_roster, "discovery_warning" => discovery_warning }
+      update_fan_out_state!(run) do |state|
+        state.merge(roster).merge(judge_usage ? { "judge_usage" => judge_usage } : {})
+      end
 
       selection = @selection.to_h
       scenarios.product(specs).each do |scenario, spec|
         EvaluationReplayJob.perform_later(run.id, scenario.id, spec.to_h, selection)
       end
       run
+    end
+
+    # A fanned-out run keys its results by provider and model, where the
+    # sequential path keys them by label, so one model listed under two
+    # labels ("gpt-5-mini" and "openai/gpt-5-mini") would be replayed once
+    # and reported under one of them; the run refuses the selection instead.
+    def refuse_duplicate_specs!(specs)
+      duplicates = specs.group_by { |spec| [ spec.provider, spec.model ] }.select { |_pair, group| group.size > 1 }
+      return if duplicates.empty?
+
+      names = duplicates.map { |(provider, model), group| "#{provider}/#{model} as #{group.map(&:label).join(' and ')}" }
+      raise ArgumentError, "the same model is listed more than once (#{names.to_sentence}); list each provider/model once"
     end
 
     def model_spec_from(value)
@@ -255,6 +318,24 @@ module ActionAgent
 
     def stored_result(run, scenario, spec)
       run.scenario_results.find_by(evaluation_scenario_id: scenario.id, model: spec.model, provider: spec.provider)
+    end
+
+    # How many results the run waits for: one per selected scenario still in
+    # the suite, per model.
+    def expected_results(run, specs)
+      ids = Array(run.selection&.dig("scenario_ids"))
+      @evaluation.scenarios.where(id: ids).count * specs.size
+    end
+
+    # Claims a pending result for this job before it is scored. Of two judge
+    # jobs delivered for one result (a replay job delivered again after it
+    # enqueued the first), only the one whose claim lands scores it, so the
+    # judge is asked once and the run's meter counts each call once. The
+    # claim is a conditional write on the row's timestamp: it holds no lock
+    # while the judge is asked, and a row whose claimant then stops is still
+    # pending for the next delivery.
+    def claim_result!(row)
+      EvaluationScenarioResult.where(id: row.id, status: :pending, updated_at: row.updated_at).update_all(updated_at: Time.current) == 1
     end
 
     # What Evals::Runner does with a replay that raises: an errored replay,
@@ -286,23 +367,30 @@ module ActionAgent
       )
     end
 
+    # The stored replay, with the answer as the agent run recorded it. The
+    # result keeps the first 20,000 bytes of the answer to show; a rule or
+    # an expectation (contains, not_contains, min_length) reads all of it, as
+    # it does on the sequential path, so a long answer scores the same
+    # fanned out.
     def replay_from(row)
       Evals::Replay.new(
-        answer: row.output, tool_calls: row.tool_calls, duration_ms: row.duration_ms,
+        answer: row.agent_run&.output.presence || row.output, tool_calls: row.tool_calls, duration_ms: row.duration_ms,
         input_tokens: row.input_tokens, output_tokens: row.output_tokens, error: row.error_message,
         cost: row.cost&.to_f, metadata: row.replay_metadata
       )
     end
 
     # A Runner that scores one replay. Its refine_gate shares the run-wide
-    # judge_limit with every other result's scorer.
+    # judge_limit with every other result's scorer, and its roster is the one
+    # discovered when the run fanned out (a run fanned out before the roster
+    # was kept discovers its own).
     def fan_out_scorer(run)
       Evals::Runner.new(
         scenarios: [],
         models: [],
         criteria: sample_criteria,
         judge: evals_judge,
-        available_tools: tool_roster,
+        available_tools: fan_out_state(run).fetch("tools") { tool_roster },
         instructions: @evaluation.agent.instructions,
         agent_name: @evaluation.agent.name,
         threshold: PASS_THRESHOLD,
@@ -324,37 +412,33 @@ module ActionAgent
     end
 
     # The run's fan-out bookkeeping, kept in scores["_fan_out"] until the run
-    # completes and its scores are written: the judge usage spent before the
-    # replays (judge-defined KPIs) and the recommendations reserved so far.
-    def update_fan_out_state!(run)
-      run.with_lock do
-        scores = run.scores.is_a?(Hash) ? run.scores : {}
-        state = scores["_fan_out"].is_a?(Hash) ? scores["_fan_out"] : {}
-        run.update!(scores: scores.merge("_fan_out" => yield(state)))
-      end
+    # completes and its scores are written: the tool roster and discovery
+    # warning found before the replays, the judge usage spent before them
+    # (judge-defined KPIs), and the recommendations reserved so far.
+    def fan_out_state(run)
+      state = run.scores.is_a?(Hash) ? run.scores["_fan_out"] : nil
+      state.is_a?(Hash) ? state : {}
     end
 
-    # Completes the run once every selected scenario x model has a scored
-    # result. The lock makes the last two jobs to finish agree on which one
-    # completes it.
-    def finish_fan_out!(run)
+    # Changes the bookkeeping under the run's lock. A completed run's scores
+    # are left as written: a reservation that lands after the last result
+    # has nothing to reserve.
+    def update_fan_out_state!(run)
       run.with_lock do
         next unless run.running?
 
-        specs = fan_out_specs(run)
-        expected = Array(run.selection&.dig("scenario_ids")).size * specs.size
-        rows = run.scenario_results.to_a
-        next if rows.size < expected || rows.any?(&:pending?)
-
-        begin
-          complete_fan_out!(run, rows, specs)
-        rescue StandardError => e
-          run.update!(status: :failed, error_message: e.message, completed_at: Time.current)
-        end
+        scores = run.scores.is_a?(Hash) ? run.scores : {}
+        run.update!(scores: scores.merge("_fan_out" => yield(fan_out_state(run))))
       end
     end
 
-    def complete_fan_out!(run, rows, specs)
+    # What completes the run: the attributes the sequential path writes at
+    # the end of #call, from the stored results.
+    def completion_attributes(run, rows, specs)
+      if rows.empty?
+        return { status: :failed, error_message: "Every selected scenario was removed during the run", completed_at: Time.current }
+      end
+
       order = specs.keys
       rows = rows.sort_by do |row|
         [ row.evaluated_scenario["position"].to_i, row.evaluation_scenario_id, order.index([ row.provider.to_s, row.model ]) || order.size ]
@@ -370,22 +454,21 @@ module ActionAgent
       end
       report = Evals::Report.new(results: results, models: specs.values, judge: evals_judge,
                                  instructions: @evaluation.agent.instructions, threshold: PASS_THRESHOLD)
-      state = run.scores.is_a?(Hash) && run.scores["_fan_out"].is_a?(Hash) ? run.scores["_fan_out"] : {}
+      state = fan_out_state(run)
 
       # The other jobs' judge calls go into this runner's meter before the
       # verdict is asked for, so the run's usage, and anything scores_for
       # reads from the meter, covers every call once.
       @judge_usage = combined_judge_usage([ state["judge_usage"], *rows.map { |row| row.diagnosis.to_h["_judge_usage"] }, judge_usage ])
-      scores = scores_for(report, run)
 
-      run.update!(
+      {
         status: :complete,
-        scores: scores,
+        scores: scores_for(report, run),
         samples_evaluated: results.size,
         samples_passed: results.count(&:passed?),
-        error_message: discovery_warning,
+        error_message: state.key?("discovery_warning") ? state["discovery_warning"] : discovery_warning,
         completed_at: Time.current
-      )
+      }
     end
 
     # Sums the judge usage of the run's parts into the one meter
