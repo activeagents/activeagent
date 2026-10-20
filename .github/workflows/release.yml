@@ -22,7 +22,9 @@ name: Release
 #
 # The package is public as soon as the job succeeds; there is no staging
 # step. The trusted publisher on npmjs.com for @activeagents/browser-sidecar
-# must name this repository and this workflow file (release.yml).
+# must name this repository and this workflow file (release.yml), with no
+# environment (this job runs in none). A sidecar that failed to publish is
+# retried with workflow_dispatch: the gems already on RubyGems are skipped.
 on:
   push:
     tags: [ "v*" ]
@@ -125,10 +127,12 @@ jobs:
         working-directory: browser-sidecar
     steps:
       - uses: actions/checkout@v4
+      # No registry-url: it writes an .npmrc whose token is a placeholder, and
+      # when the OIDC exchange fails npm publishes with that placeholder and
+      # reports only E401. npm's default registry is npmjs.org already.
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-          registry-url: https://registry.npmjs.org
       # Trusted publishing needs npm 11.5.1 or later; the npm bundled with
       # Node may be older.
       - name: Update npm
@@ -148,6 +152,9 @@ jobs:
             echo "@activeagents/browser-sidecar ${version} is already on npm; skipping."
             exit 0
           fi
+          # npm swallows a refused exchange; this names the registry's reason
+          # and the claims the trusted publisher on npmjs.com must match.
+          ../.github/scripts/npm-trusted-publisher-check.sh @activeagents/browser-sidecar
           npm ci
           npm publish
           echo "::notice::@activeagents/browser-sidecar ${version} is published."
