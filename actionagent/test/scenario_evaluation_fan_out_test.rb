@@ -127,7 +127,7 @@ class ActionAgentScenarioEvaluationFanOutTest < ActiveSupport::TestCase
     %w[response_present _recommendations _verdict].each do |key|
       assert_equal sequential.scores[key], fanned.scores[key], key
     end
-    comparable = ->(summary) { summary.transform_values { |model| model.except("avg_duration_ms") } }
+    comparable = ->(summary) { summary.transform_values { |model| model.reject { |key, _| key.end_with?("_duration_ms") } } }
     assert_equal comparable.call(sequential.scores["_models"]), comparable.call(fanned.scores["_models"])
   end
 
