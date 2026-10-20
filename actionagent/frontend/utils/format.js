@@ -13,6 +13,10 @@ export const fmtK = (value) => {
 // Token counts read like fmtK; null/undefined read as an em dash.
 export const fmtTokens = (value) => (value == null ? '—' : fmtK(value));
 
+// Input and output tokens as one figure, `1.2K→340`: an em dash on a side
+// that is not known, and `—` alone when neither is.
+export const fmtTokenIO = (input, output) => (input == null && output == null ? '—' : `${fmtTokens(input)}→${fmtTokens(output)}`);
+
 // 620 → "620ms", 1900 → "1.9s", null → "—".
 export const fmtMs = (ms) => {
   if (ms == null || Number.isNaN(Number(ms))) return '—';

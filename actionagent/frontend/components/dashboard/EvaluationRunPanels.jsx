@@ -1,11 +1,12 @@
 import React, { useCallback, useRef, useState } from 'react';
 import { Badge, Button, Card, Chip, Empty, Glyph, MicroLabel, MonoLink, MONO, PassBar } from './primitives';
-import { fmtK, fmtMs, splitModelLabel } from '../../utils/format';
+import { fmtK, fmtMs, fmtTokenIO, splitModelLabel } from '../../utils/format';
 import { COST_LEGEND, costTitle, fmtPasses, fmtScore, fmtSpend } from '../../utils/evalFormat.mjs';
 import {
-  RUNS_PAGE, comparisonPlot, costPer, cursorScrollTop, fixItemCountsByModel, fixItemsForModel, groupStep, isEstimated, modelComparisonRows,
-  openRowScrollTop, plural, pricedCount, runScenarioKeys, runSpend, runTotalOf, runnableKeys, runsMeta, scenarioStep, scenarioTime,
-  selectionModelLabels, selectionOf, stepsMinWidth, toolsMinWidth, withModelBreakdown,
+  RUNS_PAGE, columnTotals, comparisonPlot, costPer, cursorScrollTop, fixItemCountsByModel, fixItemsForModel, fmtSpan, groupStep, groupTime,
+  isEstimated, modelComparisonRows, openRowScrollTop, plural, pricedCount, resultMetrics, runScenarioKeys, runSpend, runTotalOf, runnableKeys,
+  runsMeta, scenarioStep, scenarioTime, scenarioTokens, selectionModelLabels, selectionOf, stepsMinWidth, sumTokens, toolsMinWidth,
+  withModelBreakdown,
 } from '../../utils/evaluationRuns.mjs';
 import { useIsoLayoutEffect } from '../../hooks/useMeasuredWidth';
 import ModelScorecard from './evaluations/ModelScorecard';
@@ -348,27 +349,46 @@ export const sumScenarioCosts = (entries = []) => {
 
 // A cost cell: the agent's figure over the judge's, or — `compact`, the
 // steps level's one line — the total, with the two shares in its title.
-function CostBlock({ entry, compact = false, testId }) {
-  if (!entry) return <span style={{ ...mono(12), textAlign: 'right' }} data-testid={testId}>—</span>;
+// A scenario's, or a group's, COST cell. `tokens` — `{ input, output }`
+// added up across the models — sits under the figure, so the spend reads
+// beside what drove it.
+function CostBlock({ entry, compact = false, testId, tokens = null }) {
+  const column = { display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0, textAlign: 'right' };
+  const tokenLine = tokens && (tokens.input != null || tokens.output != null) ? (
+    <span data-testid={testId ? `${testId}-tokens` : undefined} title="input→output tokens across the models" style={{ ...mono(10.5), whiteSpace: 'nowrap' }}>
+      {fmtTokenIO(tokens.input, tokens.output)}
+    </span>
+  ) : null;
+  if (!entry) {
+    return (
+      <span style={column} data-testid={testId}>
+        <span style={mono(12)}>—</span>
+        {tokenLine}
+      </span>
+    );
+  }
   if (compact) {
     const total = entry.total ?? (entry.cost != null || entry.judgeCost != null ? (entry.cost || 0) + (entry.judgeCost || 0) : null);
     const shares = [];
     if (entry.cost != null) shares.push(`agent ${fmtSpend(entry.cost, { estimated: entry.estimated })}`);
     if (entry.judgeCost != null) shares.push(`judge ${fmtSpend(entry.judgeCost, { estimated: entry.estimated })}`);
     return (
-      <span
-        data-testid={testId}
-        title={shares.join(' · ') || undefined}
-        style={{ fontFamily: MONO, fontSize: 11, fontWeight: 600, color: 'var(--color-text-primary)', textAlign: 'right', whiteSpace: 'nowrap' }}
-      >
-        {fmtSpend(total, { estimated: entry.estimated })}
+      <span style={column} data-testid={testId}>
+        <span
+          title={shares.join(' · ') || undefined}
+          style={{ fontFamily: MONO, fontSize: 11, fontWeight: 600, color: 'var(--color-text-primary)', whiteSpace: 'nowrap' }}
+        >
+          {fmtSpend(total, { estimated: entry.estimated })}
+        </span>
+        {tokenLine}
       </span>
     );
   }
   return (
-    <span style={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0, textAlign: 'right', fontFamily: MONO, fontSize: 11, color: 'var(--color-text-secondary)' }} data-testid={testId}>
+    <span style={{ ...column, fontFamily: MONO, fontSize: 11, color: 'var(--color-text-secondary)' }} data-testid={testId}>
       <span style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>{fmtSpend(entry.cost, { estimated: entry.estimated })}</span>
       {entry.judgeCost != null && <span style={{ color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>{`judge ${fmtSpend(entry.judgeCost, { estimated: entry.estimated })}`}</span>}
+      {tokenLine}
     </span>
   );
 }
@@ -526,12 +546,15 @@ function ResultCell({ result, expects, pending, compact = false }) {
   if (compact) {
     const fault = result.fault ? faultName(result.fault) : result.status === 'errored' ? 'errored' : null;
     const cost = resultCostText(result);
-    const title = `${calls.map((call) => call.label).join(' ') || 'no tools called'}${cost ? ` · ${cost}` : ''}${result.duration_ms != null ? ` · ${fmtMs(result.duration_ms)}` : ''}`;
+    const title = `${calls.map((call) => call.label).join(' ') || 'no tools called'}${cost ? ` · ${cost}` : ''}`;
     return (
-      <span title={title} style={{ display: 'flex', alignItems: 'baseline', gap: 6, minWidth: 0, fontFamily: MONO, fontSize: 12, whiteSpace: 'nowrap' }}>
-        <span style={{ fontWeight: 700, color, flexShrink: 0 }}>{pass ? '[+]' : '[!]'}</span>
-        <span style={{ fontWeight: 600, color, flexShrink: 0 }}>{fmtScore(result.score)}</span>
-        {fault && <span style={{ fontSize: 11, color: 'var(--color-error-text)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>{fault}</span>}
+      <span title={title} style={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0 }}>
+        <span style={{ display: 'flex', alignItems: 'baseline', gap: 6, minWidth: 0, fontFamily: MONO, fontSize: 12, whiteSpace: 'nowrap' }}>
+          <span style={{ fontWeight: 700, color, flexShrink: 0 }}>{pass ? '[+]' : '[!]'}</span>
+          <span style={{ fontWeight: 600, color, flexShrink: 0 }}>{fmtScore(result.score)}</span>
+          {fault && <span style={{ fontSize: 11, color: 'var(--color-error-text)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>{fault}</span>}
+        </span>
+        <MetricsLine metrics={resultMetrics(result)} />
       </span>
     );
   }
@@ -543,10 +566,36 @@ function ResultCell({ result, expects, pending, compact = false }) {
         {result.fault && <span style={{ fontSize: 11, color: 'var(--color-error-text)' }}>{faultName(result.fault)}</span>}
       </div>
       <CallLine calls={calls} empty="no tools called" />
+      <MetricsLine metrics={resultMetrics(result)} />
       {resultCostText(result) && (
         <span style={{ ...mono(11, 'var(--color-text-secondary)'), whiteSpace: 'nowrap' }} title={resultCostTitle(result)} data-testid="scenario-cell-cost">{resultCostText(result)}</span>
       )}
     </div>
+  );
+}
+
+// A result's, a group's or a model's time and tokens as one muted line:
+// `12.4s · 1.2K→340`. null where neither figure is known.
+const metricsText = (metrics) => {
+  if (!metrics) return null;
+  const parts = [];
+  if (metrics.durationMs != null) parts.push(fmtSpan(metrics.durationMs));
+  const tokens = fmtTokenIO(metrics.inputTokens, metrics.outputTokens);
+  if (tokens !== '—') parts.push(tokens);
+  return parts.length ? parts.join(' · ') : null;
+};
+
+// The line under a cell's score, a group cell's passes, or a header's bar:
+// how long the answers took and what they consumed, so a model that is
+// faster or leaner shows against the others on every step. Nothing when
+// nothing was recorded.
+function MetricsLine({ metrics, testId = 'scenario-cell-metrics', title = 'time to answer · input→output tokens', style }) {
+  const text = metricsText(metrics);
+  if (!text) return null;
+  return (
+    <span data-testid={testId} title={title} style={{ ...mono(10.5), whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0, ...style }}>
+      {text}
+    </span>
   );
 }
 
@@ -566,27 +615,29 @@ export const STEP_MARK = {
 
 const sameCost = (a, b) => a === b
   || (!!a && !!b && a.cost === b.cost && a.judgeCost === b.judgeCost && a.total === b.total && a.estimated === b.estimated);
+const sameTokens = (a, b) => a === b || (!!a && !!b && a.input === b.input && a.output === b.output);
 
 // Every prop by identity — the catalog row (scenarioRowsForRun's cache), its
 // results (groupResultsByKey) and the columns (the panel's ref) keep theirs
-// while nothing about them changed — except the cost and the time, which
-// are rebuilt each render and compared by value. The two callbacks are the
-// matrix's stable ones, so they are not compared.
+// while nothing about them changed — except the cost, the tokens and the
+// time, which are rebuilt each render and compared by value. The two
+// callbacks are the matrix's stable ones, so they are not compared.
 const rowPropsEqual = (prev, next) =>
   prev.scenario === next.scenario && prev.results === next.results && prev.columns === next.columns
   && prev.step === next.step && prev.current === next.current && prev.open === next.open
   && prev.detail === next.detail && prev.showKey === next.showKey && prev.grid === next.grid
   && prev.inSelection === next.inSelection && prev.running === next.running && prev.loading === next.loading
-  && prev.tabIndex === next.tabIndex && sameCost(prev.costEntry, next.costEntry) && prev.timeMs === next.timeMs;
+  && prev.tabIndex === next.tabIndex && sameCost(prev.costEntry, next.costEntry) && sameTokens(prev.tokens, next.tokens)
+  && prev.timeMs === next.timeMs;
 
 // One step of the box: a scenario's row at the given detail level. Memoised
 // on rowPropsEqual, so a poll that lands two results re-renders two rows.
-// `results` is the scenario's results keyed by column; `costEntry` and
-// `timeMs` are what the COST and TIME cells read; `tabIndex` is the box's
-// roving one. `onToggle(key)` opens or closes the drill-down; `onFocus(key,
-// event)` tells the box which row holds focus.
+// `results` is the scenario's results keyed by column; `costEntry`,
+// `tokens` and `timeMs` are what the COST and TIME cells read; `tabIndex`
+// is the box's roving one. `onToggle(key)` opens or closes the drill-down;
+// `onFocus(key, event)` tells the box which row holds focus.
 const ScenarioRow = React.memo(function ScenarioRow({
-  scenario, results, columns, step, current, open, detail, showKey, grid, inSelection, running, loading, costEntry, timeMs, tabIndex,
+  scenario, results, columns, step, current, open, detail, showKey, grid, inSelection, running, loading, costEntry, tokens = null, timeMs, tabIndex,
   onToggle, onFocus,
 }) {
   const key = scenario.key;
@@ -668,9 +719,9 @@ const ScenarioRow = React.memo(function ScenarioRow({
           compact={steps}
         />
       ))}
-      <CostBlock entry={costEntry} compact={steps} testId="scenario-row-cost" />
+      <CostBlock entry={costEntry} compact={steps} testId="scenario-row-cost" tokens={tokens} />
       {steps && (
-        <span data-testid="scenario-row-time" style={{ ...mono(11), textAlign: 'right', whiteSpace: 'nowrap' }}>{fmtMs(timeMs)}</span>
+        <span data-testid="scenario-row-time" title="the slowest answer across the models" style={{ ...mono(11), textAlign: 'right', whiteSpace: 'nowrap' }}>{fmtSpan(timeMs)}</span>
       )}
     </div>
   );
@@ -716,6 +767,9 @@ export function ScenarioMatrix({
   const stepOf = (scenario) => stepsByKey?.[scenario.key] ?? fallbackStep(scenario);
   const costByKey = new Map(rows.map((scenario) => [scenario.key, scenarioCost(run, scenario.key, resultsByKey[scenario.key])]));
   const estimatedAnywhere = [...costByKey.values()].some((entry) => entry?.estimated);
+  const tokensByKey = new Map(rows.map((scenario) => [scenario.key, scenarioTokens(resultsByKey[scenario.key], columns)]));
+  // The run's time and tokens per model, over every result in, for the header.
+  const runTotals = columnTotals(resultsByKey, columns);
 
   // Group blocks in order of first appearance, so the panel's order holds.
   const hasGroups = rows.some((s) => s.group);
@@ -931,14 +985,20 @@ export function ScenarioMatrix({
                 {bar && bar.passed != null && bar.total != null && (
                   <PassBar passed={bar.passed} total={bar.total} height={4} valueWidth={48} style={{ marginTop: 3 }} />
                 )}
+                <MetricsLine
+                  metrics={runTotals[label]}
+                  testId="scenario-column-totals"
+                  title="this model's answers' time added up, and its input→output tokens, over the results in"
+                  style={{ marginTop: 2 }}
+                />
               </span>
             );
           })}
-          <span style={{ textAlign: 'right' }} title="What the scenario cost across every model, and what judging it cost">
+          <span style={{ textAlign: 'right' }} title="What the scenario cost across every model, and what judging it cost; under it, its input→output tokens">
             <MicroLabel size={10} color="var(--color-text-muted)">Cost</MicroLabel>
           </span>
           {steps && (
-            <span style={{ textAlign: 'right' }} title="The slowest answer across the run's models">
+            <span style={{ textAlign: 'right' }} title="The slowest answer across the run's models; a group's add up">
               <MicroLabel size={10} color="var(--color-text-muted)">Time</MicroLabel>
             </span>
           )}
@@ -950,17 +1010,22 @@ export function ScenarioMatrix({
           const navId = `group:${name}`;
           const inRun = group.rows.filter(inSelection);
           const mark = STEP_MARK[groupStep(group.rows.map(stepOf))] || STEP_MARK.none;
+          // Per model: the group's passes, and under them its scenarios'
+          // time and tokens added up.
+          const totals = columnTotals(resultsByKey, columns, group.rows.map((s) => s.key));
           const cells = columns.map((label) => {
-            if (!inRun.length) return { label, text: 'not in this run', color: 'var(--color-text-muted)', weight: 400 };
-            if (loading) return { label, text: 'loading…', color: 'var(--color-text-muted)', weight: 400 };
+            const metrics = totals[label];
+            if (!inRun.length) return { label, text: 'not in this run', color: 'var(--color-text-muted)', weight: 400, metrics };
+            if (loading) return { label, text: 'loading…', color: 'var(--color-text-muted)', weight: 400, metrics };
             const settled = inRun.filter((s) => isSettled(resultsByKey[s.key]?.[label]));
-            if (running && !settled.length) return { label, text: 'queued', color: 'var(--color-text-muted)', weight: 400 };
+            if (running && !settled.length) return { label, text: 'queued', color: 'var(--color-text-muted)', weight: 400, metrics };
             const passed = settled.filter((s) => isPassed(resultsByKey[s.key][label])).length;
             const total = inRun.length;
             const color = total && passed === total ? 'var(--color-success-text)' : passed === 0 ? 'var(--color-error-text)' : 'var(--color-text-cell)';
-            return { label, text: `${fmtPasses(passed, total)} passed`, color, weight: 600 };
+            return { label, text: `${fmtPasses(passed, total)} passed`, color, weight: 600, metrics };
           });
           const subtotal = sumScenarioCosts(group.rows.map((s) => costByKey.get(s.key)));
+          const groupTokens = sumTokens(group.rows.map((s) => tokensByKey.get(s.key)));
           return (
             <div key={name || '__ungrouped'} data-group={name}>
               {(name || hasGroups) && (
@@ -997,10 +1062,17 @@ export function ScenarioMatrix({
                   </div>
                   {!steps && <span style={mono(11)}>{plural(group.rows.length, 'scenario')}</span>}
                   {cells.map((cell) => (
-                    <span key={cell.label} style={{ fontFamily: MONO, fontSize: 11, fontWeight: cell.weight, color: cell.color, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{cell.text}</span>
+                    <span key={cell.label} style={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0 }}>
+                      <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: cell.weight, color: cell.color, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{cell.text}</span>
+                      <MetricsLine metrics={cell.metrics} testId="scenario-group-metrics" title="the group's answers' time added up, and their input→output tokens, on this model" />
+                    </span>
                   ))}
-                  <CostBlock entry={subtotal} compact={steps} testId="scenario-group-cost" />
-                  {steps && <span />}
+                  <CostBlock entry={subtotal} compact={steps} testId="scenario-group-cost" tokens={groupTokens} />
+                  {steps && (
+                    <span data-testid="scenario-group-time" title="the group's scenarios' times added up" style={{ ...mono(11), textAlign: 'right', whiteSpace: 'nowrap' }}>
+                      {fmtSpan(groupTime(group.rows, resultsByKey, columns))}
+                    </span>
+                  )}
                 </div>
               )}
               {!collapsed && group.rows.map((scenario) => {
@@ -1021,6 +1093,7 @@ export function ScenarioMatrix({
                       running={running}
                       loading={loading}
                       costEntry={costByKey.get(scenario.key) ?? null}
+                      tokens={tokensByKey.get(scenario.key) ?? null}
                       timeMs={scenarioTime(resultsByKey[scenario.key], columns)}
                       tabIndex={tabStop === scenario.key ? 0 : -1}
                       onToggle={toggleRow}
