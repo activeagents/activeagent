@@ -222,6 +222,8 @@ module ActiveAgent
             # No-Op; Wait for Function call to be complete
           when :thinking_delta, :signature_delta
             # TODO: Add with thinking rendering support
+          when :citations_delta
+            # No-Op; the citations arrive with the full block at content_block_stop
           else
             raise "Unexpected delta type: #{api_delta.type}"
           end
