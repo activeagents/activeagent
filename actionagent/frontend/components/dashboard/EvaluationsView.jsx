@@ -463,14 +463,29 @@ export default function EvaluationsView({ embedded = false, agentId = null }) {
   const perModelLines = summary.perModel.length > 1 ? summary.perModel.map((entry) => `${entry.label} ${fmtPasses(entry.passed, entry.total)}`) : [];
   // The operating figure clients budget against: the agent's spend over the
   // interactions the headline runs covered, with the judge's own spend
-  // named apart so it never inflates it; "~" marks an estimated part.
-  const spendSub = spend.agentCost != null
-    ? [
-      `agent ${fmtSpend(spend.agentCost, { estimated: spend.estimated })} over ${plural(spend.interactions, 'interaction')}`,
-      spend.judgeCost != null ? `judge ${fmtSpend(spend.judgeCost, { estimated: spend.judgeEstimated })} offline` : 'no judge spend',
-    ].join(' · ')
-    : 'no priced runs yet';
+  // named apart so it never inflates it; "~" marks an estimated part. One
+  // fact per line — the scope, then the two figures in mono so they line
+  // up, then the estimate's legend when a part was estimated — in place of
+  // a sentence that wrapped to four lines.
   const spendEstimated = (spend.agentCost != null && spend.estimated) || (spend.judgeCost != null && spend.judgeEstimated);
+  const spendSub = spend.agentCost != null
+    ? (
+      <span style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <span data-testid="stat-agent-cost-scope">{`over ${plural(spend.interactions, 'interaction')}`}</span>
+        <span style={{ display: 'grid', gridTemplateColumns: 'max-content minmax(0, 1fr)', columnGap: 10, rowGap: 2, fontFamily: MONO, fontSize: 11, color: 'var(--color-text-muted)' }}>
+          <span>agent</span>
+          <span data-testid="stat-agent-cost-agent" style={{ color: 'var(--color-text-cell)' }}>{fmtSpend(spend.agentCost, { estimated: spend.estimated })}</span>
+          <span>judge</span>
+          <span data-testid="stat-agent-cost-judge" style={{ color: 'var(--color-text-cell)' }} title="The judge's spend is the evaluation's own, outside the interactions, so it is not in the figure above">
+            {spend.judgeCost != null ? `${fmtSpend(spend.judgeCost, { estimated: spend.judgeEstimated })} · offline` : 'none'}
+          </span>
+        </span>
+        {spendEstimated && (
+          <span title={COST_LEGEND} style={{ fontFamily: MONO, fontSize: 11, color: 'var(--color-text-muted)' }}>~ estimated</span>
+        )}
+      </span>
+    )
+    : 'no priced runs yet';
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -552,7 +567,7 @@ export default function EvaluationsView({ embedded = false, agentId = null }) {
           label="Cost / interaction"
           value={fmtRate(spend.perInteraction, spend.estimated)}
           valueColor={spend.perInteraction == null ? 'var(--color-text-muted)' : undefined}
-          sub={spendEstimated ? `${spendSub} · ${COST_LEGEND}` : spendSub}
+          sub={spendSub}
           testId="stat-agent-cost"
         />
       </div>

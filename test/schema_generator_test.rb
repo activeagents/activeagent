@@ -10,6 +10,8 @@ require_relative "dummy/app/models/post"
 require_relative "dummy/app/models/profile"
 
 class SchemaGeneratorTest < ActiveSupport::TestCase
+  include WebMock::API
+
   # region basic_user_model
   class TestUser
     include ActiveModel::Model
@@ -180,5 +182,348 @@ class SchemaGeneratorTest < ActiveSupport::TestCase
     assert json_schema[:schema][:properties][:posts][:items].key?(:"$ref")
 
     doc_example_output(json_schema)
+  end
+
+  # ActiveModel classes that nest arrays of other ActiveModel classes with
+  # has_many.
+  class TestAddress
+    include ActiveModel::Model
+    include ActiveModel::Attributes
+    include ActiveAgent::SchemaGenerator
+
+    attribute :street, :string
+    attribute :city,   :string
+
+    validates :city, presence: true
+  end
+
+  class TestPerson
+    include ActiveModel::Model
+    include ActiveModel::Attributes
+    include ActiveAgent::SchemaGenerator
+
+    attribute :name, :string
+    has_many :addresses, class_name: "SchemaGeneratorTest::TestAddress"
+
+    validates :name, presence: true
+  end
+
+  class TestEmployee < TestPerson
+    has_many :skills, class_name: "SchemaGeneratorTest::TestSkill"
+  end
+
+  class TestSkill
+    include ActiveModel::Model
+    include ActiveModel::Attributes
+    include ActiveAgent::SchemaGenerator
+
+    attribute :label, :string
+  end
+
+  class TestDiscount
+    include ActiveModel::Model
+    include ActiveModel::Attributes
+    include ActiveAgent::SchemaGenerator
+
+    attribute :promo_code, :string
+  end
+
+  class TestLineItem
+    include ActiveModel::Model
+    include ActiveModel::Attributes
+    include ActiveAgent::SchemaGenerator
+
+    attribute :sku, :string
+    has_many :discounts, class_name: "SchemaGeneratorTest::TestDiscount"
+  end
+
+  class TestOrder
+    include ActiveModel::Model
+    include ActiveModel::Attributes
+    include ActiveAgent::SchemaGenerator
+
+    attribute :order_number, :string
+    has_many :line_items, class_name: "SchemaGeneratorTest::TestLineItem"
+  end
+
+  class TestCategory
+    include ActiveModel::Model
+    include ActiveModel::Attributes
+    include ActiveAgent::SchemaGenerator
+
+    attribute :title, :string
+    has_many :subcategories, class_name: "SchemaGeneratorTest::TestCategory"
+  end
+
+  class TestTeam
+    include ActiveModel::Model
+    include ActiveModel::Attributes
+    include ActiveAgent::SchemaGenerator
+
+    attribute :title, :string
+    has_many :members, class_name: "SchemaGeneratorTest::TestMember"
+  end
+
+  class TestMember
+    include ActiveModel::Model
+    include ActiveModel::Attributes
+    include ActiveAgent::SchemaGenerator
+
+    attribute :name, :string
+    has_many :teams, class_name: "SchemaGeneratorTest::TestTeam"
+  end
+
+  class TestOffice
+    include ActiveModel::Model
+    include ActiveModel::Attributes
+    include ActiveAgent::SchemaGenerator
+
+    attribute :floor, :integer
+  end
+
+  class TestCompany
+    include ActiveModel::Model
+    include ActiveModel::Attributes
+    include ActiveAgent::SchemaGenerator
+
+    attribute :name, :string
+    has_many :addresses, class_name: "SchemaGeneratorTest::TestOffice"
+  end
+
+  class TestContractor
+    include ActiveModel::Model
+    include ActiveModel::Attributes
+    include ActiveAgent::SchemaGenerator
+
+    has_many :addresses, class_name: "SchemaGeneratorTest::TestAddress"
+    has_many :companies, class_name: "SchemaGeneratorTest::TestCompany"
+  end
+
+  class TestRoute
+    include ActiveModel::Model
+    include ActiveModel::Attributes
+    include ActiveAgent::SchemaGenerator
+
+    attribute :name, :string
+    has_many :stops, class_name: "SchemaGeneratorTest::TestAddress"
+
+    validates :name,  length: { minimum: 2, maximum: 50 }
+    validates :stops, length: { minimum: 1, maximum: 5 }
+  end
+
+  class NestedSchemaAgent < ActiveAgent::Base
+    generate_with :mock, model: "mock-model"
+
+    def extract(model = TestOrder)
+      prompt(message: "Extract the order", response_format: { type: "json_schema", json_schema: model.to_json_schema(strict: true, name: "order") })
+    end
+  end
+
+  class ResponsesNestedSchemaAgent < NestedSchemaAgent
+    generate_with :openai, model: "gpt-4o-mini", api_version: :responses, access_token: "test-key"
+  end
+
+  class ChatNestedSchemaAgent < NestedSchemaAgent
+    generate_with :openai, model: "gpt-4o-mini", api_version: :chat, access_token: "test-key"
+  end
+
+  ADDRESS_SCHEMA = {
+    type: "object",
+    properties: { street: { type: "string" }, city: { type: "string" } },
+    required: [ :city ],
+    additional_properties: false
+  }.freeze
+
+  test "has_many nests an array of another ActiveModel's schema under $defs" do
+    assert_equal(
+      {
+        name: "schema_generator_test/test_person",
+        schema: {
+          type: "object",
+          properties: {
+            name: { type: "string" },
+            addresses: { type: "array", items: { "$ref": "#/$defs/address" } }
+          },
+          required: [ :name ],
+          additional_properties: false,
+          "$defs": { address: ADDRESS_SCHEMA }
+        }
+      },
+      TestPerson.to_json_schema
+    )
+  end
+
+  test "strict mode requires every property, nested ones included" do
+    schema = TestPerson.to_json_schema(strict: true, name: "person")
+
+    assert_equal [ :addresses, :name ], schema[:schema][:required]
+    assert_equal TestAddress.to_json_schema(strict: true)[:schema], schema[:schema][:"$defs"][:address]
+    assert_equal [ :city, :street ], schema[:schema][:"$defs"][:address][:required]
+  end
+
+  test "additional_properties reaches the nested schema" do
+    schema = TestPerson.to_json_schema(additional_properties: true)
+
+    assert schema[:schema][:"$defs"][:address][:additional_properties]
+  end
+
+  test "exclude leaves out the nested array and its definition" do
+    schema = TestPerson.to_json_schema(exclude: [ :addresses ])
+
+    assert_equal [ :name ], schema[:schema][:properties].keys
+    assert_not schema[:schema].key?(:"$defs")
+  end
+
+  test "exclude applies to the declaring class only" do
+    schema = TestPerson.to_json_schema(exclude: [ :street ])
+
+    assert_equal [ :street, :city ], schema[:schema][:"$defs"][:address][:properties].keys
+  end
+
+  test "a nested class's own definitions move up to the root $defs" do
+    schema = TestOrder.to_json_schema[:schema]
+
+    assert_equal [ :lineItem, :discount ], schema[:"$defs"].keys
+    assert_equal({ type: "array", items: { "$ref": "#/$defs/lineItem" } }, schema[:properties][:line_items])
+    assert_equal({ type: "array", items: { "$ref": "#/$defs/discount" } }, schema[:"$defs"][:lineItem][:properties][:discounts])
+    assert_not schema[:"$defs"][:lineItem].key?(:"$defs")
+  end
+
+  test "a strict nested schema reaches the provider with its field names and references intact" do
+    sent = NestedSchemaAgent.extract.generate_now.raw_request[:response_format][:json_schema][:schema]
+
+    assert_equal(
+      {
+        type: "object",
+        properties: {
+          order_number: { type: "string" },
+          line_items: { type: "array", items: { "$ref": "#/$defs/lineItem" } }
+        },
+        required: [ :line_items, :order_number ],
+        additionalProperties: false,
+        "$defs": {
+          lineItem: {
+            type: "object",
+            properties: { sku: { type: "string" }, discounts: { type: "array", items: { "$ref": "#/$defs/discount" } } },
+            required: [ :discounts, :sku ],
+            additionalProperties: false
+          },
+          discount: { type: "object", properties: { promo_code: { type: "string" } }, required: [ :promo_code ], additionalProperties: false }
+        }
+      },
+      sent
+    )
+  end
+
+  class TestItemList
+    include ActiveModel::Model
+    include ActiveModel::Attributes
+    include ActiveAgent::SchemaGenerator
+
+    has_many :line_items, class_name: "SchemaGeneratorTest::TestLineItem"
+  end
+
+  test "a strict schema with only a multiword association requires the property it sends" do
+    sent = NestedSchemaAgent.extract(TestItemList).generate_now.raw_request[:response_format][:json_schema][:schema]
+
+    assert_equal [ :line_items ], sent[:properties].keys
+    assert_equal sent[:properties].keys, sent[:required]
+    assert_equal "#/$defs/lineItem", sent[:properties][:line_items][:items][:"$ref"]
+  end
+
+  [ ResponsesNestedSchemaAgent, ChatNestedSchemaAgent ].each do |agent|
+    test "#{agent.name.demodulize} sends a consistent strict schema on the wire" do
+      chat = agent == ChatNestedSchemaAgent
+      endpoint = chat ? "https://api.openai.com/v1/chat/completions" : "https://api.openai.com/v1/responses"
+      content = { order_number: "demo", line_items: [ { sku: "SKU-1", discounts: [ { promo_code: "DEMO" } ] } ] }.to_json
+      reply = if chat
+        { id: "chatcmpl_schema", object: "chat.completion", model: "gpt-4o-mini",
+          choices: [ { index: 0, message: { role: "assistant", content: content }, finish_reason: "stop" } ],
+          usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 } }
+      else
+        { id: "resp_schema", object: "response", status: "completed", model: "gpt-4o-mini",
+          output: [ { type: "message", id: "msg_schema", role: "assistant", status: "completed",
+                      content: [ { type: "output_text", text: content, annotations: [] } ] } ],
+          usage: { input_tokens: 1, output_tokens: 1, total_tokens: 2 } }
+      end
+      body = nil
+      stub_request(:post, endpoint).to_return do |request|
+        body = JSON.parse(request.body)
+        { status: 200, headers: { "Content-Type" => "application/json" }, body: reply.to_json }
+      end
+
+      agent.extract.generate_now
+
+      format = chat ? body.dig("response_format", "json_schema") : body.dig("text", "format")
+      assert_equal "order", format["name"]
+      assert_equal true, format["strict"]
+      schema = format.fetch("schema")
+      assert_equal [ "order_number", "line_items" ], schema.fetch("properties").keys
+      [ schema, *schema.fetch("$defs").values ].each do |object|
+        assert_equal object.fetch("properties").keys.sort, object.fetch("required").sort
+        assert_equal false, object["additionalProperties"]
+      end
+      assert_equal "#/$defs/lineItem", schema.dig("properties", "line_items", "items", "$ref")
+      assert_equal "#/$defs/discount", schema.dig("$defs", "lineItem", "properties", "discounts", "items", "$ref")
+      assert_equal [ "promo_code" ], schema.dig("$defs", "discount", "properties").keys
+    end
+  end
+
+  test "a class that nests itself raises" do
+    error = assert_raises(ArgumentError) { TestCategory.to_json_schema }
+
+    assert_match "TestCategory.has_many :subcategories is recursive (SchemaGeneratorTest::TestCategory > SchemaGeneratorTest::TestCategory)", error.message
+  end
+
+  test "a class nested back inside its own nested class raises" do
+    error = assert_raises(ArgumentError) { TestTeam.to_json_schema }
+
+    assert_match "TestMember.has_many :teams is recursive (SchemaGeneratorTest::TestTeam > SchemaGeneratorTest::TestMember > SchemaGeneratorTest::TestTeam)", error.message
+  end
+
+  test "two classes under one definition name raise" do
+    error = assert_raises(ArgumentError) { TestContractor.to_json_schema }
+
+    assert_match "address", error.message
+  end
+
+  test "has_many on a subclass leaves the parent's declarations alone" do
+    assert_equal [ :addresses ], TestPerson.schema_associations.keys
+    assert_equal [ :addresses, :skills ], TestEmployee.schema_associations.keys
+    assert_equal [ :name, :addresses, :skills ], TestEmployee.to_json_schema[:schema][:properties].keys
+    assert_raises(FrozenError) { TestEmployee.schema_associations[:projects] = "Project" }
+  end
+
+  test "has_many declares an attribute that defaults to an empty array" do
+    person = TestPerson.new(name: "Ada", addresses: [ { city: "London" } ])
+
+    assert_equal [ { city: "London" } ], person.addresses
+    assert_equal [], TestPerson.new.addresses
+    assert_not_same TestPerson.new.addresses, TestPerson.new.addresses
+  end
+
+  test "has_many without ActiveModel::Attributes explains what is missing" do
+    model = Class.new do
+      include ActiveModel::Model
+      include ActiveAgent::SchemaGenerator
+
+      def self.name = "PlainForm"
+    end
+
+    error = assert_raises(ArgumentError) { model.has_many :addresses, class_name: "SchemaGeneratorTest::TestAddress" }
+
+    assert_equal "PlainForm.has_many :addresses needs ActiveModel::Attributes to declare the attribute; include it before calling has_many", error.message
+    assert_empty model.schema_associations
+  end
+
+  test "a length validation limits a nested array's items, not its characters" do
+    properties = TestRoute.to_json_schema[:schema][:properties]
+
+    assert_equal({ type: "array", items: { "$ref": "#/$defs/stop" }, min_items: 1, max_items: 5 }, properties[:stops])
+    assert_equal({ type: "string", min_length: 2, max_length: 50 }, properties[:name])
+  end
+
+  test "ActiveRecord models keep ActiveRecord's has_many" do
+    assert_equal ActiveRecord::Associations::ClassMethods, User.method(:has_many).owner
   end
 end

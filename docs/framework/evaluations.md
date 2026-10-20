@@ -340,6 +340,7 @@ whatever they supply:
 | `agent_name:` | How an item names the agent (`"the agent"` by default) |
 | `links:` | Route templates for the actions — `"mcp"` (`"/mcp/%{key}"`), `"tools"`, `"instructions"`. Without them an action still carries its label and hint, with `"path" => nil` |
 | `verdict:` / `judge_label:` | A verdict already recorded for these results, so a report rebuilt from stored results shows the pick that run made rather than ranking them again |
+| `comparison:` | A comparison already recorded for these results (`Comparison#to_h`), so a rebuilt report renders its intervals rather than resampling them (see [Is the gap real?](#is-the-gap-real)) |
 
 Nothing here needs the dashboard: a CI job that hands `Report.new` a resolver
 over its own MCP configuration gets the same cards in its HTML report, and
@@ -400,6 +401,70 @@ agent the run scored, `{ "digest", "revision", "label" }`, from
 `ActiveAgent::Release`; it lands in `to_h["release"]` and as a header chip,
 and a dashboard the report is published to pins the run to that version.
 
+## Comparing models
+
+`Report#summary_by_model` gives each model its latency three ways:
+`avg_duration_ms`, and `p50_duration_ms` and `p95_duration_ms`, the median
+and 95th percentile of its timed replays by nearest rank (the value at rank
+ceil(p / 100 × n), the rule the dashboard's Metrics view uses, so the figure
+is always one a replay actually took). The mean hides the tail: two models
+can share a median while one takes twice as long at P95. The Markdown and
+HTML reports show both percentiles beside the mean.
+
+Cost is compared on one denominator however many scenarios each model ran:
+the Markdown summary's `Cost / 1,000` is what 1,000 scenario runs cost at
+the model's mean cost per priced replay, and the HTML report and the
+dashboard show the same mean per scenario. It reads with a `~` when the
+mean is estimated or covers only some of the model's replays.
+
+### Is the gap real?
+
+A ranking of pass rates says which model did best on these scenarios, not
+whether it would again on others. `ActiveAgent::Evals::Comparison` answers
+that with intervals:
+
+```ruby
+comparison = ActiveAgent::Evals::Comparison.new(results: report.results, models: report.models)
+
+comparison.models["gpt-5-mini"]
+# => { "scenarios" => 42, "pass_rate" => 85.7, "interval" => [73.8, 95.2] }
+comparison.pairs.first
+# => { "models" => ["gpt-5-mini", "qwen3:8b"], "scenarios" => 42, "difference" => 7.1,
+#      "interval" => [0.0, 16.7], "decisive" => false }
+comparison.conclusion
+# => "The pairwise difference interval includes zero: the ranking is not decisive evidence of superiority."
+```
+
+- **The scenario is the unit.** A model's pass rate is the mean over its
+  scenarios, and each interval resamples whole scenarios with replacement
+  5,000 times (the percentile bootstrap, 95% by default).
+- **Pairs are paired.** A pair is compared on the scenarios both models ran,
+  each resample drawing the same scenarios for both, so the interval is for
+  the difference itself rather than two intervals that happen to overlap.
+- **Decisive** means the difference's interval excludes zero. `conclusion`
+  names each decisive pair, or says that none is.
+- **Few scenarios, wide intervals.** With 42 scenarios a 7-point gap is
+  usually noise. Below two scenarios there is no interval at all, and
+  `conclusion` says the models share too few to compare.
+- **Seeded.** `seed:` (0 by default), `resamples:` and `confidence:` go to
+  `Comparison.new`; the same results give the same intervals every time.
+- **At 0% or 100%** every resample agrees, so the interval is a point. Read
+  it beside the scenario count.
+
+A report that compares models carries the same under `Report#comparison`
+and in `to_h["comparison"]`, and its Markdown adds a Comparison section
+between the summary and the scenario matrix: each model's pass rate with its
+interval, every pair's difference with its interval and whether it is
+decisive, the conclusion, and how the intervals were computed. A
+single-model report has none. The HTML report plots it under the comparison
+table: one row per model, best first, its pass rate a dot inside its
+interval on a fixed 0 to 100% axis (so a narrow gap is not magnified), with
+the figures written beside it, then the conclusion and how the intervals
+were computed. `Report.new(comparison:)` takes a comparison
+already recorded for the results, as `verdict:` does, so a report rebuilt
+from a stored run renders the intervals that run recorded instead of
+resampling them.
+
 ## In a dashboard
 
 `Runner.new` takes `on_result:` (each `Result` as it lands) and
@@ -409,6 +474,58 @@ scenario × model. `Report#to_h` is JSON-ready. The ActionAgent engine's
 `ScenarioEvaluationRunner` is the reference integration: it supplies the
 replay (an `AgentRun` with a model override), prices tokens, wraps the owner's
 judge credentials, and stores each result as an `EvaluationScenarioResult`.
+It records a comparison run's `Report#comparison` with the run, computed
+once when the run completes (or, for a published report, from the stored
+results), and hands it back as `comparison:` when it rebuilds the report, so
+the report page does not resample on every view.
+
+`Runner.new(refine_gate:)` takes a callable asked before each recommendation
+call, after `judge_limit`. A caller that scores each scenario in its own
+`Runner` (one per background job) shares one run-wide limit through it, since
+`judge_limit` counts per instance.
+
+### Running scenarios in parallel
+
+By default the engine replays a run's scenarios in one job, one after
+another. Turn on fan-out and each scenario × model becomes its own job:
+
+```ruby
+ActionAgent.configure do |config|
+  config.scenario_evaluation_fan_out = true
+end
+```
+
+`EvaluationRunJob` then enqueues one `EvaluationReplayJob` per scenario ×
+model and returns with the run still running. Each replay is stored as a
+pending result and scored by its own `EvaluationJudgeJob`, so the next replay
+does not wait on the judge. The job that scores the last pending result
+completes the run, under a lock on it, with the same scores, verdict and
+judge usage a sequential run records.
+
+Every job runs on the `:agents` queue, so a run is as parallel as your
+workers for that queue: Solid Queue with eight threads on `:agents` runs
+eight at a time, and a single worker stays sequential. Provider rate limits
+become the ceiling; a dedicated queue or a concurrency limit on `:agents` is
+how to stay under them. Each worker thread holds a database connection
+while it waits on the provider, so keep the pool at least as large as the
+thread count.
+
+The agent's tool roster is discovered once, before the replays, and every
+scoring job reads it from the run, so a diagnosis names the same tools
+whichever job wrote it. A replay job delivered again does not replay a pair
+that already has a stored result, a judge job delivered again does not score
+a result twice, a job that fails with an exception outside the replay stores
+an errored result, and a failure while completing the run marks it failed. A
+scenario removed from the suite while a run is in flight is left out of that
+run's results. What no job can recover from is a job lost outright: a worker
+killed without a graceful shutdown drops the job it was running
+(`ApplicationJob` does not retry), and the run stays in progress with nothing
+queued, as a sequential run's one job would. A run that drives a sandbox's
+browser, and one a host adapter replays, stay sequential.
+
+A fanned-out run keys its results by provider and model, so a selection that
+lists one model under two labels (`gpt-5-mini` and `openai/gpt-5-mini`) is
+refused rather than replayed once and reported under one of them.
 
 ## The pieces
 
@@ -424,6 +541,7 @@ judge credentials, and stores each result as an `EvaluationScenarioResult`.
 | `Judge` | Prompts and parsing for scoring, refining recommendations, and picking a winner; you supply the completion call |
 | `Runner` | scenarios × models → `Result`s, calling your `replay` and the judge |
 | `Report` | Per-model summary, criterion statistics, recommendations, fix items, verdict; Markdown / JSON / HTML |
+| `Comparison` | Pass-rate intervals per model and per pair of models, from resampling whole scenarios, and whether the ranking is decisive |
 
 ## Suites
 

@@ -239,7 +239,7 @@ When `parsed_json` cannot parse the answer, the request is sent again:
 - **With the lead-in**, the unparseable answer stays in the conversation and a new lead-in follows it
 - **Without it**, the unparseable answer is dropped and the same request is repeated, because a request that ended on that answer would be a prefill
 
-When the retries run out, the last answer is returned and `parsed_json` returns `nil`.
+The request is sent again up to `max_retries` times (default: 2), the same option that limits the client's retries of failed HTTP requests; `max_retries: 0` sends it once. When the retries run out, the last answer is returned and `parsed_json` returns `nil`.
 
 ### Best Practices
 

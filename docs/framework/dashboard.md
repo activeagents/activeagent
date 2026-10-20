@@ -599,8 +599,15 @@ describes the run you are reading, while the collapsed header keeps
 reporting the latest.
 
 **Models** gives each candidate its pass bar and `k/n`, mean score, mean
-latency, input and output tokens, estimated cost, and the faults it hit as
-badges (or `[+] no faults`). The model that did best carries an
+latency with its P50 and P95, input and output tokens, estimated cost, and
+the faults it hit as badges (or `[+] no faults`). When the run compared
+models, a plot under the comparison table shows each one's pass rate as a
+dot inside its 95% interval, best first, on a fixed 0 to 100% axis, with the
+run's conclusion under it: which pairs differ by more than the noise of the
+scenario sample, or that none does (see
+[Is the gap real?](/framework/evaluations#is-the-gap-real)). The intervals
+are the ones the run recorded when it completed; a run recorded before has
+no plot. The model that did best carries an
 info-toned `judge's pick` badge — never a green *winner*, because losing a
 comparison by one scenario is not a failing grade — and the **verdict**
 line under the panel is the rationale for the pick. The panel says who made
