@@ -450,7 +450,7 @@ class EvalsRunnerTest < ActiveSupport::TestCase
     # estimate, with the legend, rather than as a count of priced replays.
     assert_equal "Passed 2 of 2 scenarios (100%) with a mean score of 100% at ~$0.0010 (estimated).",
                  report.verdict["rationale"]
-    assert_includes report.to_markdown, "| ~$0.0010 | — |"
+    assert_includes report.to_markdown, "| ~$0.0010 | ~$1.0000 | — |", "the rate per 1,000 from one replay of two is an estimate too"
     assert_includes report.to_markdown, "| — | run error ×2 |"
     assert_includes report.to_markdown, "_~ estimated from tokens × model rates_"
     assert_not_includes report.to_markdown, "scenarios priced"

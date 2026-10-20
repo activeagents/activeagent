@@ -51,6 +51,57 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   never read it, so `response.usage` was `nil`. It is now recorded from
   `response.completed` or `response.incomplete`, as the Chat provider does
   from its usage chunk.
+### Added
+
+- **P50 and P95 latency per model in evaluation reports** (`activeagent`).
+  `Report#summary_by_model` adds `p50_duration_ms` and `p95_duration_ms`
+  beside `avg_duration_ms`, by nearest rank as the dashboard's Metrics view
+  computes them, and the Markdown and HTML reports show them next to the
+  mean, which hides the tail (#428).
+
+- **Cost per 1,000 scenario runs in the Markdown report** (`activeagent`).
+  The summary table gains `Cost / 1,000`, each model's mean cost per priced
+  replay on a common denominator, marked `~` when it is estimated or
+  covers only some replays (#428).
+
+- **`ActiveAgent::Evals::Comparison`: is the gap between models real?**
+  (`activeagent`). A 95% interval for each model's pass rate and for the
+  difference between every pair of models, from 5,000 seeded resamples of
+  whole scenarios (a paired bootstrap for the pairs, over the scenarios both
+  ran). A pair is decisive when its interval excludes zero, and
+  `#conclusion` says in one sentence which pairs are, or that the ranking
+  is not decisive evidence of superiority (#428).
+
+- **The model comparison in evaluation reports** (`activeagent`).
+  `Report#comparison` and `to_h["comparison"]` carry it for a report that
+  compares models, the Markdown report gains a Comparison section, and
+  `Report.new(comparison:)` renders one already recorded for the results
+  instead of resampling, as `verdict:` does (#428).
+
+- **A ranked interval plot in the HTML evaluation report** (`activeagent`).
+  Under the comparison table, each model's pass rate is a dot inside its
+  95% interval on a fixed 0 to 100% axis, best first, with the figures
+  beside it, the conclusion, and how the intervals were computed. Plain
+  CSS on the design tokens: no script, light and dark (#428).
+
+- **Each comparison run keeps its model comparison** (`actionagent`). A
+  scenario run that compares models records `Report#comparison` under
+  `scores["_comparison"]` when it completes; a published report's is
+  worked out from the stored results rather than taken from the payload;
+  and the run's report page renders the recorded intervals instead of
+  resampling on every view. A run recorded before gets one from its
+  results (#428).
+
+- **P50 and P95 latency in the dashboard's model comparison**
+  (`actionagent`). The comparison table gains a P50 / P95 column and each
+  model's scorecard a p50 / p95 figure, from the percentiles the run
+  recorded; a run recorded before shows neither (#428).
+
+- **The model comparison plotted in the dashboard** (`actionagent`). A
+  run that compared models shows, under its comparison table, each model's
+  pass rate inside its 95% interval, best first, with the run's
+  conclusion and how the intervals were computed, from the comparison the
+  run recorded (#428).
 
 ## [1.9.1] - 2026-10-16
 

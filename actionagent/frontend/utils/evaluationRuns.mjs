@@ -210,6 +210,7 @@ export const runCohorts = (run) => {
       label, model: stats.model || label, provider: stats.provider || null,
       samples: stats.scenarios ?? null, passed: stats.passed ?? null, errored: stats.errored ?? 0,
       avg_score: stats.avg_score ?? null, avg_duration_ms: stats.avg_duration_ms ?? null,
+      p50_duration_ms: stats.p50_duration_ms ?? null, p95_duration_ms: stats.p95_duration_ms ?? null,
       input_tokens: stats.input_tokens ?? null, output_tokens: stats.output_tokens ?? null,
       cost: stats.cost ?? null, priced: pricedCount(stats, stats.scenarios), reported: stats.reported ?? null,
       estimated: isEstimated(stats, stats.scenarios), judge_cost: stats.judge_cost ?? null, judge_calls: stats.judge_calls ?? 0,
@@ -677,7 +678,8 @@ export const samplingFixItems = (evaluation, run) => {
 const faultWords = (fault) => String(fault || '').replace(/_/g, ' ');
 
 // One row per model cohort for the comparison table: passed/total, mean
-// score, average latency, average tokens per interaction, cost (over the
+// score, average latency and its P50 / P95, average tokens per
+// interaction, cost (over the
 // `priced` interactions, and per priced interaction, `estimated` when any
 // part was), the judge's spend on the cohort, and the model's
 // typical fault — its most frequent one, with the diagnosis of the
@@ -689,6 +691,34 @@ const faultWords = (fault) => String(fault || '').replace(/_/g, ' ');
 //
 // `labelFor(result)` maps a result to its column label (the suite panel's
 // labelForResult); it defaults to the result's model name.
+// The run's model comparison as the Models panel plots it: one row per
+// model, best first, with its pass rate and interval in percent and its
+// scenario count, plus the conclusion and the caption's confidence and
+// resample count. Read from what the run recorded (`_comparison`, the
+// framework's Report#comparison); null for a single-model run, or one
+// recorded before runs kept a comparison, so the panel draws nothing
+// rather than resampling in the browser.
+export const comparisonPlot = (run) => {
+  const comparison = run?.scores?._comparison;
+  if (!comparison || typeof comparison !== 'object' || !Array.isArray(comparison.ranking) || comparison.ranking.length < 2) return null;
+
+  const method = comparison.method || {};
+  return {
+    rows: comparison.ranking.map((label) => {
+      const stats = comparison.models?.[label] || {};
+      return {
+        label,
+        passRate: stats.pass_rate ?? null,
+        interval: Array.isArray(stats.interval) && stats.interval.length === 2 ? stats.interval : null,
+        scenarios: stats.scenarios ?? 0,
+      };
+    }),
+    conclusion: comparison.conclusion || null,
+    confidence: Math.round(Number(method.confidence ?? 0.95) * 100),
+    resamples: method.resamples ?? null,
+  };
+};
+
 export const modelComparisonRows = (run, { results = [], scenarioCount = 0, labelFor = (r) => r?.model, columns = null } = {}) => {
   const cohorts = runCohorts(run);
   const byLabel = new Map(cohorts.map((cohort) => [cohort.label, cohort]));
@@ -732,6 +762,10 @@ export const modelComparisonRows = (run, { results = [], scenarioCount = 0, labe
       passRate: total ? passed / total : null,
       avgScore: avgScore == null ? null : Number(avgScore),
       avgDurationMs: cohort.avg_duration_ms ?? null,
+      // The run's recorded nearest-rank percentiles; a run recorded before
+      // reports kept them, and a sampling run, has none.
+      p50DurationMs: cohort.p50_duration_ms ?? null,
+      p95DurationMs: cohort.p95_duration_ms ?? null,
       inputTokens: cohort.input_tokens ?? null,
       outputTokens: cohort.output_tokens ?? null,
       avgInputTokens: perInteraction(cohort.input_tokens),
