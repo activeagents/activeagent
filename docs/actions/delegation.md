@@ -90,6 +90,8 @@ delegation :notify, description: "Send a notification", schema: {
 }
 ```
 
+A class is sent as it declares itself. `TicketForm.to_json_schema` is not strict unless asked, and its `required` lists only the attributes a presence validation names; used as `returns`, it reaches the provider with `strict: false`. For a provider's strict mode, where every property must be required, pass `TicketForm.to_json_schema(strict: true)` instead.
+
 ### Declared outputs
 
 `returns` declares the shape the action answers with. ActiveAgent turns it into the sub-agent's `response_format`, parses the answer, and checks the required keys before handing it back — so the calling agent receives data, not a blob of text it has to re-parse.

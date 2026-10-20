@@ -7,7 +7,8 @@ module ActionAgent
   # scenario x model, so the run is as parallel as the :agents queue.
   #
   # A failure outside the replay is stored as the pair's errored result
-  # rather than raised, so the run still completes.
+  # rather than raised, so the run still completes; a scenario removed from
+  # the suite during the run is left out of it.
   class EvaluationReplayJob < ApplicationJob
     queue_as :agents
 
