@@ -90,6 +90,9 @@ module ActionAgent
 
       ensure_browser_live!
 
+      adapter = ActionAgent.scenario_evaluation_adapter_resolver&.call(@evaluation)
+      return fan_out!(run, scenarios, specs) if fan_out?(adapter)
+
       records = scenarios.index_by(&:key)
       tasks = scenarios.map { |scenario| Evals::Scenario.from_hash(scenario.as_json_summary) }
       expected = tasks.product(specs).map { |task, spec| [ task.key, spec.label ] }
@@ -105,7 +108,6 @@ module ActionAgent
         persist(run, records.fetch(result.scenario.key), result)
         persisted << pair
       end
-      adapter = ActionAgent.scenario_evaluation_adapter_resolver&.call(@evaluation)
       report = if adapter
         raise ArgumentError, "scenario evaluation adapter must be callable" unless adapter.respond_to?(:call)
 
@@ -145,7 +147,270 @@ module ActionAgent
       stop_started_browser
     end
 
+    # --- fan-out (EvaluationReplayJob, EvaluationJudgeJob) -----------------
+    #
+    # With ActionAgent.scenario_evaluation_fan_out on, #call enqueues one
+    # EvaluationReplayJob per scenario x model and returns the run still
+    # running. Each replay is stored as a pending result and scored by its
+    # own EvaluationJudgeJob, so the agent's next replay need not wait for
+    # the judge. The job that scores the last pending result completes the
+    # run, under a lock on it, with the same scores the sequential path
+    # writes.
+
+    # Replays one scenario under one model and stores the answer as a pending
+    # result, then enqueues its scoring. A result already stored for the
+    # pair (a retried job) is not replayed again.
+    def replay_scenario!(run, scenario_id, spec_value)
+      return unless run.running?
+
+      scenario = @evaluation.scenarios.find(scenario_id)
+      spec = model_spec_from(spec_value)
+      row = stored_result(run, scenario, spec)
+      unless row
+        task = Evals::Scenario.from_hash(scenario.as_json_summary)
+        replay = fan_out_replay(task, spec)
+        row = run.with_lock { stored_result(run, scenario, spec) || store_replay(run, scenario, task, spec, replay) }
+      end
+      EvaluationJudgeJob.perform_later(row.id, @selection.to_h) if row.pending?
+      row
+    end
+
+    # Scores, diagnoses and stores one pending result, then completes the run
+    # when it was the last.
+    def judge_result!(row)
+      run = row.evaluation_run
+      return unless run.running? && row.pending?
+
+      spec = fan_out_specs(run).fetch([ row.provider.to_s, row.model ]) do
+        Evals::ModelSpec.new(label: row.model, provider: row.provider.to_s, model: row.model)
+      end
+      result = fan_out_scorer(run).evaluate(Evals::Scenario.from_hash(row.evaluated_scenario), spec, replay_from(row))
+      row.update!(
+        status: result.status,
+        score: result.score,
+        scores: result.scores,
+        fault: result.fault,
+        recommendation: result.recommendation,
+        diagnosis: (result.diagnosis || {}).merge(row.diagnosis.to_h.slice("_replay_metadata", "_scenario_snapshot"))
+          .merge("_judge_usage" => judge_usage).compact
+      )
+      # The result now holds what its scoring cost; whatever this runner asks
+      # the judge from here on (the verdict, when it completes the run) is the
+      # run's own.
+      @judge_usage = nil
+      finish_fan_out!(run)
+    end
+
+    # Stores +error+ as the result of a pair whose job failed outside the
+    # replay (which records its own errors), so the run still completes.
+    def fail_result!(run, scenario_id, spec_value, error)
+      scenario = @evaluation.scenarios.find_by(id: scenario_id)
+      return unless scenario && run.running?
+
+      spec = model_spec_from(spec_value)
+      run.with_lock do
+        row = stored_result(run, scenario, spec)
+        task = Evals::Scenario.from_hash(scenario.as_json_summary)
+        row ||= store_replay(run, scenario, task, spec, Evals::Replay.failed(error))
+        row.update!(status: :errored, error_message: row.error_message.presence || error_text(error)) if row.pending?
+      end
+      finish_fan_out!(run)
+    end
+
+    # Marks a pending result errored when its scoring job failed, so the run
+    # still completes.
+    def fail_judging!(row, error)
+      run = row.evaluation_run
+      row.update!(status: :errored, error_message: [ row.error_message.presence, "Scoring failed: #{error_text(error)}" ].compact.join(" ")) if row.pending?
+      finish_fan_out!(run)
+    end
+
     private
+
+    def fan_out?(adapter)
+      ActionAgent.scenario_evaluation_fan_out == true && adapter.nil? && !browser_requested? &&
+        Evals::Runner.instance_method(:initialize).parameters.any? { |_type, name| name == :refine_gate }
+    end
+
+    def fan_out!(run, scenarios, specs)
+      ensure_judge_defined_kpis! if @evaluation.judge_defined?
+      update_fan_out_state!(run) { |state| state.merge("judge_usage" => judge_usage) } if judge_usage
+
+      selection = @selection.to_h
+      scenarios.product(specs).each do |scenario, spec|
+        EvaluationReplayJob.perform_later(run.id, scenario.id, spec.to_h, selection)
+      end
+      run
+    end
+
+    def model_spec_from(value)
+      value = value.to_h.stringify_keys
+      Evals::ModelSpec.new(label: value["label"].presence || value["model"], provider: value["provider"].to_s, model: value["model"])
+    end
+
+    # The run's candidate models, in the order it selected them, keyed by
+    # provider and model as a result row records them.
+    def fan_out_specs(run)
+      Array(run.selection&.dig("models")).filter_map do |entry|
+        model_spec_from(entry) if entry.is_a?(Hash) && entry["model"].present?
+      end.index_by { |spec| [ spec.provider, spec.model ] }
+    end
+
+    def stored_result(run, scenario, spec)
+      run.scenario_results.find_by(evaluation_scenario_id: scenario.id, model: spec.model, provider: spec.provider)
+    end
+
+    # What Evals::Runner does with a replay that raises: an errored replay,
+    # scored like any other.
+    def fan_out_replay(task, spec)
+      replay(task, spec)
+    rescue StandardError => e
+      Evals::Replay.failed(e)
+    end
+
+    def store_replay(run, scenario, task, spec, replay)
+      run.scenario_results.create!(
+        scenario: scenario,
+        agent_run_id: replay.metadata["agent_run_id"],
+        model: spec.model,
+        provider: spec.provider,
+        status: :pending,
+        output: replay.answer.to_s.byteslice(0, 20_000).to_s.scrub.presence,
+        tool_calls: replay.tool_calls,
+        duration_ms: replay.duration_ms,
+        input_tokens: replay.input_tokens,
+        output_tokens: replay.output_tokens,
+        cost: replay.cost,
+        diagnosis: {
+          "_replay_metadata" => replay.metadata,
+          "_scenario_snapshot" => task.to_h.merge(expectations: task.expectations)
+        },
+        error_message: replay.error
+      )
+    end
+
+    def replay_from(row)
+      Evals::Replay.new(
+        answer: row.output, tool_calls: row.tool_calls, duration_ms: row.duration_ms,
+        input_tokens: row.input_tokens, output_tokens: row.output_tokens, error: row.error_message,
+        cost: row.cost&.to_f, metadata: row.replay_metadata
+      )
+    end
+
+    # A Runner that scores one replay. Its refine_gate shares the run-wide
+    # judge_limit with every other result's scorer.
+    def fan_out_scorer(run)
+      Evals::Runner.new(
+        scenarios: [],
+        models: [],
+        criteria: sample_criteria,
+        judge: evals_judge,
+        available_tools: tool_roster,
+        instructions: @evaluation.agent.instructions,
+        agent_name: @evaluation.agent.name,
+        threshold: PASS_THRESHOLD,
+        replay: ->(*) { raise ArgumentError, "a fanned-out result is scored from its stored replay" },
+        refine_gate: -> { reserve_refinement!(run) }
+      )
+    end
+
+    def reserve_refinement!(run)
+      reserved = false
+      update_fan_out_state!(run) do |state|
+        count = state["refinements"].to_i
+        next state if count >= Evals::Runner::DEFAULT_JUDGE_LIMIT
+
+        reserved = true
+        state.merge("refinements" => count + 1)
+      end
+      reserved
+    end
+
+    # The run's fan-out bookkeeping, kept in scores["_fan_out"] until the run
+    # completes and its scores are written: the judge usage spent before the
+    # replays (judge-defined KPIs) and the recommendations reserved so far.
+    def update_fan_out_state!(run)
+      run.with_lock do
+        scores = run.scores.is_a?(Hash) ? run.scores : {}
+        state = scores["_fan_out"].is_a?(Hash) ? scores["_fan_out"] : {}
+        run.update!(scores: scores.merge("_fan_out" => yield(state)))
+      end
+    end
+
+    # Completes the run once every selected scenario x model has a scored
+    # result. The lock makes the last two jobs to finish agree on which one
+    # completes it.
+    def finish_fan_out!(run)
+      run.with_lock do
+        next unless run.running?
+
+        specs = fan_out_specs(run)
+        expected = Array(run.selection&.dig("scenario_ids")).size * specs.size
+        rows = run.scenario_results.to_a
+        next if rows.size < expected || rows.any?(&:pending?)
+
+        begin
+          complete_fan_out!(run, rows, specs)
+        rescue StandardError => e
+          run.update!(status: :failed, error_message: e.message, completed_at: Time.current)
+        end
+      end
+    end
+
+    def complete_fan_out!(run, rows, specs)
+      order = specs.keys
+      rows = rows.sort_by do |row|
+        [ row.evaluated_scenario["position"].to_i, row.evaluation_scenario_id, order.index([ row.provider.to_s, row.model ]) || order.size ]
+      end
+      results = rows.map do |row|
+        Evals::Result.new(
+          scenario: Evals::Scenario.from_hash(row.evaluated_scenario),
+          spec: specs.fetch([ row.provider.to_s, row.model ]) { model_spec_from(row.attributes.slice("provider", "model")) },
+          replay: replay_from(row),
+          scores: row.scores.to_h, score: row.score, status: row.status,
+          diagnosis: row.evaluation_diagnosis.presence
+        )
+      end
+      report = Evals::Report.new(results: results, models: specs.values, judge: evals_judge,
+                                 instructions: @evaluation.agent.instructions, threshold: PASS_THRESHOLD)
+      state = run.scores.is_a?(Hash) && run.scores["_fan_out"].is_a?(Hash) ? run.scores["_fan_out"] : {}
+
+      scores = scores_for(report, run)
+      usage = combined_judge_usage([ state["judge_usage"], *rows.map { |row| row.diagnosis.to_h["_judge_usage"] }, judge_usage ])
+      usage ? scores["_judge_usage"] = usage : scores.delete("_judge_usage")
+
+      run.update!(
+        status: :complete,
+        scores: scores,
+        samples_evaluated: results.size,
+        samples_passed: results.count(&:passed?),
+        error_message: discovery_warning,
+        completed_at: Time.current
+      )
+    end
+
+    # Sums the judge usage of the run's parts into the one meter
+    # scores["_judge_usage"] holds for a sequential run.
+    def combined_judge_usage(parts)
+      parts = parts.select { |part| part.is_a?(Hash) }
+      return nil if parts.empty?
+
+      costs = parts.filter_map { |part| part["cost"] }
+      {
+        "calls" => parts.sum { |part| part["calls"].to_i },
+        "input_tokens" => parts.sum { |part| part["input_tokens"].to_i },
+        "output_tokens" => parts.sum { |part| part["output_tokens"].to_i },
+        "cost" => costs.any? ? costs.sum.round(6) : nil,
+        "model" => parts.filter_map { |part| part["model"] }.first,
+        "by_kind" => parts.each_with_object(Hash.new(0)) do |part, kinds|
+          part["by_kind"].to_h.each { |kind, count| kinds[kind] += count.to_i }
+        end
+      }
+    end
+
+    def error_text(error)
+      error.is_a?(Exception) ? "#{error.class}: #{error.message}" : error.to_s
+    end
 
     def default_report(tasks, specs, on_result)
       Evals::Runner.new(

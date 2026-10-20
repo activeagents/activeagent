@@ -479,6 +479,42 @@ once when the run completes (or, for a published report, from the stored
 results), and hands it back as `comparison:` when it rebuilds the report, so
 the report page does not resample on every view.
 
+`Runner.new(refine_gate:)` takes a callable asked before each recommendation
+call, after `judge_limit`. A caller that scores each scenario in its own
+`Runner` (one per background job) shares one run-wide limit through it, since
+`judge_limit` counts per instance.
+
+### Running scenarios in parallel
+
+By default the engine replays a run's scenarios in one job, one after
+another. Turn on fan-out and each scenario × model becomes its own job:
+
+```ruby
+ActionAgent.configure do |config|
+  config.scenario_evaluation_fan_out = true
+end
+```
+
+`EvaluationRunJob` then enqueues one `EvaluationReplayJob` per scenario ×
+model and returns with the run still running. Each replay is stored as a
+pending result and scored by its own `EvaluationJudgeJob`, so the next replay
+does not wait on the judge. The job that scores the last pending result
+completes the run, under a lock on it, with the same scores, verdict and
+judge usage a sequential run records.
+
+Every job runs on the `:agents` queue, so a run is as parallel as your
+workers for that queue: Solid Queue with eight threads on `:agents` runs
+eight at a time, and a single worker stays sequential. Provider rate limits
+become the ceiling; a dedicated queue or a concurrency limit on `:agents` is
+how to stay under them. Each worker thread holds a database connection
+while it waits on the provider, so keep the pool at least as large as the
+thread count.
+
+A retried replay job does not replay a pair that already has a stored
+result, and a job that fails outside the replay stores an errored result,
+so a run always completes. A run that drives a sandbox's browser, and one a
+host adapter replays, stay sequential.
+
 ## The pieces
 
 | Class | Role |
