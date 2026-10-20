@@ -85,19 +85,25 @@ export function MicroLabel({ children, size = 11, color = 'var(--color-text-seco
 }
 
 // A selectable chip. Pill (radius 999) by default, radius 6 when `square`.
-export function Chip({ selected = false, onClick, children, square = false, mono = false, title, style, testId }) {
+// `disabled` dims it to half and takes it out of the Tab order (its `title`
+// says why), so a chip that cannot be used yet is not a live button that
+// does nothing.
+export function Chip({ selected = false, onClick, children, square = false, mono = false, disabled = false, title, style, testId }) {
   return (
     <button
       type="button"
       data-testid={testId}
-      onClick={onClick}
+      onClick={disabled ? undefined : onClick}
+      disabled={disabled}
+      aria-disabled={disabled || undefined}
       title={title}
       style={{
-        padding: '4px 10px', borderRadius: square ? 6 : 999, cursor: onClick ? 'pointer' : 'default',
+        padding: '4px 10px', borderRadius: square ? 6 : 999, cursor: onClick && !disabled ? 'pointer' : 'default',
         fontFamily: mono ? MONO : 'inherit', fontSize: mono ? 11 : 12, fontWeight: mono ? 400 : 500,
         background: selected ? 'var(--color-accent-ui-tint)' : 'var(--color-card)',
         border: `1px solid ${selected ? 'var(--color-accent-ui)' : 'var(--color-border)'}`,
         color: selected ? 'var(--color-accent-ui)' : mono ? 'var(--color-text-muted)' : 'var(--color-text-cell)',
+        opacity: disabled ? 0.5 : undefined,
         ...style,
       }}
     >
@@ -208,11 +214,38 @@ export function PassBar({ passed, total, label, labelWidth = 128, width, height 
   );
 }
 
+// A segmented bar: one track on --color-border-light, one span per part sized
+// value/total in its tone's strong color (a two-tone run progress bar, say:
+// passed green · failed red · the rest the track). `rest` carries role and
+// aria attributes through, so a caller can make it a progressbar.
+export function SegmentedBar({ parts = [], total = 0, height = 4, radius = 2, style, testId, title, ...rest }) {
+  return (
+    <div
+      data-testid={testId}
+      title={title}
+      style={{ display: 'flex', height, borderRadius: radius, overflow: 'hidden', background: 'var(--color-border-light)', ...style }}
+      {...rest}
+    >
+      {parts.map((part, index) => (
+        <span
+          key={index}
+          style={{
+            width: `${total > 0 ? (100 * (Number(part.value) || 0)) / total : 0}%`,
+            background: (TONE[part.tone] || TONE.muted).strong,
+            transition: 'width 300ms',
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
 // A mono in-app link ending in `->`, in the info color.
-export function MonoLink({ children, onClick, href = '#', color = 'var(--color-info)', size = 11, style, title }) {
+export function MonoLink({ children, onClick, href = '#', color = 'var(--color-info)', size = 11, style, title, testId }) {
   return (
     <a
       href={href}
+      data-testid={testId}
       title={title}
       onClick={(event) => { if (onClick) { event.preventDefault(); onClick(event); } }}
       style={{ fontFamily: MONO, fontSize: size, color, textDecoration: 'none', ...style }}
