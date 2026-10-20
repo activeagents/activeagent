@@ -372,9 +372,11 @@ module ActionAgent
                                  instructions: @evaluation.agent.instructions, threshold: PASS_THRESHOLD)
       state = run.scores.is_a?(Hash) && run.scores["_fan_out"].is_a?(Hash) ? run.scores["_fan_out"] : {}
 
+      # The other jobs' judge calls go into this runner's meter before the
+      # verdict is asked for, so the run's usage, and anything scores_for
+      # reads from the meter, covers every call once.
+      @judge_usage = combined_judge_usage([ state["judge_usage"], *rows.map { |row| row.diagnosis.to_h["_judge_usage"] }, judge_usage ])
       scores = scores_for(report, run)
-      usage = combined_judge_usage([ state["judge_usage"], *rows.map { |row| row.diagnosis.to_h["_judge_usage"] }, judge_usage ])
-      usage ? scores["_judge_usage"] = usage : scores.delete("_judge_usage")
 
       run.update!(
         status: :complete,
@@ -399,10 +401,15 @@ module ActionAgent
         "output_tokens" => parts.sum { |part| part["output_tokens"].to_i },
         "cost" => costs.any? ? costs.sum.round(6) : nil,
         "model" => parts.filter_map { |part| part["model"] }.first,
-        "by_kind" => parts.each_with_object(Hash.new(0)) do |part, kinds|
-          part["by_kind"].to_h.each { |kind, count| kinds[kind] += count.to_i }
-        end
+        "by_kind" => tally(parts, "by_kind"),
+        "models" => tally(parts, "models")
       }
+    end
+
+    def tally(parts, key)
+      parts.each_with_object(Hash.new(0)) do |part, counts|
+        part[key].to_h.each { |name, count| counts[name] += count.to_i }
+      end.to_h
     end
 
     def error_text(error)
