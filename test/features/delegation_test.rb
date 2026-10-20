@@ -696,8 +696,47 @@ class DelegationTest < ActiveSupport::TestCase
 
     format = schema.to_response_format(name: "result")
 
-    assert_equal [ "maxPoints" ], format[:required] || format[:schema][:required]
+    assert_equal [ "max_points" ], format[:schema][:required]
+    assert_equal format[:schema][:properties].keys.map(&:to_s), format[:schema][:required]
     assert format[:strict]
+  end
+
+  test "a multiword returns schema reaches the provider with matching properties and required keys" do
+    JsonProvider.payload          = { max_points: 3, key_points: [ { point_text: "One" } ] }
+    JsonProvider.response_formats = []
+    JsonProvider.requests         = []
+
+    sub = Class.new(ApplicationAgent) do
+      generate_with :mock, model: "mock-model"
+
+      delegation :summarize, description: "Condense a document into key points" do
+        string :text, required: true, description: "Full document text"
+
+        returns do
+          integer :max_points, required: true, description: "How many points were asked for"
+          array :key_points, required: true, description: "The points" do
+            string :point_text, required: true, description: "One point"
+          end
+        end
+      end
+
+      def summarize(text:) = prompt(message: text)
+    end
+    sub._prompt_provider_klass = JsonProvider
+
+    parent = scripted_agent([ :summarize, { text: "doc" } ], delegate: sub)
+    parent.research.generate_now
+
+    format = JsonProvider.response_formats.compact.first
+    schema = format[:json_schema][:schema]
+    items  = schema[:properties][:key_points][:items]
+
+    assert format[:json_schema][:strict]
+    assert_equal %w[max_points key_points], schema[:properties].keys.map(&:to_s)
+    assert_equal %w[max_points key_points], schema[:required]
+    assert_equal %w[point_text], items[:properties].keys.map(&:to_s)
+    assert_equal %w[point_text], items[:required]
+    assert_equal({ max_points: 3, key_points: [ { point_text: "One" } ] }, ScriptedProvider.results.first)
   end
 
   ##### Params ##############################################################

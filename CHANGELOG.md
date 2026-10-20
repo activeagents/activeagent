@@ -30,6 +30,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   strict schemas. Literal data in `default`, `const`, `enum` and `examples`
   is preserved too (#260).
 
+  Property names now reach the provider as declared, so a `first_name`
+  attribute is sent as `first_name` rather than `firstName`, and the model
+  answers with that key. `parsed_json` underscores keys either way, so code
+  reading it is unaffected; code reading the raw `message.content`, or
+  matching on request payloads, sees snake_case where it saw camelCase.
+
+  A delegation's `returns` schema follows suit: its `required` entries are
+  no longer camelized, so a multiword required key such as `max_points`
+  matches its property in strict mode instead of being sent as
+  `maxPoints`.
+
 ## [1.9.1] - 2026-10-16
 
 Releases `activeagent` and `actionagent` 1.9.1, with the matching browser

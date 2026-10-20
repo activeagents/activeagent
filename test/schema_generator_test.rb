@@ -502,6 +502,20 @@ class SchemaGeneratorTest < ActiveSupport::TestCase
     assert_not_same TestPerson.new.addresses, TestPerson.new.addresses
   end
 
+  test "has_many without ActiveModel::Attributes explains what is missing" do
+    model = Class.new do
+      include ActiveModel::Model
+      include ActiveAgent::SchemaGenerator
+
+      def self.name = "PlainForm"
+    end
+
+    error = assert_raises(ArgumentError) { model.has_many :addresses, class_name: "SchemaGeneratorTest::TestAddress" }
+
+    assert_equal "PlainForm.has_many :addresses needs ActiveModel::Attributes to declare the attribute; include it before calling has_many", error.message
+    assert_empty model.schema_associations
+  end
+
   test "a length validation limits a nested array's items, not its characters" do
     properties = TestRoute.to_json_schema[:schema][:properties]
 

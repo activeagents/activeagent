@@ -184,20 +184,16 @@ module ActiveAgent
 
       # JSON Schema for a +response_format+ payload.
       #
-      # ActiveAgent camelizes response-format schema *keys* on the way to the
-      # provider, but the +required+ array holds string *values* — so they are
-      # camelized here to keep the emitted schema internally consistent.
-      # {Assistant#parsed_json} underscores the keys again on the way back, so
-      # agent code only ever sees snake_case.
+      # ActiveAgent sends property names to the provider as declared, so the
+      # +required+ array names them as declared too.
+      # {Assistant#parsed_json} underscores the keys of the answer, so agent
+      # code only ever sees snake_case.
       #
       # @param name [String] schema name reported to the provider
       # @param strict [Boolean]
       # @return [Hash]
       def to_response_format(name:, strict: true)
-        schema = to_json_schema
-        schema[:required] = schema[:required].map { |key| key.camelize(:lower) }
-
-        { name: name, schema: schema, strict: strict }
+        { name: name, schema: to_json_schema, strict: strict }
       end
 
       # Validates a parsed payload against the declared required properties.
