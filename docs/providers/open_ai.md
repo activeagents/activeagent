@@ -63,7 +63,6 @@ The Responses API provides access to built-in tools and advanced features. These
 | **GPT-4.1** | Enhanced GPT-4 with tool support | 128K tokens | Advanced analysis with tools |
 | **GPT-4.1-mini** | Efficient version with tool support | 128K tokens | Fast tool-enabled tasks |
 | **o3** | Advanced reasoning model | 200K tokens | Deep reasoning, complex problems |
-| **o4-mini** | Compact reasoning model | 128K tokens | Efficient reasoning tasks |
 
 **Recommended model identifiers:**
 - **gpt-5** - Best for complex tasks requiring multiple tools
@@ -96,7 +95,7 @@ Search-preview models in Chat API provide web search but with different configur
 
 ### Required Parameters
 
-- **`model`** - Model identifier (e.g., "gpt-4o", "gpt-3.5-turbo")
+- **`model`** - Model identifier (e.g., "gpt-5")
 
 ### Sampling Parameters
 
