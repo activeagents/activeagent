@@ -7,50 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Fixed
-
-- **`max_retries` sets the Anthropic `json_object` retries** (`activeagent`).
-  `AnthropicProvider` read the count from its constructor's arguments after
-  `BaseProvider` had already moved `max_retries` into the provider's options,
-  so an unparseable `json_object` answer was always retried twice, whatever
-  `max_retries` said, on Anthropic and on Bedrock, which inherits it. The
-  count now comes from the options: `max_retries: 0` sends the request once,
-  `max_retries: 5` up to six times, and the default is still two retries
-  (#531).
-- **A streamed Anthropic answer with citations no longer raises.** Claude
-  streams the citations of a text block as `citations_delta` deltas when it
-  cites a document or a web search result, and the Anthropic provider raised
-  `Unexpected delta type: citations_delta` on the first one. The delta is now
-  skipped like `input_json_delta`: the full block, citations included, arrives
-  at `content_block_stop`.
-- **A streamed OpenAI Chat refusal, or a stream with logprobs, no longer
-  raises.** The openai gem's chat stream emits `refusal.delta` and
-  `refusal.done` when the model refuses, and `logprobs.*` events when the
-  request sets `logprobs`, and the Chat provider failed on them with
-  `Unexpected Response Event Type`. They are now handled, and `refusal.done`
-  ends the generation, since a refused message never gets a `content.done`.
-- **A streamed Responses answer that used a built-in tool no longer raises.**
-  With `tools: [{ type: "web_search_preview" }]` (or file search, image
-  generation, code interpreter, remote MCP), the stream carries the tool's
-  call as an output item (`web_search_call`, ...), its progress events
-  (`response.web_search_call.searching`, ...), and
-  `response.output_text.annotation.added` for the citations, and the
-  Responses provider raised `Unexpected Item Type: web_search_call` on the
-  first of them. The tool calls are now kept like in a non-streamed response,
-  and their events are skipped.
-- **A streamed Responses answer cut short no longer raises.** When a response
-  hits `max_output_tokens`, the stream ends with `response.incomplete` instead
-  of `response.completed`, and the Responses provider raised `Unexpected
-  Response Chunk Type: response.incomplete`. It now ends the generation with
-  the text streamed so far, like `response.completed`.
-- **A streamed Responses refusal no longer raises.** The provider raised
-  `Unexpected Response Chunk Type: response.refusal.delta` when the model
-  refused; the refusal events are now skipped and the response completes.
-- **A streamed Responses generation reports its token usage.** The usage of a
-  streamed response is only on its final event, and the Responses provider
-  never read it, so `response.usage` was `nil`. It is now recorded from
-  `response.completed` or `response.incomplete`, as the Chat provider does
-  from its usage chunk.
 ### Added
 
 - **P50 and P95 latency per model in evaluation reports** (`activeagent`).
@@ -102,7 +58,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   pass rate inside its 95% interval, best first, with the run's
   conclusion and how the intervals were computed, from the comparison the
   run recorded (#428).
-### Added
 
 - Parallel scenario evaluations in `actionagent`: with
   `config.scenario_evaluation_fan_out = true`, a run enqueues one
@@ -113,6 +68,58 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   sequential (#422).
 - `ActiveAgent::Evals::Runner.new(refine_gate:)`, a callable asked before each
   recommendation call so per-scenario runners share one run-wide judge limit.
+
+### Fixed
+
+- **`max_retries` sets the Anthropic `json_object` retries** (`activeagent`).
+  `AnthropicProvider` read the count from its constructor's arguments after
+  `BaseProvider` had already moved `max_retries` into the provider's options,
+  so an unparseable `json_object` answer was always retried twice, whatever
+  `max_retries` said, on Anthropic and on Bedrock, which inherits it. The
+  count now comes from the options: `max_retries: 0` sends the request once,
+  `max_retries: 5` up to six times, and the default is still two retries
+  (#531).
+- **A streamed Anthropic answer with citations no longer raises.** Claude
+  streams the citations of a text block as `citations_delta` deltas when it
+  cites a document or a web search result, and the Anthropic provider raised
+  `Unexpected delta type: citations_delta` on the first one. The delta is now
+  skipped like `input_json_delta`: the full block, citations included, arrives
+  at `content_block_stop`.
+- **A streamed OpenAI Chat refusal, or a stream with logprobs, no longer
+  raises.** The openai gem's chat stream emits `refusal.delta` and
+  `refusal.done` when the model refuses, and `logprobs.*` events when the
+  request sets `logprobs`, and the Chat provider failed on them with
+  `Unexpected Response Event Type`. They are now handled, and `refusal.done`
+  ends the generation, since a refused message never gets a `content.done`.
+- **A streamed Responses answer that used a built-in tool no longer raises.**
+  With `tools: [{ type: "web_search_preview" }]` (or file search, image
+  generation, code interpreter, remote MCP), the stream carries the tool's
+  call as an output item (`web_search_call`, ...), its progress events
+  (`response.web_search_call.searching`, ...), and
+  `response.output_text.annotation.added` for the citations, and the
+  Responses provider raised `Unexpected Item Type: web_search_call` on the
+  first of them. The tool calls are now kept like in a non-streamed response,
+  and their events are skipped.
+- **A streamed Responses answer cut short no longer raises.** When a response
+  hits `max_output_tokens`, the stream ends with `response.incomplete` instead
+  of `response.completed`, and the Responses provider raised `Unexpected
+  Response Chunk Type: response.incomplete`. It now ends the generation with
+  the text streamed so far, like `response.completed`.
+- **A streamed Responses refusal no longer raises.** The provider raised
+  `Unexpected Response Chunk Type: response.refusal.delta` when the model
+  refused; the refusal events are now skipped and the response completes.
+- **A streamed Responses generation reports its token usage.** The usage of a
+  streamed response is only on its final event, and the Responses provider
+  never read it, so `response.usage` was `nil`. It is now recorded from
+  `response.completed` or `response.incomplete`, as the Chat provider does
+  from its usage chunk.
+- **Delegation contracts built from a `SchemaGenerator` class**
+  (`activeagent`). `delegation ..., schema: TicketForm` and
+  `returns TicketForm` produced a contract with no properties, because
+  `to_json_schema` wraps the schema in `{ name:, schema:, strict: }` and
+  the contract read only a top-level `properties`. The wrapper is now
+  unwrapped, and `$defs` are kept so the `$ref`s that nested schemas use
+  still resolve.
 
 ## [1.9.1] - 2026-10-16
 
