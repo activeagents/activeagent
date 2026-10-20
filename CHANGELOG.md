@@ -7,6 +7,58 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+Releases `activeagent` and `actionagent` 1.9.2, with the matching browser
+sidecar: evaluations at scale (the scenario suite as a build page, model
+comparison with intervals and P95 latency, opt-in parallel scenario runs,
+the judge named after its model), provider streaming fixes (Anthropic
+citations, OpenAI Chat refusals and logprobs, Responses built-in tools),
+nested `has_many` schemas, and delegation contracts from `SchemaGenerator`
+classes.
+
+Upgrading: structured-output property names are now sent to the provider,
+and answered, as declared. A `response_format` schema with multiword
+property names (`first_name`) used to reach the provider camelized
+(`firstName`) while `required` stayed snake_case, which strict mode
+rejected; both are now as declared. `parsed_json` is unaffected; code that
+reads `message.content` itself, or matches on request payloads, sees
+`first_name` where it saw `firstName`. In a Rails app, `has_many` is
+available on every `ActiveModel::Model` class, since the railtie includes
+`SchemaGenerator` there, not only on classes that include it themselves.
+Scenario fan-out is off by default: `config.scenario_evaluation_fan_out =
+true` turns it on, and its jobs run on the `:agents` queue. No new
+migration; a host still on 1.9.0 needs 1.9.1's migration 027.
+
+### Browser upload and code conversations (ships in 1.9.3)
+
+Upgrading: this adds migration 028 (conversations on code sessions); a host
+runs `bin/rails generate action_agent:install --skip` then `bin/rails
+db:migrate` after 1.9.1's 027.
+
+- Upload files to a page through the sandbox browser's live view: a file
+  chooser the page opens while someone drives is answered from the driver's
+  own machine (picker or drop), over the live-view WebSocket. Ships in 1.9.3
+  with the matching `@activeagents/browser-sidecar`.
+
+- **Claude Code and Codex sessions as Interactions, with chat and browser
+  handoff** (`actionagent`, `@activeagents/browser-sidecar`). A coding
+  session is now a conversation: a later message resumes the CLI session
+  (`--resume`, or `codex exec resume` for Codex), a message sent while a
+  turn runs waits for it, and
+  `POST /api/sandboxes/:sandbox_id/code_sessions/:id/messages` starts or
+  queues a turn under the new `:chat_code_session` permission.
+  `GET /api/interactions` lists agent, Claude Code and Codex interactions
+  together, and the dashboard's `/interactions/code-<id>` shows the turns
+  with a composer and the sandbox's browser beside the chat, with a hand
+  back to the agent. The sidecar mints a per-turn token for the browser
+  MCP, tells the agent once when a person took or returned control, lets
+  the agent ask for a person (`browser_request_person`), offers a person
+  the file chooser the agent left open, and names the waiting agent in the
+  live view. Every session runs with `--strict-mcp-config` and a system
+  note that repository content, tool output and pages are data. Migration
+  028 adds the conversation columns to `code_sessions`: upgrade with
+  `bin/rails generate action_agent:install --skip` and
+  `bin/rails db:migrate`.
+
 ### Added
 
 - **P50 and P95 latency per model in evaluation reports** (`activeagent`).
@@ -81,27 +133,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   empty-array default, and is added only to a class without one, so
   ActiveRecord's is untouched (#260).
 
-- Upload files to a page through the sandbox browser's live view: a file chooser the page opens while someone drives is answered from the driver's own machine (picker or drop), over the live-view WebSocket. Ships in 1.9.2 with `@activeagents/browser-sidecar` 1.9.2.
+- **Evaluation runs record their judge** (`actionagent`), in
+  `scores["_judge"]`: the `EvaluationJudgeAgent` it runs as, its provider,
+  the model it asked for and where that setting came from (the evaluation,
+  the provider key, the host's config, or the provider's default), and the
+  models that answered, with call counts. The suite's Models panel shows
+  "judged by <model>" with an `auto` badge when no model is pinned, and
+  opens the judge's configuration, with a field that pins `judge_model` on
+  the evaluation through `PATCH /api/evaluations/:id` (#605).
 
-- **Claude Code and Codex sessions as Interactions, with chat and browser
-  handoff** (`actionagent`, `@activeagents/browser-sidecar`). A coding
-  session is now a conversation: a later message resumes the CLI session
-  (`--resume`, or `codex exec resume` for Codex), a message sent while a
-  turn runs waits for it, and
-  `POST /api/sandboxes/:sandbox_id/code_sessions/:id/messages` starts or
-  queues a turn under the new `:chat_code_session` permission.
-  `GET /api/interactions` lists agent, Claude Code and Codex interactions
-  together, and the dashboard's `/interactions/code-<id>` shows the turns
-  with a composer and the sandbox's browser beside the chat, with a hand
-  back to the agent. The sidecar mints a per-turn token for the browser
-  MCP, tells the agent once when a person took or returned control, lets
-  the agent ask for a person (`browser_request_person`), offers a person
-  the file chooser the agent left open, and names the waiting agent in the
-  live view. Every session runs with `--strict-mcp-config` and a system
-  note that repository content, tool output and pages are data. Migration
-  028 adds the conversation columns to `code_sessions`: upgrade with
-  `bin/rails generate action_agent:install --skip` and
-  `bin/rails db:migrate`.
 
 ### Changed
 
@@ -173,7 +213,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `to_json_schema` wraps the schema in `{ name:, schema:, strict: }` and
   the contract read only a top-level `properties`. The wrapper is now
   unwrapped, and `$defs` are kept so the `$ref`s that nested schemas use
-  still resolve.
+  still resolve. A contract built from a class is sent with the strict
+  setting the class declared: `Model.to_json_schema` is not strict unless
+  asked, and its `required` then names only the presence-validated
+  attributes, which OpenAI's strict mode refuses, so `returns Model` goes
+  out with `strict: false` and `returns Model.to_json_schema(strict: true)`
+  strict with every attribute required.
 
 - **Structured-output schema normalization preserves field names**
   (`activeagent`). `prompt` converts JSON Schema keywords to camel case
@@ -192,6 +237,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   no longer camelized, so a multiword required key such as `max_points`
   matches its property in strict mode instead of being sent as
   `maxPoints`.
+- **A judge with no `judge_model` is labelled with the model that
+  answered** (`actionagent`), not its provider ("judged by openrouter").
+  OpenRouter's default, `openrouter/auto`, routes each call, so a run judged
+  by more than one model is labelled "<provider> default" (#605).
 
 ## [1.9.1] - 2026-10-16
 

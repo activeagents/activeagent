@@ -193,7 +193,7 @@ class ActionAgentEvaluationRunnerServiceTest < ActiveSupport::TestCase
     # Each cohort's cost is rounded to six places and so is their sum.
     assert_in_delta run.scores.dig("_cohorts", "gpt-4o", "cost") + run.scores.dig("_cohorts", "gpt-4o-mini", "cost"), usage[:cost], 1e-6
     assert_in_delta usage[:cost] / 2, usage[:per_interaction], 1e-6
-    assert_equal judge.merge("source" => "meter", "estimated" => true, "run" => { "calls" => 1, "cost" => nil, "by_kind" => { "verdict" => 1 } }), usage[:judge]
+    assert_equal judge.except("models").merge("source" => "meter", "estimated" => true, "run" => { "calls" => 1, "cost" => nil, "by_kind" => { "verdict" => 1 } }), usage[:judge]
     assert_in_delta usage[:cost] + judge["cost"], usage[:total], 1e-6
   end
 
