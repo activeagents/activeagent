@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **OpenAI Responses generations now report why they stopped.**
+  `response.finish_reason` (and `stop_reason`) was `nil` for every Responses
+  generation, streamed or not. It is now `incomplete_details.reason` when the
+  response was cut short (`max_output_tokens`, `content_filter`), else the
+  response's `status` (`completed`).
+
 - **A streamed generation now reports why it stopped.** `response.finish_reason`
   (and `stop_reason`), and the `finish_reason` of the `prompt.active_agent`
   event, were `nil` for every streamed Chat and Anthropic generation, since a

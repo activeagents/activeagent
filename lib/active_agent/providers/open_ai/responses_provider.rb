@@ -181,6 +181,9 @@ module ActiveAgent
             # usage from, so it is recorded from the final event.
             record_stream_usage(api_response_event.response.usage)
 
+            response = api_response_event.response
+            self.stream_finish_reason = (response.incomplete_details&.reason || response.status).to_s
+
             # Completion, tool loop included, runs from stream_finished! once
             # the stream has drained, so each turn's tool calls run once.
             self.stream_completion_pending = true
