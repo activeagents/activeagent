@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+Releases `activeagent` and `actionagent` 1.9.2, with the matching browser
+sidecar: evaluations at scale (the scenario suite as a build page, model
+comparison with intervals and P95 latency, opt-in parallel scenario runs,
+the judge named after its model), provider streaming fixes (Anthropic
+citations, OpenAI Chat refusals and logprobs, Responses built-in tools),
+nested `has_many` schemas, and delegation contracts from `SchemaGenerator`
+classes.
+
+Upgrading: structured-output property names are now sent to the provider,
+and answered, as declared. A `response_format` schema with multiword
+property names (`first_name`) used to reach the provider camelized
+(`firstName`) while `required` stayed snake_case, which strict mode
+rejected; both are now as declared. `parsed_json` is unaffected; code that
+reads `message.content` itself, or matches on request payloads, sees
+`first_name` where it saw `firstName`. In a Rails app, `has_many` is
+available on every `ActiveModel::Model` class, since the railtie includes
+`SchemaGenerator` there, not only on classes that include it themselves.
+Scenario fan-out is off by default: `config.scenario_evaluation_fan_out =
+true` turns it on, and its jobs run on the `:agents` queue. No new
+migration; a host still on 1.9.0 needs 1.9.1's migration 027.
+
 ### Added
 
 - **P50 and P95 latency per model in evaluation reports** (`activeagent`).
