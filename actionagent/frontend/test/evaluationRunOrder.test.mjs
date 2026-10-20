@@ -440,3 +440,45 @@ test('the tools level restores the three-line cells', () => {
   assert.match(steps, /data-detail="steps"/);
   assert.doesNotMatch(steps, /scenario-cell-cost/);
 });
+
+test('every step shows each model\'s time and tokens, and the box adds them up per group, per scenario and per model', () => {
+  const specs = [spec, { label: 'claude-haiku-5-5', provider: 'anthropic', model: 'claude-haiku-5-5' }];
+  const ticket = (key, prompt) => ({ id: key.charCodeAt(1), key, prompt, group: 'Tickets', enabled: true, expectations: {} });
+  const scenarios = [ticket('t1', 'Which clients have overdue tickets?'), ticket('t2', 'What tickets are on my plate?')];
+  const row = (id, key, model, provider, extra = {}) => ({
+    id, scenario_key: key, group: 'Tickets', prompt: scenarios.find((s) => s.key === key).prompt, model, provider, status: 'passed', score: 0.9, tool_calls: [], ...extra,
+  });
+  const run = {
+    id: 9, status: 'complete', created_at: at, completed_at: at, samples_evaluated: 4, samples_passed: 3,
+    selection: { scenario_keys: ['t1', 't2'], models: specs }, scores: {},
+    usage: { replays: 4, cost: 0.02, judge: { calls: 4, cost: 0.01, by_kind: {} } },
+    results: [
+      row(1, 't1', 'gpt-5-mini', 'openai', { duration_ms: 5200, input_tokens: 1200, output_tokens: 340 }),
+      row(2, 't1', 'claude-haiku-5-5', 'anthropic', { status: 'failed', fault: 'low_quality', score: 0.4, duration_ms: 2100, input_tokens: 900, output_tokens: 120 }),
+      row(3, 't2', 'gpt-5-mini', 'openai', { duration_ms: 65000, input_tokens: 2000, output_tokens: 500 }),
+      row(4, 't2', 'claude-haiku-5-5', 'anthropic', { status: 'pending', score: null }),
+    ],
+  };
+  const html = render('ScenarioSuitePanel', suite(run, { scenarios }));
+
+  const header = between(html, 'data-testid="scenario-matrix"', 'data-testid="scenario-group-row"');
+  assert.match(header, /scenario-column-totals[^>]*>1m 10s · 3\.2K→840</, "the header adds up gpt-5-mini's answers over the run");
+  assert.match(header, /scenario-column-totals[^>]*>2\.1s · 900→120</, 'a pending answer adds nothing to its model');
+
+  const group = between(html, 'data-testid="scenario-group-row"', 'data-scenario-key="t1"');
+  assert.match(group, /scenario-group-metrics[^>]*>1m 10s · 3\.2K→840</);
+  assert.match(group, /scenario-group-metrics[^>]*>2\.1s · 900→120</);
+  assert.match(group, /scenario-group-cost-tokens[^>]*>4\.1K→960</, "the group's tokens sit under its cost");
+  assert.match(group, /scenario-group-time[^>]*>1m 10s</, "the group's time is its scenarios' slowest answers added up");
+
+  const t1 = between(html, 'data-scenario-key="t1"', 'data-scenario-key="t2"');
+  assert.match(t1, /scenario-cell-metrics[^>]*>5\.2s · 1\.2K→340</, 'a passed cell carries its time and tokens');
+  assert.match(t1, /scenario-cell-metrics[^>]*>2\.1s · 900→120</, 'a failed cell does too, under its fault');
+  assert.match(t1, /scenario-row-cost-tokens[^>]*>2\.1K→460</, "the scenario's tokens across the models sit under its cost");
+  assert.match(t1, /scenario-row-time[^>]*>5\.2s</, 'TIME stays the slowest answer');
+
+  const t2 = between(html, 'data-scenario-key="t2"', 'data-testid="suite-models-panel"');
+  assert.equal(count(t2, /scenario-cell-metrics/g), 1, 'a pending cell has no metrics line');
+  assert.match(t2, /scenario-row-time[^>]*>1m 05s</);
+  assert.match(t2, /scenario-row-cost-tokens[^>]*>2\.0K→500</);
+});
