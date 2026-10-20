@@ -239,6 +239,47 @@ class DelegationTest < ActiveSupport::TestCase
     assert_not ActiveAgent::Delegation::Schema.build(TicketForm).to_json_schema.key?(:"$defs")
   end
 
+  test "a response format from a SchemaGenerator class follows the class's strict setting" do
+    assert_not TicketForm.to_json_schema[:strict], "SchemaGenerator is not strict unless asked"
+
+    format = ActiveAgent::Delegation::Schema.build(TicketForm).to_response_format(name: "create_result")
+
+    assert_equal false, format[:strict], "strict mode wants every property required; the class declared one of two"
+    assert_equal [ "subject" ], format[:schema][:required]
+
+    strict = ActiveAgent::Delegation::Schema.build(TicketForm.to_json_schema(strict: true)).to_response_format(name: "create_result")
+
+    assert_equal true, strict[:strict]
+    assert_equal %w[priority subject], strict[:schema][:required], "every attribute, as the generator sorts them"
+    assert_equal true, ActiveAgent::Delegation::Schema.build(TicketForm).to_response_format(name: "x", strict: true)[:strict]
+    assert_equal true, ActiveAgent::Delegation::Schema.build { string :subject, required: true }.to_response_format(name: "x")[:strict]
+  end
+
+  test "returns with a SchemaGenerator class reaches the provider with the class's strict setting" do
+    JsonProvider.payload          = { subject: "Printer on fire" }
+    JsonProvider.response_formats = []
+    JsonProvider.requests         = []
+    sub = Class.new(ApplicationAgent) do
+      generate_with :mock, model: "mock-model"
+
+      delegation :create, description: "Draft a support ticket", returns: TicketForm do
+        string :text, required: true, description: "What happened"
+      end
+
+      def create(text:) = prompt(message: text)
+    end
+    sub._prompt_provider_klass = JsonProvider
+    parent = scripted_agent([ :create, { text: "Printer on fire" } ], delegate: sub)
+
+    parent.research.generate_now
+
+    format = JsonProvider.response_formats.compact.first
+    assert_equal false, format[:json_schema][:strict]
+    assert_equal [ "subject" ], format[:json_schema][:schema][:required]
+    assert_equal %w[subject priority], format[:json_schema][:schema][:properties].keys.map(&:to_s)
+    assert_equal({ subject: "Printer on fire" }, ScriptedProvider.results.first)
+  end
+
   test "a contract without a description is refused" do
     error = assert_raises(ArgumentError) do
       Class.new(ApplicationAgent) { delegation :summarize, description: "" }

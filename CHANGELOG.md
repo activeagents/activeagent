@@ -151,7 +151,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `to_json_schema` wraps the schema in `{ name:, schema:, strict: }` and
   the contract read only a top-level `properties`. The wrapper is now
   unwrapped, and `$defs` are kept so the `$ref`s that nested schemas use
-  still resolve.
+  still resolve. A contract built from a class is sent with the strict
+  setting the class declared: `Model.to_json_schema` is not strict unless
+  asked, and its `required` then names only the presence-validated
+  attributes, which OpenAI's strict mode refuses, so `returns Model` goes
+  out with `strict: false` and `returns Model.to_json_schema(strict: true)`
+  strict with every attribute required.
 
 - **Structured-output schema normalization preserves field names**
   (`activeagent`). `prompt` converts JSON Schema keywords to camel case
