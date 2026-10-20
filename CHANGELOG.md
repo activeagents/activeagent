@@ -17,6 +17,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   count now comes from the options: `max_retries: 0` sends the request once,
   `max_retries: 5` up to six times, and the default is still two retries
   (#531).
+- **A streamed Anthropic answer with citations no longer raises.** Claude
+  streams the citations of a text block as `citations_delta` deltas when it
+  cites a document or a web search result, and the Anthropic provider raised
+  `Unexpected delta type: citations_delta` on the first one. The delta is now
+  skipped like `input_json_delta`: the full block, citations included, arrives
+  at `content_block_stop`.
 
 ## [1.9.1] - 2026-10-16
 
