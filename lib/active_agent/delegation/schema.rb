@@ -61,13 +61,20 @@ module ActiveAgent
         # @return [Schema]
         def from_hash(hash)
           hash = hash.deep_symbolize_keys
-          hash = hash[:schema] if !hash.key?(:properties) && hash[:schema].is_a?(Hash)
+          strict = nil
+          if !hash.key?(:properties) && hash[:schema].is_a?(Hash)
+            # SchemaGenerator's wrapper carries +strict: true+ only when the
+            # schema was built for strict mode; otherwise it is not strict.
+            strict = hash[:strict] == true
+            hash = hash[:schema]
+          end
 
           new.tap do |schema|
             (hash[:properties] || {}).each { |name, definition| schema.property(name, definition) }
             schema.required(*Array(hash[:required]))
             schema.additional_properties(hash.fetch(:additionalProperties, hash.fetch(:additional_properties, false)))
             schema.definitions(hash[:$defs]) if hash[:$defs]
+            schema.strict(strict) unless strict.nil?
           end
         end
       end
@@ -77,6 +84,7 @@ module ActiveAgent
         @required             = []
         @additional_properties = false
         @definitions           = {}
+        @strict                = nil
       end
 
       # @return [Boolean] true when nothing has been declared
@@ -162,6 +170,19 @@ module ActiveAgent
         @additional_properties = value
       end
 
+      # Declares whether the schema was built for a provider's strict mode,
+      # as the +strict:+ of the wrapper {ActiveAgent::SchemaGenerator} returns
+      # says. Strict mode wants every property in +required+; a
+      # SchemaGenerator schema names only the attributes a presence
+      # validation covers unless it was built with +strict: true+, so a
+      # class is sent as it declared itself (see #to_response_format).
+      #
+      # @param value [Boolean]
+      # @return [void]
+      def strict(value = true)
+        @strict = value
+      end
+
       # Declares the subschemas that properties reference with
       # +"$ref": "#/$defs/name"+, such as the nested schemas
       # {ActiveAgent::SchemaGenerator} emits for associations.
@@ -206,9 +227,14 @@ module ActiveAgent
       # agent code only ever sees snake_case.
       #
       # @param name [String] schema name reported to the provider
-      # @param strict [Boolean]
+      # @param strict [Boolean, nil] nil follows the source: what a
+      #   SchemaGenerator class declared (not strict unless built with
+      #   +strict: true+, since its +required+ otherwise lists only the
+      #   presence-validated attributes, which strict mode refuses), else true
       # @return [Hash]
-      def to_response_format(name:, strict: true)
+      def to_response_format(name:, strict: nil)
+        strict = @strict if strict.nil?
+        strict = true if strict.nil?
         schema = to_json_schema
         schema[:required] = schema[:required].map { |key| key.camelize(:lower) }
 
