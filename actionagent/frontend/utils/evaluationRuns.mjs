@@ -1125,6 +1125,71 @@ export const scenarioTime = (row = {}, columns = []) => {
   return times.length ? Math.max(...times) : null;
 };
 
+const finiteOrNull = (value) => (value != null && Number.isFinite(Number(value)) ? Number(value) : null);
+
+// What one settled result took: `{ durationMs, inputTokens, outputTokens }`,
+// each null where the result did not record it; null for a pending or
+// missing result, or one that recorded none of the three. A model that
+// answers faster, or on fewer tokens, is cheaper to run at scale, so the box
+// shows these beside every score.
+export const resultMetrics = (result) => {
+  if (!result || result.status === 'pending') return null;
+  const metrics = {
+    durationMs: finiteOrNull(result.duration_ms),
+    inputTokens: finiteOrNull(result.input_tokens),
+    outputTokens: finiteOrNull(result.output_tokens),
+  };
+  return metrics.durationMs == null && metrics.inputTokens == null && metrics.outputTokens == null ? null : metrics;
+};
+
+// The same figures added up over `results`. A sum stays null where no
+// result recorded that figure, so a model without token counts reads "—"
+// rather than 0; `count` is how many results contributed. null when none did.
+export const sumMetrics = (results = []) => {
+  const total = { durationMs: null, inputTokens: null, outputTokens: null, count: 0 };
+  results.forEach((result) => {
+    const metrics = resultMetrics(result);
+    if (!metrics) return;
+    total.count += 1;
+    ['durationMs', 'inputTokens', 'outputTokens'].forEach((key) => {
+      if (metrics[key] != null) total[key] = (total[key] || 0) + metrics[key];
+    });
+  });
+  return total.count ? total : null;
+};
+
+// The tokens under a scenario's COST cell: input and output added up over
+// its settled results in `columns`, `{ input, output }`; null until one of
+// them carries a count.
+export const scenarioTokens = (row = {}, columns = []) => {
+  const sum = sumMetrics(columns.map((label) => row?.[label]));
+  if (!sum || (sum.inputTokens == null && sum.outputTokens == null)) return null;
+  return { input: sum.inputTokens, output: sum.outputTokens };
+};
+
+// Token pairs added up, for a group's COST cell; a side stays null where no
+// pair has it, and the whole is null when there is nothing to add.
+export const sumTokens = (pairs = []) => {
+  const known = pairs.filter(Boolean);
+  if (!known.length) return null;
+  const side = (key) => (known.some((pair) => pair[key] != null) ? known.reduce((sum, pair) => sum + (pair[key] || 0), 0) : null);
+  return { input: side('input'), output: side('output') };
+};
+
+// Per model column, the time and tokens over the given scenarios — every
+// key of `resultsByKey` unless `keys` narrows them — as `{ [label]:
+// sumMetrics(...) }`: the box's header shows the run's per model, a group
+// row its scenarios'.
+export const columnTotals = (resultsByKey = {}, columns = [], keys = Object.keys(resultsByKey)) =>
+  Object.fromEntries(columns.map((label) => [label, sumMetrics(keys.map((key) => resultsByKey[key]?.[label]))]));
+
+// A group row's TIME: its scenarios' times (each the slowest answer across
+// the models) added up; null until one has landed.
+export const groupTime = (rows = [], resultsByKey = {}, columns = []) => {
+  const times = rows.map((scenario) => scenarioTime(resultsByKey[scenario?.key], columns)).filter((time) => time != null);
+  return times.length ? times.reduce((sum, time) => sum + time, 0) : null;
+};
+
 // How long a run has taken, in ms: the runtime the API recorded when it has
 // one; else from its timestamps — to its completion, or to `now` while it
 // runs. null for a run that has not started (pending), one that failed
@@ -1162,6 +1227,16 @@ export const fmtDuration = (ms) => {
   if (total < 60) return `${total}s`;
   if (!hours) return `${minutes}m ${pad2(seconds)}s`;
   return `${hours}h ${pad2(minutes)}m`;
+};
+
+// A span in a cell: to the millisecond under a second (`820ms`), to a tenth
+// or a hundredth under a minute (`12.4s`, `5.25s`, as fmtMs reads), and
+// fmtDuration's reading from a minute up (`1m 15s`); `—` for none.
+export const fmtSpan = (ms) => {
+  if (ms == null || !Number.isFinite(Number(ms))) return '—';
+  const n = Number(ms);
+  if (n >= 60000) return fmtDuration(n);
+  return n >= 1000 ? `${(n / 1000).toFixed(n >= 10000 ? 1 : 2).replace(/\.?0+$/, '')}s` : `${Math.round(n)}ms`;
 };
 
 // How long to wait between polls of a running run, by how many results it

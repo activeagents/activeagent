@@ -3,14 +3,15 @@ import test from 'node:test';
 import {
   DETAILS_KEPT, DETAIL_STORAGE_KEY, KEY_COLUMN_MIN_WIDTH, PANEL_GUTTER, RAIL_BARS_MAX, RAIL_BREAKPOINT, RAIL_GAP, RAIL_WIDTH,
   STEPS_HEIGHT, STRIP_LIST_HEIGHT,
-  combinedBars, criterionExpectation, criterionGroup, criterionLabel, currentStepKey, cursorScrollTop, fmtClock, fmtDuration,
-  groupResultsByKey, groupStep, groupsOutsideRun, isEstimated, judgeCallsText, judgeLabel, judgeSourceText, keepDetails, keepSandboxChoice,
-  modelScorecard, costPer, openRowScrollTop, orderScenarioRows, pollIntervalFor, pricedCount, readDetailChoice, reconcileResults,
-  rerunFailedKeys, runCohorts, runDelta, runElapsedMs, runLabel, runNumber, runRequestBody, runRequestSelection, runSandboxLabel,
-  runSandboxOptions, runScenarioKeys, runSelectionLabel, runSpend, runnableKeys, runsMeta, sameResult, samplingFixItems, scenarioStep,
-  scenarioTime, selectionModelLabels, selectionOf, shownRunIndexes, sandboxLabel, spendSummary, spendTotalLabel, stepsMinWidth,
-  toolsMinWidth, versionChip, versionDelta, writeDetailChoice,
+  columnTotals, combinedBars, criterionExpectation, criterionGroup, criterionLabel, currentStepKey, cursorScrollTop, fmtClock, fmtDuration,
+  fmtSpan, groupResultsByKey, groupStep, groupTime, groupsOutsideRun, isEstimated, judgeCallsText, judgeLabel, judgeSourceText, keepDetails,
+  keepSandboxChoice, modelScorecard, costPer, openRowScrollTop, orderScenarioRows, pollIntervalFor, pricedCount, readDetailChoice,
+  reconcileResults, rerunFailedKeys, resultMetrics, runCohorts, runDelta, runElapsedMs, runLabel, runNumber, runRequestBody,
+  runRequestSelection, runSandboxLabel, runSandboxOptions, runScenarioKeys, runSelectionLabel, runSpend, runnableKeys, runsMeta, sameResult,
+  samplingFixItems, scenarioStep, scenarioTime, scenarioTokens, selectionModelLabels, selectionOf, shownRunIndexes, sandboxLabel,
+  spendSummary, spendTotalLabel, stepsMinWidth, sumMetrics, sumTokens, toolsMinWidth, versionChip, versionDelta, writeDetailChoice,
 } from '../utils/evaluationRuns.mjs';
+import { fmtTokenIO } from '../utils/format.js';
 
 const sampling = {
   id: 1, scenario_suite: false, judge_kind: 'rules', sample_size: 20, agent: { id: 7, name: 'Docs Navigator' },
@@ -595,4 +596,72 @@ test('the details cache keeps only what the person can get back to', () => {
     { PANEL_GUTTER, STEPS_HEIGHT, STRIP_LIST_HEIGHT, RAIL_BARS_MAX, DETAILS_KEPT, KEY_COLUMN_MIN_WIDTH },
     { PANEL_GUTTER: 32, STEPS_HEIGHT: 'clamp(360px, calc(100vh - 240px), 900px)', STRIP_LIST_HEIGHT: 320, RAIL_BARS_MAX: 3, DETAILS_KEPT: 3, KEY_COLUMN_MIN_WIDTH: 720 },
   );
+});
+
+test('a step carries each answer\'s time and tokens, and the box adds them up per model, per group and per scenario', () => {
+  const columns = ['gpt-5-mini', 'claude-haiku-5-5'];
+  const settled = { status: 'passed', duration_ms: 5200, input_tokens: 1200, output_tokens: 340 };
+
+  assert.deepEqual(resultMetrics(settled), { durationMs: 5200, inputTokens: 1200, outputTokens: 340 });
+  assert.deepEqual(resultMetrics({ status: 'failed', duration_ms: '820' }), { durationMs: 820, inputTokens: null, outputTokens: null }, 'a figure the API sent as a string still counts');
+  assert.equal(resultMetrics({ status: 'pending', duration_ms: 9000, input_tokens: 1 }), null, 'a pending result has nothing to show yet');
+  assert.equal(resultMetrics({ status: 'passed' }), null, 'nothing recorded, nothing shown');
+  assert.equal(resultMetrics(undefined), null);
+
+  assert.deepEqual(
+    sumMetrics([settled, { status: 'failed', duration_ms: 2100, input_tokens: 900, output_tokens: 120 }, { status: 'pending', duration_ms: 1 }, undefined]),
+    { durationMs: 7300, inputTokens: 2100, outputTokens: 460, count: 2 },
+  );
+  assert.deepEqual(sumMetrics([{ status: 'passed', duration_ms: 400 }, { status: 'passed', duration_ms: 600 }]), { durationMs: 1000, inputTokens: null, outputTokens: null, count: 2 }, 'a sum nobody recorded stays null, not 0');
+  assert.equal(sumMetrics([{ status: 'pending' }, undefined]), null);
+  assert.equal(sumMetrics([]), null);
+
+  const row = { 'gpt-5-mini': settled, 'claude-haiku-5-5': { status: 'failed', duration_ms: 2100, input_tokens: 900, output_tokens: 120 } };
+  assert.deepEqual(scenarioTokens(row, columns), { input: 2100, output: 460 });
+  assert.deepEqual(scenarioTokens({ 'gpt-5-mini': { status: 'passed', output_tokens: 50 } }, columns), { input: null, output: 50 });
+  assert.equal(scenarioTokens({ 'gpt-5-mini': { status: 'passed', duration_ms: 400 } }, columns), null, 'a time alone is not a token count');
+  assert.equal(scenarioTokens({ other: settled }, columns), null, 'only the given columns count');
+  assert.equal(scenarioTokens(undefined, columns), null);
+
+  assert.deepEqual(sumTokens([{ input: 2100, output: 460 }, null, { input: 2000, output: 500 }]), { input: 4100, output: 960 });
+  assert.deepEqual(sumTokens([{ input: null, output: 50 }, { input: null, output: 20 }]), { input: null, output: 70 });
+  assert.equal(sumTokens([null, undefined]), null);
+  assert.equal(sumTokens([]), null);
+
+  const resultsByKey = {
+    t1: row,
+    t2: { 'gpt-5-mini': { status: 'passed', duration_ms: 65000, input_tokens: 2000, output_tokens: 500 }, 'claude-haiku-5-5': { status: 'pending' } },
+    t3: { 'gpt-5-mini': { status: 'passed', duration_ms: 100 } },
+  };
+  assert.deepEqual(columnTotals(resultsByKey, columns), {
+    'gpt-5-mini': { durationMs: 70300, inputTokens: 3200, outputTokens: 840, count: 3 },
+    'claude-haiku-5-5': { durationMs: 2100, inputTokens: 900, outputTokens: 120, count: 1 },
+  }, 'the run: every key');
+  assert.deepEqual(columnTotals(resultsByKey, columns, ['t2', 't3']), {
+    'gpt-5-mini': { durationMs: 65100, inputTokens: 2000, outputTokens: 500, count: 2 },
+    'claude-haiku-5-5': null,
+  }, 'a group: its keys, and null for a model with nothing in');
+  assert.deepEqual(columnTotals({}, columns), { 'gpt-5-mini': null, 'claude-haiku-5-5': null });
+
+  const rows = [{ key: 't1' }, { key: 't2' }, { key: 't3' }, { key: 'missing' }];
+  assert.equal(groupTime(rows, resultsByKey, columns), 5200 + 65000 + 100, 'each scenario\'s slowest answer, added up');
+  assert.equal(groupTime([{ key: 'missing' }], resultsByKey, columns), null);
+  assert.equal(groupTime([], resultsByKey, columns), null);
+
+  assert.equal(fmtSpan(820), '820ms');
+  assert.equal(fmtSpan(5200), '5.2s');
+  assert.equal(fmtSpan(5250), '5.25s');
+  assert.equal(fmtSpan(12400), '12.4s');
+  assert.equal(fmtSpan(59999), '60s');
+  assert.equal(fmtSpan(65000), '1m 05s');
+  assert.equal(fmtSpan(70200), '1m 10s');
+  assert.equal(fmtSpan(3_720_000), '1h 02m');
+  assert.equal(fmtSpan(null), '—');
+  assert.equal(fmtSpan('x'), '—');
+
+  assert.equal(fmtTokenIO(1200, 340), '1.2K→340');
+  assert.equal(fmtTokenIO(null, 50), '—→50');
+  assert.equal(fmtTokenIO(2_400_000, null), '2.4M→—');
+  assert.equal(fmtTokenIO(null, null), '—');
+  assert.equal(fmtTokenIO(undefined, undefined), '—');
 });
