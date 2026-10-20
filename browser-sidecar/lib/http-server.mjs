@@ -1,6 +1,6 @@
 import http from 'node:http';
 
-import { liveRefusal, refusal } from './guard.mjs';
+import { bearerOf, liveRefusal, refusal } from './guard.mjs';
 import { LIVE_PATH } from './live-server.mjs';
 
 // Larger than any tool call the engine sends.
@@ -56,6 +56,12 @@ function rejectUpgrade(socket, status) {
  *   GET    /live           the live view's WebSocket (LiveServer), when `live` is given
  *   GET    /storage-state  the browser's cookies and localStorage for the
  *                          app's origin, so a sign-in can be kept
+ *   POST   /tokens         mints a client token ({ label }), for /mcp only (ClientTokens)
+ *   DELETE /tokens/:id     revokes one
+ *
+ * /mcp takes the master token or a live client token; a call made with a
+ * client token reaches the gateway tagged with that token's label. Every
+ * other endpoint takes the master token only.
  *
  * Every request, and every WebSocket upgrade other than the live view's, is
  * checked by guard.refusal before anything else happens. The live view's
@@ -69,16 +75,33 @@ function rejectUpgrade(socket, status) {
  * @param {string} options.version
  * @param {{ handleUpgrade: Function } | null} [options.live] a LiveServer
  * @param {() => Promise<object>} [options.storageState] returns what GET /storage-state answers
+ * @param {import('./client-tokens.mjs').ClientTokens | null} [options.clientTokens]
  * @returns {import('node:http').Server}
  */
-export function createHttpServer({ rules, gateway, version, live = null, storageState = null }) {
+export function createHttpServer({ rules, gateway, version, live = null, storageState = null, clientTokens = null }) {
   const server = http.createServer(async (request, response) => {
-    const denied = refusal(request, rules());
+    const path = pathOf(request);
+    const current = rules();
+    const denied = refusal(request, current, path === '/mcp' ? clientTokens : null);
     if (denied) return respond(response, denied.status, { error: denied.message });
 
-    const path = new URL(request.url, 'http://sidecar').pathname;
     try {
       if (path === '/health' && request.method === 'GET') return respond(response, 200, { status: 'ok', version });
+      if (clientTokens && path === '/tokens' && request.method === 'POST') {
+        let body = {};
+        try {
+          body = JSON.parse((await readBody(request)) || '{}');
+        } catch (error) {
+          if (error.status) throw error;
+          return respond(response, 400, { error: 'The body is not JSON' });
+        }
+        return respond(response, 201, clientTokens.mint({ label: body?.label }));
+      }
+      const tokenId = /^\/tokens\/([0-9a-f-]{36})$/.exec(path ?? '')?.[1];
+      if (clientTokens && tokenId && request.method === 'DELETE') {
+        const revoked = clientTokens.revoke(tokenId);
+        return respond(response, revoked ? 200 : 404, revoked ? { revoked: true } : { error: 'Token not found' });
+      }
       if (path === '/storage-state' && request.method === 'GET' && storageState) {
         return respond(response, 200, { storage_state: await storageState() });
       }
@@ -99,7 +122,8 @@ export function createHttpServer({ rules, gateway, version, live = null, storage
         return respond(response, 400, { jsonrpc: '2.0', id: null, error: { code: -32700, message: 'The body is not JSON' } });
       }
 
-      const result = await gateway.handle(message, typeof sessionId === 'string' ? sessionId : undefined);
+      const client = clientTokens?.match(bearerOf(request.headers.authorization)) ?? null;
+      const result = await gateway.handle(message, typeof sessionId === 'string' ? sessionId : undefined, client);
       return respond(response, result.status, result.body, result.headers);
     } catch (error) {
       if (!response.headersSent) respond(response, error.status ?? 500, { error: error.status ? error.message : 'Internal error' });

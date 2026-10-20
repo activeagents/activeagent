@@ -2,6 +2,7 @@ import { mkdtemp, realpath, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import { ClientTokens } from './client-tokens.mjs';
 import { ControlLock } from './control-lock.mjs';
 import { FileChooserRelay } from './file-upload.mjs';
 import { startEgressProxy } from './egress-proxy.mjs';
@@ -192,6 +193,7 @@ export async function startSidecar(config, dependencies = {}) {
     snapshotDir: await realpath(outputDir),
     lock: live?.lock,
     agentWaitMs: config.live?.agentWaitMs,
+    onPersonRequested: live ? (request) => live.server.personRequested(request) : null,
     afterCall: (name, args) => {
       // Playwright MCP numbers tabs from 0 in the order they opened, as context.pages() lists them.
       if (live && name === 'browser_tabs' && args?.action === 'select' && Number.isInteger(args.index)) void live.screencast.followIndex(args.index);
@@ -199,12 +201,14 @@ export async function startSidecar(config, dependencies = {}) {
   });
   let hosts = new Set();
   const liveOrigins = new Set(config.live?.origins ?? []);
+  const clientTokens = new ClientTokens();
   const server = createHttpServer({
     rules: () => ({ token: config.token, hosts, liveOrigins }),
     gateway,
     version: VERSION,
     live: live?.server,
     storageState: () => exportStorageState(context, config.appOrigin),
+    clientTokens,
   });
 
   let closing = null;

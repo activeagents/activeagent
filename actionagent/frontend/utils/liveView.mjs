@@ -138,10 +138,12 @@ export function fileChooserWaitLabel(state) {
 export const initialLiveViewState = {
   ready: false,
   control: { held: false, mine: false, yours: false, by: null, since: null },
-  agent: { waiting: false, tool: null, since: null },
+  agent: { waiting: false, tool: null, since: null, client: null },
   page: null,
   frameSize: null,
   fileChooser: null,
+  // An agent's request for a person to take over: { reason, client, at }.
+  personRequest: null,
   error: null,
 };
 
@@ -156,9 +158,10 @@ export function liveViewReducer(state, message) {
         ...state,
         ready: true,
         control: { ...initialLiveViewState.control, ...message.control },
-        agent: message.agent || initialLiveViewState.agent,
+        agent: { ...initialLiveViewState.agent, ...message.agent },
         page: message.page || null,
         fileChooser: message.file_chooser || null,
+        personRequest: message.person_request || null,
       };
     case 'frame':
       if (state.frameSize?.width === message.width && state.frameSize?.height === message.height) return state;
@@ -169,7 +172,9 @@ export function liveViewReducer(state, message) {
         control: { held: message.held, mine: message.mine, yours: message.yours === true, by: message.by, since: message.since },
       };
     case 'agent':
-      return { ...state, agent: { waiting: message.waiting, tool: message.tool, since: message.since } };
+      return { ...state, agent: { waiting: message.waiting, tool: message.tool, since: message.since, client: message.client || null } };
+    case 'person_requested':
+      return { ...state, personRequest: message.request || null };
     case 'page':
       return { ...state, page: message.page || null };
     case 'file_chooser':
@@ -193,9 +198,32 @@ export function agentBanner(state) {
   if (!state.agent.waiting || !state.control.held) return null;
 
   const tool = state.agent.tool ? ` (${state.agent.tool})` : '';
-  if (state.control.mine) return `The agent is waiting for you to hand back control${tool}.`;
-  if (state.control.yours) return `The agent is waiting for you to hand back control in your other view${tool}.`;
-  return `The agent is waiting for ${state.control.by || 'the person driving'} to hand back control${tool}.`;
+  const who = state.agent.client || 'The agent';
+  if (state.control.mine) return `${who} is waiting for you to hand back control${tool}.`;
+  if (state.control.yours) return `${who} is waiting for you to hand back control in your other view${tool}.`;
+  return `${who} is waiting for ${state.control.by || 'the person driving'} to hand back control${tool}.`;
+}
+
+// Returns the banner to show while an agent asks for a person to take over
+// the browser, or null. It stands until someone takes control.
+export function personRequestBanner(state) {
+  const request = state.personRequest;
+  if (!request || state.control.held) return null;
+
+  return `${request.client || 'The agent'} needs a person: ${request.reason}`;
+}
+
+// What a viewer who held control reports when handing it back, for the next
+// message to the agent: who drove, when they took and handed back control,
+// and the page they left it on. `takenAt` and `releasedAt` are epoch ms.
+export function handoffReport({ by = null, takenAt, releasedAt, page = null }) {
+  const iso = (ms) => (Number.isFinite(ms) ? new Date(ms).toISOString() : null);
+  return {
+    by: by || null,
+    taken_at: iso(takenAt),
+    released_at: iso(releasedAt),
+    page_url: typeof page?.url === 'string' && /^https?:\/\//.test(page.url) ? page.url : null,
+  };
 }
 
 // Returns who holds control, as the view labels it, or null when nobody does.

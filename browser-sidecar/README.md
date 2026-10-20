@@ -68,10 +68,13 @@ other version.
 | `DELETE /mcp` | ends the session in `Mcp-Session-Id` |
 | `GET /live` | the live view's WebSocket, when `live` is configured |
 | `GET /storage-state` | `{ "storage_state": { "cookies": […], "origins": […] } }`: the browser's cookies and localStorage for the app, so a sign-in made in it can be kept |
+| `POST /tokens` | `{ "label": "…" }` in, `{ "id", "token", "label", "expires_at" }` out: a client token for `/mcp` |
+| `DELETE /tokens/:id` | revokes one |
 
 Every request, a WebSocket upgrade other than the live view's included, must:
 
-- carry `Authorization: Bearer <token>`;
+- carry `Authorization: Bearer <token>`, or, for `/mcp` only, a live client
+  token;
 - name an accepted `Host`: the listening address and port, the loopback names
   when listening on loopback or on every interface, and `allowed_hosts`;
 - carry no `Origin` header. A page in a browser always sends one, so a page
@@ -79,6 +82,27 @@ Every request, a WebSocket upgrade other than the live view's included, must:
   DNS rebinding.
 
 No CORS header is ever sent.
+
+### Client tokens
+
+A client that runs other people's code, such as Claude Code, whose shell
+commands inherit its environment, should never hold the master token. The
+dashboard mints it a client token for one turn (`POST /tokens`, with the
+master token) and revokes it when the turn ends. A client token reaches
+`/mcp` only, expires after six hours unless revoked first, and at most 32 are
+live at once. Its `label` names the client wherever the live view shows it,
+such as "Claude Code · turn 3 is waiting for control".
+
+### Handoffs between an agent and a person
+
+- When people took or handed back control since an MCP session's last tool
+  call, its next result starts with a note saying who and when, and that the
+  page may have changed, so the agent takes a snapshot before acting.
+- With the live view on, the `browser_request_person` tool is offered: an
+  agent asks the person watching to take over, with a reason. The sidecar
+  answers it at once, and every viewer is sent
+  `{ "type": "person_requested", "request": { reason, client, at } }`, also
+  in `ready`, until someone takes control.
 
 ## The live view
 
@@ -172,9 +196,12 @@ names and contents are never logged or recorded; an upload is recorded as a
 The sidecar listens for choosers only while someone holds control, as
 Playwright intercepts them while anything listens: the rest of the time a
 headed browser's own dialog opens, and an agent's chooser is left to
-Playwright MCP's `browser_file_upload`. When the person answers or cancels a
-chooser, the modal state Playwright MCP keeps for it is cleared too, so the
-agent's next call is not refused for it.
+Playwright MCP's `browser_file_upload`. When someone takes control while an
+agent's chooser waits there, it is offered to them. When the person answers a
+chooser, or cancels one that opened while they drove, the modal state
+Playwright MCP keeps for it is cleared too, so the agent's next call is not
+refused for it. An agent's chooser the person leaves unanswered stays the
+agent's.
 
 ## The command
 

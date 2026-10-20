@@ -182,7 +182,7 @@ export function parseProjectPath(path = '') {
 
 // The tabs of a project's page. ?tab= opens one directly, so a link (from
 // Settings -> Integrations, say) can land on the project's browser.
-export const PROJECT_TABS = ['overview', 'explorations', 'environment', 'browser'];
+export const PROJECT_TABS = ['overview', 'explorations', 'environment', 'browser', 'sessions'];
 
 // The tab a project's page opens on for the query string `search`.
 export function projectTabFromSearch(search = '') {
