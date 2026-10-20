@@ -59,11 +59,14 @@ function parse(data, isBinary) {
  *   { type: "file_cancel", chooser }                            refused unless this connection holds control
  *
  * Sidecar to viewer:
- *   { type: "ready", control, agent, page, file_chooser }   once the ticket is accepted
+ *   { type: "ready", control, agent, page, file_chooser, person_request }   once the ticket is accepted
  *   { type: "frame", data, width, height }                  a JPEG as base64, and the page's size in CSS pixels
  *   { type: "control", held, mine, yours, by, since }       who holds control, by name; mine when this
  *                                                           connection does, yours when its user does on any
- *   { type: "agent", waiting, tool, since }                 an agent's call is waiting for control to be handed back
+ *   { type: "agent", waiting, tool, since, client }         an agent's call is waiting for control to be handed back;
+ *                                                           client names the agent ("Claude Code · turn 3"), or null
+ *   { type: "person_requested", request }                   an agent asked for a person to take over:
+ *                                                           { reason, client, at }, or null once someone does
  *   { type: "page", page: { url, tab, tabs } }              the page on screen changed
  *   { type: "file_chooser", chooser }                       the page asked the person driving for files:
  *                                                           { id, multiple, accept, since, max_files,
@@ -102,6 +105,7 @@ export class LiveServer {
     this.viewers = new Map();
     this.catchUp = null;
     this.closed = false;
+    this.personRequest = null;
 
     lock.on('change', (holder, previous, reason) => this.controlChanged(holder, previous, reason));
     lock.on('agent_waiting', () => this.broadcast({ type: 'agent', ...this.agentState() }));
@@ -169,7 +173,7 @@ export class LiveServer {
 
     this.send(viewer, {
       type: 'ready', control: this.controlState(viewer), agent: this.agentState(), page: this.screencast.pageInfo,
-      file_chooser: this.uploads?.state ?? null,
+      file_chooser: this.uploads?.state ?? null, person_request: this.personRequest,
     });
     if (this.screencast.lastFrame) this.sendFrame(viewer, JSON.stringify(frameMessage(this.screencast.lastFrame)));
     void this.screencast.start();
@@ -257,12 +261,31 @@ export class LiveServer {
 
   agentState() {
     const waiting = this.lock.agentWaiting;
-    return waiting ? { waiting: true, tool: waiting.tool, since: waiting.since } : { waiting: false, tool: null, since: null };
+    return waiting
+      ? { waiting: true, tool: waiting.tool, since: waiting.since, client: waiting.client ?? null }
+      : { waiting: false, tool: null, since: null, client: null };
+  }
+
+  /**
+   * Tells everyone watching that an agent asked for a person to take over
+   * (McpGateway's REQUEST_PERSON_TOOL). The request stands until someone
+   * takes control.
+   *
+   * @param {{ reason: string, client: string|null }} request
+   */
+  personRequested({ reason, client }) {
+    this.personRequest = { reason, client, at: Date.now() };
+    this.broadcast({ type: 'person_requested', request: this.personRequest });
+    this.onMarker({ label: 'person_requested', source: 'agent', client, reason });
   }
 
   // Control moving between connections of one user is no takeover of its own.
   controlChanged(holder, previous, reason) {
     for (const viewer of this.viewers.values()) this.send(viewer, { type: 'control', ...this.controlState(viewer) });
+    if (holder && this.personRequest) {
+      this.personRequest = null;
+      this.broadcast({ type: 'person_requested', request: null });
+    }
 
     if (holder && !previous) this.onMarker({ label: 'takeover_started', source: 'human', user: holder.user });
     else if (!holder && previous) this.onMarker({ label: 'takeover_ended', source: 'human', user: previous.user, reason });

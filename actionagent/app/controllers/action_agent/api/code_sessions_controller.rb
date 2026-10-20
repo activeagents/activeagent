@@ -4,7 +4,8 @@ module ActionAgent
   module Api
     # Headless Claude Code sessions inside one of the caller's checkout
     # sandboxes (Settings -> Integrations): start one with a prompt, poll its
-    # transcript, cancel it.
+    # transcript, cancel it, and carry its conversation on with more
+    # messages (#messages, CodeConversation).
     #
     # A session runs on the owner's Anthropic API key (or, with
     # ActionAgent.claude_code_auth = :local_login, this machine's own Claude
@@ -18,9 +19,9 @@ module ActionAgent
       VERIFICATION_HOLD = 1.hour
 
       before_action :require_owner!
-      before_action :require_execution_enabled!, only: [ :create ]
+      before_action :require_execution_enabled!, only: [ :create, :messages ]
       before_action :set_sandbox
-      before_action :set_code_session, only: [ :show, :cancel ]
+      before_action :set_code_session, only: [ :show, :cancel, :messages ]
 
       # A model name as Claude Code's --model takes it ("sonnet",
       # "claude-sonnet-4-5", "claude-sonnet-4-5[1m]"). It becomes an argument
@@ -48,9 +49,12 @@ module ActionAgent
 
         code_session = CodeSession.new(
           sandbox_session: @sandbox,
-          prompt: string_param(:prompt),
+          prompt: CodeSession.strip_note_tags(string_param(:prompt)).presence,
           model: string_param(:model).presence,
           runner: runner,
+          # A conversation started to chat (the project's Sessions tab, or
+          # Interactions) rather than from Settings.
+          origin: params[:origin] == "chat" ? "chat" : "settings",
           # Subscription use always belongs to the person who clicked Run.
           user_id: current_user.respond_to?(:id) ? current_user.id : @sandbox.try(:user_id),
           account_id: @sandbox.try(:account_id)
@@ -108,6 +112,43 @@ module ActionAgent
         stop(@code_session) if was_running
 
         render json: { code_session: @code_session.summary }
+      end
+
+      # POST /api/sandboxes/:sandbox_id/code_sessions/:id/messages
+      #   { prompt, model?, handoff?: { by, taken_at, released_at, page_url } }
+      # Adds a turn to the conversation +:id+ belongs to. 201 when it starts
+      # now, 202 when it waits behind the turn that runs.
+      def messages
+        root = @code_session.root
+        return unless authorize_action!(:chat_code_session, root)
+
+        if (refusal = refusal_for(@sandbox, runner: root.runner))
+          return render json: { error: refusal }, status: :unprocessable_entity
+        end
+        if root.credential_mode == "sandbox_login" && @sandbox.claude_login_user_id != current_user&.id
+          return render json: { error: "Only the person signed in to Claude Code in this sandbox can continue its conversations" },
+            status: :forbidden
+        end
+        prompt = CodeSession.strip_note_tags(string_param(:prompt)).strip
+        return render json: { error: "Write a message" }, status: :unprocessable_entity if prompt.empty?
+        model = string_param(:model).presence
+        return render json: { error: "model is not a Claude Code model name" }, status: :unprocessable_entity if model && !model.match?(MODEL_NAME)
+
+        enforce_execution_quota!
+        return if performed?
+
+        handoff = params[:handoff].respond_to?(:permit) ? params[:handoff].permit(:by, :taken_at, :released_at, :page_url).to_h : nil
+        mode = root.runner == "claude_code" ? ClaudeCodeAuth.credential_mode(@sandbox, user_id: current_user&.id) : nil
+        turn = CodeConversation.post!(root, prompt: prompt, user_id: current_user.respond_to?(:id) ? current_user.id : nil,
+          credential_mode: mode, handoff: handoff, model: model)
+        record_execution_usage
+
+        behind = root.reload.turns.any? { |other| other.id != turn.id && (other.running? || other.queued?) && other.id < turn.id }
+        render json: { code_session: turn.reload.summary, waiting: behind }, status: behind ? :accepted : :created
+      rescue CodeConversation::Refused => e
+        render json: { error: e.message }, status: :conflict
+      rescue ActiveRecord::RecordInvalid => e
+        render json: { error: e.record.errors.full_messages.to_sentence }, status: :unprocessable_entity
       end
 
       private
@@ -185,7 +226,7 @@ module ActionAgent
           raise EvaluationFix::Invalid, "The previous session must implement this same fix"
         end
         session.assign_attributes(evaluation_run: run, fix_item: fix.item, previous_code_session: previous,
-          prompt: fix.prompt(previous: previous))
+          prompt: fix.prompt(previous: previous), origin: "evaluation_fix")
       end
 
       rescue_from EvaluationFix::Invalid do |error|

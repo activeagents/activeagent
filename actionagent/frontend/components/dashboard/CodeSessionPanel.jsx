@@ -3,6 +3,8 @@ import { useTheme } from '../../contexts/ThemeContext';
 import SandboxClaudeLogin from './SandboxClaudeLogin';
 import FixVerification from './evaluations/FixVerification';
 import { timeAgo } from '../../utils/format';
+import { dashboardPath, navigateTo } from '../../utils/dashboardPath';
+import { conversationPath } from '../../utils/codeConversations.mjs';
 import {
   CODE_SESSION_POLL_INTERVAL_MS,
   MODEL_CHOICE_STORAGE_KEY,
@@ -451,11 +453,21 @@ function SessionDetail({ session, rows, loaded, detailError, cancelling, onCance
             {[sessionCounts(session), sessionModelLabel(session)].filter(Boolean).join(' · ')}
           </span>
         </div>
-        {active && (
-          <button type="button" onClick={onCancel} disabled={cancelling} className={`${secondaryButton} shrink-0 disabled:opacity-50`}>
-            {cancelling ? 'Cancelling…' : 'Cancel'}
-          </button>
-        )}
+        <div className="flex items-center gap-2 shrink-0">
+          <a
+            href={dashboardPath(conversationPath(session.conversation_id || session.id))}
+            onClick={(event) => { event.preventDefault(); navigateTo(conversationPath(session.conversation_id || session.id)); }}
+            className={linkButton}
+            data-testid="code-session-open-interaction"
+          >
+            Open in Interactions
+          </a>
+          {active && (
+            <button type="button" onClick={onCancel} disabled={cancelling} className={`${secondaryButton} shrink-0 disabled:opacity-50`}>
+              {cancelling ? 'Cancelling…' : 'Cancel'}
+            </button>
+          )}
+        </div>
       </div>
 
       <p className={`text-xs whitespace-pre-wrap break-words max-h-24 overflow-y-auto ${muted}`}>{session.prompt}</p>
@@ -506,7 +518,7 @@ function SessionDetail({ session, rows, loaded, detailError, cancelling, onCance
   );
 }
 
-function TranscriptRow({ row, darkMode, muted, strong }) {
+export function TranscriptRow({ row, darkMode, muted, strong }) {
   const nested = row.nested ? `ml-4 pl-2 border-l ${darkMode ? 'border-gray-700' : 'border-gray-200'}` : '';
 
   switch (row.kind) {
@@ -564,7 +576,7 @@ const DIFF_LINE_CLASSES = {
   context: { dark: 'text-gray-300', light: 'text-gray-700' },
 };
 
-function DiffView({ diff, pending, onReload, muted, linkButton, darkMode }) {
+export function DiffView({ diff, pending, onReload, muted, linkButton, darkMode }) {
   const lines = useMemo(() => diffLines(diff), [diff]);
 
   if (diff == null) {

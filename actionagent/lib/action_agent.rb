@@ -134,6 +134,9 @@ module ActionAgent
   #                           they are handed to, or delete a project that has
   #                           them
   #   :take_over_browser      drive a run's browser by hand
+  #   :chat_code_session      send a message to a Claude Code or Codex
+  #                           conversation someone may have started (the
+  #                           subject is its first session)
   #   :manage_recordings      delete a session recording
   #   :replace_scenarios      replace or merge an evaluation's scenarios
   PERMISSION_ACTIONS = %i[
@@ -144,6 +147,7 @@ module ActionAgent
     answer_input_request
     manage_project_secrets
     take_over_browser
+    chat_code_session
     manage_recordings
     replace_scenarios
   ].freeze

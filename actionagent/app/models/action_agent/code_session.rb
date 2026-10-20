@@ -6,6 +6,12 @@ module ActionAgent
   # outcome Claude Code reported, and the diff the session left in the
   # working tree.
   #
+  # A session is one turn of a conversation (CodeConversation). The first
+  # turn is the conversation's root; each later one names it
+  # (conversation_root_id), runs after the one before it, and resumes the same
+  # CLI session (resume_session_id), so Claude Code or Codex remembers what
+  # came before. Every existing session is a conversation of one turn.
+  #
   # The transcript is scrubbed of the sandbox's secrets (its GitHub token and
   # Claude Code credential) before it is stored, and bounded: long strings
   # are truncated and events past MAX_EVENTS are counted rather than kept.
@@ -17,6 +23,9 @@ module ActionAgent
     belongs_to :evaluation_run, optional: true
     belongs_to :verification_run, class_name: "EvaluationRun", optional: true
     belongs_to :previous_code_session, class_name: "CodeSession", optional: true
+    belongs_to :conversation_root, class_name: "CodeSession", optional: true
+    has_many :follow_up_turns, -> { order(:turn_index, :id) }, class_name: "CodeSession",
+      foreign_key: :conversation_root_id, inverse_of: :conversation_root
 
     enum :status, { queued: 0, running: 1, succeeded: 2, failed: 3, cancelled: 4 }
 
@@ -26,11 +35,32 @@ module ActionAgent
     MAX_EVENT_STRING = 4_000
     MAX_DIFF_BYTES = 500_000
     RUNNERS = %w[claude_code codex].freeze
+    # Where a conversation was started. Older sessions recorded none; see
+    # #origin.
+    ORIGINS = %w[settings boot_fix evaluation_fix chat].freeze
+    # A Claude Code session id, as --session-id and --resume take it.
+    SESSION_UUID = /\A\h{8}-\h{4}-\h{4}-\h{4}-\h{12}\z/
+    # A note from the dashboard is fenced in this tag ahead of the person's
+    # message, and the tag is taken out of anything the person typed.
+    NOTE_TAG = "dashboard-note"
 
     validates :prompt, presence: true, length: { maximum: MAX_PROMPT_CHARACTERS }
     validates :runner, inclusion: { in: RUNNERS }
 
+    validates :origin, inclusion: { in: ORIGINS }, allow_nil: true
+    # A Codex conversation resumes the thread id its first turn reported.
+    validates :resume_session_id, format: { with: SESSION_UUID }, allow_nil: true, if: -> { runner == "claude_code" }
+
+    # A conversation's first Claude Code turn names the CLI session it
+    # starts (--session-id), so every later turn can resume it even when the
+    # first ended before reporting its own id.
+    before_validation(on: :create) do
+      self.resume_session_id ||= SecureRandom.uuid if root? && runner == "claude_code"
+    end
+
     scope :recent, -> { order(created_at: :desc) }
+    # The first turn of every conversation.
+    scope :conversation_roots, -> { where(conversation_root_id: nil) }
 
     # JSON columns carry no default on MySQL or SQLite (see the migration).
     def events
@@ -39,6 +69,51 @@ module ActionAgent
 
     def finished?
       succeeded? || failed? || cancelled?
+    end
+
+    def root?
+      conversation_root_id.nil?
+    end
+
+    # The conversation's first turn: this one, or the one it names.
+    def root
+      root? ? self : conversation_root
+    end
+
+    # Every turn of this session's conversation, in order.
+    #
+    # @return [Array<CodeSession>]
+    def turns
+      # Read afresh: turns are added under the sandbox's lock while this
+      # session may hold an older list.
+      [ root, *CodeSession.where(conversation_root_id: root.id).order(:turn_index, :id).to_a ]
+    end
+
+    # Where the conversation was started. Sessions from before origins were
+    # recorded are told apart by what they ran for: an evaluation fix names
+    # its run, and a boot fix is one its project recorded
+    # (ProjectBootFix.project_for).
+    def origin
+      recorded = super.presence
+      return recorded if recorded
+      return "evaluation_fix" if evaluation_run_id
+      return "boot_fix" if persisted? && root? && ProjectBootFix.project_for(self)
+
+      "settings"
+    end
+
+    # What the CLI is given on stdin: the dashboard's note, fenced, ahead of
+    # the person's message. The prompt itself stays what they typed.
+    def stdin_text
+      return prompt if context_note.blank?
+
+      "<#{NOTE_TAG}>\n#{context_note}\n</#{NOTE_TAG}>\n\n#{prompt}"
+    end
+
+    # +text+ without the dashboard's note tags, so a person cannot make their
+    # own words read as the dashboard's.
+    def self.strip_note_tags(text)
+      text.to_s.gsub(%r{</?\s*#{NOTE_TAG}[^>]*>}i, "")
     end
 
     # Whether an outcome and a diff may still be recorded for this session.
@@ -111,6 +186,10 @@ module ActionAgent
         evaluation_run_id: evaluation_run_id,
         evaluation_id: evaluation_run&.evaluation_id,
         fix_item: fix_item,
+        conversation_id: root? ? id : conversation_root_id,
+        turn_index: turn_index,
+        origin: origin,
+        context_note: context_note,
         verification_run_id: verification_run_id,
         verification_error: verification_error,
         result: result,
@@ -121,6 +200,7 @@ module ActionAgent
         input_tokens: input_tokens,
         output_tokens: output_tokens,
         event_count: events.size + dropped_events_count.to_i,
+        diff_stat: finished? ? DiffStat.call(diff) : nil,
         # What a client polls until: false once nothing about the session
         # changes any more.
         diff_pending: diff_pending?,

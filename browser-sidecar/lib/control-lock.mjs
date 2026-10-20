@@ -45,6 +45,9 @@ export function sameUser(a, b) {
   return a.id !== null && a.id === b.id;
 }
 
+// How many control changes the journal keeps.
+export const JOURNAL_LIMIT = 50;
+
 /**
  * Used to let one person at a time drive the browser by hand. While someone
  * holds control, an agent's call that changes the page waits for them to
@@ -54,11 +57,15 @@ export function sameUser(a, b) {
  * `{ key, user: { id, name }, since }`. A user with an id may move control
  * between their own connections: a second tab, or a reconnect.
  *
+ * Every change of holder is also kept in a short journal (#journal,
+ * #changesSince), so an agent can be told that a person drove the browser
+ * since its last call: the page may not be what it last saw.
+ *
  * Events:
  *   change         (holder, previous, reason) whenever the holder changes;
  *                  reason is "taken", "moved", "handed_back", "disconnected"
  *                  or "closed"
- *   agent_waiting  ({ tool, since }) an agent's call began to wait
+ *   agent_waiting  ({ tool, since, client }) an agent's call began to wait
  *   agent_done     ({ tool, admitted }) it stopped waiting, run or refused
  */
 export class ControlLock extends EventEmitter {
@@ -75,6 +82,29 @@ export class ControlLock extends EventEmitter {
     this.graceTimer = null;
     this.waiting = new Set();
     this.closed = false;
+    this.journal = [];
+    this.journalSeq = 0;
+    this.on('change', (holder, previous, reason) => this.record(holder, previous, reason));
+  }
+
+  // Notes a change of holder in the journal. Control moving between one
+  // user's connections changes nothing an agent would need to hear of.
+  record(holder, previous, reason) {
+    if (holder && previous) return;
+    const user = (holder ?? previous)?.user ?? { id: null, name: null };
+    this.journalSeq += 1;
+    this.journal.push({ seq: this.journalSeq, at: this.now(), type: holder ? 'taken' : 'released', reason, user: user.name ?? null });
+    if (this.journal.length > JOURNAL_LIMIT) this.journal.splice(0, this.journal.length - JOURNAL_LIMIT);
+  }
+
+  /**
+   * The control changes after `seq`, oldest first.
+   *
+   * @param {number} seq
+   * @returns {Array<{ seq: number, at: number, type: 'taken'|'released', reason: string, user: string|null }>}
+   */
+  changesSince(seq) {
+    return this.journal.filter((entry) => entry.seq > seq);
   }
 
   /**
@@ -137,13 +167,14 @@ export class ControlLock extends EventEmitter {
    * @param {string} name the tool
    * @param {object} args its arguments
    * @param {number} waitMs
+   * @param {string|null} [client] who is calling, as the live view names them ("Claude Code · turn 3")
    * @returns {Promise<{ holder: object }|{ stopping: true }|null>} null to run the call; otherwise why it
    *   is refused: the holder who kept control past `waitMs`, or `stopping` when the lock closed meanwhile
    */
-  async admit(name, args, waitMs) {
+  async admit(name, args, waitMs, client = null) {
     if (!this.holder || !changesPage(name, args)) return null;
 
-    const wait = { tool: name, since: this.now() };
+    const wait = { tool: name, since: this.now(), client };
     const deadline = wait.since + waitMs;
     this.waiting.add(wait);
     this.emit('agent_waiting', wait);

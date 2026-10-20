@@ -69,6 +69,26 @@ export function clearAgentFileChooser(page, chooser) {
   }
 }
 
+/**
+ * The file choosers Playwright MCP holds open on `page` for an agent, as
+ * modal states of its tab (see clearAgentFileChooser): a page that asked an
+ * agent for files while nobody held control.
+ *
+ * @param {import('playwright').Page} page
+ * @returns {import('playwright').FileChooser[]}
+ */
+export function agentFileChoosers(page) {
+  const choosers = [];
+  for (const symbol of Object.getOwnPropertySymbols(page)) {
+    const tab = page[symbol];
+    if (typeof tab?.modalStates !== 'function') continue;
+    for (const state of tab.modalStates()) {
+      if (state?.type === 'fileChooser' && state.fileChooser) choosers.push(state.fileChooser);
+    }
+  }
+  return choosers;
+}
+
 function decodeChunk(data) {
   if (typeof data !== 'string' || data === '' || data.length > MAX_CHUNK_CHARS || data.length % 4 !== 0 || !BASE64.test(data)) {
     throw new UploadError('bad_upload', 'A file chunk must be base64, at most 32 KiB before encoding');
@@ -87,6 +107,10 @@ function decodeChunk(data) {
  * their own, readable only by this process, and set on the input. They stay
  * there until the browser stops, as the page's File objects read them from
  * disk, and count against maxSessionBytes until then.
+ *
+ * A chooser an agent opened while nobody held control, and left waiting on
+ * Playwright MCP's browser_file_upload, is offered too once someone takes
+ * control (#adoptAgentChooser); answering it clears the agent's wait.
  *
  * It listens for choosers only while someone holds control: Playwright
  * intercepts a page's choosers while anything listens, so the rest of the
@@ -131,6 +155,9 @@ export class FileChooserRelay extends EventEmitter {
 
     lock.on('change', (holder, previous) => {
       this.listen(Boolean(holder));
+      // A chooser an agent left open, waiting on browser_file_upload, is the
+      // person's to answer once they take over.
+      if (holder && !previous) void this.enqueue(() => this.adoptAgentChooser());
       if (!holder) void this.enqueue(() => this.discard('control was handed back'));
       else if (previous && this.upload?.key === previous.key) void this.enqueue(() => this.abortUpload());
     });
@@ -165,8 +192,14 @@ export class FileChooserRelay extends EventEmitter {
     return { id, multiple, accept, since, max_files: multiple ? this.limits.maxFiles : 1, max_file_bytes: this.limits.maxFileBytes };
   }
 
-  async offer(chooser) {
+  async offer(chooser, { adopted = false } = {}) {
     if (this.closed || !this.lock.holder) return;
+    // Adopted from the agent's modal state, then seen opening too: it is the
+    // person's own.
+    if (this.pending?.chooser === chooser) {
+      if (!adopted) this.pending.adopted = false;
+      return;
+    }
     if (!this.enabled) {
       this.emit('unavailable', { reason: 'File uploads are turned off for this browser' });
       return;
@@ -174,9 +207,18 @@ export class FileChooserRelay extends EventEmitter {
 
     await this.discard(null);
     const accept = await chooser.element().getAttribute('accept').catch(() => null);
-    this.pending = { id: randomUUID(), chooser, multiple: chooser.isMultiple(), accept: accept || null, since: this.now(), timer: null };
+    this.pending = { id: randomUUID(), chooser, multiple: chooser.isMultiple(), accept: accept || null, since: this.now(), timer: null, adopted };
     this.restartTimer();
     this.emit('change', this.state);
+  }
+
+  // Offers the first file chooser an agent holds open, when none is on offer.
+  async adoptAgentChooser() {
+    if (this.closed || this.pending || !this.lock.holder || !this.enabled) return;
+    for (const page of this.context.pages()) {
+      const [chooser] = agentFileChoosers(page);
+      if (chooser) return this.offer(chooser, { adopted: true });
+    }
   }
 
   restartTimer() {
@@ -317,7 +359,7 @@ export class FileChooserRelay extends EventEmitter {
     const user = this.lock.holder?.user ?? null;
     this.log(`live view: ${upload.files.length} file(s), ${upload.total} bytes, set on a file input`);
     this.emit('uploaded', { id: upload.id, user, files: upload.files.length, bytes: upload.total });
-    await this.discard(null);
+    await this.discard(null, { answered: true });
     return true;
   }
 
@@ -335,15 +377,16 @@ export class FileChooserRelay extends EventEmitter {
     this.storedBytes -= upload.total;
   }
 
-  // Withdraws the chooser on offer, and the upload under way for it.
-  async discard(reason) {
+  // Withdraws the chooser on offer, and the upload under way for it. One
+  // adopted from an agent stays the agent's to answer unless the person did.
+  async discard(reason, { answered = false } = {}) {
     const pending = this.pending;
     if (!pending) return;
     clearTimeout(pending.timer);
     await this.abortUpload();
     this.pending = null;
     try {
-      clearAgentFileChooser(pending.chooser.page(), pending.chooser);
+      if (answered || !pending.adopted) clearAgentFileChooser(pending.chooser.page(), pending.chooser);
     } catch {
       // The page closed.
     }

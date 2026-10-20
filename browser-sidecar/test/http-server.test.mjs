@@ -161,3 +161,52 @@ test('without a live view, its path is no upgrade either', async (t) => {
   assert.equal(await live({ Origin: 'http://localhost:3000' }), 'HTTP/1.1 403 Forbidden');
   assert.equal(await live({ Authorization: `Bearer ${TOKEN}` }), 'HTTP/1.1 404 Not Found');
 });
+
+async function startWithClients() {
+  const { ClientTokens } = await import('../lib/client-tokens.mjs');
+  const clientTokens = new ClientTokens();
+  const calls = [];
+  const gateway = {
+    async handle(message, sessionId, client) {
+      calls.push({ message, sessionId, client });
+      return { status: 200, body: { jsonrpc: '2.0', id: message.id, result: {} } };
+    },
+    async closeSession() {
+      return false;
+    },
+  };
+  let hosts = new Set();
+  const server = createHttpServer({ rules: () => ({ token: TOKEN, hosts }), gateway, version: '9.9.9', clientTokens });
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const { port } = server.address();
+  hosts = acceptedHosts('127.0.0.1', port);
+  return { server, port, calls, clientTokens };
+}
+
+test('the master token mints and revokes client tokens, which reach /mcp only, tagged with their label', async (t) => {
+  const { server, port, calls } = await startWithClients();
+  t.after(() => server.close());
+  const master = { authorization: `Bearer ${TOKEN}`, 'content-type': 'application/json' };
+
+  const minted = await send(port, { method: 'POST', path: '/tokens', headers: master, body: JSON.stringify({ label: 'Claude Code · turn 1' }) });
+  assert.equal(minted.status, 201);
+  assert.equal(minted.body.label, 'Claude Code · turn 1');
+  const client = { authorization: `Bearer ${minted.body.token}`, 'content-type': 'application/json' };
+
+  const rpc = JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' });
+  assert.equal((await send(port, { method: 'POST', path: '/mcp', headers: client, body: rpc })).status, 200);
+  assert.deepEqual(calls.at(-1).client, { id: minted.body.id, label: 'Claude Code · turn 1' });
+  assert.equal((await send(port, { method: 'POST', path: '/mcp', headers: master, body: rpc })).status, 200);
+  assert.equal(calls.at(-1).client, null, 'the master token carries no client label');
+
+  for (const path of ['/health', '/storage-state']) {
+    assert.equal((await send(port, { path, headers: client })).status, 401, `${path} takes the master token only`);
+  }
+  assert.equal((await send(port, { method: 'POST', path: '/tokens', headers: client, body: '{}' })).status, 401,
+    'a client token cannot mint more');
+  assert.equal((await send(port, { method: 'DELETE', path: `/tokens/${minted.body.id}`, headers: client })).status, 401);
+
+  assert.equal((await send(port, { method: 'DELETE', path: `/tokens/${minted.body.id}`, headers: master })).status, 200);
+  assert.equal((await send(port, { method: 'POST', path: '/mcp', headers: client, body: rpc })).status, 401, 'a revoked token is refused');
+  assert.equal((await send(port, { method: 'DELETE', path: `/tokens/${minted.body.id}`, headers: master })).status, 404);
+});
