@@ -195,6 +195,50 @@ class DelegationTest < ActiveSupport::TestCase
     assert_equal [ :subject ], ActiveAgent::Delegation::Schema.build(model).required_keys
   end
 
+  class TicketForm
+    include ActiveModel::Model
+    include ActiveModel::Attributes
+    include ActiveAgent::SchemaGenerator
+
+    attribute :subject, :string
+    attribute :priority, :integer
+
+    validates :subject, presence: true
+  end
+
+  test "a schema can be built from a class using SchemaGenerator" do
+    sub = Class.new(ApplicationAgent) do
+      generate_with :mock, model: "mock-model"
+
+      delegation :create, description: "Draft a support ticket", schema: TicketForm
+
+      def create(subject:, priority: nil) = prompt(message: subject)
+    end
+    parent = Class.new(ApplicationAgent) { delegate_to sub }
+
+    tool = parent.delegated_tools.find { |candidate| candidate[:name] == "create" }
+
+    assert_equal %i[subject priority], tool[:parameters][:properties].keys
+    assert_equal({ type: "string" }, tool[:parameters][:properties][:subject])
+    assert_equal [ "subject" ], tool[:parameters][:required]
+  end
+
+  test "a schema keeps the definitions its references point to" do
+    post = { type: "object", properties: { title: { type: "string" } }, required: [ "title" ] }
+    json = ActiveAgent::Delegation::Schema.build(
+      name: "author",
+      schema: {
+        type: "object",
+        properties: { posts: { type: "array", items: { "$ref": "#/$defs/post" } } },
+        "$defs": { post: post }
+      }
+    ).to_json_schema
+
+    assert_equal "#/$defs/post", json[:properties][:posts][:items][:"$ref"]
+    assert_equal({ post: post }, json[:"$defs"])
+    assert_not ActiveAgent::Delegation::Schema.build(TicketForm).to_json_schema.key?(:"$defs")
+  end
+
   test "a contract without a description is refused" do
     error = assert_raises(ArgumentError) do
       Class.new(ApplicationAgent) { delegation :summarize, description: "" }
