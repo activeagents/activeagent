@@ -8,6 +8,7 @@ import {
 } from '../../utils/evaluationRuns.mjs';
 import ModelScorecard from './evaluations/ModelScorecard';
 import ModelComparisonTable from './evaluations/ModelComparisonTable';
+import JudgeChip from './evaluations/JudgeChip';
 import CopyFixPromptButton, { dashboardUrl } from './evaluations/CopyFixPromptButton';
 import ImplementFixButton from './evaluations/ImplementFixButton';
 import ReplayLink from './replay/ReplayLink';
@@ -371,14 +372,14 @@ function CallLine({ calls, empty, style }) {
 // latency, tokens and what the replays cost under it — then the judge's
 // verdict when the run compared cohorts. A model's card carries the agent's
 // spend only; the judge's is the run's (see RunsList and CriteriaFooter).
-export function ModelsPanel({ run, columns, results = [], scenarioCount = 0, judgedBy, verdict }) {
+export function ModelsPanel({ run, columns, results = [], scenarioCount = 0, judgedBy, verdict, evaluation = null, onJudgeChanged }) {
   const summaries = run?.scores?._models || {};
   const judgeEstimated = runSpend(run)?.judge?.estimated ?? true;
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }} data-testid="suite-models-panel">
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
         <MicroLabel>Models</MicroLabel>
-        {judgedBy && <span style={mono(11)}>{`judged by ${judgedBy}`}</span>}
+        <JudgeChip evaluation={evaluation} run={run} label={judgedBy} onChanged={onJudgeChanged} testId="suite-judge" />
       </div>
       {columns.length === 0 && (
         <Empty style={{ border: '1px solid var(--color-border-light)', borderRadius: 10 }}>[ ] no models scored yet</Empty>

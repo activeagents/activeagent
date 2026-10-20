@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Evaluation runs record their judge in `scores["_judge"]`: the
+  `EvaluationJudgeAgent` it runs as, its provider, the model it asked for and
+  where that setting came from (the evaluation, the provider key, the host's
+  config, or the provider's default), and the models that answered, with call
+  counts. The suite's Models panel shows "judged by <model>" with an `auto`
+  badge when no model is pinned, and opens the judge's configuration, with a
+  field that pins `judge_model` on the evaluation through
+  `PATCH /api/evaluations/:id`.
+
+### Fixed
+
+- A judge with no `judge_model` was labelled with its provider ("judged by
+  openrouter") rather than a model. It is now labelled with the model that
+  answered. OpenRouter's default, `openrouter/auto`, routes each call, so a
+  run judged by more than one model is labelled "<provider> default".
+
 ## [1.9.1] - 2026-10-16
 
 Releases `activeagent` and `actionagent` 1.9.1, with the matching browser

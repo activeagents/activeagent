@@ -496,7 +496,7 @@ export default function ScenarioSuitePanel({
       {run && run.status !== 'failed' && <SpendStrip spend={runSpend(run)} judgedBy={judgedBy} testId="suite-run-spend" />}
 
       {/* Models */}
-      <ModelsPanel run={run} columns={run ? columns : []} results={results} scenarioCount={scenarioCount} judgedBy={judgedBy} verdict={verdict} />
+      <ModelsPanel run={run} columns={run ? columns : []} results={results} scenarioCount={scenarioCount} judgedBy={judgedBy} verdict={verdict} evaluation={evaluation} onJudgeChanged={onChanged} />
 
       {/* Scenarios */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
