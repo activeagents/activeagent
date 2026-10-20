@@ -56,15 +56,18 @@ module ActiveAgent
           schema
         end
 
-        # @param hash [Hash] JSON Schema object
+        # @param hash [Hash] JSON Schema object, or the +{ name:, schema:, strict: }+
+        #   wrapper {ActiveAgent::SchemaGenerator} returns around one
         # @return [Schema]
         def from_hash(hash)
           hash = hash.deep_symbolize_keys
+          hash = hash[:schema] if !hash.key?(:properties) && hash[:schema].is_a?(Hash)
 
           new.tap do |schema|
             (hash[:properties] || {}).each { |name, definition| schema.property(name, definition) }
             schema.required(*Array(hash[:required]))
             schema.additional_properties(hash.fetch(:additionalProperties, hash.fetch(:additional_properties, false)))
+            schema.definitions(hash[:$defs]) if hash[:$defs]
           end
         end
       end
@@ -73,6 +76,7 @@ module ActiveAgent
         @properties           = {}
         @required             = []
         @additional_properties = false
+        @definitions           = {}
       end
 
       # @return [Boolean] true when nothing has been declared
@@ -158,6 +162,16 @@ module ActiveAgent
         @additional_properties = value
       end
 
+      # Declares the subschemas that properties reference with
+      # +"$ref": "#/$defs/name"+, such as the nested schemas
+      # {ActiveAgent::SchemaGenerator} emits for associations.
+      #
+      # @param definitions [Hash{Symbol => Hash}]
+      # @return [void]
+      def definitions(definitions)
+        @definitions = @definitions.merge(definitions.deep_symbolize_keys)
+      end
+
       # @return [Array<Symbol>] declared property names
       def keys
         @properties.keys
@@ -177,8 +191,9 @@ module ActiveAgent
           type: "object",
           properties: @properties.deep_dup,
           required: @required.map(&:to_s),
-          additionalProperties: @additional_properties
-        }
+          additionalProperties: @additional_properties,
+          "$defs": (@definitions.deep_dup if @definitions.any?)
+        }.compact
       end
       alias_method :to_h, :to_json_schema
 
