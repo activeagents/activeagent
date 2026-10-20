@@ -17,6 +17,9 @@ module ActionAgent
   #   "_models"          — per model: pass rate, mean score, latency, tokens, cost, fault counts
   #   "_recommendations" — faults grouped across scenarios with the fix each calls for
   #   "_verdict"         — the best model and why (judge-written when a judge is available)
+  #   "_comparison"      — when comparing models: each model's pass rate with its
+  #                        interval, every pair's difference and whether it is
+  #                        decisive (ActiveAgent::Evals::Comparison)
   #   "_selection"       — the scenarios and models this run covered, and
   #                        the checkout sandbox it replayed against, if any
   #
@@ -407,6 +410,10 @@ module ActionAgent
       scores["_models"] = report.summary_by_model
       scores["_recommendations"] = report.recommendations
       scores["_verdict"] = report.verdict if report.comparing?
+      # The framework gained Report#comparison after the oldest activeagent
+      # this engine runs against.
+      comparison = report.comparison if report.respond_to?(:comparison)
+      scores["_comparison"] = comparison if comparison
       scores["_selection"] = run.selection
       scores["_metadata"] = report.metadata
       scores["_judge_label"] = report.judge_label || report.judge&.label

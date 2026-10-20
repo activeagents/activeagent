@@ -146,6 +146,11 @@ class ActionAgentScenarioEvaluationRunnerTest < ActiveSupport::TestCase
     assert scores["_verdict"]["winner"].present?
     assert_equal "pass rate", scores["_verdict"]["judge"]
     assert_equal run.selection, scores["_selection"]
+    comparison = scores["_comparison"]
+    assert_equal %w[mock/alpha mock/beta], comparison["models"].keys.sort
+    assert_equal [ 3 ], comparison["pairs"].map { |pair| pair["scenarios"] }, "one pair, compared on the three scenarios both ran"
+    assert_equal run.to_report.comparison, comparison
+    assert comparison["conclusion"].present?
   end
 
   test "an expected tool the agent never calls is diagnosed and rolled up into recommendations" do
@@ -164,6 +169,7 @@ class ActionAgentScenarioEvaluationRunnerTest < ActiveSupport::TestCase
     assert_equal [ "tickets_2" ], recommendation["scenario_keys"]
     assert_equal 1, recommendation["count"]
     assert_equal({ "expected_tool_not_called" => 1 }, run.scores["_models"]["mock-model"]["faults"])
+    assert_not run.scores.key?("_comparison"), "a single-model run compares nothing"
   end
 
   test "a scenario the mock provider answers passes when nothing is expected of the answer" do
