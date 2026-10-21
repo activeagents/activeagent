@@ -63,6 +63,7 @@ test('reads the live view, with its defaults', () => {
     origins: ['http://localhost:3000', 'https://dash.example'],
     agentWaitMs: 20_000,
     releaseGraceMs: 10_000,
+    uploadLimits: { maxFileBytes: 25 * 1024 * 1024, maxFiles: 10, maxSessionBytes: 250 * 1024 * 1024 },
   });
 
   const spelled = parseConfig({ ...base, live: { session_id: 's', origins: ['http://127.1:3000', 'http://[0:0:0:0:0:0:0:1]:3000', 'https://DASH.example:443/'] } });
@@ -71,6 +72,14 @@ test('reads the live view, with its defaults', () => {
   const tuned = parseConfig({ ...base, live: { session_id: 's', origins: ['http://localhost:3000'], agent_wait_ms: 0, release_grace_ms: 500 } });
   assert.equal(tuned.live.agentWaitMs, 0);
   assert.equal(tuned.live.releaseGraceMs, 500);
+
+  const uploads = parseConfig({
+    ...base,
+    live: { session_id: 's', origins: ['http://localhost:3000'], upload_max_file_bytes: 1024, upload_max_files: 0, upload_max_session_bytes: 4096 },
+  });
+  assert.deepEqual(uploads.live.uploadLimits, { maxFileBytes: 1024, maxFiles: 0, maxSessionBytes: 4096 }, 'upload_max_files 0 turns uploads off');
+  const small = parseConfig({ ...base, live: { session_id: 's', origins: ['http://localhost:3000'], upload_max_session_bytes: 1000 } });
+  assert.equal(small.live.uploadLimits.maxFileBytes, 1000, 'a file may not be larger than the session allows');
 });
 
 const invalid = {
@@ -80,6 +89,10 @@ const invalid = {
   'an app url that is not http': { ...base, app_url: 'file:///etc' },
   'an app url with credentials': { ...base, app_url: 'http://user:pass@127.0.0.1:3000' },
   'an unknown mode': { ...base, mode: 'kiosk' },
+  'an upload file limit over the session limit': {
+    ...base, live: { session_id: 's', origins: ['http://localhost:3000'], upload_max_file_bytes: 2048, upload_max_session_bytes: 1024 },
+  },
+  'a negative upload file count': { ...base, live: { session_id: 's', origins: ['http://localhost:3000'], upload_max_files: -1 } },
   'a capability that reaches outside the page': { ...base, capabilities: ['devtools'] },
   'a port out of range': { ...base, port: 70000 },
   'a recording without a token': { ...base, recording: { url: 'http://127.0.0.1:3000/events' } },

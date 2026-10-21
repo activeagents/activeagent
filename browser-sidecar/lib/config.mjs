@@ -13,10 +13,13 @@
 //     "chromium_sandbox": true,             false where Chromium's own sandbox cannot run (some containers)
 //     "recording": { "url": "...", "token": "...", "batch_events": 1000, "batch_bytes": 1048576 },
 //     "live": { "session_id": "...", "origins": ["http://localhost:3000"],
-//               "agent_wait_ms": 20000, "release_grace_ms": 10000 }
+//               "agent_wait_ms": 20000, "release_grace_ms": 10000,
+//               "upload_max_file_bytes": 26214400, "upload_max_files": 10,
+//               "upload_max_session_bytes": 262144000 }
 //     "storage_state": { "cookies": [...], "origins": [...] }   a saved sign-in the browser starts with
 //   }
 
+import { DEFAULT_UPLOAD_LIMITS } from './file-upload.mjs';
 import { appStorageState, StorageStateError } from './storage-state.mjs';
 
 export const MODES = ['headless', 'headed'];
@@ -33,6 +36,9 @@ const DEFAULT_BATCH_BYTES = 1024 * 1024;
 const DEFAULT_AGENT_WAIT_MS = 20_000;
 export const MAX_AGENT_WAIT_MS = 45_000;
 const DEFAULT_RELEASE_GRACE_MS = 10_000;
+// The most a live view upload may be configured to take, per file and in all.
+export const MAX_UPLOAD_FILES = 100;
+export const MAX_UPLOAD_SESSION_BYTES = 2 * 1024 * 1024 * 1024;
 
 export class ConfigError extends Error {}
 
@@ -106,6 +112,20 @@ function origin(value) {
   return url.origin;
 }
 
+// How much a person may upload through the live view. upload_max_files 0
+// turns uploads off.
+function uploadLimits(value) {
+  const maxSessionBytes = nonNegativeInteger(value.upload_max_session_bytes, 'live.upload_max_session_bytes',
+    DEFAULT_UPLOAD_LIMITS.maxSessionBytes, MAX_UPLOAD_SESSION_BYTES);
+  const maxFileBytes = nonNegativeInteger(value.upload_max_file_bytes, 'live.upload_max_file_bytes',
+    Math.min(DEFAULT_UPLOAD_LIMITS.maxFileBytes, maxSessionBytes), maxSessionBytes);
+  return {
+    maxFileBytes,
+    maxFiles: nonNegativeInteger(value.upload_max_files, 'live.upload_max_files', DEFAULT_UPLOAD_LIMITS.maxFiles, MAX_UPLOAD_FILES),
+    maxSessionBytes,
+  };
+}
+
 function live(value) {
   if (value === undefined || value === null) return null;
   if (typeof value !== 'object' || Array.isArray(value)) fail('live must be an object');
@@ -119,6 +139,7 @@ function live(value) {
     origins: [...new Set(value.origins.map(origin))],
     agentWaitMs: nonNegativeInteger(value.agent_wait_ms, 'live.agent_wait_ms', DEFAULT_AGENT_WAIT_MS, MAX_AGENT_WAIT_MS),
     releaseGraceMs: positiveInteger(value.release_grace_ms, 'live.release_grace_ms', DEFAULT_RELEASE_GRACE_MS),
+    uploadLimits: uploadLimits(value),
   };
 }
 

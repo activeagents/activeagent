@@ -6,6 +6,9 @@ import {
   claudeCodeAuth,
   claudeCodeCardState,
   claudeCodeNotConnectedHint,
+  codexAuth,
+  codexCardState,
+  codexNotConnectedHint,
   codeSessionRequestBody,
   modelForRequest,
   modelOptions,
@@ -643,6 +646,58 @@ test('claudeCodeNotConnectedHint follows the mode', () => {
   assert.match(local.text, /not logged in on this machine/);
   assert.equal(local.loginHint, 'claude /login');
   assert.doesNotMatch(JSON.stringify(local), /setup-token/);
+});
+
+test('codexAuth reads the listing defensively: supported and connected only when literally true', () => {
+  assert.deepEqual(codexAuth({ codex_sessions_supported: true, codex_auth: 'api_key', codex_connected: true }),
+    { supported: true, mode: 'api_key', connected: true, loggedIn: false, authMethod: null });
+  assert.deepEqual(codexAuth({}), { supported: false, mode: 'api_key', connected: false, loggedIn: false, authMethod: null });
+  assert.deepEqual(codexAuth(null), { supported: false, mode: 'api_key', connected: false, loggedIn: false, authMethod: null });
+  assert.equal(codexAuth({ codex_sessions_supported: 'true', codex_connected: 'true' }).connected, false);
+  assert.deepEqual(codexAuth({
+    codex_sessions_supported: true, codex_auth: 'local_login', codex_connected: true, codex_login: { logged_in: true, auth_method: 'ChatGPT' },
+  }), { supported: true, mode: 'local_login', connected: true, loggedIn: true, authMethod: 'ChatGPT' });
+  // A login block only means something in the local-login mode.
+  assert.equal(codexAuth({ codex_auth: 'api_key', codex_login: { logged_in: true } }).loggedIn, false);
+});
+
+test('codexCardState shows the machine login instead of the key form in the local-login mode', () => {
+  assert.equal(codexCardState(null, null).view, 'loading');
+
+  const loggedIn = codexCardState(codexAuth({
+    codex_auth: 'local_login', codex_connected: true, codex_login: { logged_in: true, auth_method: 'ChatGPT' },
+  }), null);
+  assert.equal(loggedIn.view, 'local_login');
+  assert.equal(loggedIn.keyForm, false);
+  assert.equal(loggedIn.tone, 'success');
+  assert.equal(loggedIn.status, "Using this machine's Codex login · logged in (ChatGPT)");
+  assert.equal(loggedIn.loginHint, null);
+
+  const loggedOut = codexCardState(codexAuth({ codex_auth: 'local_login', codex_login: { logged_in: false } }), null);
+  assert.equal(loggedOut.keyForm, false);
+  assert.equal(loggedOut.tone, 'error');
+  assert.match(loggedOut.status, /not logged in/);
+  assert.equal(loggedOut.loginHint, 'codex login');
+
+  const apiKey = codexAuth({ codex_auth: 'api_key' });
+  assert.equal(codexCardState(apiKey, null).view, 'loading');
+  assert.deepEqual(codexCardState(apiKey, { configured: false }),
+    { view: 'api_key', status: 'Not connected', tone: 'neutral', keyForm: true, loginHint: null });
+  assert.equal(codexCardState(apiKey, { configured: true, hint: 'sk-p…9xyz' }).status, 'Connected · sk-p…9xyz');
+});
+
+test("codexNotConnectedHint follows the backend's support and the mode", () => {
+  assert.match(codexNotConnectedHint(null).text, /does not support Codex/, 'nothing known yet reads as unsupported');
+  assert.match(codexNotConnectedHint(codexAuth({ codex_connected: true })).text, /does not support Codex/);
+  assert.equal(codexNotConnectedHint(codexAuth({ codex_sessions_supported: true, codex_connected: true })), null);
+
+  const apiKey = codexNotConnectedHint(codexAuth({ codex_sessions_supported: true, codex_auth: 'api_key' }));
+  assert.match(apiKey.text, /OpenAI API key/);
+  assert.equal(apiKey.loginHint, null);
+
+  const local = codexNotConnectedHint(codexAuth({ codex_sessions_supported: true, codex_auth: 'local_login', codex_login: { logged_in: false } }));
+  assert.match(local.text, /not logged in on this machine/);
+  assert.equal(local.loginHint, 'codex login');
 });
 
 test('Codex chooses its own default or an explicit model without Claude aliases', () => {
