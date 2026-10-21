@@ -286,6 +286,8 @@ class DashboardAssistantServiceTest < ActiveSupport::TestCase
     assert_equal({ supported: true, connected: false }, connections[:github])
     # The default :mock backend runs (pretend) Claude Code sessions.
     assert_equal({ supported: true, connected: false, auth: "api_key" }, connections[:claude_code])
+    # The :mock backend does not advertise the Codex runner.
+    assert_equal({ supported: false, connected: false, auth: "api_key" }, connections[:codex])
     assert_equal({ supported: false }, connections[:coi])
 
     ActionAgent::GithubConnection.create!(access_token: "gho_hidden_fixture", github_user_id: 42, login: "octocat")

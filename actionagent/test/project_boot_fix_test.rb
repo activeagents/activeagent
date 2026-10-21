@@ -138,6 +138,43 @@ class ProjectBootFixTest < ActionDispatch::IntegrationTest
     assert_includes ActionAgent::ProjectInstallPullRequest.new(@project).allowlist, "config/boot_fix.rb"
   end
 
+  test "a boot fix is a conversation of its own: a follow-up turn neither runs in the failed boot nor resumes it" do
+    FixBackend.script = ->(_emit) { { exit_status: 0, diff: DIFF, stderr_tail: "" } }
+    perform_enqueued_jobs { @project.reload.sandbox_failed!(@sandbox) }
+    session = ActionAgent::CodeSession.sole
+    assert_equal "boot_fix", session.origin
+    resumes = FixBackend.calls.count { |call| call.first == :resume_boot }
+
+    follow_up = ActionAgent::CodeSession.create!(sandbox_session: @sandbox, conversation_root: session, turn_index: 1,
+      prompt: "Why that version?", runner: "claude_code", origin: "boot_fix", resume_session_id: session.resume_session_id,
+      status: :succeeded, diff: DIFF, finished_at: Time.current)
+
+    assert_nil ActionAgent::ProjectBootFix.project_for(follow_up), "only the recorded session is the boot fix"
+    assert_empty ActionAgent::ProjectBootFix.allowed_tools_for(follow_up), "a follow-up runs no commands"
+    ActionAgent::ProjectBootFix.after_session(follow_up)
+    assert_equal resumes, FixBackend.calls.count { |call| call.first == :resume_boot }
+  end
+
+  test "a boot fix recorded before origins were is still told apart as one" do
+    perform_enqueued_jobs { @project.reload.sandbox_failed!(@sandbox) }
+    session = ActionAgent::CodeSession.sole
+    session.update_columns(origin: nil)
+
+    assert_equal "boot_fix", session.reload.origin
+    other = ActionAgent::CodeSession.create!(sandbox_session: @sandbox, prompt: "Unrelated", runner: "claude_code")
+    other.update_columns(origin: nil)
+    assert_equal "settings", other.reload.origin
+  end
+
+  test "the prompt asks for commands Claude Code can approve unattended: no anchored patterns or variables" do
+    perform_enqueued_jobs { @project.reload.sandbox_failed!(@sandbox) }
+
+    prompt = FixBackend.prompts.sole
+    assert_includes prompt, "gem search --remote --exact NAME"
+    assert_includes prompt, "no variables, pipes, `cd`, `&&`, quotes, `$`, `^` or `*`"
+    assert_includes ActionAgent::ProjectBootFix::BUNDLER_COMMANDS, "Bash(gem info:*)"
+  end
+
   test "the prompt names the failed step and fences its log as data, scrubbed of the project's secrets" do
     perform_enqueued_jobs { @project.reload.sandbox_failed!(@sandbox) }
 

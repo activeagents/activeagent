@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 27) do
+ActiveRecord::Schema[8.0].define(version: 28) do
   create_table "active_agent_agent_contexts", force: :cascade do |t|
     t.string "action_name", null: false
     t.string "agent_name", null: false
@@ -214,6 +214,8 @@ ActiveRecord::Schema[8.0].define(version: 27) do
   create_table "active_agent_code_sessions", force: :cascade do |t|
     t.bigint "account_id"
     t.string "claude_session_id"
+    t.text "context_note"
+    t.bigint "conversation_root_id"
     t.datetime "created_at", null: false
     t.string "credential_mode"
     t.text "diff"
@@ -229,19 +231,23 @@ ActiveRecord::Schema[8.0].define(version: 27) do
     t.string "runner_session_id"
     t.string "model"
     t.integer "num_turns"
+    t.string "origin"
     t.integer "output_tokens"
     t.bigint "previous_code_session_id"
     t.text "prompt", null: false
+    t.string "resume_session_id"
     t.text "result"
     t.bigint "sandbox_session_id", null: false
     t.datetime "started_at"
     t.integer "status", default: 0, null: false
     t.decimal "total_cost_usd", precision: 12, scale: 6
+    t.integer "turn_index", default: 0, null: false
     t.datetime "updated_at", null: false
     t.bigint "user_id"
     t.text "verification_error"
     t.bigint "verification_run_id"
     t.index [ "account_id" ], name: "index_active_agent_code_sessions_on_account_id"
+    t.index [ "conversation_root_id" ], name: "index_active_agent_code_sessions_on_conversation_root_id"
     t.index [ "evaluation_run_id" ], name: "index_active_agent_code_sessions_on_evaluation_run_id"
     t.index [ "sandbox_session_id" ], name: "index_active_agent_code_sessions_on_sandbox_session_id"
     t.index [ "user_id" ], name: "index_active_agent_code_sessions_on_user_id"
