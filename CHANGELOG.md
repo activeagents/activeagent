@@ -63,6 +63,33 @@ engine: the file chooser relay and the per-turn browser tokens are in the
   `connections.codex`, and the Codex card in Settings shows the machine's
   login instead of a key form. The default stays `:api_key`.
 
+- **The agent builder offers only tools that work, and every built-in
+  capability has functions** (`actionagent`). The Configure step reads the
+  agent's tool roster (`GET /api/agents/tool_roster` for an agent not
+  created yet) instead of fixed chips, offers the MCP servers a dashboard
+  run can call, and names each one it cannot with the reason
+  (`MCPToolDispatcher.unreachable_reason`: a stdio server, no URL, missing
+  credentials). The six capabilities that gave the model nothing now have
+  functions: `terminal` (`run_command`), `filesystem` (`list_files`,
+  `read_file`, `write_file`), `edit` (`edit_file`) and `database`
+  (`query_database`, read-only) act in the run's checkout sandbox through
+  new `SandboxOrchestrator` verbs (on the `:local` backend; others return
+  `UnsupportedBackendError` to the model); `translate` (`translate_text`)
+  generates on the run's own provider; `slack` lists, reads and posts with
+  a bot token connected in Settings -> Integrations -> Slack (a `slack`
+  connection `ProviderKey`). Instruction sets are composed into the
+  instructions a run executes under. `run_command`, `write_file`,
+  `edit_file` and `slack_post_message` wait for approval by default when
+  the builder enables them. A host's `ActionAgent.mcp_catalog` headers now
+  reach the MCP client (they were dropped).
+
+- **Start an interaction with your own agent from Interactions and Run
+  Agents** (`actionagent`). Interactions has a "New interaction" picker and
+  Run Agents a "Your agents" list; both open the agent's runner on a fresh
+  conversation (`/agents/:id/run?new=1`). The runner lists the agent's tools
+  and MCP servers, and can run against a checkout sandbox (`sandbox_id`),
+  which the checkout tools need.
+
 ## [1.9.2] - 2026-10-20
 
 Releases `activeagent` and `actionagent` 1.9.2, with the matching browser
