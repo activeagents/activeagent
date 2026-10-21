@@ -125,6 +125,14 @@ engine: the file chooser relay and the per-turn browser tokens are in the
   native provider, as candidate model names already did; an install that
   reached such a model through OpenRouter pins `openrouter/anthropic/…`.
 
+- **Streamed tool calls without an `index` are no longer split into
+  fragments** (`activeagent`). OpenAI-compatible servers (Gemini's
+  compatibility endpoint, some Ollama and OpenRouter backends) stream tool
+  calls without the `index` that ties argument fragments to their call, and
+  the Chat provider turned every fragment into its own tool call with
+  partial arguments. A fragment now continues the call with the same `id`,
+  or the last call when it has no `id` and no function name.
+
 ## [1.9.2] - 2026-10-20
 
 Releases `activeagent` and `actionagent` 1.9.2, with the matching browser
