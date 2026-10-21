@@ -6,13 +6,14 @@ import ScenarioSuitePanel from './ScenarioSuitePanel';
 import EvaluationForm from './evaluations/EvaluationForm';
 import EvaluationRunDetail from './evaluations/EvaluationRunDetail';
 import CriteriaFooter from './evaluations/CriteriaFooter';
+import ModelLeaderboard from './evaluations/ModelLeaderboard';
 import RunsList, { RunBadge, runsSummary } from './evaluations/RunsList';
 import { fmtRate } from './evaluations/SpendStrip';
 import { Badge, Button, Card, Glyph, StatCard, MONO, TONE, toneFor } from './primitives';
-import { timeAgo } from '../../utils/format';
+import { splitModelLabel, timeAgo } from '../../utils/format';
 import { COST_LEGEND, fmtPasses, fmtPercent, fmtSpend } from '../../utils/evalFormat.mjs';
 import {
-  criterionGroup, evaluationStanding, headlineRun, headlineSummary, modelCount, notCountedText, plural, runLabel, runSpend,
+  criterionGroup, evaluationStanding, headlineRun, headlineSummary, modelCount, modelLeaderboard, notCountedText, plural, runLabel, runSpend,
   samplingFixItems,
 } from '../../utils/evaluationRuns.mjs';
 import { requestConfirm } from '../../utils/confirm.mjs';
@@ -152,6 +153,7 @@ export default function EvaluationsView({ embedded = false, agentId = null }) {
   // Archived evaluations leave the list unless asked for; the API says how
   // many it left out.
   const [showArchived, setShowArchived] = useState(false);
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [archivedCount, setArchivedCount] = useState(0);
 
   // URL → state: browser back/forward, and in-app navigation.
@@ -458,9 +460,11 @@ export default function EvaluationsView({ embedded = false, agentId = null }) {
   const scoredSub = summary.focused
     ? 'headline run of this evaluation'
     : `headline run of ${plural(summary.counted, 'current evaluation')}${notCounted ? ` · ${notCounted}` : ''}`;
-  // The pass rate's fraction sits on the tile, and under it one line per
-  // model so a comparison's cohorts can be told apart.
-  const perModelLines = summary.perModel.length > 1 ? summary.perModel.map((entry) => `${entry.label} ${fmtPasses(entry.passed, entry.total)}`) : [];
+  // The pass rate's fraction sits on the tile; when the runs compared
+  // models, the leader under it and a toggle for the leaderboard, which
+  // lays every model against every evaluation below the tiles.
+  const leaderboard = modelLeaderboard(summary);
+  const leader = leaderboard.length > 1 ? leaderboard[0] : null;
   // The operating figure clients budget against: the agent's spend over the
   // interactions the headline runs covered, with the judge's own spend
   // named apart so it never inflates it; "~" marks an estimated part. One
@@ -549,9 +553,29 @@ export default function EvaluationsView({ embedded = false, agentId = null }) {
             : (
               <span style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                 <span data-testid="stat-pass-rate-fraction">{`${samplesPassed}/${samplesScored} passed`}</span>
-                {perModelLines.map((line) => (
-                  <span key={line} style={{ fontFamily: MONO, fontSize: 11, color: 'var(--color-text-muted)' }} data-testid="stat-pass-rate-model">{line}</span>
-                ))}
+                {leader && (
+                  <>
+                    {/* The model's name gives way before its rate does. */}
+                    <span
+                      data-testid="stat-pass-rate-leader"
+                      title={`${leader.label} ${fmtPasses(leader.passed, leader.total)}: best of ${leaderboard.length} models by the low end of its pass rate`}
+                      style={{ display: 'flex', gap: 6, minWidth: 0, fontFamily: MONO, fontSize: 11, color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}
+                    >
+                      <span>best</span>
+                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0, color: 'var(--color-text-cell)' }}>{splitModelLabel(leader.label).short}</span>
+                      <span style={{ flexShrink: 0 }}>{fmtPercent(leader.ratio)}</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setShowLeaderboard((value) => !value)}
+                      aria-expanded={showLeaderboard}
+                      data-testid="stat-pass-rate-leaderboard-toggle"
+                      style={{ alignSelf: 'flex-start', background: 'transparent', border: 'none', padding: 0, cursor: 'pointer', fontFamily: MONO, fontSize: 11, color: 'var(--color-text-secondary)' }}
+                    >
+                      <Glyph kind="chevron" open={showLeaderboard} /> {`${showLeaderboard ? 'hide' : 'compare'} ${leaderboard.length} models`}
+                    </button>
+                  </>
+                )}
               </span>
             )}
           testId="stat-pass-rate"
@@ -571,6 +595,8 @@ export default function EvaluationsView({ embedded = false, agentId = null }) {
           testId="stat-agent-cost"
         />
       </div>
+
+      {showLeaderboard && <ModelLeaderboard rows={leaderboard} columns={summary.columns} />}
 
       {/* Evaluations */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>

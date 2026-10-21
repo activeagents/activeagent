@@ -541,7 +541,9 @@ export const COUNTED_STANDINGS = ['current', 'unrecorded'];
 //
 // `perModel` pools each model label's passes across the counted runs,
 // read from the evaluations' `per_model` (the API's) or the runs' own
-// summaries.
+// summaries; `byEvaluation` keeps each evaluation's part, keyed by id, and
+// `columns` names the counted evaluations in page order, for the
+// leaderboard's matrix.
 export const headlineSummary = (evaluations = [], { focusId = null } = {}) => {
   const matched = focusId != null ? evaluations.filter((evaluation) => String(evaluation.id) === String(focusId)) : [];
   const focused = matched.length > 0;
@@ -549,6 +551,7 @@ export const headlineSummary = (evaluations = [], { focusId = null } = {}) => {
   const notCounted = { total: 0, stale: 0, archived: 0, none: 0 };
   const runs = [];
   const perModel = {};
+  const columns = [];
   let samplesScored = 0;
   let samplesPassed = 0;
 
@@ -564,15 +567,19 @@ export const headlineSummary = (evaluations = [], { focusId = null } = {}) => {
       return;
     }
     runs.push(run);
+    columns.push({ id: evaluation.id, name: evaluation.name || `evaluation ${evaluation.id}` });
     samplesScored += run.samples_evaluated || 0;
     samplesPassed += run.samples_passed || 0;
     const models = evaluation.per_model && typeof evaluation.per_model === 'object' && Object.keys(evaluation.per_model).length
       ? Object.entries(evaluation.per_model).map(([label, stats]) => ({ label, passed: stats?.passed || 0, total: stats?.total || 0 }))
       : runCohorts(run).filter((cohort) => cohort.label && cohort.samples > 0).map((cohort) => ({ label: cohort.label, passed: cohort.passed || 0, total: cohort.samples || 0 }));
     models.forEach(({ label, passed, total }) => {
-      const entry = (perModel[label] ||= { label, passed: 0, total: 0 });
+      const entry = (perModel[label] ||= { label, passed: 0, total: 0, byEvaluation: {} });
       entry.passed += passed;
       entry.total += total;
+      const cell = (entry.byEvaluation[evaluation.id] ||= { passed: 0, total: 0 });
+      cell.passed += passed;
+      cell.total += total;
     });
   });
 
@@ -585,10 +592,38 @@ export const headlineSummary = (evaluations = [], { focusId = null } = {}) => {
     samplesPassed,
     passRatio: samplesScored ? samplesPassed / samplesScored : null,
     perModel: Object.values(perModel),
+    columns,
     spend: spendSummary(runs),
     focused,
   };
 };
+
+// --- model leaderboard -------------------------------------------------------
+//
+// The models a page's headline runs compared, ranked. A raw pass rate
+// would put 7/8 above 75/173 on luck alone, so the rank is the lower
+// bound of the Wilson score interval (95%): a model leads when even its
+// pessimistic rate is the best. `ratio` is still what the row shows.
+
+const Z = 1.96;
+
+export const wilsonLowerBound = (passed, total) => {
+  const n = Number(total) || 0;
+  if (n <= 0) return 0;
+  const p = (Number(passed) || 0) / n;
+  const z2 = Z * Z;
+  const centre = p + z2 / (2 * n);
+  const margin = Z * Math.sqrt((p * (1 - p)) / n + z2 / (4 * n * n));
+  return Math.max(0, (centre - margin) / (1 + z2 / n));
+};
+
+// The summary's models ranked best first, each with its ratio, bound and
+// rank. Models with nothing scored are left out.
+export const modelLeaderboard = (summary) => (summary?.perModel || [])
+  .filter((entry) => entry.total > 0)
+  .map((entry) => ({ ...entry, ratio: entry.passed / entry.total, lower: wilsonLowerBound(entry.passed, entry.total) }))
+  .sort((a, b) => b.lower - a.lower || b.total - a.total || a.label.localeCompare(b.label))
+  .map((entry, index) => ({ ...entry, rank: index + 1 }));
 
 // "2 not counted · 1 stale · 1 archived", or null when every evaluation counted.
 export const notCountedText = (summary) => {
