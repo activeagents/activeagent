@@ -481,4 +481,16 @@ class ActionAgentScenarioEvaluationRunnerTest < ActiveSupport::TestCase
   ensure
     ActionAgent.mcp_catalog = original
   end
+
+  test "an unavailable pinned route fails before any scenario replay" do
+    evaluation = build_suite
+    evaluation.update!(judge_model: "gpt-4o-mini")
+    ActionAgent::ProviderKey.delete_all
+    ActiveAgent.stub(:configuration, { anthropic: { access_token: "synthetic" } }) do
+      error = assert_raises(ArgumentError) { evaluation.run! }
+      assert_match(/No credentials for judge provider openai/, error.message)
+    end
+    assert_equal "failed", evaluation.evaluation_runs.last.status
+    assert_equal 0, evaluation.agent.agent_runs.count
+  end
 end

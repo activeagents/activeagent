@@ -48,7 +48,7 @@ module ActionAgent
       #
       # Three fields feed the dashboard's model pickers. They describe the
       # credentials of #picker_credentials_owner:
-      #   - judge_provider:        the provider a judge model runs on, null
+      #   - judge_provider:        the default provider of an unpinned judge, null
       #                            when none has credentials or the lookup
       #                            raised
       #   - judge_provider_error:  true when that lookup raised, as it does
