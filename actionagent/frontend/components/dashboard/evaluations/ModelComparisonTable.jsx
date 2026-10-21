@@ -18,7 +18,7 @@ const td = { padding: '9px 12px', verticalAlign: 'top', fontSize: 13, color: 'va
 const num = { ...td, fontFamily: MONO, fontSize: 12, whiteSpace: 'nowrap', textAlign: 'right' };
 const numHead = { ...th, textAlign: 'right' };
 
-const rateTone = (rate) => (rate == null ? 'var(--color-text-muted)' : rate >= 0.85 ? 'var(--color-success-text)' : rate >= 0.5 ? 'var(--color-warning-text)' : 'var(--color-error)');
+export const rateTone = (rate) => (rate == null ? 'var(--color-text-muted)' : rate >= 0.85 ? 'var(--color-success-text)' : rate >= 0.5 ? 'var(--color-warning-text)' : 'var(--color-error)');
 
 export default function ModelComparisonTable({ rows = [], unit = 'scenario', judgedBy = null, judgeEstimated = false, title = 'Model comparison', testId = 'model-comparison-table' }) {
   if (!rows.length) return null;
