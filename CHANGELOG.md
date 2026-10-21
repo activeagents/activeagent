@@ -21,6 +21,36 @@ engine: the file chooser relay and the per-turn browser tokens are in the
 
 ### Added
 
+- **Export evaluation run reports as JSON, HTML and Markdown** (`activeagent`,
+  `actionagent`). `GET <mount>/api/evaluation_reports/:run_id`, with the
+  ingest key and scoped to the tenant like the POST (and refused on a
+  single-tenant install that set no key), returns a complete run
+  as the version-1 envelope the collector takes, so a run moves to another
+  install with one POST and posting it back is an identical retry (200);
+  `?format=html` returns the run's report page and `?format=md` its
+  Markdown, and `?download=1` an attachment of any of them.
+  An imported run exports under its published `run_id`, a dashboard run
+  under `dashboard-run-<id>-<created_at>`. `ActiveAgent::Evals::Publisher.envelope`
+  builds the envelope for both the publisher and the export. The dashboard's
+  run report adds `report.json` and `report.md` (one piece with
+  `?part=verdict|fix_items|scenario`), and `?download=1` saves any format
+  as `<evaluation>-run-<n>.<ext>`; the run report view and the suite's run
+  header get *Download HTML / JSON / Markdown*. New rake tasks:
+  `action_agent:evaluations:export RUN=… [EVALUATION=…] FORMAT=json|html|md [FILE=…]`
+  and `action_agent:evaluations:import FILE=… [ACCOUNT_ID=…]`.
+
+- **Copy as Markdown** (`activeagent`, `actionagent`). `Report#to_markdown`
+  now has the HTML page's content in GitHub-flavored Markdown: the verdict's
+  rationale, What to fix from `Report#fix_items` (replacing the old
+  Recommendations list), and every scenario's answers in a `<details>` block
+  with a per-model table; table cells escape `|` and line breaks. Its pieces
+  are public — `verdict_markdown`, `fix_items_markdown(model:)`,
+  `fix_item_markdown(item)`, `scenario_markdown(key)` — and the dashboard
+  and the standalone HTML page copy each of them: the whole report, the
+  verdict with the comparison, What to fix for the filtered model, a fix
+  card, and a scenario. The HTML page now carries one inline script for
+  those buttons, with a clipboard fallback.
+
 - **Upload files to a page through the sandbox browser's live view**
   (`actionagent`, `@activeagents/browser-sidecar`). A file chooser the page
   opens while someone drives is answered from the driver's own machine

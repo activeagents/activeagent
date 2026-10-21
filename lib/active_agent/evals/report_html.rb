@@ -5,10 +5,15 @@ require "cgi"
 module ActiveAgent
   module Evals
     # Report#to_html: the run as one self-contained page on the dashboard's
-    # design system (DesignTokens) — inline styles, no scripts, no external
-    # assets — so a run's outcome can be archived next to a CI run or handed
-    # to a teammate, and so the dashboard can serve the same page for a
-    # persisted run.
+    # design system (DesignTokens) — inline styles, no external assets — so a
+    # run's outcome can be archived next to a CI run or handed to a teammate,
+    # and so the dashboard can serve the same page for a persisted run.
+    #
+    # Its one inline script (COPY_SCRIPT) backs the "Copy as Markdown"
+    # buttons: the whole report, the verdict, What to fix (for the model the
+    # filter shows), each fix card and each scenario. The Markdown each copies
+    # is ReportMarkdown's, embedded in a hidden textarea, so the page copies
+    # exactly what the dashboard and the CLI write.
     #
     # Same content as Report#to_markdown, laid out the way the dashboard's
     # suite card is: header and stat tiles, the MODELS panel with the judge's
@@ -50,6 +55,8 @@ module ActiveAgent
           #{html_footer}
           </section>
           </main>
+          #{markdown_store("md-report", to_markdown)}
+          <script>#{COPY_SCRIPT}</script>
           </body>
           </html>
         HTML
@@ -237,7 +244,7 @@ module ActiveAgent
 
         <<~HEADER
           <header>
-          <h1>#{h(title)}</h1>
+          <div class="title-row"><h1>#{h(title)}</h1>#{copy_button('md-report', label: 'Copy as Markdown', title: 'Copy the whole report as GitHub-flavored Markdown')}</div>
           <div class="chips">#{chips.join}</div>
           </header>
         HEADER
@@ -320,7 +327,8 @@ module ActiveAgent
 
         <<~PANEL
           <div class="panel">
-          <div class="panel-head"><span class="micro">Models</span><span class="right">judged by #{h(judged_by)}</span></div>
+          <div class="panel-head"><span class="micro">Models</span><span class="right">judged by #{h(judged_by)}</span>#{copy_button('md-verdict', title: 'Copy the verdict and the model comparison as Markdown')}</div>
+          #{markdown_store('md-verdict', verdict_markdown)}
           #{html_comparison_table if comparing?}
           #{html_intervals}
           #{blocks.join}
@@ -612,12 +620,13 @@ module ActiveAgent
         expects = scenario.expected_tools.any? ? %(<span class="exp">expects <b>#{h(scenario.expected_tools.join(' or '))}</b></span>) : ""
         labels = @models.map(&:label)
         cards = cohort.sort_by { |result| labels.index(result.label) || labels.size }.map { |result| html_result_card(result) }
+        md_id = "md-#{anchor(scenario)}"
 
         <<~BLOCK
           <div id="#{h(anchor(scenario))}">
           <details>
           <summary><span class="chev">&gt;</span><span class="key">#{h(scenario.key)}</span><span class="prompt">#{h(scenario.prompt)}</span>#{expects}</summary>
-          <div class="drill">#{cards.join}</div>
+          <div class="drill">#{cards.join}<div class="drill-copy">#{copy_button(md_id, title: "Copy #{scenario.key} as Markdown")}#{markdown_store(md_id, scenario_markdown(scenario.key, answer_limit: ANSWER_LIMIT))}</div></div>
           </details>
           </div>
         BLOCK
@@ -670,14 +679,16 @@ module ActiveAgent
                "#{plural(faulted.map { |result| result.scenario.key }.uniq.size, 'scenario')}"
         body =
           if items.any?
-            %(<div class="fixes">#{items.map { |item| html_fix_card(item) }.join}</div>)
+            %(<div class="fixes">#{items.each_with_index.map { |item, index| html_fix_card(item, index) }.join}</div>)
           else
             %(<div class="nothing">[+] nothing to fix</div>)
           end
 
         <<~FIXES
           <section class="section fix-section" aria-label="Recommendations">
-          <div class="section-head"><span class="micro">What to fix</span><span class="meta">#{h(meta)}</span></div>
+          <div class="section-head"><span class="micro">What to fix</span><span class="meta">#{h(meta)}</span>#{copy_button('md-fixes', model_filtered: comparing? && items.any?, title: 'Copy What to fix as Markdown, for the model the filter shows')}</div>
+          #{markdown_store('md-fixes', fix_items_markdown)}
+          #{@models.each_index.map { |index| markdown_store("md-fixes-m#{index}", fix_items_markdown(model: @models[index].label)) }.join if comparing? && items.any?}
           #{html_fix_filter(items) if comparing? && items.any?}
           #{body}
           </section>
@@ -706,7 +717,7 @@ module ActiveAgent
         labels.filter_map { |label| (index = @models.index(model_by_label(label))) && "m#{index}" }.join(" ")
       end
 
-      def html_fix_card(item)
+      def html_fix_card(item, index)
         tone = item["kind"] == "instruction" ? "info" : "error"
         glyph = tone == "info" ? "[i]" : "[!]"
         title = fault_name(item["fault"]) + (item["count"].to_i > 1 ? " ×#{item['count']}" : "")
@@ -719,6 +730,7 @@ module ActiveAgent
         parts << html_fix_server(item["server"]) if item["server"]
         parts << %(<div class="note">#{h(item['note'])}</div>) if item["note"].present?
         parts << html_fix_action(item["action"]) if item["action"]
+        parts << %(<div class="fix-copy">#{copy_button("md-fix-#{index}", title: 'Copy this fix as Markdown')}#{markdown_store("md-fix-#{index}", fix_item_markdown(item))}</div>)
         models = fix_model_tokens(item)
         %(<div class="fix"#{%( data-models="#{models}") if models.present?}>#{parts.join}</div>)
       end
@@ -771,6 +783,19 @@ module ActiveAgent
         "#{scenarios} · #{models}"
       end
 
+      # --- Copy as Markdown -------------------------------------------------
+
+      # A button COPY_SCRIPT answers by copying the textarea +id+ names; with
+      # +model_filtered+, the one for the model the fix filter has checked.
+      def copy_button(id, label: "Copy as Markdown", title: nil, model_filtered: false)
+        %(<button type="button" class="copy-md" data-md="#{h(id)}"#{' data-md-model' if model_filtered}) +
+          %(#{%( title="#{h(title)}") if title}>#{h(label)}</button>)
+      end
+
+      def markdown_store(id, markdown)
+        %(<textarea class="md-store" id="#{h(id)}" hidden readonly>#{h(markdown)}</textarea>)
+      end
+
       # --- footer ----------------------------------------------------------
 
       # The run's terms: the judge, the criteria and the pass mark, what it
@@ -804,6 +829,48 @@ module ActiveAgent
 
       # Colors only through the token variables; radii 4 badges · 6 chips ·
       # 8 controls · 10 nested panels · 12 cards · 999 bars; no shadows.
+      # Copies the Markdown a button names: the async Clipboard API where the
+      # page may use it, else a selected textarea and the copy command, which
+      # still works on an http:// host and in the dashboard's frame.
+      COPY_SCRIPT = <<~JS.gsub(/\n\s*/, "").freeze
+        document.addEventListener("click", function (event) {
+          var button = event.target.closest && event.target.closest("button.copy-md");
+          if (!button) return;
+          event.preventDefault();
+          var id = button.getAttribute("data-md");
+          if (button.hasAttribute("data-md-model")) {
+            var picked = document.querySelector('input[name="fix-model"]:checked');
+            if (picked && picked.value !== "all") id += "-" + picked.value;
+          }
+          var store = document.getElementById(id);
+          if (!store) return;
+          var text = store.value;
+          var label = button.getAttribute("data-label") || button.textContent;
+          button.setAttribute("data-label", label);
+          var done = function (ok) {
+            button.textContent = ok ? "Copied" : "Copy failed";
+            setTimeout(function () { button.textContent = label; }, 1500);
+          };
+          var legacy = function () {
+            var area = document.createElement("textarea");
+            area.value = text;
+            area.style.position = "fixed";
+            area.style.opacity = "0";
+            document.body.appendChild(area);
+            area.select();
+            var ok = false;
+            try { ok = document.execCommand("copy"); } catch (error) {}
+            document.body.removeChild(area);
+            done(ok);
+          };
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(function () { done(true); }, legacy);
+          } else {
+            legacy();
+          }
+        });
+      JS
+
       STYLES = <<~CSS.freeze
         * { box-sizing: border-box; }
         html, body { margin: 0; min-height: 100%; }
@@ -913,6 +980,14 @@ module ActiveAgent
         .action { display: flex; align-items: center; gap: 10px; margin-top: auto; padding-top: 2px; flex-wrap: wrap; }
         .btn { display: inline-block; padding: 6px 12px; border-radius: 8px; font-size: 13px; font-weight: 500; color: var(--color-text-cell); border: 1px solid var(--color-border-strong); background: transparent; white-space: nowrap; }
         .btn:hover { background: var(--color-hover); color: var(--color-text-primary); text-decoration: none; }
+        .copy-md { font-family: var(--font-mono); font-size: 11px; padding: 3px 8px; border-radius: 6px; border: 1px solid var(--color-border); background: transparent; color: var(--color-text-secondary); cursor: pointer; white-space: nowrap; }
+        .copy-md:hover { background: var(--color-hover); color: var(--color-text-primary); }
+        .title-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+        .section-head .copy-md, .panel-head .copy-md { margin-left: auto; }
+        .panel-head .right + .copy-md { margin-left: 0; }
+        .drill-copy, .fix-copy { display: flex; justify-content: flex-end; }
+        .drill-copy { grid-column: 1 / -1; }
+        @media print { .copy-md { display: none; } }
         .hint { font-family: var(--font-mono); font-size: 11px; color: var(--color-text-muted); white-space: nowrap; }
         .matrix { border: 1px solid var(--color-border-light); border-radius: 10px; overflow-x: auto; }
         .mx { display: grid; gap: 12px; padding: 10px 12px; border-top: 1px solid var(--color-border-light); }
