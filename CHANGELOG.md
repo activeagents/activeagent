@@ -21,6 +21,22 @@ engine: the file chooser relay and the per-turn browser tokens are in the
 
 ### Added
 
+- **`activeagent` command line** (`activeagent`, refs #619). The gem ships
+  an `activeagent` executable (stdlib `OptionParser` and `Net::HTTP`, no new
+  dependencies) that works with a dashboard over HTTP: `login`/`logout`
+  (named profiles in `~/.config/activeagent/credentials.yml`, `0600`;
+  `ACTIVEAGENT_URL`, `ACTIVEAGENT_API_KEY` and `ACTIVEAGENT_INGEST_KEY`
+  override them for CI), `status`, `evals list|runs|run|report|import`,
+  `catalogs list|import`, `agents list` and `traces list`, with `--json`
+  output and distinct exit codes. `evals run --min-pass-rate 0.8` waits for
+  the run and exits 4 below the threshold, for CI gating. Reads and runs go
+  through the MCP facade's dashboard tools with a dashboard API key; `evals
+  import` and `evals report` use the report collector with the ingest key.
+  `evals report --format json|html|md` needs the report export endpoint
+  (`GET <mount>/api/evaluation_reports/:run_id`). `catalogs export`,
+  `catalogs import --preview` and `agents versions` exit 5 until the
+  dashboard offers API-key routes for them. See `docs/framework/cli.md`.
+
 - **Upload files to a page through the sandbox browser's live view**
   (`actionagent`, `@activeagents/browser-sidecar`). A file chooser the page
   opens while someone drives is answered from the driver's own machine
