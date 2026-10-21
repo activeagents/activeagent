@@ -104,6 +104,16 @@ engine: the file chooser relay and the per-turn browser tokens are in the
   bound of the Wilson score interval (95%), so a lucky 7/8 does not outrank
   75/173.
 
+### Fixed
+
+- **Trace totals and timeline buckets cover the whole filtered window**
+  (`actionagent`). `GET /api/traces` adds `total_count`, `returned_count`,
+  `truncated`, a `summary` (requests, errors, average latency, throughput
+  per minute) and zero-filled `buckets` computed over every trace the
+  filters match, independently of the capped detail list, and the Traces
+  view reports truncation and averages recorded request durations instead
+  of time-bucket means (part of #384).
+
 ## [1.9.2] - 2026-10-20
 
 Releases `activeagent` and `actionagent` 1.9.2, with the matching browser

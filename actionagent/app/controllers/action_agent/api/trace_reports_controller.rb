@@ -27,16 +27,19 @@ module ActionAgent
       #   service   a service_name, narrowing `traces` only
       #   status    "error" for failed traces only
       def index
-        window = params.fetch(:minutes, DEFAULT_WINDOW_MINUTES).to_i.clamp(1, MAX_WINDOW_MINUTES)
-        window_scope = agent_scope(traces_scope).for_date_range(window.minutes.ago, Time.current)
+        window = clamped_param(:minutes, default: DEFAULT_WINDOW_MINUTES, min: 1, max: MAX_WINDOW_MINUTES)
+        to = Time.current
+        from = to - window.minutes
+        window_scope = agent_scope(traces_scope).where(timestamp: from...to)
 
         scope = window_scope
         scope = scope.for_agent(params[:agent]) if params[:agent].present?
         scope = scope.for_service(params[:service]) if params[:service].present?
         scope = scope.with_errors if params[:status] == "error"
 
-        limit = params.fetch(:limit, DEFAULT_LIMIT).to_i.clamp(1, 1000)
-        traces = scope.recent.limit(limit)
+        limit = clamped_param(:limit, default: DEFAULT_LIMIT, min: 1, max: 1000)
+        traces = scope.recent.limit(limit).to_a
+        report = TraceWindowReport.new(scope, from: from, to: to, bucket_seconds: integer_param(:bucket_seconds, default: 60)).as_json
 
         render json: {
           traces: traces.map { |trace| TelemetryTraceSerializer.summary(trace) },
@@ -45,8 +48,10 @@ module ActionAgent
           # trace back to the agent it belongs to (AgentRegistrar attributes
           # SDK-reported traces to an Agent record on ingest).
           agent_ids: agent_ids_by_class(window_scope),
-          window_minutes: window
-        }
+          window_minutes: window,
+          returned_count: traces.size,
+          truncated: report[:total_count] > traces.size
+        }.merge(report)
       end
 
       # GET /api/traces/:id — accepts the record id or the OTel trace_id
