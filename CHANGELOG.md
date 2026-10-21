@@ -63,6 +63,13 @@ engine: the file chooser relay and the per-turn browser tokens are in the
   `connections.codex`, and the Codex card in Settings shows the machine's
   login instead of a key form. The default stays `:api_key`.
 
+### Fixed
+
+- Traces totals and timeline buckets cover the full filtered time window,
+  independently of the capped detail list. The dashboard reports truncation
+  and averages recorded request durations instead of time-bucket means
+  (part of #384).
+
 ## [1.9.2] - 2026-10-20
 
 Releases `activeagent` and `actionagent` 1.9.2, with the matching browser
