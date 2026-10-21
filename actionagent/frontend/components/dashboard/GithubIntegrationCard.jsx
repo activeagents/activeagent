@@ -19,6 +19,7 @@ import {
   sandboxStatus,
   upsertBy,
   claudeCodeAuth,
+  codexAuth,
 } from '../../utils/codeSessions.mjs';
 import { toggleRepository } from '../../utils/repositories.mjs';
 import {
@@ -99,7 +100,7 @@ export default function GithubIntegrationCard({ callbackStatus, appCallbackStatu
       setSandboxSupport({
         codeSessions: Boolean(data.code_sessions_supported),
         claudeCode: { ...claudeCodeAuth(data), sandboxes: data.claude_code_sandboxes || [] },
-        codex: { supported: data.codex_sessions_supported === true, connected: data.codex_connected === true },
+        codex: codexAuth(data),
         pullRequests: data.pull_requests_supported === true,
         browserModes: Array.isArray(data.browser_modes) ? data.browser_modes : [],
       });

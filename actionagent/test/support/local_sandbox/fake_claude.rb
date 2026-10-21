@@ -70,8 +70,11 @@ end
 # the signal, where one during Ruby's own boot exits 1 (see above).
 File.write(File.join(config_dir, "ready"), Process.pid.to_s)
 prompt = $stdin.read
+mcp_config = argv.index("--mcp-config")&.then { |index| argv[index + 1] }
 File.write(File.join(config_dir, "invocation.json"),
-  JSON.generate("argv" => argv, "env" => ENV.to_h, "cwd" => Dir.pwd, "prompt" => prompt))
+  JSON.generate("argv" => argv, "env" => ENV.to_h, "cwd" => Dir.pwd, "prompt" => prompt,
+    "mcp_config_mode" => mcp_config && File.stat(mcp_config).mode & 0o777,
+    "mcp_config" => mcp_config && JSON.parse(File.read(mcp_config))))
 
 def emit(event)
   puts JSON.generate(event)

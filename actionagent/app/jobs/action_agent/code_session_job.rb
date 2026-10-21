@@ -60,14 +60,29 @@ module ActionAgent
       finish(code_session, outcome.to_h, result_event, secrets)
       verify(code_session)
       resume_boot(code_session)
+      advance(code_session)
     rescue StandardError => e
       message = SecretScrubber.scrub(e.message.to_s, secrets || safe_secrets(code_session))
       Rails.logger.error("Code session #{code_session_id} failed: #{message}")
       fail!(code_session, message) if code_session
       resume_boot(code_session) if code_session
+      advance(code_session) if code_session
     end
 
+    # What a turn after the first says when the CLI no longer has the
+    # session it resumes.
+    RESUME_LOST = "The conversation could not be resumed: Claude Code no longer has its session " \
+                  "(the sandbox restarted, or its Claude Code login changed). Start a new conversation."
+
     private
+
+    # Starts the next queued turn of the conversation, now this one settled
+    # (CodeConversation).
+    def advance(code_session)
+      CodeConversation.advance!(code_session.reload)
+    rescue StandardError => e
+      Rails.logger.warn("Code session #{code_session.id}: the conversation's next turn was not started: #{e.class}: #{e.message}")
+    end
 
     # A project's boot fix resumes the boot it fixed (ProjectBootFix). Its
     # failure is the boot's, not the session's, so it is logged and left on
@@ -112,7 +127,8 @@ module ActionAgent
         else
           code_session.assign_attributes(
             status: :failed,
-            error_message: failure_message(result_event, outcome, secrets, label: code_session.runner == "codex" ? "Codex" : "Claude Code"),
+            error_message: failure_message(result_event, outcome, secrets, label: code_session.runner == "codex" ? "Codex" : "Claude Code",
+              resumed: code_session.turn_index.to_i.positive?),
             finished_at: Time.current
           )
         end
@@ -134,8 +150,9 @@ module ActionAgent
 
     # What went wrong, in Claude Code's own words when it reported a failure
     # and from the process otherwise.
-    def failure_message(result_event, outcome, secrets, label: "Claude Code")
+    def failure_message(result_event, outcome, secrets, label: "Claude Code", resumed: false)
       message = reported_failure(result_event) || process_failure(result_event, outcome, label: label)
+      message = RESUME_LOST if resumed && message.match?(/no conversation found|session.{0,40}not found|thread.{0,40}not found/i)
       SecretScrubber.scrub(message, secrets).truncate(MAX_ERROR_MESSAGE)
     end
 

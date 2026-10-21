@@ -111,6 +111,9 @@ module ActionAgent
   # What ActionAgent.claude_code_auth may be set to.
   CLAUDE_CODE_AUTH_MODES = %i[api_key local_login sandbox_login].freeze
 
+  # What ActionAgent.codex_auth may be set to.
+  CODEX_AUTH_MODES = %i[api_key local_login].freeze
+
   # What ActionAgent.provider_key_scope may be set to.
   PROVIDER_KEY_SCOPES = %i[organization personal_override].freeze
 
@@ -134,6 +137,9 @@ module ActionAgent
   #                           they are handed to, or delete a project that has
   #                           them
   #   :take_over_browser      drive a run's browser by hand
+  #   :chat_code_session      send a message to a Claude Code or Codex
+  #                           conversation someone may have started (the
+  #                           subject is its first session)
   #   :manage_recordings      delete a session recording
   #   :replace_scenarios      replace or merge an evaluation's scenarios
   PERMISSION_ACTIONS = %i[
@@ -144,6 +150,7 @@ module ActionAgent
     answer_input_request
     manage_project_secrets
     take_over_browser
+    chat_code_session
     manage_recordings
     replace_scenarios
   ].freeze
@@ -589,9 +596,34 @@ module ActionAgent
     # @return [Integer]
     attr_accessor :claude_code_timeout
 
-    # Codex CLI sessions use the owner's OpenAI API key and workspace-write
-    # sandboxing. They share checkout lifecycle and cancellation with Claude.
+    # Codex CLI sessions run with workspace-write sandboxing, and share the
+    # checkout lifecycle and cancellation with Claude Code.
     attr_accessor :codex_command, :codex_timeout
+
+    # How Codex sessions authenticate.
+    #
+    # :api_key (the default) runs them on the OpenAI API key the owner
+    # connected in Settings -> Integrations, handed to the session as
+    # CODEX_API_KEY with a Codex home of the sandbox's own. Usage is billed
+    # to that key's project.
+    #
+    # :local_login runs `codex` on whatever login this machine's user set up
+    # with `codex login` (a ChatGPT plan, or a key given to the CLI), which
+    # Codex keeps under ~/.codex. The dashboard never reads, copies or
+    # stores it; it only asks `codex login status` whether there is one.
+    # That login is the dashboard user's own, so this works with the :local
+    # sandbox backend only, and other backends refuse Codex sessions.
+    # @return [Symbol] :api_key or :local_login
+    attr_reader :codex_auth
+
+    def codex_auth=(value)
+      mode = value.to_s.to_sym
+      unless CODEX_AUTH_MODES.include?(mode)
+        raise ArgumentError, "ActionAgent.codex_auth must be :api_key or :local_login, not #{value.inspect}"
+      end
+
+      @codex_auth = mode
+    end
 
     # How Claude Code sessions authenticate.
     #
@@ -1248,6 +1280,7 @@ module ActionAgent
       @claude_code_timeout = 1800
       @codex_command = "codex"
       @codex_timeout = 1800
+      @codex_auth = :api_key
       @claude_code_auth = :api_key
       @claude_code_hosted_login_enabled = false
       @claude_code_login_timeout = 300

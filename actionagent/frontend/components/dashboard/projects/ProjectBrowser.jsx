@@ -6,7 +6,7 @@ import { dashboardPath, navigateTo } from '../../../utils/dashboardPath';
 const RUNTIMES_PATH = '/settings?tab=integrations';
 
 // The project's Browser tab: its sandbox's browser (BrowserPanel), started,
-// stopped and watched live from here, with Take over, as on
+// stopped and watched live from here, with Take over and file uploads, as on
 // Settings -> Integrations, which still lists every runtime. `modes` is what
 // the backend can start; `watchOnOpen` starts watching once the live view
 // is there, for the header's Watch live; `onChange` follows a start or stop.
@@ -24,8 +24,8 @@ export default function ProjectBrowser({ project, modes = [], watchOnOpen = fals
     body = (
       <>
         <p style={note}>
-          A browser of the sandbox's own, opened on {project.repository}'s running app. Watch it live, take over to click and type,
-          and hand back. Agent runs reach it as <span style={{ fontFamily: MONO }}>browser:{sandbox.session_id}</span>.
+          A browser of the sandbox's own, opened on {project.repository}'s running app. Watch it live, take over to click, type and
+          upload files, and hand back. Agent runs reach it as <span style={{ fontFamily: MONO }}>browser:{sandbox.session_id}</span>.
         </p>
         <BrowserPanel key={sandbox.session_id} sandbox={sandbox} modes={modes} watchOnOpen={watchOnOpen} onChange={onChange} />
       </>
