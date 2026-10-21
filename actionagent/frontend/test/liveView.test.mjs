@@ -6,7 +6,10 @@ import {
   browserStatus,
   closeMessage,
   controlLabel,
+  encodeChunk,
+  fileChooserWaitLabel,
   framePoint,
+  handoffReport,
   initialLiveViewState,
   isBrowserActive,
   keyMessage,
@@ -16,9 +19,13 @@ import {
   modifierMask,
   mouseMessage,
   pageLabel,
+  personRequestBanner,
   releaseMessage,
   takeOverButton,
   textMessage,
+  UPLOAD_CHUNK_BYTES,
+  uploadPlan,
+  uploadProgressLabel,
   wheelMessage,
 } from '../utils/liveView.mjs';
 
@@ -175,4 +182,72 @@ test("a sandbox browser's status, and how one is started", () => {
   assert.deepEqual(browserStartBody({ inWindow: true, modes: ['headless', 'headed'] }), { mode: 'headed' });
   assert.deepEqual(browserStartBody({ inWindow: true, modes: ['headless'] }), { mode: 'headless' });
   assert.deepEqual(browserStartBody(), { mode: 'headless' });
+});
+
+const chooser = { id: 'c1', multiple: false, accept: '.txt', since: 1, max_files: 10, max_file_bytes: 1024 };
+
+test('the file chooser the page opened is followed from ready to answered', () => {
+  let state = liveViewReducer(initialLiveViewState, { type: 'ready', control: {}, agent: null, page: null, file_chooser: chooser });
+  assert.deepEqual(state.fileChooser, chooser);
+  state = liveViewReducer(state, { type: 'file_chooser', chooser: null });
+  assert.equal(state.fileChooser, null);
+  state = liveViewReducer(state, { type: 'file_chooser', chooser });
+  assert.equal(liveViewReducer(state, { type: 'file_upload', status: 'progress', received: 1, total: 2 }), state);
+  assert.equal(liveViewReducer(state, { type: 'file_upload', status: 'failed', code: 'too_large', message: 'a.txt is larger than 1 KB' }).error, 'a.txt is larger than 1 KB');
+  assert.equal(liveViewReducer(state, { type: 'reset' }).fileChooser, null);
+});
+
+test('chosen files are checked against what the page and the sidecar take before any is sent', () => {
+  const file = (name, size) => ({ name, size });
+  assert.deepEqual(uploadPlan([file('a.txt', 3)], chooser), { files: [{ name: 'a.txt', size: 3 }], total: 3 });
+  assert.equal(uploadPlan([file('a.txt', 3), file('b.txt', 3)], chooser).error, 'This field takes one file.');
+  assert.deepEqual(uploadPlan([file('a.txt', 3), file('b.txt', 4)], { ...chooser, multiple: true }).total, 7);
+  assert.equal(uploadPlan([file('a', 1), file('b', 1)], { ...chooser, multiple: true, max_files: 1 }).error, 'This field takes one file.');
+  assert.equal(uploadPlan(Array.from({ length: 3 }, (_, i) => file(`${i}`, 1)), { ...chooser, multiple: true, max_files: 2 }).error, 'This field takes at most 2 files.');
+  assert.equal(uploadPlan([file('big.bin', 2048)], chooser).error, 'big.bin is larger than 1 KB.');
+  assert.equal(uploadPlan([], chooser).error, 'Choose a file to upload.');
+  assert.equal(uploadPlan([file('a', 1)], null).error, 'The page is no longer asking for a file.');
+});
+
+test('a chunk is base64 of its bytes, at the size the sidecar takes', () => {
+  assert.equal(UPLOAD_CHUNK_BYTES, 32 * 1024);
+  assert.equal(encodeChunk(new TextEncoder().encode('hello world')), 'aGVsbG8gd29ybGQ=');
+  const large = new Uint8Array(UPLOAD_CHUNK_BYTES).map((_, i) => i % 256);
+  assert.deepEqual(Uint8Array.from(atob(encodeChunk(large)), (c) => c.charCodeAt(0)), large);
+  assert.equal(uploadProgressLabel({ sent: 512, total: 2048 }), 'Uploading 2 KB… 25%');
+  assert.equal(uploadProgressLabel({ sent: 0, total: 0 }), 'Uploading 0 bytes… 100%');
+  assert.equal(uploadProgressLabel(null), null);
+});
+
+test('viewers who are not driving are told the page waits for a file', () => {
+  const waiting = { ...initialLiveViewState, fileChooser: chooser };
+  assert.equal(fileChooserWaitLabel({ ...waiting, control: { held: true, mine: false, yours: false, by: 'Ada' } }), 'The page is asking Ada for a file.');
+  assert.match(fileChooserWaitLabel({ ...waiting, control: { held: true, mine: false, yours: true, by: 'Ada' } }), /view you are driving from/);
+  assert.equal(fileChooserWaitLabel({ ...waiting, control: { held: true, mine: true, yours: true, by: 'Ada' } }), null);
+  assert.equal(fileChooserWaitLabel(initialLiveViewState), null);
+});
+
+test('a waiting agent is named by its client, and an agent asking for a person is shown until someone takes control', () => {
+  let state = liveViewReducer(initialLiveViewState, {
+    type: 'ready', control: { held: true, mine: true, yours: true, by: 'Ada', since: 1 },
+    agent: { waiting: true, tool: 'browser_click', since: 2, client: 'Claude Code · turn 3' },
+    page: null, file_chooser: null, person_request: null,
+  });
+  assert.equal(agentBanner(state), 'Claude Code · turn 3 is waiting for you to hand back control (browser_click).');
+
+  state = liveViewReducer(state, { type: 'control', held: false, mine: false, yours: false, by: null, since: null });
+  state = liveViewReducer(state, { type: 'person_requested', request: { reason: 'Sign in as the test user', client: 'Claude Code · turn 4', at: 3 } });
+  assert.equal(personRequestBanner(state), 'Claude Code · turn 4 needs a person: Sign in as the test user');
+
+  const held = liveViewReducer(state, { type: 'control', held: true, mine: false, yours: false, by: 'Grace', since: 4 });
+  assert.equal(personRequestBanner(held), null, 'someone is on it');
+  assert.equal(personRequestBanner(liveViewReducer(state, { type: 'person_requested', request: null })), null);
+});
+
+test('a hand-back reports when control was held and the page left, only an http one', () => {
+  assert.deepEqual(handoffReport({ takenAt: Date.UTC(2026, 9, 14, 12, 1, 3), releasedAt: Date.UTC(2026, 9, 14, 12, 3, 40), page: { url: 'http://127.0.0.1:4100/orders' } }), {
+    by: null, taken_at: '2026-10-14T12:01:03.000Z', released_at: '2026-10-14T12:03:40.000Z', page_url: 'http://127.0.0.1:4100/orders',
+  });
+  assert.equal(handoffReport({ takenAt: 1, releasedAt: 2, page: { url: 'javascript:alert(1)' } }).page_url, null);
+  assert.equal(handoffReport({ takenAt: undefined, releasedAt: 2 }).taken_at, null);
 });

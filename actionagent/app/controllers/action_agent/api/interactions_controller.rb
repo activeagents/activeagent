@@ -8,15 +8,32 @@ module ActionAgent
     # A context is one agent's interaction stream (AgentContext +
     # AgentMessages + AgentGenerations, recorded by SolidAgent::HasContext
     # during execution), scoped to the current user's agents.
+    #
+    # Claude Code and Codex conversations in the caller's checkout sandboxes
+    # are interactions too ("code-<id>", CodeConversationSerializer).
+    #
+    # GET /api/interactions takes:
+    #   source      all (the default), agent, claude_code or codex
+    #   project_id  only that project's code conversations
+    #   sandbox_id  only that sandbox's (its session id)
+    #   agent_id    only that agent's contexts and traces; no code conversations
     class InteractionsController < BaseController
       before_action :require_owner!
 
       DEFAULT_LIMIT = 50
       MAX_WINDOW_MINUTES = 60 * 24 * 90
+      SOURCES = %w[all agent claude_code codex].freeze
 
       # GET /api/interactions
       def index
         limit = clamped_param(:limit, default: DEFAULT_LIMIT, min: 1, max: 200)
+        source = SOURCES.include?(params[:source]) ? params[:source] : "all"
+        coded = source == "all" ? code_conversations(limit) : (source == "agent" ? [] : code_conversations(limit, runner: source))
+        # A project or sandbox filter, or a code source, names code
+        # conversations only.
+        if source != "all" && source != "agent" || params[:project_id].present? || params[:sandbox_id].present?
+          return render json: { interactions: coded.first(limit) }
+        end
 
         contexts = interactions_scope
           .includes(:contextable)
@@ -53,12 +70,20 @@ module ActionAgent
         reported = reported_traces(limit).map { |trace| TraceInteractionSerializer.summary(trace) }
 
         render json: {
-          interactions: (persisted + reported).sort_by { |row| row[:last_activity_at].to_s }.reverse.first(limit)
+          interactions: (persisted + reported + coded).sort_by { |row| row[:last_activity_at].to_s }.reverse.first(limit)
         }
       end
 
       # GET /api/interactions/:id
+      # For "code-<id>", ?after[<turn id>]=N sends each turn's transcript from
+      # event N onward.
       def show
+        if (root_id = params[:id].to_s[/\Acode-(\d+)\z/, 1])
+          root = code_session_scope.conversation_roots.find(root_id)
+          after = params[:after].respond_to?(:permit) ? params[:after].permit!.to_h : {}
+          return render json: { interaction: CodeConversationSerializer.detail(root, after: after) }
+        end
+
         if (trace_id = params[:id].to_s[/\Atrace-(\d+)\z/, 1])
           trace = owned_traces.find(trace_id)
           return render json: { interaction: TraceInteractionSerializer.detail(trace) }
@@ -77,6 +102,35 @@ module ActionAgent
       end
 
       private
+
+      # Code sessions in the caller's checkout sandboxes, of their current
+      # account in a multi-tenant install, as CodeSessionsController reaches
+      # them. Per-agent views list none.
+      def code_session_scope
+        sandboxes = owned(SandboxSession)
+        sandboxes = sandboxes.where(account_id: current_account.id) if current_account
+        CodeSession.where(sandbox_session_id: sandboxes.select(:id))
+      end
+
+      # The newest code conversations, as interaction rows.
+      def code_conversations(limit, runner: nil)
+        return [] if params[:agent_id].present?
+
+        roots = code_session_scope.conversation_roots
+        roots = roots.where(runner: runner) if runner
+        if params[:sandbox_id].present?
+          roots = roots.where(sandbox_session_id: SandboxSession.where(session_id: params[:sandbox_id].to_s).select(:id))
+        end
+        if params[:project_id].present?
+          roots = roots.where(sandbox_session_id: SandboxSession.where(project_id: params[:project_id].to_i).select(:id))
+        end
+        roots = roots.where(updated_at: window_minutes.minutes.ago..) if window_minutes
+        roots = roots.includes(:sandbox_session).order(created_at: :desc).limit(limit).to_a
+        follow_ups = CodeSession.where(conversation_root_id: roots.map(&:id)).order(:turn_index, :id).group_by(&:conversation_root_id)
+
+        roots.map { |root| CodeConversationSerializer.summary(root, [ root, *follow_ups.fetch(root.id, []) ]) }
+          .sort_by { |row| row[:last_activity_at].to_s }.reverse
+      end
 
       # What each stream opened with and what it finally answered, so a
       # collapsed interaction row says what it was about — the same two lines a
