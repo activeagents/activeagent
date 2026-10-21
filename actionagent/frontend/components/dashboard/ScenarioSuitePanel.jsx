@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { navigateTo } from '../../utils/dashboardPath';
+import { dashboardPath, navigateTo } from '../../utils/dashboardPath';
+import { reportExports } from '../../utils/reportExport.mjs';
 import { Button, Chip, Empty, MicroLabel, MonoLink, MONO } from './primitives';
 import { scenarioRowsForRun } from '../../utils/evaluationHistory.mjs';
 import {
@@ -627,6 +628,8 @@ export default function ScenarioSuitePanel({
     + ` · ${loadError ? 'not loaded' : !loaded ? 'loading…' : runs.length ? plural(latestNumber, 'run') : 'no runs yet'}`;
 
   const reportPath = run && run.status === 'complete' ? `/evaluations/${evaluationId}/runs/${run.id}/report` : null;
+  // The run's Markdown report, which the copy buttons read their pieces from.
+  const markdownUrl = reportPath ? dashboardPath(reportExports(reportPath).markdown) : null;
 
   const visibleGroups = [...new Set([...groups, ...matrixScenarios.map((s) => s.group).filter(Boolean)])];
   const groupChips = [{ label: `All ${matrixScenarios.length || scenarioTotal}`, value: null }]
@@ -815,6 +818,7 @@ export default function ScenarioSuitePanel({
           canMutate={!scenario.orphan}
           onRerun={(s) => startRun({ keys: [s.key] })}
           onToggleEnabled={toggleScenario}
+          markdownUrl={markdownUrl}
         />
       )}
     />
@@ -1031,7 +1035,7 @@ export default function ScenarioSuitePanel({
 
       {/* Models — not for a run that failed before it replayed anything. */}
       {run && run.status !== 'failed' && (
-        <ModelsPanel run={run} columns={columns} results={results} scenarioCount={scenarioCount} judgedBy={judgedBy} verdict={verdict} evaluation={evaluation} onJudgeChanged={onChanged} />
+        <ModelsPanel run={run} columns={columns} results={results} scenarioCount={scenarioCount} judgedBy={judgedBy} verdict={verdict} evaluation={evaluation} onJudgeChanged={onChanged} markdownUrl={markdownUrl} />
       )}
 
       {/* What to fix. The heading takes focus from the header's TO FIX tile. */}
@@ -1061,6 +1065,7 @@ export default function ScenarioSuitePanel({
               scenarios={scenarios}
               onRerun={(item) => startRun({ keys: runnableKeys(item.scenario_keys || [], scenarios).keys })}
               runnableFor={(item) => runnableKeys(item.scenario_keys || [], scenarios)}
+              markdownUrl={markdownUrl}
             />
           ) : (
             <Empty style={{ ...boxEmptyStyle, padding: '14px 12px' }}>
