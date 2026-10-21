@@ -100,6 +100,27 @@ the engine logs a warning at boot and the dashboard renders blank with
 (and, for an API-only app, re-enable the asset initializer and middleware) and
 the bundles are served with nothing else to configure.
 
+## Evaluation reports
+
+An application that runs its own evaluations publishes each report to
+`POST <mount>/api/evaluation_reports` with `ActiveAgent::Evals::Publisher`,
+authenticated with the ingest key. Any complete run comes back out as the
+same envelope from `GET <mount>/api/evaluation_reports/:run_id`, so it can be
+posted to another install; posting it back here is an identical retry. A
+signed-in session reads it at
+`<mount>/api/evaluations/:id/runs/:run_id/report.json`, the HTML page at
+`report`, and GitHub-flavored Markdown at `report.md`, each downloadable with
+`?download=1`. From the command line:
+
+```bash
+bin/rails action_agent:evaluations:export RUN=<run_id> FORMAT=json|html|md [FILE=path]
+bin/rails action_agent:evaluations:export EVALUATION=<id> RUN=<id> FORMAT=md
+bin/rails action_agent:evaluations:import FILE=run.json [ACCOUNT_ID=<id>]
+```
+
+See [Publishing an externally executed evaluation](https://docs.activeagents.ai/evals/publication)
+for the envelope, the run_id a dashboard run exports under, and every response.
+
 ## Upgrading from activeagent <= 1.1.0
 
 The dashboard used to live inside the framework gem as `ActiveAgent::Dashboard`.

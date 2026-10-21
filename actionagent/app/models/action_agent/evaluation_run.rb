@@ -200,6 +200,16 @@ module ActionAgent
       cost_breakdown.usage
     end
 
+    # The judge's run-level spend as recorded, without pricing anything:
+    # what the publishing application reported for the calls no result owns,
+    # else the engine's meter, else nil.
+    def recorded_judge_usage_run
+      reported = scores&.dig("_judge_usage_run")
+      return reported if reported.is_a?(Hash)
+
+      judge_usage_meter&.merge("source" => "meter")
+    end
+
     # Route templates for the report's fix item actions, relative to the
     # dashboard mount: `%{key}` is filled in per MCP server by the report.
     # The JSON API leaves `mount` empty — the React app resolves paths
@@ -238,7 +248,11 @@ module ActionAgent
     # judge's run-level spend, so the page shows every cost the dashboard
     # does. `estimate: false` rebuilds the report from what was recorded
     # alone — the import summarizes a published run that way, so the
-    # summaries it stores stay the application's own figures.
+    # summaries it stores stay the application's own figures, and the
+    # export (EvaluationReportExport) serves it that way, so the same run
+    # always exports the same report. The judge's run-level spend is then
+    # the one recorded: the application's for an imported run, the meter's
+    # for one the engine judged.
     #
     # The engine runs against every activeagent since 1.4, so the report
     # kwargs that arrived later are passed only when Report.new takes them.
@@ -286,7 +300,8 @@ module ActionAgent
         agent_name: evaluation.agent&.name,
         links: links
       }
-      kwargs[:judge_usage] = breakdown.judge_usage_run if breakdown && self.class.report_accepts?(:judge_usage)
+      judge_usage_run = breakdown ? breakdown.judge_usage_run : recorded_judge_usage_run
+      kwargs[:judge_usage] = judge_usage_run if judge_usage_run && self.class.report_accepts?(:judge_usage)
       kwargs[:release] = release_summary if release_summary && self.class.report_accepts?(:release)
       kwargs[:comparison] = recorded_comparison if recorded_comparison && self.class.report_accepts?(:comparison)
       self.class.report_class.new(**kwargs)

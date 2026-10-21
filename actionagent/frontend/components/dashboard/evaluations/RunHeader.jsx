@@ -7,6 +7,8 @@ import { splitModelLabel, timeAgo } from '../../../utils/format';
 import { fmtPasses } from '../../../utils/evalFormat.mjs';
 import { fmtClock, fmtDuration, plural, runElapsedMs } from '../../../utils/evaluationRuns.mjs';
 import { DELTA_TONE, RunBadge, VERSION_TONE, VersionChip } from './RunsList';
+import CopyMarkdownButton from './CopyMarkdownButton';
+import { reportExports } from '../../../utils/reportExport.mjs';
 import { AgentCostCell, JudgeCostCell, StatCell } from './SpendStrip';
 
 // The selected run of a scenario suite, as the card at the top of its build
@@ -90,6 +92,7 @@ export default function RunHeader({
   const { darkMode } = useTheme();
   const now = useNow(running);
   if (!run) return null;
+  const reportFiles = reportExports(reportPath);
 
   const failed = run.status === 'failed';
   const complete = run.status === 'complete';
@@ -234,6 +237,16 @@ export default function RunHeader({
           <MonoLink href={hrefFor(reportPath)} onClick={() => navigateTo(reportPath)} title="The run rendered as a report page" testId="suite-run-report">
             run report
           </MonoLink>
+        )}
+        {reportFiles && (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }} data-testid="suite-run-exports">
+            <span style={{ fontFamily: MONO, fontSize: 11, color: MUTED }}>download</span>
+            <MonoLink href={hrefFor(reportFiles.html)} title="The report as one self-contained HTML page" testId="suite-run-download-html">html</MonoLink>
+            <MonoLink href={hrefFor(reportFiles.json)} title="The run as the evaluation report envelope another install imports" testId="suite-run-download-json">json</MonoLink>
+            <MonoLink href={hrefFor(reportFiles.md)} title="The report as GitHub-flavored Markdown" testId="suite-run-download-md">markdown</MonoLink>
+            <CopyMarkdownButton url={hrefFor(reportFiles.markdown)} label="copy markdown" testId="suite-run-copy-markdown"
+              title="Copy the whole report as GitHub-flavored Markdown" style={{ padding: '0 4px', fontFamily: MONO, fontSize: 11 }} />
+          </span>
         )}
         <span style={{ marginLeft: 'auto' }}>
           <MetaStrip darkMode={darkMode} cells={cells} />

@@ -6,6 +6,7 @@ import ScenarioSuitePanel from './ScenarioSuitePanel';
 import EvaluationForm from './evaluations/EvaluationForm';
 import EvaluationRunDetail from './evaluations/EvaluationRunDetail';
 import CriteriaFooter from './evaluations/CriteriaFooter';
+import CopyMarkdownButton from './evaluations/CopyMarkdownButton';
 import ModelLeaderboard from './evaluations/ModelLeaderboard';
 import RunsList, { RunBadge, runsSummary } from './evaluations/RunsList';
 import { fmtRate } from './evaluations/SpendStrip';
@@ -17,6 +18,7 @@ import {
   samplingFixItems,
 } from '../../utils/evaluationRuns.mjs';
 import { requestConfirm } from '../../utils/confirm.mjs';
+import { reportExports } from '../../utils/reportExport.mjs';
 
 // Evaluations, each with every run it has had. An evaluation is a named set
 // of criteria against one agent — scored over its recorded generations, or,
@@ -376,7 +378,9 @@ export default function EvaluationsView({ embedded = false, agentId = null }) {
   };
 
   if (reportRef) {
-    const reportUrl = dashboardPath(`/api/evaluations/${reportRef.evaluationId}/runs/${reportRef.runId}/report`);
+    const reportFiles = reportExports(`/evaluations/${reportRef.evaluationId}/runs/${reportRef.runId}/report`);
+    const reportUrl = dashboardPath(reportFiles.report);
+    const exportLinkStyle = { padding: '6px 12px', borderRadius: 8, fontSize: 13, fontWeight: 500, color: 'var(--color-text-cell)', border: '1px solid var(--color-border-strong)', textDecoration: 'none', whiteSpace: 'nowrap' };
     const framedUrl = `${reportUrl}?theme=${darkMode ? 'dark' : 'light'}`;
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -388,20 +392,33 @@ export default function EvaluationsView({ embedded = false, agentId = null }) {
             <h1 style={{ margin: 0, fontSize: 24, fontWeight: 700, letterSpacing: '-0.01em', color: 'var(--color-text-primary)' }}>Run report</h1>
             <span style={monoStyle(11)}>{`evaluation ${reportRef.evaluationId} · run ${reportRef.runId}`}</span>
           </div>
-          <a
-            href={reportUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            title="The report is one self-contained page — save it to export"
-            style={{ padding: '6px 12px', borderRadius: 8, fontSize: 13, fontWeight: 500, color: 'var(--color-text-cell)', border: '1px solid var(--color-border-strong)', textDecoration: 'none' }}
-          >
-            Open standalone <span style={{ fontFamily: MONO }}>{'->'}</span>
-          </a>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }} data-testid="run-report-exports">
+            <CopyMarkdownButton url={dashboardPath(reportFiles.markdown)} title="Copy the whole report as GitHub-flavored Markdown, for a pull request or an issue" testId="run-report-copy-markdown" />
+            {[
+              ['html', 'Download HTML', 'The report as one self-contained page'],
+              ['json', 'Download JSON', 'The run as the evaluation report envelope — POST it to another install’s /api/evaluation_reports to import it'],
+              ['md', 'Download Markdown', 'The report as GitHub-flavored Markdown'],
+            ].map(([format, label, hint]) => (
+              <a key={format} href={dashboardPath(reportFiles[format])} download title={hint} data-testid={`run-report-download-${format}`} style={exportLinkStyle}>
+                {label}
+              </a>
+            ))}
+            <a
+              href={reportUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              title="The report as one self-contained page, outside the dashboard"
+              style={exportLinkStyle}
+            >
+              Open standalone <span style={{ fontFamily: MONO }}>{'->'}</span>
+            </a>
+          </div>
         </div>
         <iframe
           ref={reportFrame}
           src={framedUrl}
           title="Evaluation run report"
+          allow="clipboard-write"
           onLoad={() => setReportLoads((n) => n + 1)}
           scrolling="no"
           style={{

@@ -646,7 +646,19 @@ The footer states the run's terms — the judge, the criteria it scored on,
 what it cost — and links to `run report ->`: the same self-contained page
 `Report#to_html` writes for a CLI run, framed in the dashboard's own theme
 so it does not flash white inside a dark console. *Open standalone* opens
-the unframed page, which is the copy to archive next to a CI run.
+the unframed page, which is the copy to archive next to a CI run, and
+*Download HTML*, *Download JSON* and *Download Markdown* beside it save the
+page, the run as the evaluation report envelope another install imports
+(see [Exporting a stored run](/evals/publication#exporting-a-stored-run)),
+and the report as GitHub-flavored Markdown. The suite's run header carries
+the same downloads.
+
+**Copy as Markdown** puts a piece of the run on the clipboard for an issue
+or a pull request: the whole report (the run report view and the run
+header), the verdict with the model comparison (Models), What to fix for the
+model its filter shows, one fix card, and one scenario's result (its
+drill-down). Each copies the Markdown `Report#to_markdown` writes for that
+piece, so a piece pasted alone reads as it does in the whole report.
 `Delete suite`, on the right, takes the suite and its runs with it.
 
 **Costs** are never blank where tokens exist. Each result is priced down a
@@ -746,7 +758,11 @@ run's `costs` (`scenarios` keyed by scenario, each with `cost`,
 `PATCH /api/evaluations/:id` with `evaluation: { archived: true | false }`
 to archive or bring back; and
 `GET /api/evaluations/:id/runs/:run_id/report` for the HTML report, with
-`?theme=dark` or `?theme=light` to pin its palette. `GET /api/evaluations`
+`?theme=dark` or `?theme=light` to pin its palette, `report.json` for the run
+as an evaluation report envelope, `report.md` for the Markdown (one piece
+with `?part=verdict`, `?part=fix_items[&model=…]` or
+`?part=scenario&scenario=…`), and `?download=1` on any of them for an
+attachment. Each of `show_run`'s `fix_items` carries its `markdown`. `GET /api/evaluations`
 leaves archived evaluations out unless `?archived=1`, returns
 `archived_count`, and gives each evaluation its `standing`,
 `headline_run_id`, `archived_at` and `per_model` passes, plus the
