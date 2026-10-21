@@ -140,6 +140,22 @@ module ActiveAgent
           assert_equal 2598, usage.total_tokens
         end
 
+        test "auto-detects Anthropic usage that has cache token fields but no service tier" do
+          usage_hash = {
+            "input_tokens" => 12,
+            "output_tokens" => 25,
+            "cache_read_input_tokens" => 4000,
+            "cache_creation_input_tokens" => 300
+          }
+
+          usage = Usage.from_provider_usage(usage_hash)
+
+          assert_equal 12, usage.input_tokens
+          assert_equal 25, usage.output_tokens
+          assert_equal 4000, usage.cached_tokens
+          assert_equal 300, usage.cache_creation_tokens
+        end
+
         test "auto-detects provider format for Ollama" do
           usage_hash = {
             "prompt_eval_count" => 50,

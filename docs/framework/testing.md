@@ -93,7 +93,7 @@ end
 ```ruby
 class ConfigurationTest < ActiveAgentTestCase
   test "custom provider settings" do
-    custom_config = { "openai" => { "model" => "gpt-4" } }
+    custom_config = { "openai" => { "model" => "gpt-5" } }
 
     with_active_agent_config(custom_config) do
       # Test with custom configuration
