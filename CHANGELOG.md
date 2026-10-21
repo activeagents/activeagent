@@ -5,19 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.9.3] - 2026-10-21
 
-Browser upload and code conversations: the sandbox browser's live view takes
-files from the person driving it, and a Claude Code or Codex session is a
-conversation, with the sandbox's browser beside the chat and a hand-off
-either way. The framework, the dashboard engine and
-`@activeagents/browser-sidecar` move to 1.9.3 together.
+Releases `activeagent` and `actionagent` 1.9.3, with the matching browser
+sidecar: browser upload and code conversations (the sandbox browser's live
+view takes files from the person driving it, and a Claude Code or Codex
+session is a conversation with the sandbox's browser beside the chat and a
+hand-off either way, Codex on this machine's own login), evaluation run
+reports exported as JSON, HTML and Markdown with Copy as Markdown, an agent
+builder that offers only tools that work, a model leaderboard on the
+Evaluations page, complete trace window statistics, a judge pin that runs
+on its own provider, Opper as a provider and Parallel Search in the MCP
+catalog, and streaming fixes (unindexed tool call fragments, the finish
+reason of streamed and Responses generations, Anthropic cache-token usage).
+The framework, the dashboard engine and `@activeagents/browser-sidecar`
+move to 1.9.3 together.
 
 Upgrading: migration 028 adds the conversation columns to `code_sessions`.
 A host runs `bin/rails generate action_agent:install --skip` then
 `bin/rails db:migrate`, after 1.9.1's 027. Upgrade the sidecar with the
 engine: the file chooser relay and the per-turn browser tokens are in the
-1.9.3 sidecar.
+1.9.3 sidecar. On a single-tenant install the new report export
+(`GET <mount>/api/evaluation_reports/:run_id`) answers 401 until
+`ActionAgent.ingest_api_key` is set. A `judge_model` pin written
+`anthropic/…` or `openai/…` now runs on that native provider; an install
+that reached such a model through OpenRouter pins `openrouter/anthropic/…`.
 
 ### Added
 
