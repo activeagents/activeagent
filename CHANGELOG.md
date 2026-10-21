@@ -104,6 +104,16 @@ engine: the file chooser relay and the per-turn browser tokens are in the
   bound of the Wilson score interval (95%), so a lucky 7/8 does not outrank
   75/173.
 
+- **Opper as an OpenAI-compatible provider** (`activeagent`). `service:
+  "Opper"` generates and embeds through Opper's compatibility endpoint
+  (`https://api.opper.ai/v3/compat`), with the key from `OPPER_API_KEY`
+  when none is configured, as the Requesty provider does (#583).
+
+- **Parallel Search in the MCP catalog** (`actionagent`). An opt-in,
+  keyless `parallel` server (`web_search`, `web_fetch`) over HTTP; queries
+  and URLs go to parallel.ai. Every MCP HTTP request now sends
+  `User-Agent: ActionAgent/<version>` unless a header names another (#575).
+
 ### Fixed
 
 - **Trace totals and timeline buckets cover the whole filtered window**
@@ -147,6 +157,13 @@ engine: the file chooser relay and the per-turn browser tokens are in the
   `incomplete_details.reason` when the response was cut short
   (`max_output_tokens`, `content_filter`), else the response's `status`
   (`completed`).
+
+- **Anthropic usage with cache token fields no longer raises** (`activeagent`).
+  `Usage.from_provider_usage` recognised Anthropic's usage only by
+  `cache_creation` or `service_tier`; a payload carrying
+  `cache_read_input_tokens` or `cache_creation_input_tokens` without them
+  fell through to `Usage.new` and raised `UnknownAttributeError`. The cache
+  token fields now mark the payload as Anthropic's (#611).
 
 ## [1.9.2] - 2026-10-20
 
