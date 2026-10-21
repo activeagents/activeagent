@@ -262,7 +262,7 @@ module ActionAgent
       unless supports_code_runner?(runner)
         raise UnsupportedBackendError, "The #{backend_name} sandbox backend cannot run #{runner} sessions"
       end
-      refusal = ClaudeCodeAuth.backend_refusal(self) unless runner == "codex"
+      refusal = runner == "codex" ? CodexAuth.backend_refusal(self) : ClaudeCodeAuth.backend_refusal(self)
       raise UnsupportedBackendError, refusal if refusal
       if runner == "claude_code" && code_session.try(:credential_mode) == "sandbox_login"
         unless sandbox_session.claude_login_user_id.present? && sandbox_session.claude_login_user_id == code_session.user_id &&

@@ -59,7 +59,7 @@ module ActionAgent
           user_id: current_user.respond_to?(:id) ? current_user.id : @sandbox.try(:user_id),
           account_id: @sandbox.try(:account_id)
         )
-        code_session.credential_mode = runner == "claude_code" ? ClaudeCodeAuth.credential_mode(@sandbox, user_id: current_user&.id) : "api_key"
+        code_session.credential_mode = runner == "claude_code" ? ClaudeCodeAuth.credential_mode(@sandbox, user_id: current_user&.id) : CodexAuth.mode
         attach_fix!(code_session) if params[:evaluation_run_id].present?
         if (error = invalid_request(code_session))
           return render json: { error: error }, status: :unprocessable_entity
@@ -182,10 +182,8 @@ module ActionAgent
         if (refusal = ClaudeCodeAuth.login_owner_refusal(sandbox, user_id: current_user&.id))
           return refusal
         end
-        if runner == "codex"
-          return "Codex is not connected: connect an OpenAI API key in Settings -> Integrations first" if sandbox.runtime_environment(runner: runner).blank?
-          return
-        end
+        return CodexAuth.backend_refusal(orchestrator) || CodexAuth.credential_refusal(sandbox) if runner == "codex"
+
         ClaudeCodeAuth.backend_refusal(orchestrator) || ClaudeCodeAuth.credential_refusal(sandbox, user_id: current_user&.id)
       end
 
