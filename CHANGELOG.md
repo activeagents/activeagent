@@ -5,19 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.9.3] - 2026-10-21
 
-Browser upload and code conversations: the sandbox browser's live view takes
-files from the person driving it, and a Claude Code or Codex session is a
-conversation, with the sandbox's browser beside the chat and a hand-off
-either way. The framework, the dashboard engine and
-`@activeagents/browser-sidecar` move to 1.9.3 together.
+Releases `activeagent` and `actionagent` 1.9.3, with the matching browser
+sidecar: browser upload and code conversations (the sandbox browser's live
+view takes files from the person driving it, and a Claude Code or Codex
+session is a conversation with the sandbox's browser beside the chat and a
+hand-off either way, Codex on this machine's own login), evaluation run
+reports exported as JSON, HTML and Markdown with Copy as Markdown, an agent
+builder that offers only tools that work, a model leaderboard on the
+Evaluations page, complete trace window statistics, a judge pin that runs
+on its own provider, Opper as a provider and Parallel Search in the MCP
+catalog, and streaming fixes (unindexed tool call fragments, the finish
+reason of streamed and Responses generations, Anthropic cache-token usage).
+The framework, the dashboard engine and `@activeagents/browser-sidecar`
+move to 1.9.3 together.
 
 Upgrading: migration 028 adds the conversation columns to `code_sessions`.
 A host runs `bin/rails generate action_agent:install --skip` then
 `bin/rails db:migrate`, after 1.9.1's 027. Upgrade the sidecar with the
 engine: the file chooser relay and the per-turn browser tokens are in the
-1.9.3 sidecar.
+1.9.3 sidecar. On a single-tenant install the new report export
+(`GET <mount>/api/evaluation_reports/:run_id`) answers 401 until
+`ActionAgent.ingest_api_key` is set. A `judge_model` pin written
+`anthropic/…` or `openai/…` now runs on that native provider; an install
+that reached such a model through OpenRouter pins `openrouter/anthropic/…`.
 
 ### Added
 
@@ -133,6 +145,67 @@ engine: the file chooser relay and the per-turn browser tokens are in the
   evaluation (`—` where the model did not run). Models rank by the lower
   bound of the Wilson score interval (95%), so a lucky 7/8 does not outrank
   75/173.
+
+- **Opper as an OpenAI-compatible provider** (`activeagent`). `service:
+  "Opper"` generates and embeds through Opper's compatibility endpoint
+  (`https://api.opper.ai/v3/compat`), with the key from `OPPER_API_KEY`
+  when none is configured, as the Requesty provider does (#583).
+
+- **Parallel Search in the MCP catalog** (`actionagent`). An opt-in,
+  keyless `parallel` server (`web_search`, `web_fetch`) over HTTP; queries
+  and URLs go to parallel.ai. Every MCP HTTP request now sends
+  `User-Agent: ActionAgent/<version>` unless a header names another (#575).
+
+### Fixed
+
+- **Trace totals and timeline buckets cover the whole filtered window**
+  (`actionagent`). `GET /api/traces` adds `total_count`, `returned_count`,
+  `truncated`, a `summary` (requests, errors, average latency, throughput
+  per minute) and zero-filled `buckets` computed over every trace the
+  filters match, independently of the capped detail list, and the Traces
+  view reports truncation and averages recorded request durations instead
+  of time-bucket means (part of #384).
+
+- **A pinned evaluation judge runs on its own provider** (`actionagent`).
+  A `judge_model` pin selects the model's native provider, or the one its
+  qualifier names (`openrouter/anthropic/…`), instead of the first provider
+  with credentials; the qualifier is stripped before the request, the pin
+  wins over the credential resolver's default model, and a pinned route
+  with no credentials fails the run clearly when another provider is
+  configured. Native-to-gateway alias conversion stays out of scope (#431).
+  Upgrading: a pin written `anthropic/…` or `openai/…` now selects that
+  native provider, as candidate model names already did; an install that
+  reached such a model through OpenRouter pins `openrouter/anthropic/…`.
+
+- **Streamed tool calls without an `index` are no longer split into
+  fragments** (`activeagent`). OpenAI-compatible servers (Gemini's
+  compatibility endpoint, some Ollama and OpenRouter backends) stream tool
+  calls without the `index` that ties argument fragments to their call, and
+  the Chat provider turned every fragment into its own tool call with
+  partial arguments. A fragment now continues the call with the same `id`,
+  or the last call when it has no `id` and no function name.
+
+- **A streamed generation reports why it stopped** (`activeagent`).
+  `response.finish_reason` (and `stop_reason`), and the `finish_reason` of
+  the `prompt.active_agent` event, were `nil` for every streamed Chat and
+  Anthropic generation, since a stream has no response body to read it
+  from. The Chat provider now records the chunk's `finish_reason` and the
+  Anthropic provider the `message_delta`'s `stop_reason`, and the response
+  falls back to it.
+
+- **OpenAI Responses generations report why they stopped** (`activeagent`).
+  `response.finish_reason` (and `stop_reason`) was `nil` for every
+  Responses generation, streamed or not. It is now
+  `incomplete_details.reason` when the response was cut short
+  (`max_output_tokens`, `content_filter`), else the response's `status`
+  (`completed`).
+
+- **Anthropic usage with cache token fields no longer raises** (`activeagent`).
+  `Usage.from_provider_usage` recognised Anthropic's usage only by
+  `cache_creation` or `service_tier`; a payload carrying
+  `cache_read_input_tokens` or `cache_creation_input_tokens` without them
+  fell through to `Usage.new` and raised `UnknownAttributeError`. The cache
+  token fields now mark the payload as Anthropic's (#611).
 
 ## [1.9.2] - 2026-10-20
 
