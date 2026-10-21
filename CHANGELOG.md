@@ -49,7 +49,10 @@ engine: the file chooser relay and the per-turn browser tokens are in the
   per-turn browser token as a Claude Code turn: the sidecar's MCP server
   goes in as `--config 'mcp_servers.browser.url="…"'`, with the token in an
   environment variable Codex reads (`bearer_token_env_var`) rather than on
-  the command line, and is revoked when the turn ends; hand-offs and
+  the command line, the server's tools pre-approved
+  (`default_tools_approval_mode="approve"`, since Codex would otherwise
+  refuse every tool not marked read-only under `approval_policy="never"`),
+  and is revoked when the turn ends; hand-offs and
   `browser_request_person` work the same. `config.codex_auth = :local_login`
   (with the `:local` backend) runs Codex on whatever `codex login` set up
   for the dashboard's OS user, a ChatGPT plan included, with

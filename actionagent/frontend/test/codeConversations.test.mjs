@@ -91,6 +91,7 @@ test('the composer says whether a message runs now or waits, and that a hand-bac
   assert.equal(conversationActive({ turns: [{ status: 'running' }] }), true);
   assert.match(composerHint({ sandbox_status: 'ready', turns: [{ status: 'running' }, { status: 'queued' }] }), /waits for the turn that runs \(and 1 more\)/);
   assert.match(composerHint({ sandbox_status: 'ready', turns: [{ status: 'succeeded' }] }, { handoff: { by: null } }), /resuming this conversation\. Claude Code will be told you drove the browser\./);
+  assert.match(composerHint({ sandbox_status: 'ready', runner: 'codex', turns: [{ status: 'succeeded' }] }, { handoff: { by: null } }), /Codex will be told you drove the browser\./);
   assert.match(composerHint({ sandbox_status: 'stopped', turns: [] }), /The sandbox is stopped/);
 });
 

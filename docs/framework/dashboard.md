@@ -2088,9 +2088,13 @@ Code turn does: the backend mints a per-turn client token
 (`BrowserClientToken`) and passes the sidecar's MCP server as configuration
 overrides, `--config 'mcp_servers.browser.url="…"'` and `--config
 'mcp_servers.browser.bearer_token_env_var="ACTION_AGENT_BROWSER_TOKEN"'`,
-with the token in that environment variable and never on the command line.
-The token is revoked when the turn ends. Hand-offs between a person and the
-agent, and `browser_request_person`, work as they do for Claude Code.
+with the token in that environment variable and never on the command line,
+plus `--config 'mcp_servers.browser.default_tools_approval_mode="approve"'`:
+Codex auto-approves only MCP tools annotated read-only and would otherwise
+fail a navigate or click with "MCP tool call requires approval" under the
+session's `approval_policy="never"`. The token is revoked when the turn
+ends. Hand-offs between a person and the agent, and
+`browser_request_person`, work as they do for Claude Code.
 
 The model defaults to Codex's choice; **Other…** accepts an explicit model
 id. Native JSONL events are stored and rendered with command output, the
