@@ -25,7 +25,9 @@ engine: the file chooser relay and the per-turn browser tokens are in the
   `actionagent`). `GET <mount>/api/evaluation_reports/:run_id`, with the
   ingest key and scoped to the tenant like the POST, returns a complete run
   as the version-1 envelope the collector takes, so a run moves to another
-  install with one POST and posting it back is an identical retry (200).
+  install with one POST and posting it back is an identical retry (200);
+  `?format=html` returns the run's report page and `?format=md` its
+  Markdown, and `?download=1` an attachment of any of them.
   An imported run exports under its published `run_id`, a dashboard run
   under `dashboard-run-<id>-<created_at>`. `ActiveAgent::Evals::Publisher.envelope`
   builds the envelope for both the publisher and the export. The dashboard's

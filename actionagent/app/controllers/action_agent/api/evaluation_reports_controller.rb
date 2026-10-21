@@ -29,11 +29,15 @@ module ActionAgent
     # GET <mount>/api/evaluation_reports/:run_id returns a stored run as the
     # same version-1 envelope (EvaluationReportExport), so it can be posted to
     # another install, or back to this one as an identical retry. Responds
-    # 200 with the envelope (or, with `format=md`, the report as Markdown),
-    # 404 for a run_id the key's tenant holds no run under, 422 for a run that
-    # is not complete, and 401 and 501 as above.
+    # 200 with the envelope (or, with `format=html` or `format=md`, the
+    # report page or its Markdown), 404 for a run_id the key's tenant holds
+    # no run under, 422 for an envelope of a run that is not complete or an
+    # unknown format, and 401 and 501 as above.
     class EvaluationReportsController < ActionController::API
       include IngestAuthentication
+
+      # What #show serves for each `format`.
+      EXPORT_FORMATS = { "json" => "application/json", "html" => "text/html", "md" => "text/markdown" }.freeze
 
       # New reports one key may store per minute.
       RATE_LIMIT = 30
@@ -76,16 +80,31 @@ module ActionAgent
       # :run_id is an imported run's run_id as it was published, or the
       # "dashboard-run-<id>-<stamp>" a run the dashboard executed exports
       # under (EvaluationReportExport.run_id_for). Found within the key's
-      # tenant exactly as #create finds a stored run. `format=md` returns the
-      # run's report as Markdown (text/markdown) instead of the envelope.
+      # tenant exactly as #create finds a stored run. `format=html` returns
+      # the run's self-contained report page (text/html) as run_report renders
+      # it, and `format=md` its Markdown (text/markdown), instead of the
+      # envelope; any other format is a 422. `download=1` sends any of them
+      # as an attachment named like the dashboard's downloads.
       def show
         run = EvaluationReportExport.find(params[:run_id], account: @account)
         return render json: { error: "No evaluation report with that run_id" }, status: :not_found unless run
 
-        export = EvaluationReportExport.new(run)
-        return render plain: export.markdown, content_type: "text/markdown" if params[:format] == "md"
+        format = params[:format].presence || "json"
+        unless EXPORT_FORMATS.key?(format)
+          return render json: { error: "format is one of #{EXPORT_FORMATS.keys.join(', ')}" }, status: :unprocessable_entity
+        end
 
-        render json: export.to_json
+        export = EvaluationReportExport.new(run)
+        body =
+          case format
+          when "json" then export.to_json
+          when "md" then export.markdown
+          # The page run_report serves, its fix actions linking into this
+          # dashboard by absolute path; no theme, so it follows the viewer.
+          when "html" then run.to_report(links: run.report_links(mount: request.script_name)).to_html
+          end
+        send_data body, type: EXPORT_FORMATS.fetch(format), disposition: download? ? "attachment" : "inline",
+                        filename: export.filename(format)
       rescue EvaluationReportExport::NotExportable => e
         render json: { error: e.message }, status: :unprocessable_entity
       end
@@ -106,6 +125,10 @@ module ActionAgent
         return if request.media_type == "application/json"
 
         render json: { error: "Content-Type must be application/json" }, status: :unsupported_media_type
+      end
+
+      def download?
+        ActiveModel::Type::Boolean.new.cast(params[:download]) == true
       end
 
       def require_report_store!

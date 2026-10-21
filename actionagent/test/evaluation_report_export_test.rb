@@ -65,9 +65,10 @@ class EvaluationReportExportTest < ActionDispatch::IntegrationTest
     post COLLECTOR, params: payload.to_json, headers: headers
   end
 
-  def export(run_id, token: nil, format: nil)
+  def export(run_id, token: nil, format: nil, download: nil)
     headers = token ? { "Authorization" => "Bearer #{token}" } : {}
-    get "#{COLLECTOR}/#{ERB::Util.url_encode(run_id)}", params: format ? { format: format } : {}, headers: headers
+    params = { format: format, download: download }.compact
+    get "#{COLLECTOR}/#{ERB::Util.url_encode(run_id)}", params: params, headers: headers
   end
 
   def json_response
@@ -92,7 +93,8 @@ class EvaluationReportExportTest < ActionDispatch::IntegrationTest
         scores: { "response_present" => 1.0 }, output: passed ? "Shipped." : "No refunds.", tool_calls: [ { "name" => "lookup_order" } ],
         duration_ms: 500, input_tokens: 10, output_tokens: 5, cost: 0.001,
         fault: passed ? nil : "missing_capability", recommendation: passed ? nil : "Add a refund tool",
-        diagnosis: passed ? {} : { "fault" => "missing_capability", "summary" => "Declined", "recommendation" => "Add a refund tool" }
+        diagnosis: passed ? {} : { "fault" => "missing_capability", "summary" => "Declined", "recommendation" => "Add a refund tool",
+                                    "judge" => { "suggested_tool" => { "name" => "refund_order" } } }
       )
     end
     run
@@ -206,6 +208,64 @@ class EvaluationReportExportTest < ActionDispatch::IntegrationTest
     assert_equal "text/markdown", response.media_type
     assert_includes response.body, "<details>\n<summary><code>status_1</code>"
     assert_includes response.body, "## What to fix"
+  end
+
+  test "format=html returns the run report page with fix actions linking into the dashboard" do
+    run = dashboard_run
+    run_id = ActionAgent::EvaluationReportExport.run_id_for(run)
+
+    export(run_id, format: "html")
+
+    assert_response :success
+    assert_equal "text/html", response.media_type
+    assert_match(/\Ainline; filename="orders-eu-run-1.html"/, response.headers["Content-Disposition"])
+    assert_includes response.body, "<!doctype html>"
+    assert_includes response.body, %(<html lang="en">), "no theme: the page follows the viewer's preference"
+    assert_includes response.body, %(href="/activeagents/tools"), "fix actions link at the dashboard's absolute mount path"
+    assert_includes response.body, "Copy as Markdown"
+    page = response.body
+
+    get "/activeagents/api/evaluations/#{run.evaluation_id}/runs/#{run.id}/report"
+    assert_equal response.body, page, "the same page run_report renders"
+  end
+
+  test "download=1 sends any format as an attachment, and an unknown format is refused" do
+    run = dashboard_run
+    run_id = ActionAgent::EvaluationReportExport.run_id_for(run)
+
+    { nil => [ "application/json", "json" ], "html" => [ "text/html", "html" ], "md" => [ "text/markdown", "md" ] }.each do |format, (type, extension)|
+      export(run_id, format: format, download: 1)
+      assert_response :success
+      assert_equal type, response.media_type
+      assert_match(/\Aattachment; filename="orders-eu-run-1.#{extension}"/, response.headers["Content-Disposition"])
+    end
+
+    export(run_id, format: "yaml")
+    assert_response :unprocessable_entity
+    assert_equal "format is one of json, html, md", json_response["error"]
+  end
+
+  test "the HTML and Markdown exports authenticate and stay within the tenant" do
+    ActionAgent.multi_tenant = true
+    ActionAgent.account_class = "ExportTestAccount"
+    mine = ExportTestAccount.create!(name: "Mine", telemetry_api_key: "key-mine-html")
+    theirs = ExportTestAccount.create!(name: "Theirs", telemetry_api_key: "key-theirs-html")
+    payload = envelope
+    publish(payload, token: mine.telemetry_api_key)
+
+    %w[html md].each do |format|
+      export(payload["run_id"], format: format)
+      assert_response :unauthorized
+
+      export(payload["run_id"], format: format, token: "wrong")
+      assert_response :unauthorized
+
+      export(payload["run_id"], format: format, token: theirs.telemetry_api_key)
+      assert_response :not_found
+
+      export(payload["run_id"], format: format, token: mine.telemetry_api_key)
+      assert_response :success
+    end
   end
 
   test "the export authenticates like the collector" do

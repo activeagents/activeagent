@@ -298,12 +298,19 @@ is rebuilt from what the run recorded, costs as reported with nothing
 estimated, so the same run always exports the same envelope; its metadata
 leaves out the run's database id. Responses: 200 with the envelope, 404 for
 a `run_id` the key's tenant holds no run under (another tenant's run is a
-404), 422 for a run that is not complete, 401 and 501 as for the POST.
-`?format=md` returns the run's report as Markdown (`text/markdown`) instead.
+404), 422 for a run that is not complete or an unknown `format`, 401 and 501
+as for the POST. Instead of the envelope, `?format=html` returns the run's
+self-contained report page (`text/html`) — the page the dashboard's run
+report serves, following the viewer's light or dark preference, its fix
+actions linking into the dashboard by absolute path — and `?format=md` its
+Markdown (`text/markdown`). `?download=1` sends any format as an attachment
+named `<evaluation>-run-<n>.json|html|md`.
 
 ```bash
 curl -H "Authorization: Bearer $KEY" \
   https://dashboard.example.com/activeagents/api/evaluation_reports/ci-2026-10-21 > run.json
+curl -OJ -H "Authorization: Bearer $KEY" \
+  "https://dashboard.example.com/activeagents/api/evaluation_reports/ci-2026-10-21?format=html&download=1"
 curl -X POST -H "Authorization: Bearer $OTHER_KEY" -H "Content-Type: application/json" \
   --data @run.json https://other.example.com/activeagents/api/evaluation_reports
 ```
