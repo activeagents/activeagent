@@ -75,11 +75,17 @@ module ActionAgent
       self.class.run_id_for(run)
     end
 
+    # Raises NotExportable for a run that is not a complete scenario run:
+    # what every format of the export, not only the envelope, needs.
+    def exportable!
+      raise NotExportable, "Only a complete run can be exported" unless run.complete?
+      raise NotExportable, "Only a scenario suite's run can be exported" unless evaluation.scenario_suite?
+    end
+
     # Raises NotExportable for a run that is not a complete scenario run.
     def envelope
       @envelope ||= begin
-        raise NotExportable, "Only a complete run can be exported" unless run.complete?
-        raise NotExportable, "Only a scenario suite's run can be exported" unless evaluation.scenario_suite?
+        exportable!
 
         built = ActiveAgent::Evals::Publisher.envelope(
           report: run.to_report(links: {}, estimate: false),

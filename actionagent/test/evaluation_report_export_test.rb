@@ -23,8 +23,11 @@ class EvaluationReportExportTest < ActionDispatch::IntegrationTest
   Evals = ActiveAgent::Evals
   COLLECTOR = "/activeagents/api/evaluation_reports"
 
+  # A single-tenant install with its ingest key set, which the export needs;
+  # the helpers below send it unless a test names another token.
   def setup
     ActionAgent::Agent.delete_all
+    ActionAgent.ingest_api_key = "install-key"
   end
 
   def teardown
@@ -59,13 +62,13 @@ class EvaluationReportExportTest < ActionDispatch::IntegrationTest
     Evals::Publisher.envelope(report: report, run_id: run_id, source: "support-app", agent_name: "SupportBot", suite: "orders")
   end
 
-  def publish(payload, token: nil)
+  def publish(payload, token: ActionAgent.ingest_api_key)
     headers = { "Content-Type" => "application/json" }
     headers["Authorization"] = "Bearer #{token}" if token
     post COLLECTOR, params: payload.to_json, headers: headers
   end
 
-  def export(run_id, token: nil, format: nil, download: nil)
+  def export(run_id, token: ActionAgent.ingest_api_key, format: nil, download: nil)
     headers = token ? { "Authorization" => "Bearer #{token}" } : {}
     params = { format: format, download: download }.compact
     get "#{COLLECTOR}/#{ERB::Util.url_encode(run_id)}", params: params, headers: headers
@@ -196,6 +199,12 @@ class EvaluationReportExportTest < ActionDispatch::IntegrationTest
     export(ActionAgent::EvaluationReportExport.run_id_for(run))
     assert_response :unprocessable_entity
     assert_equal "Only a complete run can be exported", json_response["error"]
+
+    %w[html md].each do |format|
+      export(ActionAgent::EvaluationReportExport.run_id_for(run), format: format)
+      assert_response :unprocessable_entity, "format=#{format} of an incomplete run"
+      assert_equal "Only a complete run can be exported", json_response["error"]
+    end
   end
 
   test "format=md returns the report as Markdown" do
@@ -271,13 +280,33 @@ class EvaluationReportExportTest < ActionDispatch::IntegrationTest
   test "the export authenticates like the collector" do
     payload = envelope
     publish(payload)
-    ActionAgent.ingest_api_key = "install-key"
 
-    export(payload["run_id"])
+    export(payload["run_id"], token: nil)
+    assert_response :unauthorized
+
+    export(payload["run_id"], token: "wrong-key")
     assert_response :unauthorized
 
     export(payload["run_id"], token: "install-key")
     assert_response :success
+  end
+
+  test "a single-tenant install with no ingest key takes reports but does not export them" do
+    payload = envelope
+    ActionAgent.ingest_api_key = nil
+
+    publish(payload, token: nil)
+    assert_response :created
+
+    export(payload["run_id"], token: nil)
+    assert_response :unauthorized
+    assert_match(/ingest_api_key/, json_response["error"])
+
+    export(payload["run_id"], token: nil, format: "html")
+    assert_response :unauthorized
+
+    publish(payload, token: nil)
+    assert_response :ok, "an identical retry still lands without a key"
   end
 
   test "a tenant exports only its own runs" do

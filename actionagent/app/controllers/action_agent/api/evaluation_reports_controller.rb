@@ -31,8 +31,9 @@ module ActionAgent
     # another install, or back to this one as an identical retry. Responds
     # 200 with the envelope (or, with `format=html` or `format=md`, the
     # report page or its Markdown), 404 for a run_id the key's tenant holds
-    # no run under, 422 for an envelope of a run that is not complete or an
-    # unknown format, and 401 and 501 as above.
+    # no run under, 422 for a run that is not complete or an unknown format,
+    # 401 as above and also on a single-tenant install that has no
+    # ingest_api_key, and 501 as above.
     class EvaluationReportsController < ActionController::API
       include IngestAuthentication
 
@@ -45,6 +46,7 @@ module ActionAgent
       wrap_parameters false
 
       before_action :require_json!, only: :create
+      before_action :require_export_key!, only: :show
       before_action :require_report_store!
 
       # POST <mount>/api/evaluation_reports
@@ -95,6 +97,7 @@ module ActionAgent
         end
 
         export = EvaluationReportExport.new(run)
+        export.exportable!
         body =
           case format
           when "json" then export.to_json
@@ -117,6 +120,18 @@ module ActionAgent
       def process_action(*)
         request.request_parameters = {}
         super
+      end
+
+      # A single-tenant install with no ingest key takes reports from anyone
+      # who reaches the mount, which a host keeps off the network. Reading a
+      # run back is different: every stored run, prompts and answers
+      # included, would be open under a guessable run_id. So the export
+      # needs the key to exist; a multi-tenant install authenticates the
+      # tenant's key already.
+      def require_export_key!
+        return if ActionAgent.multi_tenant? || ActionAgent.ingest_api_key.present?
+
+        render json: { error: "Set ActionAgent.ingest_api_key to export evaluation reports" }, status: :unauthorized
       end
 
       # A cross-site page can send a text/plain or form POST without a CORS
