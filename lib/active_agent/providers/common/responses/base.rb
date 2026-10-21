@@ -63,6 +63,16 @@ module ActiveAgent
           #   @return [Array<Usage>]
           attribute :usages, default: -> { [] }, writable: false
 
+          # @!attribute [r] streamed_finish_reason
+          #   Why a streamed generation stopped, as the provider reported it.
+          #
+          #   A streamed generation has no response body to read it from, so
+          #   the provider records it from the stream. {#finish_reason} falls
+          #   back to it.
+          #
+          #   @return [String, nil]
+          attribute :streamed_finish_reason, writable: false
+
           # Initializes response with deep-duplicated attributes.
           #
           # Deep duplication prevents external modifications from affecting internal state.
@@ -180,14 +190,17 @@ module ActiveAgent
           #   response.stop_reason    #=> "stop" (alias)
           def finish_reason
             @finish_reason ||= begin
-              return nil unless raw_response
+              return streamed_finish_reason unless raw_response
 
               if raw_response.is_a?(Hash)
                 # OpenAI format: choices[0].finish_reason or choices[0].message.finish_reason
                 raw_response.dig(:choices, 0, :finish_reason) ||
                   raw_response.dig(:choices, 0, :message, :finish_reason) ||
                   # Anthropic format: stop_reason
-                  raw_response[:stop_reason]
+                  raw_response[:stop_reason] ||
+                  # OpenAI Responses format: why it was cut short, else its status
+                  raw_response.dig(:incomplete_details, :reason) ||
+                  raw_response[:status]
               end
             end
           end
