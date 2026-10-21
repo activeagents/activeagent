@@ -1,7 +1,8 @@
 import React from 'react';
 import { Badge, Button, Card, MicroLabel } from '../primitives';
 import CodeSessionPanel from '../CodeSessionPanel';
-import { navigateTo } from '../../../utils/dashboardPath';
+import { dashboardPath, navigateTo } from '../../../utils/dashboardPath';
+import { conversationPath } from '../../../utils/codeConversations.mjs';
 import { codeSessionStatus } from '../../../utils/codeSessions.mjs';
 import { canAskSetup, canFixWithClaudeCode, claudeCodeFixText, setupStatusText } from '../../../utils/projectSetup.mjs';
 
@@ -48,6 +49,16 @@ export default function ProjectSetupCard({ project, busy, onAsk, onFixWithClaude
             )}
           </div>
           <p data-testid="claude-code-status" style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--color-text-secondary)' }}>{claudeCodeFixText(project)}</p>
+          {session?.id && (
+            <a
+              href={dashboardPath(conversationPath(session.id))}
+              onClick={(event) => { event.preventDefault(); navigateTo(conversationPath(session.id)); }}
+              data-testid="boot-fix-conversation"
+              style={{ display: 'inline-block', marginTop: 4, fontSize: 12, color: 'var(--color-accent-ui)' }}
+            >
+              Ask Claude Code about this fix →
+            </a>
+          )}
           {session?.sandbox_session_id && (
             <CodeSessionPanel
               sandbox={{ session_id: session.sandbox_session_id }}
