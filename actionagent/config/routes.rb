@@ -29,8 +29,13 @@ ActionAgent::Engine.routes.draw do
 
     # The collector for evaluation reports an application ran itself
     # (ActiveAgent::Evals::Publisher), at <mount>/api/evaluation_reports.
-    # Authenticated like trace ingest, with a bearer token.
+    # Authenticated like trace ingest, with a bearer token. GET
+    # <mount>/api/evaluation_reports/:run_id exports a stored run in the
+    # envelope the collector takes. A run_id may hold dots, so the path has
+    # no format extension.
     resources :evaluation_reports, only: [ :create ]
+    get "evaluation_reports/:run_id", to: "evaluation_reports#show", as: :evaluation_report,
+                                      constraints: { run_id: %r{[^/]+} }, format: false
 
     post "feedback", to: "feedback_ingest#create"
     get "feedback", to: "feedbacks#index"
