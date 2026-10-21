@@ -106,7 +106,9 @@ An application that runs its own evaluations publishes each report to
 `POST <mount>/api/evaluation_reports` with `ActiveAgent::Evals::Publisher`,
 authenticated with the ingest key. Any complete run comes back out as the
 same envelope from `GET <mount>/api/evaluation_reports/:run_id`, so it can be
-posted to another install; posting it back here is an identical retry. A
+posted to another install; posting it back here is an identical retry.
+`?format=html` or `?format=md` returns its report page or Markdown instead,
+and `?download=1` an attachment. A
 signed-in session reads it at
 `<mount>/api/evaluations/:id/runs/:run_id/report.json`, the HTML page at
 `report`, and GitHub-flavored Markdown at `report.md`, each downloadable with
