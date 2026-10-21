@@ -1,4 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { keepSandboxChoice, runSandboxOptions } from '../../utils/evaluationRuns.mjs';
+import { checkoutToolsEnabled } from '../../utils/builderRoster.mjs';
 import AgentAvatar from '../AgentAvatar';
 import { TYPOGRAPHY } from '../../utils/designTokens';
 import { startCheckout } from '../../utils/checkout';
@@ -104,6 +106,21 @@ const Chevron = ({ open, color }) => (
 // Live activity feed — same chip/expansion design as the Interactions
 // stream, one row per llm/tool/agent call. Click a row to inspect the
 // call's input and output.
+// An MCP server entry as an agent stores it: a bare key, or { key, name, tools }.
+const mcpServerLabel = (entry) => (typeof entry === 'string' ? entry : entry?.name || entry?.key || '?');
+
+// What a run of this agent is offered: the roster's names, or "none".
+function RunnerRoster({ label, names, colors }) {
+  return (
+    <div className="flex justify-between gap-3">
+      <dt className="shrink-0" style={{ color: colors.textSecondary }}>{label}</dt>
+      <dd className="text-right font-mono text-xs break-words min-w-0" style={{ color: names.length ? colors.textPrimary : colors.textMuted }}>
+        {names.length ? names.join(', ') : 'none'}
+      </dd>
+    </div>
+  );
+}
+
 export function ActivityFeed({ run, darkMode, colors, expanded, onToggle }) {
   const events = activityFeed(run);
   const preStyle = streamPreStyle(darkMode);
@@ -214,7 +231,10 @@ function RunVitals({ run, darkMode, colors }) {
   );
 }
 
-export default function AgentRunner({ agent, onBack, recorderUrl = null }) {
+// +freshConversation+ opens on an empty conversation rather than the latest
+// one — how "New interaction" (Interactions, Sandbox) lands here — and the
+// first message creates it.
+export default function AgentRunner({ agent, onBack, recorderUrl = null, freshConversation = false }) {
   const { darkMode } = useTheme();
   const colors = paletteFor(darkMode);
 
@@ -249,6 +269,26 @@ export default function AgentRunner({ agent, onBack, recorderUrl = null }) {
   // no longer lists it as pending.
   const [settledRequests, setSettledRequests] = useState([]);
 
+  // The checkout sandbox a run acts in (`sandbox_id`): what the terminal,
+  // filesystem, edit and database tools reach, and whose app runtime the
+  // run can call. Listed like an evaluation run's, and kept only while live.
+  const [sandboxOptions, setSandboxOptions] = useState([]);
+  const [sandboxId, setSandboxId] = useState('');
+  const fetchSandboxes = useCallback(async () => {
+    try {
+      const response = await fetch('/api/sandboxes?sandbox_type=app_runtime');
+      if (!response.ok) return;
+      const data = await response.json();
+      const options = runSandboxOptions(data.sandboxes);
+      setSandboxOptions(options);
+      setSandboxId((current) => keepSandboxChoice(current, options) || (options.length === 1 ? options[0].value : ''));
+    } catch (_error) {
+      // None offered.
+    }
+  }, []);
+  useEffect(() => { fetchSandboxes(); }, [fetchSandboxes]);
+  const needsCheckout = checkoutToolsEnabled(agent.tools || []);
+
   const [limitUsage, setLimitUsage] = useState(null);
   const [isUpgrading, setIsUpgrading] = useState(false);
   const [upgradeError, setUpgradeError] = useState(null);
@@ -263,6 +303,8 @@ export default function AgentRunner({ agent, onBack, recorderUrl = null }) {
   // A conversation picked on purpose (picker, New conversation, a Recent
   // Runs row) survives a list refresh; otherwise the newest one is shown.
   const pinnedRef = useRef(null);
+  // Whether loading the conversation list may select its latest entry.
+  const adoptLatestRef = useRef(!freshConversation);
   const conversationIdRef = useRef(null);
   // Bumped to abandon a poll loop when the run it belongs to is superseded
   // or the page unmounts.
@@ -358,7 +400,7 @@ export default function AgentRunner({ agent, onBack, recorderUrl = null }) {
       setConversations(list);
       setConversationId((current) => {
         if (current && (pinnedRef.current === current || list.some((item) => item.id === current))) return current;
-        return list[0]?.id ?? null;
+        return adoptLatestRef.current ? (list[0]?.id ?? null) : null;
       });
     } catch (error) {
       console.error('Failed to load conversations:', error);
@@ -607,10 +649,13 @@ export default function AgentRunner({ agent, onBack, recorderUrl = null }) {
       body.append('prompt', trimmed);
       body.append('action_name', actionName);
       if (contextId) body.append('params[context_id]', String(contextId));
+      if (sandboxId) body.append('sandbox_id', sandboxId);
       files.forEach(({ file }) => body.append('attachments[]', file, file.name));
 
       const response = await fetch(`/api/agents/${agent.id}/execute`, { method: 'POST', body });
       const data = await parseJson(response);
+      // The checkout stopped since it was listed: list again, so it is no longer offered.
+      if (data.code === 'sandbox_refused') fetchSandboxes();
 
       // Plan limit reached (402) — show the upgrade prompt
       if (response.status === 402 && data.upgrade_required) {
@@ -1276,10 +1321,31 @@ export default function AgentRunner({ agent, onBack, recorderUrl = null }) {
               <dt style={{ color: colors.textSecondary }}>Temperature</dt>
               <dd style={{ color: colors.textPrimary }}>{agent.modelConfig?.temperature || agent.model_config?.temperature || 0.7}</dd>
             </div>
-            <div className="flex justify-between">
-              <dt style={{ color: colors.textSecondary }}>Tools</dt>
-              <dd style={{ color: colors.textPrimary }}>{agent.tools?.length || 0}</dd>
+            <RunnerRoster label="Tools" names={agent.tools || []} colors={colors} />
+            <RunnerRoster label="MCP" names={(agent.mcp_servers || agent.mcpServers || []).map(mcpServerLabel)} colors={colors} />
+            <div className="flex justify-between items-center gap-3">
+              <dt className="shrink-0" style={{ color: colors.textSecondary }}>Checkout</dt>
+              <dd className="min-w-0">
+                <select
+                  data-testid="runner-checkout"
+                  value={sandboxId}
+                  onChange={(event) => setSandboxId(event.target.value)}
+                  onFocus={fetchSandboxes}
+                  className="text-xs rounded border px-1 py-0.5 max-w-[12rem]"
+                  style={{ background: colors.cardBg, borderColor: colors.cardBorder, color: colors.textPrimary }}
+                >
+                  <option value="">None</option>
+                  {sandboxOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                </select>
+              </dd>
             </div>
+            {needsCheckout && !sandboxId && (
+              <p className="text-xs" data-testid="runner-checkout-hint" style={{ color: colors.textMuted }}>
+                {sandboxOptions.length
+                  ? 'Choose a checkout: the terminal, filesystem, edit and database tools act in it.'
+                  : "The terminal, filesystem, edit and database tools act in a checkout. Boot one from a project's page, then choose it here."}
+              </p>
+            )}
             <div className="flex justify-between items-center">
               <dt style={{ color: colors.textSecondary }}>Status</dt>
               <dd><Badge tone={agent.status === 'active' ? 'success' : 'neutral'} darkMode={darkMode}>{agent.status}</Badge></dd>

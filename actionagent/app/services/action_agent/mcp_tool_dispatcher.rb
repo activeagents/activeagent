@@ -29,6 +29,41 @@ module ActionAgent
 
     attr_reader :extra_server_keys
 
+    # Why a dashboard run could not call the server +entry+ describes, or nil
+    # when it can. The same rules #reachable_entry and #absolute_url apply at
+    # call time, read ahead of it, so the builder and the Tools tab offer a
+    # service as working only when a run would actually reach it.
+    #
+    # A credential the catalog lists is one the dashboard has no way to send:
+    # only a host registration (ActionAgent.mcp_catalog) or a checkout runtime
+    # carries the headers that would hold it.
+    #
+    # @param entry [Hash, nil] a catalog entry or a runtime listing
+    # @return [String, nil]
+    def self.unreachable_reason(entry)
+      return "Unknown to the catalog" if entry.nil?
+      return nil if SandboxSession.runtime_server_key?(entry[:key].to_s)
+
+      transport = entry[:transport].to_s
+      unless transport.in?(HTTP_TRANSPORTS)
+        return "#{transport.presence || 'stdio'} server: it runs inside a launched sandbox, not from a dashboard run"
+      end
+
+      url = entry[:url].to_s
+      return "No URL to call" if url.blank?
+      return "Served by this dashboard over MCP for other clients, not callable from its own runs" if url.include?("<mount>")
+      if !url.start_with?("http://", "https://") && ENV["ACTIONAGENT_MCP_ORIGIN"].blank?
+        return "Set ACTIONAGENT_MCP_ORIGIN to reach #{url}"
+      end
+
+      credentials = Array(entry[:requires_credentials])
+      if credentials.any? && entry[:headers].blank?
+        return "Needs #{credentials.to_sentence}: register it in ActionAgent.mcp_catalog with the headers that carry it"
+      end
+
+      nil
+    end
+
     # A runtime or browser explicitly selected for this run must not silently
     # disappear between enqueue, discovery and a tool call.
     def ensure_extra_servers_live!
@@ -257,7 +292,7 @@ module ActionAgent
       if SandboxSession.browser_server_key?(key)
         return extra_server_keys.include?(key) ? SandboxSession.browser_server_entry(key, owner: agent.try(:owner)) : nil
       end
-      return MCPCatalog.find(key) unless SandboxSession.runtime_server_key?(key)
+      return MCPCatalog.connection(key) unless SandboxSession.runtime_server_key?(key)
 
       SandboxSession.runtime_server_entry(key, owner: agent.try(:owner))
     end

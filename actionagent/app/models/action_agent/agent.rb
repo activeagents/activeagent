@@ -83,6 +83,30 @@ module ActionAgent
       github ruby rails aws gcp python typescript docker kubernetes
     ].freeze
 
+    # What each instruction set adds to the instructions a run executes
+    # under (#composed_instructions_for): the conventions of that stack, as a
+    # developer message the model can act on.
+    INSTRUCTION_SET_GUIDANCE = {
+      "github" => "Work the GitHub way: small focused commits with messages that say why, branches named for the " \
+        "change, pull requests that describe what changed and how it was verified, and issues referenced by number.",
+      "ruby" => "Write idiomatic Ruby: follow the project's RuboCop configuration, prefer small methods and plain " \
+        "objects, use keyword arguments for options, and add or update tests (Minitest or RSpec, as the project uses).",
+      "rails" => "Follow Rails conventions: fat models and thin controllers, strong parameters, migrations for every " \
+        "schema change, scopes and validations on the model, and bin/rails commands for generators, tests and tasks.",
+      "aws" => "For AWS, prefer least-privilege IAM, keep infrastructure in code (CloudFormation, CDK or Terraform), " \
+        "name the region explicitly, and never print or commit credentials.",
+      "gcp" => "For Google Cloud, prefer least-privilege service accounts, keep infrastructure in code (Terraform), " \
+        "name the project and region explicitly, and use Secret Manager rather than plain environment values.",
+      "python" => "Write idiomatic Python: PEP 8, type hints on public functions, the project's own environment and " \
+        "dependency tool, and pytest tests for new behaviour.",
+      "typescript" => "Write strict TypeScript: no implicit any, explicit types on exported APIs, the project's lint and " \
+        "format settings, and tests in the framework the project already uses.",
+      "docker" => "For Docker, keep images small and reproducible: pinned base image versions, multi-stage builds, a " \
+        "non-root user, and no secrets baked into layers.",
+      "kubernetes" => "For Kubernetes, write declarative manifests with resource requests and limits, readiness and " \
+        "liveness probes, and Secrets for credentials; apply changes namespace by namespace."
+    }.freeze
+
     # Built-in tools/MCPs. Host-declared schema tools are offered alongside
     # these — see .available_tools, which is what the editor and the APIs
     # serialize. This constant stays the built-in set so existing references
@@ -229,9 +253,19 @@ module ActionAgent
     # The system instructions an action executes under: named actions stack
     # their prompt below the agent's base instructions; the default action
     # uses the base instructions alone.
+    #
+    # The agent's instruction sets come last, as the conventions to work by.
     def composed_instructions_for(action_name)
       action = action_prompt_for(action_name)
-      [ instructions, action&.dig("prompt") ].map(&:presence).compact.join("\n\n").presence
+      [ instructions, action&.dig("prompt"), instruction_set_guidance ].map(&:presence).compact.join("\n\n").presence
+    end
+
+    # The guidance of the instruction sets this agent selected, or nil.
+    def instruction_set_guidance
+      lines = Array(instruction_sets).filter_map { |set| INSTRUCTION_SET_GUIDANCE[set.to_s] }
+      return nil if lines.empty?
+
+      "Conventions to follow:\n#{lines.map { |line| "- #{line}" }.join("\n")}"
     end
 
     # Returns the configuration as a hash for versioning

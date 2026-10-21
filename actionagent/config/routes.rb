@@ -59,6 +59,8 @@ ActionAgent::Engine.routes.draw do
       end
       collection do
         get :presets
+        # The builder's roster for an agent not created yet.
+        get :tool_roster, action: :new_tool_roster
       end
     end
 

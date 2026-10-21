@@ -220,10 +220,11 @@ class AgentToolRosterTest < ActionDispatch::IntegrationTest
     assert_equal %w[find_posts], tool_named(body, "find_posts")["approval_names"]
     navigate = service_named(body, "playwright")["tools"].find { |tool| tool["name"] == "browser_navigate" }
     assert_equal %w[browser_navigate], navigate["approval_names"]
-    # The input tools ask on their own, a capability with no functions has
-    # nothing to hold, and the class runs a tool it declares in code.
+    assert_equal %w[run_command], tool_named(body, "terminal")["approval_names"]
+    assert_equal %w[list_files read_file write_file], tool_named(body, "filesystem")["approval_names"]
+    # The input tools ask on their own, and the class runs a tool it
+    # declares in code.
     assert_empty tool_named(body, "ask")["approval_names"]
-    assert_empty tool_named(body, "terminal")["approval_names"]
     assert_empty tool_named(body, "refund_invoice")["approval_names"]
   end
 
@@ -330,5 +331,56 @@ class AgentToolRosterTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     assert_equal [ "playwright" ], agent.reload.mcp_servers
+  end
+
+  # --- the builder's roster, for an agent not created yet ------------------
+
+  def new_roster
+    get "/activeagents/api/agents/tool_roster"
+    assert_response :success
+    JSON.parse(response.body)
+  end
+
+  test "a new agent's roster offers every tool with nothing enabled, each one implemented" do
+    body = new_roster
+
+    assert body["tools"].none? { |tool| tool["enabled"] && tool["editable"] }
+    dashboard = body["tools"].select { |tool| tool["source"] == "dashboard" }
+    assert_equal ActionAgent::Agent::AVAILABLE_TOOLS.sort, dashboard.map { |tool| tool["key"] }.sort
+    assert dashboard.all? { |tool| tool["implemented"] }
+    # Host schema tools are there to switch on.
+    find_posts = tool_named(body, "find_posts")
+    assert_equal "agent_defined", find_posts["source"]
+    assert find_posts["editable"]
+    assert_equal false, find_posts["enabled"]
+  end
+
+  test "a new agent's services say whether a run can call them and how many agents use them" do
+    ActionAgent.mcp_catalog = [
+      { key: "tickets", name: "Tickets", transport: "http", url: "https://host.example/mcp/tickets" }
+    ]
+    create_agent(name: "Triage", mcp_servers: [ "tickets" ])
+    create_agent(name: "Billing", mcp_servers: [ { key: "tickets", name: "Tickets" }, "playwright" ])
+
+    body = new_roster
+
+    tickets = service_named(body, "tickets")
+    assert tickets["callable"]
+    assert_nil tickets["unavailable_reason"]
+    assert_equal 2, tickets["workspace_agents"]
+    assert_equal false, tickets["enabled"]
+
+    playwright = service_named(body, "playwright")
+    assert_equal false, playwright["callable"]
+    assert_match(/stdio server/, playwright["unavailable_reason"])
+    assert_equal 1, playwright["workspace_agents"]
+  ensure
+    ActionAgent.mcp_catalog = []
+  end
+
+  test "a saved agent's own roster does not count it among the workspace's" do
+    agent = create_agent(mcp_servers: [ "playwright" ])
+
+    assert_equal 0, service_named(roster_for(agent), "playwright")["workspace_agents"]
   end
 end
