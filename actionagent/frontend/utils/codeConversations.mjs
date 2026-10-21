@@ -134,6 +134,9 @@ export const pendingPersonRequest = (conversation) => {
   return null;
 };
 
+// The agent a conversation talks to, for labels.
+export const runnerLabel = (conversation) => (conversation?.runner === 'codex' ? 'Codex' : 'Claude Code');
+
 // What the composer says it will do.
 export const composerHint = (conversation, { handoff = null } = {}) => {
   if (conversation?.sandbox_status && conversation.sandbox_status !== 'ready') {
@@ -141,7 +144,7 @@ export const composerHint = (conversation, { handoff = null } = {}) => {
   }
   const waiting = (conversation?.turns || []).filter((turn) => turn.status === 'queued').length;
   const running = (conversation?.turns || []).some((turn) => turn.status === 'running');
-  const note = handoff ? ' Claude Code will be told you drove the browser.' : '';
+  const note = handoff ? ` ${runnerLabel(conversation)} will be told you drove the browser.` : '';
   if (running) return `Your message waits for the turn that runs${waiting ? ` (and ${plural(waiting, 'more')})` : ''}.${note}`;
   return `Sends the next turn, resuming this conversation.${note}`;
 };

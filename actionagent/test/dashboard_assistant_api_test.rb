@@ -42,6 +42,7 @@ class DashboardAssistantApiTest < ActionDispatch::IntegrationTest
     assert_equal({
       "github" => { "supported" => true, "connected" => false },
       "claude_code" => { "supported" => true, "connected" => false, "auth" => "api_key" },
+      "codex" => { "supported" => false, "connected" => false, "auth" => "api_key" },
       "coi" => { "supported" => false }
     }, data["connections"])
 

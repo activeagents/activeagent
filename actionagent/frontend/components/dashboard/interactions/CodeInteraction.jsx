@@ -15,6 +15,7 @@ import {
   CONVERSATION_POLL_INTERVAL_MS,
   mergeConversation,
   pendingPersonRequest,
+  runnerLabel,
   showBrowserPreference,
   splitForKey,
   splitFromPointer,
@@ -331,7 +332,7 @@ export default function CodeInteraction({ rootId, onBack = null }) {
 
           <form onSubmit={send} className={`space-y-2 p-4 border-t shrink-0 ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
             <label htmlFor={`code-interaction-${rootId}-message`} className={`text-xs font-medium ${strong}`}>
-              Message {conversation.runner === 'codex' ? 'Codex' : 'Claude Code'}
+              Message {runnerLabel(conversation)}
             </label>
             <textarea
               id={`code-interaction-${rootId}-message`}
@@ -394,10 +395,10 @@ export default function CodeInteraction({ rootId, onBack = null }) {
             </div>
             <div className="p-4 space-y-2 flex-1 min-h-0 overflow-y-auto">
             {personRequest && (
-              <p role="alert" className={needsYouClass}>Claude Code needs you: {personRequest.reason}</p>
+              <p role="alert" className={needsYouClass}>{runnerLabel(conversation)} needs you: {personRequest.reason}</p>
             )}
             {browserRunning ? (
-              <LiveView sessionId={sandboxId} watchOnOpen onHandBack={handedBack} handBackLabel="Hand back to Claude Code" />
+              <LiveView sessionId={sandboxId} watchOnOpen onHandBack={handedBack} handBackLabel={`Hand back to ${runnerLabel(conversation)}`} />
             ) : (
               <p className={`text-xs ${muted}`}>
                 The browser is not running.{' '}
