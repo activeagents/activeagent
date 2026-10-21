@@ -114,6 +114,17 @@ engine: the file chooser relay and the per-turn browser tokens are in the
   view reports truncation and averages recorded request durations instead
   of time-bucket means (part of #384).
 
+- **A pinned evaluation judge runs on its own provider** (`actionagent`).
+  A `judge_model` pin selects the model's native provider, or the one its
+  qualifier names (`openrouter/anthropic/…`), instead of the first provider
+  with credentials; the qualifier is stripped before the request, the pin
+  wins over the credential resolver's default model, and a pinned route
+  with no credentials fails the run clearly when another provider is
+  configured. Native-to-gateway alias conversion stays out of scope (#431).
+  Upgrading: a pin written `anthropic/…` or `openai/…` now selects that
+  native provider, as candidate model names already did; an install that
+  reached such a model through OpenRouter pins `openrouter/anthropic/…`.
+
 ## [1.9.2] - 2026-10-20
 
 Releases `activeagent` and `actionagent` 1.9.2, with the matching browser

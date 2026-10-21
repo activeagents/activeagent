@@ -392,4 +392,46 @@ class ActionAgentScenarioEvaluationFanOutTest < ActiveSupport::TestCase
     assert_equal "pending", ActionAgent::EvaluationFixComparison.change(pending, pending)
     assert_empty run.to_report.results, "the report grades scored results only"
   end
+
+  test "a pinned GPT judge uses OpenAI when both native providers are credentialed" do
+    ActionAgent::ProviderKey.delete_all
+    ActionAgent::ProviderKey.create!(provider: "anthropic", credential: "synthetic-anthropic-key")
+    ActionAgent::ProviderKey.create!(provider: "openai", credential: "synthetic-openai-key")
+    evaluation = build_suite
+    evaluation.update!(judge_kind: "llm", judge_model: "gpt-4o-mini",
+      criteria: [ { "key" => "quality", "type" => "llm_judge", "config" => { "prompt" => "Is the answer useful?" } } ])
+    ActionAgent.scenario_evaluation_fan_out = false
+    requests = []
+    VCR.turned_off do
+      stub_request(:post, "https://api.anthropic.com/v1/messages").with { |request|
+        requests << { provider: "anthropic", model: JSON.parse(request.body)["model"] }
+        true
+      }.to_return(status: 200, headers: { "content-type" => "application/json" }, body: {
+        id: "msg_audit", type: "message", role: "assistant", model: "gpt-4o-mini",
+        content: [ { type: "text", text: '{"score": 0.9}' } ], stop_reason: "end_turn", stop_sequence: nil,
+        usage: { input_tokens: 10, output_tokens: 5 }
+      }.to_json)
+      stub_request(:post, "https://api.openai.com/v1/chat/completions").with { |request|
+        requests << { provider: "openai", model: JSON.parse(request.body)["model"] }
+        true
+      }.to_return(status: 200, headers: { "content-type" => "application/json" }, body: {
+        id: "chatcmpl_audit", object: "chat.completion", created: 1, model: "gpt-4o-mini",
+        choices: [ { index: 0, message: { role: "assistant", content: '{"score": 0.9}' }, finish_reason: "stop" } ],
+        usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 }
+      }.to_json)
+      stub_request(:post, "https://api.openai.com/v1/responses").with { |request|
+        requests << { provider: "openai", model: JSON.parse(request.body)["model"] }
+        true
+      }.to_return(status: 200, headers: { "content-type" => "application/json" }, body: {
+        id: "resp_audit", object: "response", status: "completed", model: "gpt-4o-mini",
+        output: [ { type: "message", id: "msg_audit", status: "completed", role: "assistant",
+                    content: [ { type: "output_text", text: '{"score": 0.9}', annotations: [] } ] } ],
+        usage: { input_tokens: 10, output_tokens: 5, total_tokens: 15 }
+      }.to_json)
+      ActiveAgent.stub(:configuration, {}) { evaluation.run!(keys: [ "tickets_1" ]) }
+    end
+    assert_equal [ { provider: "openai", model: "gpt-4o-mini" } ], requests.uniq
+  ensure
+    ActionAgent::ProviderKey.delete_all
+  end
 end
