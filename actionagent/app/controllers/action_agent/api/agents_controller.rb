@@ -292,6 +292,29 @@ module ActionAgent
         ).as_json
       end
 
+      # GET /api/agents/tool_roster
+      #
+      # The roster an agent not created yet can be given — what the builder's
+      # Configure step offers. The same rows as #tool_roster for a saved
+      # agent with nothing enabled: every tool the toolbox or the host's
+      # schema tools implement, and every MCP service the catalog, the host's
+      # registrations and the caller's live checkout runtimes describe, each
+      # saying whether a run can call it. Usage reads the workspace instead of
+      # an agent's history: which services its agents already enable.
+      def new_tool_roster
+        agent = owner_agents.build
+        runtimes = SandboxSession.runtime_server_listings(
+          SandboxSession.for_owner(agent.owner).where(id: owned(SandboxSession).select(:id))
+        )
+
+        render json: AgentToolRoster.new(
+          agent: agent,
+          traces: owned_traces,
+          runtimes: runtimes,
+          workspace_agents: owner_agents
+        ).as_json
+      end
+
       # GET /api/agents/:id/recorded_models
       #
       # The model names this agent's generations were recorded under, most

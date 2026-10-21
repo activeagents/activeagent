@@ -48,6 +48,23 @@ class DashboardEngineApiTest < ActionDispatch::IntegrationTest
     assert_equal 1, agent.agent_versions.count
   end
 
+  test "an agent enabled through the API waits for approval on side effects unless it names its own list" do
+    post "/activeagents/api/agents", params: {
+      agent: { name: "Operator", provider: "openai", model: "gpt-4o-mini", tools: %w[terminal filesystem] }
+    }, as: :json
+    assert_response :created
+    agent = ActionAgent::Agent.find(JSON.parse(response.body).dig("agent", "id"))
+    assert_equal %w[run_command write_file], agent.approval_required_tools
+
+    patch "/activeagents/api/agents/#{agent.id}", params: { agent: { tools: %w[terminal filesystem slack] } }, as: :json
+    assert_response :success
+    assert_equal %w[run_command write_file slack_post_message], agent.reload.approval_required_tools
+
+    patch "/activeagents/api/agents/#{agent.id}", params: { agent: { tools: %w[terminal filesystem slack edit], approval_required_tools: [] } }, as: :json
+    assert_response :success
+    assert_equal [], agent.reload.approval_required_tools
+  end
+
   test "a rejected agent reports its errors per field as well as in summary" do
     post "/activeagents/api/agents", params: { agent: { name: "R", provider: "openai", model: "" } }
 

@@ -10,6 +10,7 @@ import ContextMeter, { contextWindowFor, estimateTokens } from './ContextMeter';
 import TraceSpanBar from './TraceSpanBar';
 import TraceDetail from './TraceDetail';
 import NeedsInputLane from './NeedsInputLane';
+import NewInteractionPicker from './NewInteractionPicker';
 import { formatDuration } from './SpanWaterfall';
 import { dashboardPath, dashboardRelativePath, pushDashboardPath } from '../../utils/dashboardPath';
 import CodeInteraction from './interactions/CodeInteraction';
@@ -495,6 +496,7 @@ export default function InteractionsView({ agentId = null, embedded = false }) {
             ))}
           </div>
           <TimeWindowSelector />
+          {routed && <NewInteractionPicker />}
         </div>
       </div>
 

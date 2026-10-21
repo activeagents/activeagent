@@ -199,6 +199,18 @@ module ActionAgent
         present(entry) if entry
       end
 
+      # The entry as a client connects to it: #find plus the +headers+ a host
+      # registration carries (an Authorization header, say). Kept out of
+      # #find and #all, which feed API responses, so a registered credential
+      # never reaches the browser; MCPToolDispatcher reads this one.
+      #
+      # @param key [String, Symbol]
+      # @return [Hash, nil]
+      def connection(key)
+        entry = index[key.to_s] or return nil
+        present(entry).merge(headers: entry[:headers].to_h)
+      end
+
       # Every catalog key, built-ins first.
       #
       # @return [Array<String>]
