@@ -68,10 +68,13 @@ other version.
 | `DELETE /mcp` | ends the session in `Mcp-Session-Id` |
 | `GET /live` | the live view's WebSocket, when `live` is configured |
 | `GET /storage-state` | `{ "storage_state": { "cookies": […], "origins": […] } }`: the browser's cookies and localStorage for the app, so a sign-in made in it can be kept |
+| `POST /tokens` | `{ "label": "…" }` in, `{ "id", "token", "label", "expires_at" }` out: a client token for `/mcp` |
+| `DELETE /tokens/:id` | revokes one |
 
 Every request, a WebSocket upgrade other than the live view's included, must:
 
-- carry `Authorization: Bearer <token>`;
+- carry `Authorization: Bearer <token>`, or, for `/mcp` only, a live client
+  token;
 - name an accepted `Host`: the listening address and port, the loopback names
   when listening on loopback or on every interface, and `allowed_hosts`;
 - carry no `Origin` header. A page in a browser always sends one, so a page
@@ -79,6 +82,27 @@ Every request, a WebSocket upgrade other than the live view's included, must:
   DNS rebinding.
 
 No CORS header is ever sent.
+
+### Client tokens
+
+A client that runs other people's code, such as Claude Code, whose shell
+commands inherit its environment, should never hold the master token. The
+dashboard mints it a client token for one turn (`POST /tokens`, with the
+master token) and revokes it when the turn ends. A client token reaches
+`/mcp` only, expires after six hours unless revoked first, and at most 32 are
+live at once. Its `label` names the client wherever the live view shows it,
+such as "Claude Code · turn 3 is waiting for control".
+
+### Handoffs between an agent and a person
+
+- When people took or handed back control since an MCP session's last tool
+  call, its next result starts with a note saying who and when, and that the
+  page may have changed, so the agent takes a snapshot before acting.
+- With the live view on, the `browser_request_person` tool is offered: an
+  agent asks the person watching to take over, with a reason. The sidecar
+  answers it at once, and every viewer is sent
+  `{ "type": "person_requested", "request": { reason, client, at } }`, also
+  in `ready`, until someone takes control.
 
 ## The live view
 
@@ -138,6 +162,47 @@ back are recorded as `marker` events (`takeover_started`, `takeover_ended`,
 with `source: "human"` and who), and what the person changed shows in the
 masked rrweb stream.
 
+### Uploading files
+
+A page's `<input type="file">` opens a file chooser, which a headless browser
+has no dialog for. When one opens while a person holds control, every viewer
+is sent `{ type: "file_chooser", chooser: { id, multiple, accept, since,
+max_files, max_file_bytes } }` (and `ready` carries it as `file_chooser` for
+a viewer who joins), and only the person driving may answer it:
+
+```json
+{ "type": "file_upload", "chooser": "<id>", "files": [{ "name": "notes.txt", "size": 11 }] }
+{ "type": "file_chunk", "chooser": "<id>", "data": "<base64, at most 32 KiB before encoding>" }
+{ "type": "file_cancel", "chooser": "<id>" }
+```
+
+The chunks carry the files' bytes in the order they were listed, one file
+running on into the next. Once the last byte arrives the files are set on the
+input and the uploader is sent `{ type: "file_upload", chooser, status:
+"done" }`; on the way, `"progress"` with `received` and `total` about every
+MiB; and on a refusal, `"failed"` with a `code`: `not_driving`, `no_chooser`,
+`too_many`, `too_large`, `bad_upload` or `upload_failed`. Everyone is then
+sent `file_chooser` with `chooser: null`, as they are when the person cancels,
+hands back control or lets five minutes pass without sending anything.
+
+Each file is written, mode 0600, to a directory of its own under the
+working directory, named by its last path segment without control or
+reserved characters, and stays there until the browser stops, as the page
+reads it from disk. `live.upload_max_file_bytes`, `live.upload_max_files`
+(`0` turns uploads off) and `live.upload_max_session_bytes` bound it. File
+names and contents are never logged or recorded; an upload is recorded as a
+`file_uploaded` marker with its file count and size.
+
+The sidecar listens for choosers only while someone holds control, as
+Playwright intercepts them while anything listens: the rest of the time a
+headed browser's own dialog opens, and an agent's chooser is left to
+Playwright MCP's `browser_file_upload`. When someone takes control while an
+agent's chooser waits there, it is offered to them. When the person answers a
+chooser, or cancels one that opened while they drove, the modal state
+Playwright MCP keeps for it is cleared too, so the agent's next call is not
+refused for it. An agent's chooser the person leaves unanswered stays the
+agent's.
+
 ## The command
 
 ```
@@ -181,7 +246,10 @@ browser, posts what it has recorded, and removes its directories.
     "session_id": "…",
     "origins": ["http://localhost:3000"],
     "agent_wait_ms": 20000,
-    "release_grace_ms": 10000
+    "release_grace_ms": 10000,
+    "upload_max_file_bytes": 26214400,
+    "upload_max_files": 10,
+    "upload_max_session_bytes": 262144000
   },
   "storage_state": { "cookies": [], "origins": [] }
 }
@@ -199,7 +267,7 @@ browser, posts what it has recorded, and removes its directories.
 | `stop_at` | when to stop on its own, as epoch milliseconds or ISO 8601 |
 | `chromium_sandbox` | `false` where Chromium's own sandbox cannot run, as in a container without the privileges it needs |
 | `recording` | where to post recorded events, and the batch limits the ingest enforces; nothing is recorded when unset |
-| `live` | the live view: the sandbox session tickets must name, the dashboard origins that may open it, how long an agent's call waits for control (at most 45000 ms) and how long control outlives a dropped connection; no live view when unset |
+| `live` | the live view: the sandbox session tickets must name, the dashboard origins that may open it, how long an agent's call waits for control (at most 45000 ms), how long control outlives a dropped connection, and how much a person may upload (25 MiB a file, 10 files a chooser and 250 MiB in all by default; see [Uploading files](#uploading-files)); no live view when unset |
 | `storage_state` | a Playwright storage state the browser starts with, such as a sign-in saved from `GET /storage-state`; only the cookies sent to the app's host and the localStorage of its origin are applied |
 
 ## The image

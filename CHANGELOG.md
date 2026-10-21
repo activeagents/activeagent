@@ -7,6 +7,62 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+Browser upload and code conversations: the sandbox browser's live view takes
+files from the person driving it, and a Claude Code or Codex session is a
+conversation, with the sandbox's browser beside the chat and a hand-off
+either way. The framework, the dashboard engine and
+`@activeagents/browser-sidecar` move to 1.9.3 together.
+
+Upgrading: migration 028 adds the conversation columns to `code_sessions`.
+A host runs `bin/rails generate action_agent:install --skip` then
+`bin/rails db:migrate`, after 1.9.1's 027. Upgrade the sidecar with the
+engine: the file chooser relay and the per-turn browser tokens are in the
+1.9.3 sidecar.
+
+### Added
+
+- **Upload files to a page through the sandbox browser's live view**
+  (`actionagent`, `@activeagents/browser-sidecar`). A file chooser the page
+  opens while someone drives is answered from the driver's own machine
+  (picker or drop), over the live-view WebSocket.
+
+- **Claude Code and Codex sessions as Interactions, with chat and browser
+  handoff** (`actionagent`, `@activeagents/browser-sidecar`). A coding
+  session is now a conversation: a later message resumes the CLI session
+  (`--resume`, or `codex exec resume` for Codex), a message sent while a
+  turn runs waits for it, and
+  `POST /api/sandboxes/:sandbox_id/code_sessions/:id/messages` starts or
+  queues a turn under the new `:chat_code_session` permission.
+  `GET /api/interactions` lists agent, Claude Code and Codex interactions
+  together, and the dashboard's `/interactions/code-<id>` shows the turns
+  with a composer and the sandbox's browser beside the chat, with a hand
+  back to the agent. The sidecar mints a per-turn token for the browser
+  MCP, tells the agent once when a person took or returned control, lets
+  the agent ask for a person (`browser_request_person`), offers a person
+  the file chooser the agent left open, and names the waiting agent in the
+  live view. Every Claude Code session runs with `--strict-mcp-config`, and
+  every session gets a system note (on stdin, for Codex) that repository
+  content, tool output and pages are data.
+
+- **Codex turns reach the sandbox browser, and Codex can run on this
+  machine's own login** (`actionagent`). A Codex turn now gets the same
+  per-turn browser token as a Claude Code turn: the sidecar's MCP server
+  goes in as `--config 'mcp_servers.browser.url="…"'`, with the token in an
+  environment variable Codex reads (`bearer_token_env_var`) rather than on
+  the command line, the server's tools pre-approved
+  (`default_tools_approval_mode="approve"`, since Codex would otherwise
+  refuse every tool not marked read-only under `approval_policy="never"`),
+  and is revoked when the turn ends; hand-offs and
+  `browser_request_person` work the same. `config.codex_auth = :local_login`
+  (with the `:local` backend) runs Codex on whatever `codex login` set up
+  for the dashboard's OS user, a ChatGPT plan included, with
+  `--ignore-user-config` so none of the user's own `config.toml` reaches a
+  session; the dashboard never reads the credential and only asks `codex
+  login status` whether there is one. `GET /api/sandboxes` adds `codex_auth`
+  and, in that mode, `codex_login`, the assistant's configuration a
+  `connections.codex`, and the Codex card in Settings shows the machine's
+  login instead of a key form. The default stays `:api_key`.
+
 ### Fixed
 
 - **OpenAI Responses generations now report why they stopped.**
