@@ -53,6 +53,9 @@ module ActionAgent
       # that name and signature.
       changed_files: %i[changed_files],
       read_file: %i[read_file],
+      list_files: %i[list_files],
+      write_file: %i[write_file],
+      run_command: %i[run_command],
       start_browser: %i[start_browser],
       stop_browser: %i[stop_browser],
       resume_boot: %i[resume_boot],
@@ -331,6 +334,43 @@ module ActionAgent
       else
         @backend.public_send(method, sandbox_session, path)
       end
+    end
+
+    # The files under +path+ in +sandbox_session+'s checkout (all of it when
+    # blank), without what the repository ignores.
+    #
+    # @return [Hash] { files: [String], truncated: Boolean }
+    # @raise [ArgumentError] when +path+ climbs out of the checkout
+    # @raise [UnsupportedBackendError] when the backend does not implement it
+    def list_files(sandbox_session, path = nil)
+      if path.present? && !checkout_relative?(path.to_s.delete_suffix("/"))
+        raise ArgumentError, "#{path.inspect} is not a path inside the checkout"
+      end
+
+      @backend.public_send(adapter_method(:list_files), sandbox_session, path.presence)
+    end
+
+    # Writes +content+ to +path+ in +sandbox_session+'s checkout.
+    #
+    # @return [Hash] { path:, bytes:, created: }
+    # @raise [ArgumentError] when +path+ is absolute or climbs out of the checkout
+    # @raise [UnsupportedBackendError] when the backend does not implement it
+    def write_file(sandbox_session, path, content)
+      raise ArgumentError, "#{path.inspect} is not a path inside the checkout" unless checkout_relative?(path)
+
+      @backend.public_send(adapter_method(:write_file), sandbox_session, path, content)
+    end
+
+    # Runs a shell +command+ in +sandbox_session+'s checkout, bounded in time
+    # and output, as the backend's code sessions run theirs.
+    #
+    # @return [Hash] { exit_status:, output:, truncated:, timed_out: }
+    # @raise [UnsupportedBackendError] when the backend does not implement it
+    def run_command(sandbox_session, command, timeout: nil)
+      method = adapter_method(:run_command)
+      return @backend.public_send(method, sandbox_session, command) if timeout.nil?
+
+      @backend.public_send(method, sandbox_session, command, timeout: timeout)
     end
 
     # Starts a browser for +sandbox_session+, one per sandbox, and returns how

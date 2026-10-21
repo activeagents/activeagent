@@ -3,6 +3,7 @@ import AgentAvatar from '../AgentAvatar';
 import { useActionCable } from '../../hooks/useActionCable';
 import { startCheckout } from '../../utils/checkout';
 import { liveUpdate } from '../../utils/liveUpdates.mjs';
+import NewInteractionPicker from './NewInteractionPicker';
 
 const PROVIDERS = [
   { id: 'anthropic', name: 'Anthropic', model: 'claude-haiku-4-5', color: 'bg-orange-500' },
@@ -63,7 +64,10 @@ const FREE_TIER_LIMITS = {
   session_duration_minutes: 15
 };
 
-export default function SandboxRunner({ initialType = 'playwright_mcp', onClose }) {
+// +showAgents+ lists the workspace's own agents above the demo, each opening
+// a new interaction that runs with its saved tools and MCP servers. The
+// demo below runs SandboxDemoAgent, not one of them.
+export default function SandboxRunner({ initialType = 'playwright_mcp', onClose, showAgents = false }) {
   const [sandboxType, setSandboxType] = useState(initialType);
   const [session, setSession] = useState(null);
   const [task, setTask] = useState('');
@@ -469,6 +473,12 @@ export default function SandboxRunner({ initialType = 'playwright_mcp', onClose 
 
   return (
     <div className="h-full flex flex-col bg-gray-50">
+      {showAgents && (
+        <div className="pb-6">
+          <NewInteractionPicker inline />
+        </div>
+      )}
+
       {/* Header */}
       <div className="bg-white border-b border-gray-200 px-6 py-4">
         <div className="flex items-center justify-between">

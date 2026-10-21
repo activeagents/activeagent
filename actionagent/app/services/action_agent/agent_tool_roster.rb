@@ -50,18 +50,25 @@ module ActionAgent
     # workspace already talks to, then the rest of the catalog.
     STATUS_RANK = { "active" => 0, "configured" => 1, "available" => 2, "idle" => 3 }.freeze
 
-    attr_reader :agent, :discovery, :runtimes
+    attr_reader :agent, :discovery, :runtimes, :workspace_agents
 
     # @param agent [ActionAgent::Agent] the agent being edited
     # @param traces [ActiveRecord::Relation] the traces the caller may read
     # @param hours [Integer] the window the usage columns are scoped to
     # @param runtimes [Array<Hash>] live checkout sandbox runtimes this agent
     #   can be given, as SandboxSession.runtime_server_listings returns them
-    def initialize(agent:, traces:, hours: ToolDiscovery::DEFAULT_WINDOW_HOURS, runtimes: [])
+    # @param workspace_agents [ActiveRecord::Relation, nil] the workspace's
+    #   other agents, whose MCP servers each service row counts as
+    #   +workspace_agents+ — what a new agent's builder shows as already in
+    #   use, since an unsaved agent has no usage of its own to show
+    def initialize(agent:, traces:, hours: ToolDiscovery::DEFAULT_WINDOW_HOURS, runtimes: [], workspace_agents: nil)
       @agent = agent
       @runtimes = Array(runtimes).index_by { |runtime| runtime[:key] }
+      @workspace_agents = workspace_agents
+      # An agent not saved yet has no traces of its own, and no name to
+      # match unattributed ones by.
       @discovery = ToolDiscovery.new(
-        traces: agent.telemetry_traces(traces),
+        traces: agent.persisted? ? agent.telemetry_traces(traces) : traces.none,
         agents: Agent.where(id: agent.id),
         hours: hours
       )
@@ -118,6 +125,7 @@ module ActionAgent
       used = detected_by_server[key] || []
       calls = used.sum { |tool| tool[:calls] }
       enabled = configured_servers.key?(key)
+      unreachable = MCPToolDispatcher.unreachable_reason(MCPCatalog.connection(key) || runtimes[key])
 
       {
         key: key,
@@ -133,8 +141,23 @@ module ActionAgent
         calls: calls,
         errors: used.sum { |tool| tool[:errors] },
         last_seen: used.filter_map { |tool| tool[:last_seen] }.max,
+        # Whether a dashboard run reaches it (MCPToolDispatcher), and when
+        # not, why: a stdio server, or one needing a credential it can't send.
+        callable: unreachable.nil?,
+        unavailable_reason: unreachable,
+        workspace_agents: workspace_usage[key].to_i,
         tools: service_tools(key, catalog, used)
       }
+    end
+
+    # server key => how many of the workspace's agents enable it. Empty
+    # unless the caller handed in +workspace_agents+.
+    def workspace_usage
+      @workspace_usage ||= Array(workspace_agents).each_with_object(Hash.new(0)) do |other, counts|
+        next if agent.persisted? && other.id == agent.id
+
+        self.class.configured_servers(other).each_key { |key| counts[key] += 1 }
+      end
     end
 
     # How to reach the server, in the one line the expanded panel shows:
@@ -233,6 +256,10 @@ module ActionAgent
           description: Agent::TOOL_DESCRIPTIONS[capability],
           enabled: saved_tools.include?(capability),
           editable: true,
+          # Whether AgentToolbox gives the model anything for it. A capability
+          # without definitions is a name on the roster and nothing more, so
+          # the builder offers its MCP service (or nothing) in its place.
+          implemented: AgentToolbox::DEFINITIONS.key?(capability),
           approval_names: capability_functions(capability) - AgentToolbox::INPUT_FUNCTIONS
         )
       end
@@ -283,27 +310,35 @@ module ActionAgent
     # carries a top-level Hash keyed by server name — the same three shapes
     # EvaluationToolResolver tolerates.
     def configured_servers
-      @configured_servers ||= configured_entries.each_with_object({}) do |entry, map|
-        key = entry_key(entry)
-        map[key] = entry if key.present?
-      end
+      @configured_servers ||= self.class.configured_servers(agent)
     end
 
-    def configured_entries
-      servers = agent.mcp_servers
-
-      if servers.is_a?(Hash)
-        servers.map { |key, value| value.respond_to?(:key?) ? value.to_h.stringify_keys.merge("key" => key.to_s) : key.to_s }
-      else
-        Array(servers)
+    class << self
+      # server key => the entry +agent+ stores for it, in any of the three
+      # shapes above.
+      def configured_servers(agent)
+        configured_entries(agent.mcp_servers).each_with_object({}) do |entry, map|
+          key = entry_key(entry)
+          map[key] = entry if key.present?
+        end
       end
-    end
 
-    def entry_key(entry)
-      return entry.to_s.strip.presence if entry.is_a?(String) || entry.is_a?(Symbol)
-      return nil unless entry.respond_to?(:key?)
+      private
 
-      (entry["key"] || entry[:key] || entry["name"] || entry[:name]).to_s.strip.presence
+      def configured_entries(servers)
+        if servers.is_a?(Hash)
+          servers.map { |key, value| value.respond_to?(:key?) ? value.to_h.stringify_keys.merge("key" => key.to_s) : key.to_s }
+        else
+          Array(servers)
+        end
+      end
+
+      def entry_key(entry)
+        return entry.to_s.strip.presence if entry.is_a?(String) || entry.is_a?(Symbol)
+        return nil unless entry.respond_to?(:key?)
+
+        (entry["key"] || entry[:key] || entry["name"] || entry[:name]).to_s.strip.presence
+      end
     end
 
     # The per-server allow-list, or nil when the entry names none — which

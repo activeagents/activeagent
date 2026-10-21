@@ -11,9 +11,11 @@ module ActionAgent
   # tool-call roundtrips that show up as :tool spans in Traces, tool messages
   # in Interactions, and tool counts in Metrics.
   #
-  # Only tools with a safe server-side implementation are mapped; anything
-  # else an agent enables (terminal, playwright, ...) is ignored for platform
-  # execution.
+  # Every capability in Agent::AVAILABLE_TOOLS has definitions here. The ones
+  # that act for the run — on its checkout (CheckoutTools), its Slack
+  # connection (SlackTools), its provider (translate_text), its memory, its
+  # workspace's agents, or a person — are routed by AgentExecutionService and
+  # have no FUNCTIONS entry.
   class AgentToolbox
     FETCH_LIMIT_BYTES = 50_000
     FETCH_TIMEOUT_SECONDS = 5
@@ -262,6 +264,138 @@ module ActionAgent
           }
         }
       ],
+      # The checkout capabilities: they act on the checkout sandbox the run
+      # was given (CheckoutTools), so AgentExecutionService routes them, and
+      # they are NOT in FUNCTIONS below.
+      "terminal" => [
+        {
+          name: "run_command",
+          description: "Run a shell command (bash) in the root of the repository checkout this run was given, with the " \
+            "app's environment and database, and return its exit status and combined output. Use it to run tests, " \
+            "rake tasks, scripts or git. Each call starts a fresh shell.",
+          parameters: {
+            type: "object",
+            properties: {
+              command: { type: "string", description: "The command line, e.g. bin/rails test test/models" },
+              timeout_seconds: { type: "integer", description: "Stop the command after this many seconds (at most 120)" }
+            },
+            required: [ "command" ]
+          }
+        }
+      ],
+      "filesystem" => [
+        {
+          name: "list_files",
+          description: "List the files in the repository checkout this run was given, tracked and untracked, without " \
+            "the ones .gitignore excludes. Pass a directory to list only what is under it.",
+          parameters: {
+            type: "object",
+            properties: { path: { type: "string", description: "A directory relative to the checkout root, e.g. app/models" } },
+            required: []
+          }
+        },
+        {
+          name: "read_file",
+          description: "Read a text file from the repository checkout this run was given.",
+          parameters: {
+            type: "object",
+            properties: { path: { type: "string", description: "The file's path relative to the checkout root" } },
+            required: [ "path" ]
+          }
+        },
+        {
+          name: "write_file",
+          description: "Write a text file in the repository checkout this run was given, replacing it if it exists and " \
+            "creating the directories it needs.",
+          parameters: {
+            type: "object",
+            properties: {
+              path: { type: "string", description: "The file's path relative to the checkout root" },
+              content: { type: "string", description: "The file's complete new content" }
+            },
+            required: [ "path", "content" ]
+          }
+        }
+      ],
+      "edit" => [
+        {
+          name: "edit_file",
+          description: "Edit a file in the repository checkout this run was given by replacing one exact passage. " \
+            "old_text must appear exactly once in the file; include enough surrounding lines to make it unique.",
+          parameters: {
+            type: "object",
+            properties: {
+              path: { type: "string", description: "The file's path relative to the checkout root" },
+              old_text: { type: "string", description: "The exact text to replace" },
+              new_text: { type: "string", description: "What to put in its place" }
+            },
+            required: [ "path", "old_text", "new_text" ]
+          }
+        }
+      ],
+      "database" => [
+        {
+          name: "query_database",
+          description: "Run a read-only SQL query against the app's database in the repository checkout this run was " \
+            "given, and return the columns and up to 200 rows. Writes are refused.",
+          parameters: {
+            type: "object",
+            properties: { sql: { type: "string", description: "One SQL statement, e.g. SELECT id, email FROM users LIMIT 10" } },
+            required: [ "sql" ]
+          }
+        }
+      ],
+      # Through the owner's Slack bot token (SlackTools), routed by
+      # AgentExecutionService.
+      "slack" => [
+        {
+          name: "slack_list_channels",
+          description: "List the Slack channels the workspace's bot can see, with their ids.",
+          parameters: { type: "object", properties: {}, required: [] }
+        },
+        {
+          name: "slack_read_channel",
+          description: "Read a Slack channel's most recent messages, newest first.",
+          parameters: {
+            type: "object",
+            properties: {
+              channel: { type: "string", description: "The channel id, e.g. C0123456789" },
+              limit: { type: "integer", description: "How many messages (default 20, at most 50)" }
+            },
+            required: [ "channel" ]
+          }
+        },
+        {
+          name: "slack_post_message",
+          description: "Post a message to a Slack channel as the workspace's bot, or reply in a thread.",
+          parameters: {
+            type: "object",
+            properties: {
+              channel: { type: "string", description: "The channel id, e.g. C0123456789" },
+              text: { type: "string", description: "The message, in Slack mrkdwn" },
+              thread_ts: { type: "string", description: "Reply in the thread of this message ts" }
+            },
+            required: [ "channel", "text" ]
+          }
+        }
+      ],
+      # A generation on the run's own provider, model and credentials,
+      # routed by AgentExecutionService.
+      "translate" => [
+        {
+          name: "translate_text",
+          description: "Translate text into another language, keeping its formatting, code and placeholders.",
+          parameters: {
+            type: "object",
+            properties: {
+              text: { type: "string", description: "The text to translate" },
+              target_language: { type: "string", description: "The language to translate into, e.g. Spanish or ja" },
+              source_language: { type: "string", description: "The text's language, when known" }
+            },
+            required: [ "text", "target_language" ]
+          }
+        }
+      ],
       # Memory tools mirror solid_agent's HasMemory contract. They are NOT in
       # FUNCTIONS below — execution is subject-bound, so AgentExecutionService
       # routes them to the run's AgentMemory instead of this module.
@@ -315,6 +449,19 @@ module ActionAgent
     # AgentExecutionService.
     INPUT_FUNCTIONS = %w[ask_user request_approval request_secret].freeze
 
+    # The functions with side effects outside the conversation, by the
+    # capability that exposes them. They wait for a person's approval unless
+    # the agent's approval list says otherwise: Agent puts them on the list
+    # when a capability is gained without one (a template, the agents API),
+    # and the builder and the Tools tab add them when a capability is
+    # switched on (frontend/utils/builderRoster.mjs keeps the same table).
+    APPROVAL_BY_DEFAULT = {
+      "terminal" => %w[run_command],
+      "filesystem" => %w[write_file],
+      "edit" => %w[edit_file],
+      "slack" => %w[slack_post_message]
+    }.freeze
+
     # Function name => implementation method, for routing tool calls.
     FUNCTIONS = {
       "fetch_url" => :fetch_url,
@@ -363,6 +510,12 @@ module ActionAgent
         names.flat_map do |name|
           DEFINITIONS[name] || schema_tool_definitions(name)
         end.reject { |definition| definition[:name].to_s == REQUEST_SECRET_DEFINITION[:name] }
+      end
+
+      # The approval list +tool_names+ get by default: the side-effecting
+      # functions of the capabilities among them (APPROVAL_BY_DEFAULT).
+      def default_approvals(tool_names)
+        Array(tool_names).flat_map { |name| APPROVAL_BY_DEFAULT[name.to_s] || [] }.uniq
       end
 
       # Whether runs may use the process-wide browser: never in a

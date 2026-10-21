@@ -4,12 +4,30 @@ import { ICONS } from '../../utils/designTokens';
 import { FALLBACK_PROVIDER_MODELS } from '../../utils/providerModels';
 import { useProviderModels } from '../../hooks/useProviderModels';
 import ModelPicker from './ModelPicker';
+import {
+  builderServices,
+  builderTools,
+  checkoutToolsEnabled,
+  defaultApprovals,
+  offeredTools,
+  serverEnabled,
+  toggleServer,
+  workspaceUseLabel,
+} from '../../utils/builderRoster.mjs';
 
 const STEPS = [
   { id: 'basics', label: 'Basics', icon: '1' },
   { id: 'configure', label: 'Configure', icon: '2' },
   { id: 'review', label: 'Review', icon: '3' }
 ];
+
+// The toolbox capabilities the lander's TOOLS doesn't draw, labelled for the
+// builder's chips; anything else (a host schema tool) shows its own name.
+const TOOL_CHIPS = {
+  ...TOOLS,
+  agents: { emoji: '\u{1F91D}', label: 'Delegate to agents' },
+  ask: { emoji: '\u{1F64B}', label: 'Ask the user' },
+};
 
 // Fields on the Basics step; the slug is derived from the name, so its
 // errors are the name's to show.
@@ -26,6 +44,7 @@ export default function AgentBuilder({ meta, onSave, onCancel, isLoading, initia
     preset_type: 'terminal',
     instruction_sets: ['github'],
     tools: ['terminal', 'code'],
+    mcp_servers: [],
     model_config: {
       temperature: 0.7
     },
@@ -37,7 +56,7 @@ export default function AgentBuilder({ meta, onSave, onCancel, isLoading, initia
       model: initialDraft.model,
       tools: initialDraft.tools || [],
       instruction_sets: [],
-      mcp_servers: [],
+      mcp_servers: initialDraft.mcp_servers || [],
     } : {})
   });
 
@@ -56,6 +75,25 @@ export default function AgentBuilder({ meta, onSave, onCancel, isLoading, initia
     if (!availableModels?.length) return;
     setFormData(prev => availableModels.includes(prev.model) ? prev : { ...prev, model: availableModels[0] });
   }, [availableModels]);
+
+  // What a new agent can be given (GET /api/agents/tool_roster): the tools
+  // and MCP services a run would actually get. Once it lands, a selection
+  // naming something it does not offer — a preset's or a draft's — is
+  // narrowed to what does, so the agent is created with no dead names.
+  const [roster, setRoster] = useState(null);
+  const [rosterError, setRosterError] = useState(null);
+  useEffect(() => {
+    fetch('/api/agents/tool_roster')
+      .then((response) => {
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        return response.json();
+      })
+      .then((payload) => {
+        setRoster(payload);
+        setFormData(prev => ({ ...prev, tools: offeredTools(payload, prev.tools) }));
+      })
+      .catch((error) => setRosterError(error.message));
+  }, []);
 
   // What the server rejected on the last Create Agent: { errors, fieldErrors }.
   const [submitErrors, setSubmitErrors] = useState(null);
@@ -79,7 +117,7 @@ export default function AgentBuilder({ meta, onSave, onCancel, isLoading, initia
     if (AGENT_PRESETS[presetId]) {
       const preset = AGENT_PRESETS[presetId];
       updateField('instruction_sets', [...preset.instructions]);
-      updateField('tools', [...preset.tools]);
+      updateField('tools', offeredTools(roster, preset.tools));
     }
   };
 
@@ -94,7 +132,8 @@ export default function AgentBuilder({ meta, onSave, onCancel, isLoading, initia
 
   const handleSubmit = async () => {
     setSubmitErrors(null);
-    const failure = await onSave(formData);
+    // Side-effecting functions wait for approval unless the Tools tab says otherwise.
+    const failure = await onSave({ ...formData, approval_required_tools: defaultApprovals(formData.tools) });
     if (!failure) return;
 
     setSubmitErrors(failure);
@@ -160,13 +199,15 @@ export default function AgentBuilder({ meta, onSave, onCancel, isLoading, initia
           <ConfigureStep
             formData={formData}
             meta={meta}
+            roster={roster}
+            rosterError={rosterError}
             toggleArrayItem={toggleArrayItem}
             updateField={updateField}
             selectPreset={selectPreset}
           />
         )}
         {currentStep === 2 && (
-          <ReviewStep formData={formData} />
+          <ReviewStep formData={formData} roster={roster} />
         )}
       </div>
 
@@ -292,10 +333,11 @@ function BasicsStep({ formData, updateField, providerModels, fieldErrors }) {
 }
 
 // Step 2: Configure (instructions, tools, system prompt - matching lander pattern)
-function ConfigureStep({ formData, meta, toggleArrayItem, updateField, selectPreset }) {
+function ConfigureStep({ formData, meta, roster, rosterError, toggleArrayItem, updateField, selectPreset }) {
   const presets = Object.keys(AGENT_PRESETS);
   const allInstructions = Object.keys(INSTRUCTIONS);
-  const allTools = Object.keys(TOOLS);
+  const tools = builderTools(roster);
+  const { callable, unavailable } = builderServices(roster);
 
   return (
     <div className="space-y-6">
@@ -374,31 +416,74 @@ function ConfigureStep({ formData, meta, toggleArrayItem, updateField, selectPre
         </div>
       </div>
 
-      {/* Tools - matching lander's chip selector */}
+      {/* Tools: the toolbox capabilities and host schema tools a run is offered */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-3">
           <strong>Tools</strong>
-          <span className="text-gray-400 font-normal ml-2">MCPs and integrations</span>
+          <span className="text-gray-400 font-normal ml-2">Functions the model can call</span>
         </label>
-        <div className="flex flex-wrap gap-2">
-          {allTools.map(id => {
-            const tool = TOOLS[id];
-            return (
-              <button
-                key={id}
-                onClick={() => toggleArrayItem('tools', id)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm transition-colors ${
-                  formData.tools.includes(id)
-                    ? 'bg-red-500 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                <span>{tool.emoji}</span>
-                <span>{tool.label}</span>
-              </button>
-            );
-          })}
+        {rosterError && <p className="text-sm text-red-600">Could not load the tools this workspace offers: {rosterError}</p>}
+        {!roster && !rosterError && <p className="text-sm text-gray-400">Loading tools…</p>}
+        <div className="flex flex-wrap gap-2" data-testid="builder-tools">
+          {tools.map(tool => (
+            <RosterChip
+              key={tool.key}
+              testId={`builder-tool-${tool.key}`}
+              on={formData.tools.includes(tool.key)}
+              onClick={() => toggleArrayItem('tools', tool.key)}
+              emoji={TOOL_CHIPS[tool.key]?.emoji || '\u{1F9F1}'}
+              label={TOOL_CHIPS[tool.key]?.label || tool.name}
+              title={tool.description || tool.name}
+            />
+          ))}
         </div>
+        {checkoutToolsEnabled(formData.tools) && (
+          <p className="mt-2 text-xs text-gray-500" data-testid="builder-checkout-hint">
+            Terminal, Filesystem, Edit and Database act in a repository checkout: choose one under Checkout when you run the agent.
+          </p>
+        )}
+      </div>
+
+      {/* MCP services a dashboard run can call, and the ones it can't */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-3">
+          <strong>MCP servers</strong>
+          <span className="text-gray-400 font-normal ml-2">Every tool the server serves is offered</span>
+        </label>
+        {roster && callable.length === 0 && (
+          <p className="text-sm text-gray-500">
+            No MCP server this workspace can call yet. Register one with its URL in <code>ActionAgent.mcp_catalog</code>, or
+            boot a project's checkout to offer its app runtime.
+          </p>
+        )}
+        <div className="flex flex-wrap gap-2" data-testid="builder-mcp-servers">
+          {callable.map(service => (
+            <RosterChip
+              key={service.key}
+              testId={`builder-mcp-${service.key}`}
+              on={serverEnabled(formData.mcp_servers, service.key)}
+              onClick={() => updateField('mcp_servers', toggleServer(formData.mcp_servers, service))}
+              emoji={service.runtime ? '\u{1F4E6}' : '\u{1F50C}'}
+              label={service.name}
+              hint={workspaceUseLabel(service)}
+              title={[service.description, service.transport].filter(Boolean).join(' · ')}
+            />
+          ))}
+        </div>
+        {unavailable.length > 0 && (
+          <details className="mt-3 text-sm" data-testid="builder-mcp-unavailable">
+            <summary className="cursor-pointer text-gray-500">
+              {unavailable.length} catalog server{unavailable.length === 1 ? '' : 's'} a run can't call
+            </summary>
+            <ul className="mt-2 space-y-1">
+              {unavailable.map(service => (
+                <li key={service.key} className="text-xs text-gray-500">
+                  <span className="font-medium text-gray-700">{service.name}</span> — {service.unavailable_reason}
+                </li>
+              ))}
+            </ul>
+          </details>
+        )}
       </div>
 
       {/* System Instructions */}
@@ -417,7 +502,12 @@ function ConfigureStep({ formData, meta, toggleArrayItem, updateField, selectPre
 }
 
 // Step 3: Review
-function ReviewStep({ formData }) {
+function ReviewStep({ formData, roster }) {
+  const serviceName = (entry) => {
+    const key = typeof entry === 'string' ? entry : entry?.key;
+    return roster?.services?.find(service => service.key === key)?.name || entry?.name || key;
+  };
+
   return (
     <div className="space-y-6">
       <h2 className="text-xl font-semibold text-gray-900">Review Your Agent</h2>
@@ -481,14 +571,33 @@ function ReviewStep({ formData }) {
             <span className="text-sm font-medium text-gray-500">Tools</span>
             <div className="flex flex-wrap gap-1 mt-1">
               {formData.tools.length > 0 ? (
-                formData.tools.map(id => {
-                  const tool = TOOLS[id];
-                  return tool ? (
-                    <span key={id} className="px-2 py-0.5 bg-red-100 text-red-700 rounded text-xs">
-                      {tool.emoji} {tool.label}
-                    </span>
-                  ) : null;
-                })
+                formData.tools.map(id => (
+                  <span key={id} className="px-2 py-0.5 bg-red-100 text-red-700 rounded text-xs">
+                    {TOOL_CHIPS[id] ? `${TOOL_CHIPS[id].emoji} ${TOOL_CHIPS[id].label}` : id}
+                  </span>
+                ))
+              ) : (
+                <span className="text-gray-400 text-sm">None selected</span>
+              )}
+            </div>
+          </div>
+
+          {defaultApprovals(formData.tools).length > 0 && (
+            <div>
+              <span className="text-sm font-medium text-gray-500">Waits for your approval</span>
+              <p className="text-gray-900 text-sm font-mono">{defaultApprovals(formData.tools).join(', ')}</p>
+            </div>
+          )}
+
+          <div>
+            <span className="text-sm font-medium text-gray-500">MCP servers</span>
+            <div className="flex flex-wrap gap-1 mt-1">
+              {formData.mcp_servers.length > 0 ? (
+                formData.mcp_servers.map(entry => (
+                  <span key={serviceName(entry)} className="px-2 py-0.5 bg-red-100 text-red-700 rounded text-xs">
+                    {serviceName(entry)}
+                  </span>
+                ))
               ) : (
                 <span className="text-gray-400 text-sm">None selected</span>
               )}
@@ -506,5 +615,25 @@ function ReviewStep({ formData }) {
         </div>
       )}
     </div>
+  );
+}
+
+// A chip in the builder's Tools and MCP servers rows.
+function RosterChip({ on, onClick, emoji, label, hint, title, testId }) {
+  return (
+    <button
+      type="button"
+      data-testid={testId}
+      aria-pressed={on}
+      onClick={onClick}
+      title={title}
+      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm transition-colors ${
+        on ? 'bg-red-500 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+      }`}
+    >
+      <span>{emoji}</span>
+      <span>{label}</span>
+      {hint && <span className={`text-xs ${on ? 'text-red-100' : 'text-gray-400'}`}>· {hint}</span>}
+    </button>
   );
 }

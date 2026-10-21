@@ -43,6 +43,41 @@ class MCPToolDispatcherTest < ActiveSupport::TestCase
     assert_not dispatcher.dispatchable?("read_file")
   end
 
+  test "a host registration's headers reach the client a run calls it with" do
+    ActionAgent.mcp_catalog = [
+      { key: "tickets", name: "Tickets", transport: "http", url: "https://host.example/mcp/tickets",
+        headers: { "Authorization" => "Bearer host-secret" }, tool_hints: %w[count_tickets] }
+    ]
+    dispatcher = ActionAgent::MCPToolDispatcher.new(agent_with(%w[tickets]))
+
+    client = dispatcher.send(:client_for, dispatcher.send(:endpoint_for, "count_tickets"))
+
+    assert_equal({ "Authorization" => "Bearer host-secret" }, client.instance_variable_get(:@headers))
+    # The listing the dashboard serializes still carries none.
+    assert_nil ActionAgent::MCPCatalog.find("tickets")[:headers]
+  end
+
+  test "a server a run cannot call says why" do
+    reason = ->(key) { ActionAgent::MCPToolDispatcher.unreachable_reason(ActionAgent::MCPCatalog.connection(key)) }
+
+    assert_nil reason.call("tickets")
+    assert_match(/stdio server/, reason.call("local"))
+    assert_equal "Unknown to the catalog", reason.call("nope")
+
+    ActionAgent.mcp_catalog = []
+    assert_match(/Needs GITHUB_TOKEN/, reason.call("github"))
+    assert_match(/not callable from its own runs/, reason.call("activeagents"))
+  end
+
+  test "a credentialed server is callable once the host registers it with headers" do
+    ActionAgent.mcp_catalog = [
+      { key: "crm", name: "CRM", transport: "http", url: "https://crm.example/mcp",
+        requires_credentials: [ "CRM_TOKEN" ], headers: { "Authorization" => "Bearer x" } }
+    ]
+
+    assert_nil ActionAgent::MCPToolDispatcher.unreachable_reason(ActionAgent::MCPCatalog.connection("crm"))
+  end
+
   # VCR hooks into webmock and refuses any request without a cassette, so these
   # tests substitute the client rather than stub HTTP. The dispatcher memoizes
   # its clients per server key, so seeding that hash injects the double.

@@ -3,6 +3,7 @@ import { useTheme } from '../../contexts/ThemeContext';
 import GithubIntegrationCard from './GithubIntegrationCard';
 import ClaudeCodeIntegrationCard from './ClaudeCodeIntegrationCard';
 import CodexIntegrationCard from './CodexIntegrationCard';
+import SlackIntegrationCard from './SlackIntegrationCard';
 import ProviderKeysCard, { useProviderKeyEditor } from './ProviderKeysCard';
 import { providerKeysPath } from '../../utils/providerKeys.mjs';
 import { requestConfirm } from '../../utils/confirm.mjs';
@@ -376,6 +377,9 @@ export default function SettingsView({ user, account }) {
           </div>
           <div className="border rounded-lg p-6" style={cardStyle}>
             <CodexIntegrationCard onChange={() => setIntegrationsVersion((v) => v + 1)} />
+          </div>
+          <div className="border rounded-lg p-6" style={cardStyle}>
+            <SlackIntegrationCard onChange={() => setIntegrationsVersion((v) => v + 1)} />
           </div>
         </div>
       )}

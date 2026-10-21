@@ -326,8 +326,10 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
     ) : null),
     runner: () => (selectedAgent ? (
       <AgentRunner
+        key={`runner-${selectedAgent.id}-${window.location.search}`}
         agent={selectedAgent}
         recorderUrl={meta.recorderUrl}
+        freshConversation={new URLSearchParams(window.location.search).has('new')}
         onBack={() => navigateTo('editor', selectedAgent)}
       />
     ) : null),
@@ -411,6 +413,7 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
     sandbox: () => (
       <SandboxRunner
         initialType="playwright_mcp"
+        showAgents
         onClose={() => navigateTo('list')}
       />
     ),
