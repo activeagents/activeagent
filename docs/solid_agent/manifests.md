@@ -14,7 +14,7 @@ request, diffable, and portable to frameworks that aren't Rails.
 name: changelog-writer
 version: 1.0.0
 description: Turns a range of merged pull requests into a release changelog
-model: anthropic/claude-sonnet-4-20250514
+model: anthropic/claude-sonnet-5-5
 config:
   temperature: 0.3
 
@@ -78,7 +78,7 @@ manifest = SolidAgent::AgentManifest.load("https://example.com/agents/support.ag
 manifest = SolidAgent::AgentManifest.load({ name: "quick", model: "openai/gpt-4o-mini" })
 
 manifest.name          # => "changelog-writer"
-manifest.model         # => "anthropic/claude-sonnet-4-20250514"
+manifest.model         # => "anthropic/claude-sonnet-5-5"
 manifest.instructions  # the Markdown body
 manifest.tools.map(&:name)
 manifest.fingerprint   # stable digest — the version an agent ran under
@@ -114,7 +114,7 @@ end
 klass = SolidAgent::AgentManifest.load_agent(path, class_name: "ChangelogWriterAgent")
 
 klass._manifest_provider      # => "anthropic"
-klass._manifest_model         # => "claude-sonnet-4-20250514"
+klass._manifest_model         # => "claude-sonnet-5-5"
 klass._manifest_instructions  # the Markdown body
 klass._manifest               # the Manifest, fingerprint included
 klass.new.tools.map { |t| t[:name] }
