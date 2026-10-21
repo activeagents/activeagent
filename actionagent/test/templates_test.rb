@@ -42,6 +42,8 @@ class TemplatesTest < ActionDispatch::IntegrationTest
     # The detail shape, so the editor never seeds an empty form from it.
     assert_equal template.instructions, agent["instructions"]
     assert_equal template.tools, agent["tools"]
+    # Its checkout functions with side effects wait for approval by default.
+    assert_equal %w[run_command write_file], agent["approval_required_tools"]
     assert_equal template.model_config, agent["model_config"]
     assert agent.key?("action_prompts")
     assert_equal 1, template.reload.usage_count

@@ -51,6 +51,7 @@ module ActionAgent
     # Callbacks
     before_validation :generate_slug, on: :create
     before_validation :apply_conventional_schema_tools, on: :create
+    before_validation :require_approval_for_gained_side_effects, unless: :observed?
     after_create :create_initial_version
     after_update :create_version_on_config_change, if: :configuration_changed?
     after_destroy :release_telemetry_traces, if: :observed?
@@ -178,6 +179,24 @@ module ActionAgent
 
       defaults = conventional_schema_tools
       self.tools = defaults if defaults.any?
+    end
+
+    # run_command, write_file, edit_file and slack_post_message wait for a
+    # person's approval unless the agent's approval list says otherwise
+    # (AgentToolbox::APPROVAL_BY_DEFAULT). They join the list when the agent
+    # gains their capability and this save brought no approval list of its
+    # own: an agent built from a template, a POST to the agents API with
+    # tools alone, a PATCH that enables a capability. The builder and the
+    # Tools tab send the list, so an Approval switch turned off holds.
+    def require_approval_for_gained_side_effects
+      return unless has_attribute?(:approval_required_tools)
+      return if attribute_came_from_user?("approval_required_tools")
+
+      gained = Array(tools).map(&:to_s) - Array(tools_in_database).map(&:to_s)
+      names = AgentToolbox.default_approvals(gained)
+      return if names.empty?
+
+      self[:approval_required_tools] = approval_required_tools | names
     end
 
     # The ActiveAgent class name this agent's runs are recorded under — the
