@@ -98,6 +98,13 @@ module ActionAgent
     MAX_LISTING_BYTES = 4 * 1024 * 1024
     MAX_CHANGED_FILES = 5_000
     MAX_READ_BYTES = 1024 * 1024
+    # What #write_file takes, and #run_command's bounds: a command the model
+    # runs returns at most this much output and is stopped at this deadline.
+    MAX_WRITE_BYTES = 1024 * 1024
+    MAX_COMMAND_OUTPUT_BYTES = 64 * 1024
+    COMMAND_TIMEOUT = 120
+    # The paths #list_files returns at most.
+    MAX_LISTED_FILES = 2_000
     # The verified trees one backend keeps, by object id (see #tree_entries).
     MAX_CACHED_TREES = 256
     # The environment of the git commands that read a checkout's changes.
@@ -889,6 +896,102 @@ module ActionAgent
       raise Error, "#{path.inspect} is not a path inside the checkout" unless checkout_path?(path)
 
       base ? read_committed_file(workspace, app, path) : read_working_file(app, path)
+    end
+
+    # Runs +command+ with bash in +sandbox+'s checkout, the way a code
+    # session's commands run there: the sanitized environment, the boot's
+    # database variables, and the session id, in a process group of its own
+    # that is stopped at +timeout+. stdout and stderr come back together,
+    # at most MAX_COMMAND_OUTPUT_BYTES, scrubbed of the sandbox's secrets.
+    #
+    # @return [Hash] { exit_status: Integer or nil when it was stopped,
+    #   output: String, truncated: Boolean, timed_out: Boolean }
+    def run_command(sandbox, command, timeout: COMMAND_TIMEOUT)
+      workspace, app = checkout_workspace!(sandbox)
+      raise Error, "No command to run" if command.to_s.strip.empty?
+
+      database_env = read_state(workspace)["database_env"]
+      env = self.class.sanitized_environment
+        .merge(database_env.is_a?(Hash) ? database_env.transform_values(&:to_s) : {})
+        .merge(SESSION_ID_ENV => workspace.basename.to_s)
+      timeout = timeout.to_i.clamp(1, COMMAND_TIMEOUT)
+
+      output, status = capture(env, [ "bash", "-c", command.to_s ], chdir: app,
+        limit: MAX_COMMAND_OUTPUT_BYTES, timeout: timeout, err: [ :child, :out ])
+      truncated = output.bytesize >= MAX_COMMAND_OUTPUT_BYTES
+      text = SecretScrubber.scrub(output.force_encoding(Encoding::UTF_8).scrub, sandbox_secrets(sandbox, {}))
+
+      {
+        exit_status: status && exit_code(status),
+        output: text,
+        truncated: truncated,
+        timed_out: status.nil? && !truncated
+      }
+    end
+
+    # The checkout's files under +path+ (the whole checkout when blank):
+    # tracked and untracked, without what .gitignore excludes, listed by
+    # `git ls-files` with the same read-only git as #changed_files.
+    #
+    # @return [Hash] { files: [String], truncated: Boolean }
+    def list_files(sandbox, path = nil)
+      _workspace, app = checkout_workspace!(sandbox)
+      path = path.to_s.delete_suffix("/")
+      raise Error, "#{path.inspect} is not a path inside the checkout" if path.present? && !checkout_path?(path)
+
+      env = read_only_git_environment
+      git = git_command(app)
+      if filter_drivers?(app, env, git)
+        raise Error, "The checkout's git config defines filter drivers, which would run commands, so its files are not listed"
+      end
+
+      listed = git_listing!(env, [ *git, "ls-files", "-z", "--cached", "--others", "--exclude-standard", "--", path.presence || "." ], app)
+      files = listed.uniq.reject { |file| SandboxCredentialPaths.protected?(file) }
+      { files: files.first(MAX_LISTED_FILES), truncated: files.size > MAX_LISTED_FILES }
+    end
+
+    # Writes +content+ to +path+ in +sandbox+'s checkout, creating the
+    # directories it needs. Held to #read_file's rules: a relative path
+    # outside .git and the credential paths, reached through no symlink, and
+    # replacing only a regular file.
+    #
+    # @return [Hash] { path:, bytes:, created: Boolean }
+    def write_file(sandbox, path, content)
+      raise Error, "Claude configuration is never written through the checkout API" if SandboxCredentialPaths.protected?(path)
+      _workspace, app = checkout_workspace!(sandbox)
+      raise Error, "#{path.inspect} is not a path inside the checkout" unless checkout_path?(path)
+
+      bytes = content.to_s.b
+      raise Error, "#{path} would be larger than #{MAX_WRITE_BYTES} bytes" if bytes.bytesize > MAX_WRITE_BYTES
+
+      *parents, _name = path.split("/")
+      directory = app
+      parents.each do |part|
+        directory = directory.join(part)
+        stat = begin
+          File.lstat(directory)
+        rescue Errno::ENOENT
+          nil
+        end
+        if stat.nil?
+          Dir.mkdir(directory)
+        elsif !stat.directory?
+          raise Error, "#{path} is not inside the checkout: #{directory.relative_path_from(app)} is not a directory"
+        end
+      end
+
+      full = app.join(path)
+      existing = working_tree_stat(app, path)
+      raise Error, "#{path} is not a regular file" if existing && !existing.file?
+
+      File.open(full, File::WRONLY | File::CREAT | File::TRUNC | File::NOFOLLOW, 0o644) do |file|
+        raise Error, "#{path} is not inside the checkout" unless File.realpath(full).start_with?("#{File.realpath(app)}/")
+
+        file.write(bytes)
+      end
+      { path: path, bytes: bytes.bytesize, created: existing.nil? }
+    rescue Errno::ELOOP
+      raise Error, "#{path} changed while it was written"
     end
 
     # The modes #start_browser runs a browser in on this machine: headless

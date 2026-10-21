@@ -537,6 +537,12 @@ module ActionAgent
         }
       when "call_agent"
         call_agent(slug: kwargs[:slug], message: kwargs[:message])
+      when "translate_text"
+        translate_text(**kwargs.to_h.symbolize_keys.slice(:text, :target_language, :source_language))
+      when *CheckoutTools::FUNCTIONS
+        checkout_tools.call(name.to_s, kwargs)
+      when *SlackTools::FUNCTIONS
+        SlackTools.new(SlackTools.token_for(owner)).call(name.to_s, kwargs)
       when "request_handoff"
         request_handoff(**kwargs.slice(:reason, :url, :form_values, :instructions))
       else
@@ -725,6 +731,37 @@ module ActionAgent
     # schema rather than the preview the attribute stores.
     def estimated_tokens(text)
       (text.length / 4.0).round
+    end
+
+    # The checkout tools act on the sandbox the run was given, found among
+    # the agent's owner's sessions as the dispatcher finds its runtime.
+    def checkout_tools
+      @checkout_tools ||= begin
+        sandbox_id = @run.try(:sandbox_id)
+        CheckoutTools.new(sandbox_id && SandboxSession.for_owner(owner).find_by(session_id: sandbox_id))
+      end
+    end
+
+    # translate_text: one generation on this run's provider, model and the
+    # owner's credentials, with no tools and no conversation.
+    def translate_text(text:, target_language:, source_language: nil)
+      return { error: "No text to translate" } if text.to_s.strip.empty?
+      return { error: "target_language is required" } if target_language.to_s.strip.empty?
+
+      name = provider
+      options = { model: requested_model }.merge(owner_provider_options(name))
+      translator = Class.new(ActiveAgent::Base) do
+        define_singleton_method(:name) { "ActionAgent::Translator" }
+        generate_with name, **options
+      end
+      from = source_language.present? ? " from #{source_language}" : ""
+      instructions = "Translate the user's text#{from} into #{target_language}. Reply with the translation only — " \
+        "no notes, quotes or preamble. Keep formatting, code, URLs and placeholders exactly as they are."
+      response = translator.prompt(message: text.to_s, instructions: instructions).generate_now
+
+      { translation: response&.message&.content.to_s, target_language: target_language }
+    rescue StandardError => e
+      { error: "Translation failed: #{e.message}" }
     end
 
     def call_agent(slug:, message:)

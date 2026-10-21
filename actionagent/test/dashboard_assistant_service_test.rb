@@ -183,16 +183,13 @@ class DashboardAssistantServiceTest < ActiveSupport::TestCase
     assert_match(/Only 2 drafts/, service.execute_tool("prepare_agent_draft", **draft_attributes)[:error])
   end
 
-  test "drafts reject unimplemented builder labels and offer only executable groups" do
+  test "drafts reject labels the toolbox does not implement and offer every executable group" do
     service = assistant
-    assert service.execute_tool("prepare_agent_draft", **draft_attributes.merge(tools: [ "database" ]))[:error]
-    assert service.execute_tool("prepare_agent_draft", **draft_attributes.merge(tools: [ "terminal" ]))[:error]
-    result = service.execute_tool("prepare_agent_draft", **draft_attributes.merge(tools: [ "code", "memory" ]))
-    assert_equal %w[code memory], result.dig(:draft, :tools)
+    assert service.execute_tool("prepare_agent_draft", **draft_attributes.merge(tools: [ "teleport" ]))[:error]
+    result = service.execute_tool("prepare_agent_draft", **draft_attributes.merge(tools: [ "code", "terminal", "database" ]))
+    assert_equal %w[code terminal database], result.dig(:draft, :tools)
     enum = ActionAgent::DashboardAssistantService::TOOL_DEFINITIONS.last.dig(:parameters, :properties, :tools, :items, :enum)
-    assert_not_includes enum, "database"
-    assert_not_includes enum, "terminal"
-    assert_includes enum, "code"
+    assert_equal ActionAgent::Agent::AVAILABLE_TOOLS.sort, enum.sort
   end
 
   test "repeated provider tool requests stop at the configured turn budget" do

@@ -260,9 +260,13 @@ to the engine's handler for that agent. The model reads `{ "provided": true,
 **Approvals.** An agent's `approval_required_tools` names the tools whose calls
 wait for a person: toolbox tools, schema tools and its MCP servers' tools. Set
 it with the **Approval** switch beside each enabled tool on the agent's Tools
-tab, or through the agents API. A capability's switch lists every function it
-exposes (`memory` holds both `save_memory` and `recall_memory`), and the tool
-roster endpoint returns those names as each row's `approval_names`. A
+tab, or through the agents API. `run_command`, `write_file`, `edit_file` and
+`slack_post_message` are listed by default: an agent that gains `terminal`,
+`filesystem`, `edit` or `slack` — from a template, the builder, the Tools tab,
+or an API call that names no `approval_required_tools` — has them added, and
+the Approval switch takes them off. A capability's switch lists every function
+it exposes (`memory` holds both `save_memory` and `recall_memory`), and the
+tool roster endpoint returns those names as each row's `approval_names`. A
 call to a listed tool raises a `confirm` request that carries the call's
 arguments, before the tool runs. Approved, the tool runs once. Declined, it
 never runs, and the model reads an error. The list is part of the agent's
