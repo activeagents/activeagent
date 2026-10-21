@@ -232,6 +232,15 @@ stored report. An install generated with `--traces_only` has no evaluation
 tables and answers 501. The envelope, the validation rules and every response are in
 [Publishing an externally executed evaluation](/evals/publication).
 
+Any complete run comes back out the same way:
+`GET <mount>/api/evaluation_reports/:run_id`, with the same key, returns the
+envelope that endpoint takes, so a run moves to another install with one
+POST, and posting it back here is an identical retry (200); `?format=html`
+and `?format=md` return its report page or Markdown instead. From the command
+line, `bin/rails action_agent:evaluations:export` and
+`action_agent:evaluations:import` do the same (see
+[Exporting a stored run](/evals/publication#exporting-a-stored-run)).
+
 ## RubyLLM applications
 
 Apps that use [RubyLLM](https://rubyllm.com) directly (no

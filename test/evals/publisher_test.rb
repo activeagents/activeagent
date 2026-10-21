@@ -212,6 +212,19 @@ class EvalsPublisherTest < Minitest::Test
     assert_not_requested :post, ENDPOINT
   end
 
+  def test_the_envelope_is_what_call_sends
+    bodies = []
+    stub_request(:post, ENDPOINT).with { |req| bodies << JSON.parse(req.body) }.to_return(status: 201, body: receipt.to_json)
+
+    publisher.call(**arguments)
+
+    envelope = Publisher.envelope(**arguments)
+    assert_equal bodies.first, envelope
+    assert_equal %w[run_id source agent_name suite version report], envelope.keys
+    assert_raises(ArgumentError) { Publisher.envelope(**arguments.merge(suite: " ")) }
+    assert_raises(ArgumentError) { Publisher.envelope(**arguments.merge(report: nil)) }
+  end
+
   def test_verify_is_true_when_the_collector_refuses_an_empty_report_without_storing_it
     probe = stub_request(:post, ENDPOINT)
       .with(body: "{}", headers: { "Authorization" => "Bearer private-test-key", "Content-Type" => "application/json" })
