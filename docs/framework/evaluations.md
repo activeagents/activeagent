@@ -534,7 +534,14 @@ The agent's tool roster is discovered once, before the replays, and every
 scoring job reads it from the run, so a diagnosis names the same tools
 whichever job wrote it. A replay job delivered again does not replay a pair
 that already has a stored result, a judge job delivered again does not score
-a result twice, a job that fails with an exception outside the replay stores
+a result twice while its scoring lease is live. Scoring leases expire after
+30 minutes; a redelivery can then reclaim the pending result. A worker that
+finishes after another worker reclaimed its lease cannot overwrite that
+worker's result. A provider call that outlasts the lease may still be repeated,
+so set provider timeouts below that interval. Expiry does not enqueue a new
+job by itself. Install the scoring lease columns with
+`bin/rails generate action_agent:install --skip` and `bin/rails db:migrate`
+(migration 029). A job that fails with an exception outside the replay stores
 an errored result, and a failure while completing the run marks it failed. A
 scenario removed from the suite while a run is in flight is left out of that
 run's results. What no job can recover from is a job lost outright: a worker

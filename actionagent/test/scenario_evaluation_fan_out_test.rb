@@ -434,4 +434,148 @@ class ActionAgentScenarioEvaluationFanOutTest < ActiveSupport::TestCase
   ensure
     ActionAgent::ProviderKey.delete_all
   end
+
+  test "a fresh overlapping judge delivery does not score twice" do
+    evaluation = build_suite
+    evaluation.update!(judge_kind: "llm", judge_model: "claude-opus-5",
+      criteria: [ { "key" => "quality", "type" => "llm_judge", "config" => { "prompt" => "Is the answer useful?" } } ])
+    run = evaluation.run_later!(keys: [ "tickets_1" ])
+    drain(only: [ ActionAgent::EvaluationRunJob, ActionAgent::EvaluationReplayJob ])
+    row = run.scenario_results.sole
+    prompts = []
+    redelivered = false
+    judge = fake_judge(prompts, on_call: ->(kind) {
+      # First job has claimed the row and is awaiting the judge. Deliver
+      # the duplicate now, loading the CURRENT database row as the job does.
+      if kind == :score && !redelivered
+        redelivered = true
+        ActionAgent::EvaluationJudgeJob.perform_now(row.id, {}, run.id)
+      end
+    })
+    with_judge(judge) { ActionAgent::EvaluationJudgeJob.perform_now(row.id, {}, run.id) }
+    assert_equal 1, prompts.count(:score), "an overlapping delivery must not score the same result again"
+    assert_equal 1, run.reload.scores.dig("_judge_usage", "by_kind", "score")
+    assert_nil row.reload.scoring_token
+    assert_nil row.scoring_expires_at
+  end
+
+  test "an expired scoring lease is reclaimed on redelivery" do
+    run = build_suite.run_later!(keys: [ "tickets_1" ])
+    drain(only: [ ActionAgent::EvaluationRunJob, ActionAgent::EvaluationReplayJob ])
+    row = run.scenario_results.sole
+    row.update!(scoring_token: "stopped-worker", scoring_expires_at: 1.second.ago)
+
+    ActionAgent::EvaluationJudgeJob.perform_now(row.id, {}, run.id)
+
+    assert_equal "passed", row.reload.status
+    assert_nil row.scoring_token
+    assert_nil row.scoring_expires_at
+    assert_equal "complete", run.reload.status
+  end
+
+  test "a live scoring lease prevents a newly read delivery from scoring" do
+    run = build_suite.run_later!(keys: [ "tickets_1" ])
+    drain(only: [ ActionAgent::EvaluationRunJob, ActionAgent::EvaluationReplayJob ])
+    row = run.scenario_results.sole
+    row.update!(scoring_token: "live-worker", scoring_expires_at: 10.minutes.from_now)
+
+    ActionAgent::EvaluationJudgeJob.perform_now(row.id, {}, run.id)
+
+    assert_equal "pending", row.reload.status
+    assert_equal "live-worker", row.scoring_token
+    assert_equal "running", run.reload.status
+  end
+
+  test "a late scoring success or failure cannot overwrite the new lease owner's result" do
+    [ false, true ].each do |fail_late|
+      prompts = []
+      evaluation = build_suite
+      evaluation.update!(judge_kind: "llm", judge_model: "claude-opus-5",
+        criteria: [ { "key" => "quality", "type" => "llm_judge", "config" => { "prompt" => "Useful?" } } ])
+      run = evaluation.run_later!(keys: [ "tickets_1" ])
+      drain(only: [ ActionAgent::EvaluationRunJob, ActionAgent::EvaluationReplayJob ])
+      row = run.scenario_results.sole
+      redelivered = false
+      stored = nil
+      judge = fake_judge(prompts, on_call: ->(kind) {
+        if kind == :score && !redelivered
+          redelivered = true
+          travel ActionAgent::ScenarioEvaluationRunner::JUDGE_LEASE_DURATION + 1.second do
+            ActionAgent::EvaluationJudgeJob.perform_now(row.id, {}, run.id)
+            stored = row.reload.attributes
+          end
+          raise "old worker failed" if fail_late
+        end
+      })
+
+      with_judge(judge) { ActionAgent::EvaluationJudgeJob.perform_now(row.id, {}, run.id) }
+
+      assert_equal 2, prompts.count(:score), "a call beyond lease expiry may be repeated"
+      assert_equal stored, row.reload.attributes, "the old owner cannot write after its lease was reclaimed"
+      assert_equal "passed", row.status
+      assert_equal "complete", run.reload.status
+    end
+  end
+
+  test "a scoring exception releases its lease and stores the error" do
+    evaluation = build_suite
+    run = evaluation.run_later!(keys: [ "tickets_1" ])
+    drain(only: [ ActionAgent::EvaluationRunJob, ActionAgent::EvaluationReplayJob ])
+    row = run.scenario_results.sole
+    with_method(ActionAgent::ScenarioEvaluationRunner, :fan_out_scorer, proc { |_run| raise "score exploded" }) do
+      ActionAgent::EvaluationJudgeJob.perform_now(row.id, {}, run.id)
+    end
+
+    assert_equal "errored", row.reload.status
+    assert_match(/score exploded/, row.error_message)
+    assert_nil row.scoring_token
+    assert_nil row.scoring_expires_at
+    assert_equal "complete", run.reload.status
+  end
+
+  test "an old owner cannot write while its successor is still scoring" do
+    evaluation = build_suite
+    run = evaluation.run_later!(keys: [ "tickets_1" ])
+    drain(only: [ ActionAgent::EvaluationRunJob, ActionAgent::EvaluationReplayJob ])
+    row = run.scenario_results.sole
+    old_runner = ActionAgent::ScenarioEvaluationRunner.new(evaluation, run: run)
+    assert old_runner.send(:claim_result!, row)
+
+    travel ActionAgent::ScenarioEvaluationRunner::JUDGE_LEASE_DURATION + 1.second do
+      successor = ActionAgent::ScenarioEvaluationRunner.new(evaluation, run: run)
+      assert successor.send(:claim_result!, row.reload)
+      token = row.reload.scoring_token
+
+      old_runner.fail_judging!(row, RuntimeError.new("old call timed out"))
+      assert_equal "pending", row.reload.status
+      assert_equal token, row.scoring_token
+      assert_equal 0, old_runner.send(:store_claimed_result!, row, status: :passed, score: 1.0)
+      assert_equal "pending", row.reload.status
+      assert_equal token, row.scoring_token
+    end
+  end
+
+  test "a duplicate replay failure cannot interrupt an active scoring owner" do
+    evaluation = build_suite
+    evaluation.update!(judge_kind: "llm", judge_model: "claude-opus-5",
+      criteria: [ { "key" => "quality", "type" => "llm_judge", "config" => { "prompt" => "Useful?" } } ])
+    run = evaluation.run_later!(keys: [ "tickets_1" ])
+    drain(only: [ ActionAgent::EvaluationRunJob, ActionAgent::EvaluationReplayJob ])
+    row = run.scenario_results.sole
+    failed = false
+    judge = fake_judge([], on_call: ->(kind) {
+      if kind == :score && !failed
+        failed = true
+        ActionAgent::ScenarioEvaluationRunner.new(evaluation, run: run).fail_result!(
+          run.reload, row.evaluation_scenario_id, run.selection["models"].first, RuntimeError.new("duplicate replay failed"))
+      end
+    })
+
+    with_judge(judge) { ActionAgent::EvaluationJudgeJob.perform_now(row.id, {}, run.id) }
+
+    assert_equal "passed", row.reload.status
+    assert_nil row.error_message
+    assert_nil row.scoring_token
+    assert_equal "complete", run.reload.status
+  end
 end

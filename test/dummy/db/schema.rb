@@ -323,6 +323,8 @@ ActiveRecord::Schema[8.0].define(version: 29) do
     t.text "recommendation"
     t.float "score"
     t.json "scores"
+    t.string "scoring_token"
+    t.datetime "scoring_expires_at"
     t.integer "status", default: 0, null: false
     t.json "tool_calls"
     t.datetime "updated_at", null: false

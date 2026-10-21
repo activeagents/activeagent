@@ -271,6 +271,28 @@ class ActionAgentInstallGeneratorTest < Rails::Generators::TestCase
     connection&.drop_table("#{prefix}sandbox_sessions", if_exists: true)
   end
 
+  test "scoring lease columns install under a custom prefix and reverse" do
+    run_generator [ "--skip-routes" ]
+    connection = ActiveRecord::Base.connection
+    prefix = "scoring_probe_"
+    table = "#{prefix}evaluation_scenario_results"
+    connection.create_table(table, force: true)
+    ActionAgent.table_name_prefix = prefix
+    namespace = Module.new
+    namespace.module_eval(File.read(migration_file_name("db/migrate/add_evaluation_scoring_leases.rb")))
+    migration = namespace::AddEvaluationScoringLeases.new
+
+    ActiveRecord::Migration.suppress_messages { migration.migrate(:up) }
+    assert connection.column_exists?(table, :scoring_token, :string)
+    assert connection.column_exists?(table, :scoring_expires_at, :datetime)
+    ActiveRecord::Migration.suppress_messages { migration.migrate(:down) }
+    assert_not connection.column_exists?(table, :scoring_token)
+    assert_not connection.column_exists?(table, :scoring_expires_at)
+  ensure
+    ActionAgent.table_name_prefix = "active_agent_"
+    connection&.drop_table(table, if_exists: true) if table
+  end
+
   test "files in the numbered template directory that break the naming convention are not emitted" do
     with_numbered_templates(
       "001_create_widgets.rb.erb" => numbered_template("CreateWidgets"),
