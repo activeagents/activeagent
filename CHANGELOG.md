@@ -63,6 +63,17 @@ engine: the file chooser relay and the per-turn browser tokens are in the
   `connections.codex`, and the Codex card in Settings shows the machine's
   login instead of a key form. The default stays `:api_key`.
 
+### Fixed
+
+- A pinned evaluation judge model selects its native or explicitly qualified
+  provider instead of the first provider with credentials. Route qualifiers
+  are stripped before the request; pins override credential resolver model
+  defaults. Missing routes fail clearly when another provider is configured.
+  Automatic native-to-gateway alias conversion remains out of scope (#431).
+  Upgrading: a pin written `anthropic/…` or `openai/…` now selects that
+  native provider, as candidate model names already did. An install that
+  reached such a model through OpenRouter pins `openrouter/anthropic/…`.
+
 ## [1.9.2] - 2026-10-20
 
 Releases `activeagent` and `actionagent` 1.9.2, with the matching browser

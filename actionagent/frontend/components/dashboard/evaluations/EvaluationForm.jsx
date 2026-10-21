@@ -35,7 +35,7 @@ const hintStyle = { margin: '6px 0 0', fontSize: 12, color: 'var(--color-text-mu
 const PROVIDER_NAMES = { openai: 'OpenAI', anthropic: 'Anthropic', ollama: 'Ollama', openrouter: 'OpenRouter' };
 
 // From GET /api/evaluations:
-//   - judgeProvider:       the provider the judge runs on, null when none
+//   - judgeProvider:       the default provider for an unpinned judge, null when none
 //                          has credentials or they could not be read, and
 //                          undefined until known
 //   - judgeProviderError:  true when the credentials could not be read
@@ -67,10 +67,10 @@ export default function EvaluationForm({
   );
   const recordedModels = useRecordedModels(form.agent_id);
 
-  // The judge runs judge_model as its provider's own model id.
+  // Qualify names where needed so every picker choice pins its own route.
   const judgeOptions = useMemo(
-    () => (judgeProvider ? buildModelOptions(catalog, { providers: [judgeProvider], qualify: false }) : []),
-    [catalog, judgeProvider],
+    () => buildModelOptions(catalog, { providers: runProviders.length ? runProviders : (judgeProvider ? [judgeProvider] : []) }),
+    [catalog, runProviders, judgeProvider],
   );
   // With scenarios, each compared model replays them, so the catalog is
   // offered with each name resolving to its provider the way a scenario run
@@ -320,7 +320,7 @@ export default function EvaluationForm({
 
 // Returns the hint under the judge model field for a known judgeProvider.
 function judgeProviderHint(judgeProvider, judgeProviderError) {
-  if (judgeProvider) return `The judge runs on ${PROVIDER_NAMES[judgeProvider] || judgeProvider}.`;
+  if (judgeProvider) return `An unpinned judge defaults to ${PROVIDER_NAMES[judgeProvider] || judgeProvider}. Pinning a model selects its provider.`;
   if (judgeProviderError) {
     return "Provider credentials could not be read, so the judge's provider is unknown. Check the provider API keys in Settings.";
   }
