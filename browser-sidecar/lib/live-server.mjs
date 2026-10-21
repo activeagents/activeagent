@@ -25,6 +25,7 @@ const MAX_BUFFERED_BYTES = 2 * 1024 * 1024;
 const CATCH_UP_MS = 250;
 const TERMINATE_AFTER_MS = 1000;
 const INPUT_TYPES = new Set(['mouse', 'wheel', 'key', 'text']);
+const UPLOAD_TYPES = new Set(['file_upload', 'file_chunk', 'file_cancel']);
 
 function parse(data, isBinary) {
   if (isBinary) return null;
@@ -52,18 +53,31 @@ function parse(data, isBinary) {
  *   { type: "take_control", ticket }    a control ticket issued to the user the connection authenticated as
  *   { type: "hand_back" }
  *   mouse, wheel, key and text input    see input.mjs; dropped unless this connection holds control
+ *   { type: "file_upload", chooser, files: [{ name, size }] }   answers the file chooser on offer (FileChooserRelay);
+ *   { type: "file_chunk", chooser, data }                       then its files' bytes, in order, base64, at most
+ *                                                               32 KiB each before encoding
+ *   { type: "file_cancel", chooser }                            refused unless this connection holds control
  *
  * Sidecar to viewer:
- *   { type: "ready", control, agent, page }                 once the ticket is accepted
+ *   { type: "ready", control, agent, page, file_chooser, person_request }   once the ticket is accepted
  *   { type: "frame", data, width, height }                  a JPEG as base64, and the page's size in CSS pixels
  *   { type: "control", held, mine, yours, by, since }       who holds control, by name; mine when this
  *                                                           connection does, yours when its user does on any
- *   { type: "agent", waiting, tool, since }                 an agent's call is waiting for control to be handed back
+ *   { type: "agent", waiting, tool, since, client }         an agent's call is waiting for control to be handed back;
+ *                                                           client names the agent ("Claude Code · turn 3"), or null
+ *   { type: "person_requested", request }                   an agent asked for a person to take over:
+ *                                                           { reason, client, at }, or null once someone does
  *   { type: "page", page: { url, tab, tabs } }              the page on screen changed
+ *   { type: "file_chooser", chooser }                       the page asked the person driving for files:
+ *                                                           { id, multiple, accept, since, max_files,
+ *                                                           max_file_bytes }, or null once answered or withdrawn
+ *   { type: "file_upload", chooser, status, received, total, code, message }
+ *                                                           to the uploader: "progress", "done" or "failed"
  *   { type: "error", code, message }                        a request this connection may not make
  *
- * Relayed input is never logged or recorded. Taking and handing back
- * control are, through `onMarker`.
+ * Relayed input is never logged or recorded, nor are the files a person
+ * uploads. Taking and handing back control are, through `onMarker`, and so
+ * is an upload's file count and size.
  */
 export class LiveServer {
   /**
@@ -71,15 +85,17 @@ export class LiveServer {
    * @param {{ verify(ticket: unknown): object }} options.verifier a TicketVerifier
    * @param {import('./control-lock.mjs').ControlLock} options.lock
    * @param {import('./screencast.mjs').Screencast} options.screencast
+   * @param {import('./file-upload.mjs').FileChooserRelay} [options.uploads] answers pages' file choosers
    * @param {(data: object) => void} [options.onMarker] given a takeover's start and end, to record
    * @param {(message: string) => void} [options.log]
    * @param {number} [options.authTimeoutMs] how long a connection may take to send its ticket
    * @param {number} [options.maxConnections]
    */
-  constructor({ verifier, lock, screencast, onMarker = () => {}, log = () => {}, authTimeoutMs = AUTH_TIMEOUT_MS, maxConnections = MAX_CONNECTIONS }) {
+  constructor({ verifier, lock, screencast, uploads = null, onMarker = () => {}, log = () => {}, authTimeoutMs = AUTH_TIMEOUT_MS, maxConnections = MAX_CONNECTIONS }) {
     this.verifier = verifier;
     this.lock = lock;
     this.screencast = screencast;
+    this.uploads = uploads;
     this.onMarker = onMarker;
     this.log = log;
     this.authTimeoutMs = authTimeoutMs;
@@ -89,10 +105,21 @@ export class LiveServer {
     this.viewers = new Map();
     this.catchUp = null;
     this.closed = false;
+    this.personRequest = null;
 
     lock.on('change', (holder, previous, reason) => this.controlChanged(holder, previous, reason));
     lock.on('agent_waiting', () => this.broadcast({ type: 'agent', ...this.agentState() }));
     lock.on('agent_done', () => this.broadcast({ type: 'agent', ...this.agentState() }));
+    uploads?.on('change', (chooser) => this.broadcast({ type: 'file_chooser', chooser }));
+    uploads?.on('unavailable', ({ reason }) => {
+      const holder = this.holderViewer();
+      if (holder) this.send(holder, { type: 'error', code: 'uploads_off', message: reason });
+    });
+    uploads?.on('progress', ({ id, key, received, total }) => {
+      const viewer = [...this.viewers.values()].find((candidate) => candidate.id === key);
+      if (viewer) this.send(viewer, { type: 'file_upload', chooser: id, status: 'progress', received, total });
+    });
+    uploads?.on('uploaded', ({ user, files, bytes }) => this.onMarker({ label: 'file_uploaded', source: 'human', user, files, bytes }));
   }
 
   /**
@@ -144,7 +171,10 @@ export class LiveServer {
     this.viewers.set(ws, viewer);
     ws.on('message', (data, isBinary) => this.receive(viewer, parse(data, isBinary)));
 
-    this.send(viewer, { type: 'ready', control: this.controlState(viewer), agent: this.agentState(), page: this.screencast.pageInfo });
+    this.send(viewer, {
+      type: 'ready', control: this.controlState(viewer), agent: this.agentState(), page: this.screencast.pageInfo,
+      file_chooser: this.uploads?.state ?? null, person_request: this.personRequest,
+    });
     if (this.screencast.lastFrame) this.sendFrame(viewer, JSON.stringify(frameMessage(this.screencast.lastFrame)));
     void this.screencast.start();
   }
@@ -155,6 +185,7 @@ export class LiveServer {
     if (message.type === 'take_control') this.takeControl(viewer, message.ticket);
     else if (message.type === 'hand_back') this.lock.release(viewer.id);
     else if (INPUT_TYPES.has(message.type)) this.relay(viewer, message);
+    else if (UPLOAD_TYPES.has(message.type)) void this.answerChooser(viewer, message);
   }
 
   // A ticket per request, rather than one per connection, means a person
@@ -179,6 +210,38 @@ export class LiveServer {
     this.screencast.dispatch(...command).catch(() => this.log(`live view: ${command[0]} was not delivered`));
   }
 
+  // A file chooser's answer, from the person driving: its files, their
+  // bytes, or a cancel. The relay refuses anyone else.
+  async answerChooser(viewer, message) {
+    if (!this.uploads) {
+      this.send(viewer, { type: 'error', code: 'uploads_off', message: 'File uploads are turned off for this browser' });
+      return;
+    }
+
+    const chooser = typeof message.chooser === 'string' ? message.chooser : null;
+    try {
+      if (message.type === 'file_cancel') {
+        await this.uploads.cancel(viewer.id, chooser);
+        return;
+      }
+      const result = message.type === 'file_upload'
+        ? await this.uploads.begin(viewer.id, { chooser, files: message.files })
+        : await this.uploads.chunk(viewer.id, { chooser, data: message.data });
+      if (result.done) this.send(viewer, { type: 'file_upload', chooser, status: 'done' });
+    } catch (error) {
+      if (!error.code) this.log(`live view: an upload failed: ${error.message}`);
+      this.send(viewer, {
+        type: 'file_upload', chooser, status: 'failed', code: error.code ?? 'upload_failed',
+        message: error.code ? error.message : 'The upload failed',
+      });
+    }
+  }
+
+  holderViewer() {
+    const key = this.lock.holder?.key;
+    return key ? [...this.viewers.values()].find((viewer) => viewer.id === key) ?? null : null;
+  }
+
   leave(ws) {
     const viewer = this.viewers.get(ws);
     if (!viewer) return;
@@ -198,12 +261,31 @@ export class LiveServer {
 
   agentState() {
     const waiting = this.lock.agentWaiting;
-    return waiting ? { waiting: true, tool: waiting.tool, since: waiting.since } : { waiting: false, tool: null, since: null };
+    return waiting
+      ? { waiting: true, tool: waiting.tool, since: waiting.since, client: waiting.client ?? null }
+      : { waiting: false, tool: null, since: null, client: null };
+  }
+
+  /**
+   * Tells everyone watching that an agent asked for a person to take over
+   * (McpGateway's REQUEST_PERSON_TOOL). The request stands until someone
+   * takes control.
+   *
+   * @param {{ reason: string, client: string|null }} request
+   */
+  personRequested({ reason, client }) {
+    this.personRequest = { reason, client, at: Date.now() };
+    this.broadcast({ type: 'person_requested', request: this.personRequest });
+    this.onMarker({ label: 'person_requested', source: 'agent', client, reason });
   }
 
   // Control moving between connections of one user is no takeover of its own.
   controlChanged(holder, previous, reason) {
     for (const viewer of this.viewers.values()) this.send(viewer, { type: 'control', ...this.controlState(viewer) });
+    if (holder && this.personRequest) {
+      this.personRequest = null;
+      this.broadcast({ type: 'person_requested', request: null });
+    }
 
     if (holder && !previous) this.onMarker({ label: 'takeover_started', source: 'human', user: holder.user });
     else if (!holder && previous) this.onMarker({ label: 'takeover_ended', source: 'human', user: previous.user, reason });

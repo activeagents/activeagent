@@ -206,11 +206,13 @@ module ActionAgent
     # listing reports it: an API key the owner connected (auth "api_key"),
     # this machine's own login (auth "local_login", with its status), or a
     # login inside each checkout sandbox (auth "sandbox_login", with the
-    # actor's per-sandbox state under sandboxes).
+    # actor's per-sandbox state under sandboxes). Codex by CodexAuth's: an
+    # API key, or this machine's own login.
     def connections
       claude_code = ClaudeCodeAuth.status(ProviderKey.for_owner(@owner),
         sandboxes: SandboxSession.for_owner(@owner).where(sandbox_type: "app_runtime").recent.limit(20),
         user_id: @actor.respond_to?(:id) ? @actor.id : nil)
+      codex = CodexAuth.status(ProviderKey.for_owner(@owner))
       {
         github: { supported: true, connected: GithubConnection.for_owner(@owner).exists? },
         claude_code: {
@@ -219,6 +221,12 @@ module ActionAgent
           auth: claude_code[:mode],
           login: claude_code[:login],
           sandboxes: claude_code[:sandboxes]
+        }.compact,
+        codex: {
+          supported: codex_sessions_supported?,
+          connected: codex[:connected],
+          auth: codex[:mode],
+          login: codex[:login]
         }.compact,
         coi: { supported: false }
       }
@@ -236,6 +244,16 @@ module ActionAgent
     def code_sessions_supported?
       orchestrator = SandboxOrchestrator.new
       orchestrator.supports?(:code_session) && ClaudeCodeAuth.backend_refusal(orchestrator).nil?
+    rescue StandardError, LoadError => e
+      Rails.logger.warn("[ActionAgent] sandbox backend unavailable: #{e.message}")
+      false
+    end
+
+    # Codex needs a backend that advertises the runner (code_runners), and
+    # one its authentication works on (CodexAuth.backend_refusal).
+    def codex_sessions_supported?
+      orchestrator = SandboxOrchestrator.new
+      orchestrator.supports_code_runner?("codex") && CodexAuth.backend_refusal(orchestrator).nil?
     rescue StandardError, LoadError => e
       Rails.logger.warn("[ActionAgent] sandbox backend unavailable: #{e.message}")
       false
