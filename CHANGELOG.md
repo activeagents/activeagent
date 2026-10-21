@@ -63,6 +63,15 @@ engine: the file chooser relay and the per-turn browser tokens are in the
   `connections.codex`, and the Codex card in Settings shows the machine's
   login instead of a key form. The default stays `:api_key`.
 
+- **A model leaderboard on the Evaluations page** (`actionagent`). The Pass
+  rate tile listed each model's passes on a line of its own, a dozen lines
+  for seven models; it now shows the overall rate, the leading model and a
+  "compare N models" toggle, which opens a leaderboard below the tiles: one
+  row per model with its pooled passes and rate, and one column per counted
+  evaluation (`—` where the model did not run). Models rank by the lower
+  bound of the Wilson score interval (95%), so a lucky 7/8 does not outrank
+  75/173.
+
 ## [1.9.2] - 2026-10-20
 
 Releases `activeagent` and `actionagent` 1.9.2, with the matching browser
