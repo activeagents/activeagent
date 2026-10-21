@@ -18,8 +18,11 @@ export const CHECKOUT_CAPABILITIES = ['terminal', 'filesystem', 'edit', 'databas
 export const checkoutToolsEnabled = (tools = []) => tools.some((tool) => CHECKOUT_CAPABILITIES.includes(tool));
 
 // The functions with side effects outside the conversation, which wait for a
-// person's approval by default when the builder enables their capability.
-// The Tools tab's Approval switch lets them run without asking.
+// person's approval by default: the builder and the Tools tab put them on
+// the approval list when their capability is switched on, and the engine's
+// Agent does the same for a capability enabled through the API without a
+// list (AgentToolbox::APPROVAL_BY_DEFAULT keeps the same table). The Tools
+// tab's Approval switch lets them run without asking.
 export const APPROVAL_BY_DEFAULT = {
   terminal: ['run_command'],
   filesystem: ['write_file'],

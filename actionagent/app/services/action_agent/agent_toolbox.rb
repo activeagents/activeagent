@@ -449,6 +449,19 @@ module ActionAgent
     # AgentExecutionService.
     INPUT_FUNCTIONS = %w[ask_user request_approval request_secret].freeze
 
+    # The functions with side effects outside the conversation, by the
+    # capability that exposes them. They wait for a person's approval unless
+    # the agent's approval list says otherwise: Agent puts them on the list
+    # when a capability is gained without one (a template, the agents API),
+    # and the builder and the Tools tab add them when a capability is
+    # switched on (frontend/utils/builderRoster.mjs keeps the same table).
+    APPROVAL_BY_DEFAULT = {
+      "terminal" => %w[run_command],
+      "filesystem" => %w[write_file],
+      "edit" => %w[edit_file],
+      "slack" => %w[slack_post_message]
+    }.freeze
+
     # Function name => implementation method, for routing tool calls.
     FUNCTIONS = {
       "fetch_url" => :fetch_url,
@@ -497,6 +510,12 @@ module ActionAgent
         names.flat_map do |name|
           DEFINITIONS[name] || schema_tool_definitions(name)
         end.reject { |definition| definition[:name].to_s == REQUEST_SECRET_DEFINITION[:name] }
+      end
+
+      # The approval list +tool_names+ get by default: the side-effecting
+      # functions of the capabilities among them (APPROVAL_BY_DEFAULT).
+      def default_approvals(tool_names)
+        Array(tool_names).flat_map { |name| APPROVAL_BY_DEFAULT[name.to_s] || [] }.uniq
       end
 
       # Whether runs may use the process-wide browser: never in a

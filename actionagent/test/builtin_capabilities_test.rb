@@ -28,9 +28,38 @@ class BuiltinCapabilitiesTest < ActiveSupport::TestCase
   end
 
   test "a checkout tool in a run given no checkout says how to give it one" do
-    result = service_for(tools: %w[terminal]).execute_tool("run_command", command: "ls")
+    result = service_for(tools: %w[terminal], approval_required_tools: []).execute_tool("run_command", command: "ls")
 
     assert_equal ActionAgent::CheckoutTools::NO_CHECKOUT, result[:error]
+  end
+
+  # The functions with side effects outside the conversation wait for a
+  # person unless the agent's list says otherwise, whichever way their
+  # capability was enabled: a template and the agents API bring no list.
+  test "a capability's side-effecting functions wait for approval unless the save names its own list" do
+    agent = ActionAgent::Agent.create!(name: "Gained", provider: "mock", model: "mock", tools: %w[terminal filesystem edit database slack translate])
+    assert_equal %w[run_command write_file edit_file slack_post_message], agent.approval_required_tools
+
+    agent.update!(tools: agent.tools + %w[code], approval_required_tools: %w[edit_file])
+    assert_equal %w[edit_file], agent.approval_required_tools, "a list the save brought is kept as given"
+
+    agent.update!(tools: %w[terminal], approval_required_tools: [])
+    agent.update!(tools: %w[terminal slack])
+    assert_equal %w[slack_post_message], agent.approval_required_tools, "a capability gained without a list joins it"
+
+    agent.update!(name: "Still gained")
+    assert_equal %w[slack_post_message], agent.approval_required_tools, "a save that gains nothing adds nothing"
+
+    trusted = ActionAgent::Agent.create!(name: "Trusted", provider: "mock", model: "mock", tools: %w[terminal], approval_required_tools: [])
+    assert_equal [], trusted.approval_required_tools
+  end
+
+  test "a side-effecting function waits for approval in a run by default" do
+    result = service_for(tools: %w[terminal]).execute_tool("run_command", command: "ls")
+
+    assert_kind_of ActiveAgent::InputRequest, result
+    assert_equal :confirm, result.kind
+    assert_match(/run_command/, result.prompt)
   end
 
   test "translate_text generates on the run's own provider" do
@@ -53,7 +82,7 @@ class BuiltinCapabilitiesTest < ActiveSupport::TestCase
     stub_request(:get, %r{\Ahttps://slack.com/api/conversations.history})
       .to_return(body: { ok: false, error: "not_in_channel" }.to_json)
 
-    service = service_for(tools: %w[slack])
+    service = service_for(tools: %w[slack], approval_required_tools: [])
     assert_equal({ posted: true, channel: "C1", ts: "1700000000.0001" }, service.execute_tool("slack_post_message", channel: "C1", text: "Deployed"))
     assert_equal "Slack refused conversations.history: not_in_channel", service.execute_tool("slack_read_channel", channel: "C1")[:error]
   end

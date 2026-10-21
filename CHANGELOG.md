@@ -79,9 +79,14 @@ engine: the file chooser relay and the per-turn browser tokens are in the
   a bot token connected in Settings -> Integrations -> Slack (a `slack`
   connection `ProviderKey`). Instruction sets are composed into the
   instructions a run executes under. `run_command`, `write_file`,
-  `edit_file` and `slack_post_message` wait for approval by default when
-  the builder enables them. A host's `ActionAgent.mcp_catalog` headers now
-  reach the MCP client (they were dropped).
+  `edit_file` and `slack_post_message` wait for approval by default: an
+  agent that gains `terminal`, `filesystem`, `edit` or `slack` — from the
+  builder, a template, the Tools tab or the agents API — has them on its
+  `approval_required_tools` unless the save names its own list, and the
+  Tools tab's Approval switch takes them off. An agent that enabled one of
+  those capabilities before this release keeps its list as it is. A host's
+  `ActionAgent.mcp_catalog` headers now reach the MCP client (they were
+  dropped).
 
 - **Start an interaction with your own agent from Interactions and Run
   Agents** (`actionagent`). Interactions has a "New interaction" picker and

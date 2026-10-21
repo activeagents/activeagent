@@ -19,7 +19,9 @@ import {
   toolGroups,
   toggledApproval,
   toolsFor,
+  withApproval,
 } from '../../utils/toolRoster.mjs';
+import { defaultApprovals } from '../../utils/builderRoster.mjs';
 
 // The agent's Tools tab: the MCP services it can be given and the tools it
 // can be offered, in one list vocabulary with the usage each one has.
@@ -245,19 +247,27 @@ export default function AgentToolsTab({ agent, formData, updateField, onSave, ha
     writeServices({ ...state, [service.key]: { on: on || current.on, tools } });
   }, [state, writeServices]);
 
+  // Writes the tools list. A capability switched on brings its
+  // side-effecting functions onto the approval list, as the builder does
+  // (and as Agent does for a capability enabled through the API without a
+  // list); its Approval switch takes them off again before saving.
+  const selectTools = useCallback((next) => {
+    updateField('tools', toolsFor(roster, next));
+    const names = defaultApprovals(next.filter((key) => !selectedTools.includes(key)));
+    if (names.length > 0) updateField('approval_required_tools', withApproval(approvalList, names, true));
+  }, [roster, selectedTools, approvalList, updateField]);
+
   const toggleTool = useCallback((tool) => {
     if (!tool.editable) return;
-    const next = tool.on ? selectedTools.filter((name) => name !== tool.key) : [...selectedTools, tool.key];
-    updateField('tools', toolsFor(roster, next));
-  }, [roster, selectedTools, updateField]);
+    selectTools(tool.on ? selectedTools.filter((name) => name !== tool.key) : [...selectedTools, tool.key]);
+  }, [selectedTools, selectTools]);
 
   const setGroup = useCallback((group, on) => {
     if (!group.editable) return;
-    const next = on
+    selectTools(on
       ? [...selectedTools, ...group.keys.filter((key) => !selectedTools.includes(key))]
-      : selectedTools.filter((name) => !group.keys.includes(name));
-    updateField('tools', toolsFor(roster, next));
-  }, [roster, selectedTools, updateField]);
+      : selectedTools.filter((name) => !group.keys.includes(name)));
+  }, [selectedTools, selectTools]);
 
   const toggleApproval = useCallback((tool) => {
     updateField('approval_required_tools', toggledApproval(approvalList, tool, agent.approval_required_tools || []));
