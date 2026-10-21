@@ -2097,9 +2097,15 @@ module ActionAgent
       argv << "--ignore-user-config" if CodexAuth.local_login?
       if browser
         # The server as configuration overrides, the token in the environment
-        # variable named here: `ps` shows argv to every user.
+        # variable named here: `ps` shows argv to every user. Codex (0.162)
+        # auto-approves only the MCP tools annotated read-only and asks before
+        # the rest; with `approval_policy="never"` nobody can answer, so a
+        # navigate or click would fail with "MCP tool call requires approval".
+        # The per-turn token already bounds what the turn may do, so every
+        # browser tool is pre-approved.
         argv += [ "--config", "mcp_servers.browser.url=#{browser.mcp_url.to_s.to_json}",
-                  "--config", "mcp_servers.browser.bearer_token_env_var=#{BROWSER_TOKEN_ENV.to_json}" ]
+                  "--config", "mcp_servers.browser.bearer_token_env_var=#{BROWSER_TOKEN_ENV.to_json}",
+                  "--config", 'mcp_servers.browser.default_tools_approval_mode="approve"' ]
       end
       if (model = code_session.model.presence)
         raise Error, "#{model.inspect} is not a model name" unless MODEL_NAME.match?(model.to_s)

@@ -100,8 +100,10 @@ class CodexBackendTest < ActiveSupport::TestCase
     argv = captured[:argv]
     url = argv.index('mcp_servers.browser.url="http://127.0.0.1:4999/mcp"')
     variable = argv.index('mcp_servers.browser.bearer_token_env_var="ACTION_AGENT_BROWSER_TOKEN"')
-    assert url && variable, argv.inspect
-    assert_equal [ "--config", "--config" ], [ argv[url - 1], argv[variable - 1] ]
+    approval = argv.index('mcp_servers.browser.default_tools_approval_mode="approve"')
+    assert url && variable && approval, argv.inspect
+    assert_equal [ "--config" ] * 3, [ argv[url - 1], argv[variable - 1], argv[approval - 1] ],
+      "the browser server, its token variable and the pre-approval of its tools are all configuration overrides"
     assert_equal THREAD, argv[-2], "the thread id stays ahead of the stdin marker"
     assert_not(argv.any? { |argument| argument.include?(token) }, "the token is never on the command line")
     assert_equal token, captured[:env]["ACTION_AGENT_BROWSER_TOKEN"]
