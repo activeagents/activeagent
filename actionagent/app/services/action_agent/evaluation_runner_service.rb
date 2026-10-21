@@ -33,6 +33,10 @@ module ActionAgent
     def call
       run = @evaluation.evaluation_runs.create!(status: :running)
 
+      # A pin whose provider has no credentials fails here, before any work.
+      # A rules-only run never asks the judge, so a stale pin does not stop it.
+      judge_provider if @evaluation.judge_model.present? && judge_needed?
+
       # judge_defined evaluations author their KPI criteria on first run.
       ensure_judge_defined_kpis! if @evaluation.judge_defined?
 
@@ -83,18 +87,51 @@ module ActionAgent
       raise
     end
 
-    # Returns the provider the judge runs on: the first of Anthropic, OpenAI
-    # and OpenRouter the owner or the host's config has a key for, else Ollama
-    # when the owner configured a host; nil when none. The judge runs
-    # `judge_model` as that provider's own model id.
+    # Unpinned judges keep the configured default. A pinned model uses the
+    # existing ModelSpec syntax, so adding an unrelated key cannot reroute it.
     def judge_provider
-      @judge_provider ||=
-        %i[anthropic openai openrouter].find do |name|
-          owner_provider_options(name).any? || global_provider_token?(name)
-        end || (:ollama if owner_provider_options(:ollama).any?)
+      @judge_provider ||= begin
+        raw = @evaluation&.judge_model.presence
+        spec = raw && ActiveAgent::Evals::ModelSpec.parse(raw, default_provider: nil)
+        if spec&.provider.present?
+          provider = spec.provider.to_sym
+          if judge_provider_configured?(provider)
+            provider
+          elsif default_judge_provider
+            raise ArgumentError,
+              "No credentials for judge provider #{provider} (#{raw}); configure that provider or pin a provider-qualified gateway model ID"
+          end
+        else
+          default_judge_provider
+        end
+      end
     end
 
     private
+
+    # Whether a sample-based run asks the judge: to author KPIs, to score an
+    # llm_judge criterion, or for a comparison's verdict.
+    def judge_needed?
+      @evaluation.judge_defined? || @evaluation.llm_criteria.any? || @evaluation.compare_models.any?
+    end
+
+    def default_judge_provider
+      %i[anthropic openai openrouter ollama].find { |name| judge_provider_configured?(name) }
+    end
+
+    def judge_provider_configured?(name)
+      owner_provider_options(name).any? || (name != :ollama && global_provider_token?(name))
+    end
+
+    # A provider qualifier selects the route, not a prefix to send to the
+    # provider. Vendor prefixes inside an explicit gateway ID are retained.
+    def judge_pinned_model(provider = judge_provider)
+      raw = @evaluation&.judge_model.presence
+      return unless raw
+
+      spec = ActiveAgent::Evals::ModelSpec.parse(raw, default_provider: provider)
+      spec.provider.to_sym == provider ? spec.model : raw
+    end
 
     # Scores each sample-based criterion once per candidate model cohort and
     # asks the judge for a comparative verdict — "haiku vs qwen, judged".
@@ -652,7 +689,7 @@ module ActionAgent
 
       config = ActiveAgent.configuration[judge_provider]
       @judge_model_setting = {
-        "evaluation" => @evaluation.judge_model,
+        "evaluation" => judge_pinned_model,
         "provider_key" => owner_provider_options(judge_provider)[:model],
         "config" => (config[:model] if config.respond_to?(:[]))
       }.find { |_source, model| model.present? }&.then { |source, model| [ source, model.to_s ] }
@@ -665,10 +702,9 @@ module ActionAgent
     def judge_class
       @judge_class ||= begin
         provider = judge_provider
-        model = @evaluation.judge_model.presence
-        options = {}
+        model = judge_pinned_model(provider)
+        options = owner_provider_options(provider).dup
         options[:model] = model if model
-        options.merge!(owner_provider_options(provider))
 
         Class.new(ActiveAgent::Base) do
           define_singleton_method(:name) { JUDGE_AGENT_NAME }

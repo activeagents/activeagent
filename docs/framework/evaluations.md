@@ -842,3 +842,35 @@ judge's together. A scenario run's per-model summaries under
 `scores._models` carry the same per model: `cost` (the effective one),
 `priced`, `reported`, `estimated`, `judge_cost` and `judge_calls`. The index
 adds `run_count` and a `previous_run` summary per evaluation.
+
+### Routing a pinned judge
+
+An unpinned judge uses the first configured provider in Anthropic, OpenAI,
+OpenRouter, Ollama order. A pinned native name selects its native provider:
+`gpt-5-mini` uses OpenAI and `claude-haiku-4-5` uses Anthropic. Adding an
+unrelated provider key no longer changes that route.
+
+Use a provider-qualified ID to choose a route explicitly. For example,
+`openai/my-deployment` sends `my-deployment` through the owner's OpenAI
+endpoint, `ollama/llama3.2` sends `llama3.2` to Ollama, and
+`openrouter/anthropic/claude-haiku-4.5` sends `anthropic/claude-haiku-4.5`
+through OpenRouter. A vendor ID such as `meta-llama/llama-3.3-70b-instruct`
+also selects OpenRouter. The pin wins over the credential resolver's model
+default; its endpoint and credentials are preserved. Unrecognized bare
+custom names retain the default provider behavior.
+
+A pin that starts with a provider name, such as `anthropic/claude-haiku-4-5`
+or `openai/gpt-4o-mini`, selects that provider. Earlier releases sent such a
+pin to whichever provider had credentials first, so an install with only an
+OpenRouter key reached it through OpenRouter. To keep that route, pin
+`openrouter/` followed by OpenRouter's own ID, such as
+`openrouter/anthropic/claude-haiku-4.5`.
+
+A missing native or explicitly named route does not silently use another
+provider. A run that asks the judge fails with an actionable error when
+some other provider is configured; a rules-only run ignores the pin, and with
+no credentials at all scoring remains skipped. Automatic conversion
+of native IDs to gateway aliases, balance checks, outage failover and
+cross-provider request retries are not implemented. Pin the gateway's exact
+model ID when you want that route. Host evaluation adapters continue to own
+their judge execution.
