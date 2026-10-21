@@ -299,7 +299,11 @@ estimated, so the same run always exports the same envelope; its metadata
 leaves out the run's database id. Responses: 200 with the envelope, 404 for
 a `run_id` the key's tenant holds no run under (another tenant's run is a
 404), 422 for a run that is not complete or an unknown `format`, 401 and 501
-as for the POST. Instead of the envelope, `?format=html` returns the run's
+as for the POST. On a single-tenant install the export also needs
+`ActionAgent.ingest_api_key` to be set: a mount with no key still takes
+reports, but answers the GET with 401, since every stored run would
+otherwise be readable under its `run_id` by anyone who reaches the mount.
+Instead of the envelope, `?format=html` returns the run's
 self-contained report page (`text/html`) — the page the dashboard's run
 report serves, following the viewer's light or dark preference, its fix
 actions linking into the dashboard by absolute path — and `?format=md` its

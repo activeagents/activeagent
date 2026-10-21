@@ -23,7 +23,8 @@ engine: the file chooser relay and the per-turn browser tokens are in the
 
 - **Export evaluation run reports as JSON, HTML and Markdown** (`activeagent`,
   `actionagent`). `GET <mount>/api/evaluation_reports/:run_id`, with the
-  ingest key and scoped to the tenant like the POST, returns a complete run
+  ingest key and scoped to the tenant like the POST (and refused on a
+  single-tenant install that set no key), returns a complete run
   as the version-1 envelope the collector takes, so a run moves to another
   install with one POST and posting it back is an identical retry (200);
   `?format=html` returns the run's report page and `?format=md` its
