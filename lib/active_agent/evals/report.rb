@@ -8,6 +8,7 @@ module ActiveAgent
     # Markdown, or a self-contained HTML page (ReportHtml).
     class Report
       include ReportHtml
+      include ReportMarkdown
 
       # The judge a verdict names when the framework ranked the models by
       # pass rate itself, no judge having been available to rule on them.
@@ -307,24 +308,6 @@ module ActiveAgent
         JSON.pretty_generate(to_h, *args)
       end
 
-      def to_markdown
-        scenario_count = @results.map { |result| result.scenario.key }.uniq.size
-        lines = [ "# Evaluation — #{scenario_count} scenario#{'s' unless scenario_count == 1} × #{@models.size} model#{'s' unless @models.size == 1}", "" ]
-        label = @judge_label || @judge&.label
-        lines << (label ? "Judged by `#{label}`." : "No judge; scored on rules and expectations alone.")
-        lines << ""
-        lines.concat(summary_table)
-        lines << ""
-        lines.concat(total_lines)
-        lines << "**Best model: #{winner}**" if winner
-        lines << ""
-        lines.concat(comparison_lines)
-        lines.concat(matrix_table)
-        lines.concat(detail_lines)
-        lines.concat(recommendation_lines)
-        lines.join("\n")
-      end
-
       private
 
       # Whether a model summary's cost is an estimate — any replay priced
@@ -559,7 +542,7 @@ module ActiveAgent
           latency = stats["avg_duration_ms"] ? "#{stats['avg_duration_ms']} ms" : "—"
           percentiles = stats["p50_duration_ms"] ? "#{stats['p50_duration_ms']} / #{stats['p95_duration_ms']} ms" : "—"
           cells = [
-            "`#{label}`",
+            cell("`#{label}`"),
             Format.passes(stats["passed"], stats["scenarios"], style: :markdown),
             Format.score(stats["avg_score"]),
             latency,
@@ -568,7 +551,7 @@ module ActiveAgent
             Format.money(stats["cost"], estimated: estimated_cost?(stats)),
             per_thousand_cell(stats),
             (judge_cell(stats) if judged),
-            faults.presence || "—"
+            cell(faults.presence || "—")
           ].compact
           "| #{cells.join(' | ')} |"
         end
@@ -617,13 +600,13 @@ module ActiveAgent
         lines = [ "## Comparison", "", "| Model | Pass rate | #{confidence} | Scenarios |", "|---|---|---|---|" ]
         comparison["ranking"].each do |label|
           stats = comparison["models"][label]
-          lines << "| `#{label}` | #{rate_text(stats['pass_rate'])} | #{interval_text(stats['interval'])} | #{stats['scenarios']} |"
+          lines << "| #{cell("`#{label}`")} | #{rate_text(stats['pass_rate'])} | #{interval_text(stats['interval'])} | #{stats['scenarios']} |"
         end
         lines += [ "", "| Pair | Difference | #{confidence} | Shared scenarios | Decisive |", "|---|---|---|---|---|" ]
         comparison["pairs"].each do |pair|
           a, b = pair["models"]
           difference = pair["difference"] ? format("%+.1f points", pair["difference"]) : "—"
-          lines << "| `#{a}` vs `#{b}` | #{difference} | #{interval_text(pair['interval'])} | #{pair['scenarios']} | #{pair['decisive'] ? 'yes' : 'no'} |"
+          lines << "| #{cell("`#{a}` vs `#{b}`")} | #{difference} | #{interval_text(pair['interval'])} | #{pair['scenarios']} | #{pair['decisive'] ? 'yes' : 'no'} |"
         end
         lines += [ "", comparison["conclusion"].to_s, "",
                    "_#{confidence} from #{Format.delimited(method['resamples'])} resamples of whole scenarios (seed #{method['seed']})._", "" ]
@@ -642,16 +625,16 @@ module ActiveAgent
       # cost across every model, and in brackets what the judge spent on it.
       def matrix_table
         labels = @models.map(&:label)
-        header = [ "| Scenario | #{labels.map { |label| "`#{label}`" }.join(' | ')} | Cost |", "|---|#{labels.map { '---' }.join('|')}|---|" ]
+        header = [ "| Scenario | #{labels.map { |label| cell("`#{label}`") }.join(' | ')} | Cost |", "|---|#{labels.map { '---' }.join('|')}|---|" ]
         rows = @results.group_by { |result| result.scenario.key }.map do |key, cohort|
           cells = labels.map do |label|
             result = cohort.find { |candidate| candidate.label == label }
             next "—" unless result
 
             mark = result.passed? ? "✅" : (result.errored? ? "⚠️" : "❌")
-            [ mark, (Format.score(result.score) if result.score), result.fault&.tr("_", " ") ].compact.join(" ")
+            cell([ mark, (Format.score(result.score) if result.score), result.fault&.tr("_", " ") ].compact.join(" "))
           end
-          "| `#{key}` #{cell(cohort.first.scenario.prompt.truncate(70))} | #{cells.join(' | ')} | #{scenario_cost_cell(key)} |"
+          "| #{cell("`#{key}` #{cohort.first.scenario.prompt.truncate(70)}")} | #{cells.join(' | ')} | #{scenario_cost_cell(key)} |"
         end
         header + rows
       end
@@ -664,30 +647,11 @@ module ActiveAgent
         text
       end
 
-      # A prompt may contain " | " (ScenarioParser keeps it), which would
-      # otherwise split the table cell.
+      # A prompt may contain " | " (ScenarioParser keeps it), and an answer
+      # or a label a line break, either of which would otherwise break the
+      # table row.
       def cell(text)
-        text.to_s.gsub("|") { "\\|" }
-      end
-
-      def detail_lines
-        lines = [ "", "## Answers", "" ]
-        @results.each do |result|
-          lines << "### `#{result.scenario.key}` · `#{result.label}` · #{result.status}" \
-                   "#{" · score #{Format.score(result.score)}" if result.score}#{" · #{answer_cost(result)}" if result.replay.cost}"
-          lines << ""
-          lines << "> #{result.scenario.prompt}"
-          lines << ""
-          if result.replay.tool_calls.any?
-            lines << "Tools: #{result.replay.tool_calls.map { |call| "#{call['name']}#{' ✗' if call['error']}" }.join(', ')}"
-          end
-          lines << "Fault: #{result.fault.tr('_', ' ')} — #{result.summary} #{result.recommendation}" if result.fault
-          lines << "Error: #{result.replay.error}" if result.replay.error
-          lines << ""
-          lines << (result.replay.answer.presence || "_(no answer)_").to_s.truncate(1_500)
-          lines << ""
-        end
-        lines
+        text.to_s.gsub(/\s*\r?\n\s*/, " ").gsub("|") { "\\|" }
       end
 
       # "~$0.0243 · judge ~$0.0015": what one answer cost, and what judging
@@ -697,20 +661,6 @@ module ActiveAgent
         judge_cost = result.judge_usage&.dig("cost")
         text += " · judge #{Format.money(judge_cost, estimated: estimated_usage?(result.judge_usage))}" if judge_cost
         text
-      end
-
-      # Renders after `detail_lines`, whose trailing blank line separates the two sections.
-      def recommendation_lines
-        return [] if recommendations.empty?
-
-        lines = [ "## Recommendations", "" ]
-        recommendations.each do |entry|
-          lines << "- **#{entry['fault'].tr('_', ' ')}** ×#{entry['count']} (#{entry['scenario_keys'].join(', ')}): #{entry['recommendation']}"
-          entry["suggested_tools"].each do |tool|
-            lines << "  - suggested tool `#{tool['name']}`: #{tool['description']}"
-          end
-        end
-        lines << ""
       end
     end
   end
