@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- **One badge for every status and message role in the dashboard**
+  (`actionagent`). The agent cards' status pill and provider chip, the run
+  and sandbox session status pills (Agent Interactions, the sandbox runner)
+  and the message role pills in conversation streams all render through the
+  shared `Badge` (soft tint, strong mono text, radius 4) with one status
+  tone map (`statusTone`) and one role map (`roleBadge`), so an `active`
+  agent, a `complete` run and an `Assistant` turn look the same wherever
+  they appear and follow the dark theme, which the cards' Tailwind pills
+  did not. Two tones join the tokens for the system and developer roles.
+
 ## [1.9.3] - 2026-10-21
 
 Releases `activeagent` and `actionagent` 1.9.3, with the matching browser

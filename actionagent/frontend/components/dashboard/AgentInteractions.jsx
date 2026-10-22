@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { Badge, statusTone } from './primitives';
 import AgentAvatar from '../AgentAvatar';
 import { useTimeWindow } from '../../contexts/TimeWindowContext';
 import TimeWindowSelector from './TimeWindowSelector';
@@ -252,17 +253,6 @@ export default function AgentInteractions({ agent, onBack }) {
     return { cohorts, totals };
   };
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'complete': return 'bg-green-100 text-green-700';
-      case 'failed': return 'bg-red-100 text-red-700';
-      case 'running': return 'bg-blue-100 text-blue-700';
-      case 'pending': return 'bg-yellow-100 text-yellow-700';
-      case 'cancelled': return 'bg-gray-100 text-gray-500';
-      default: return 'bg-gray-100 text-gray-500';
-    }
-  };
-
   const formatDuration = (ms) => {
     if (!ms) return '-';
     if (ms < 1000) return `${ms}ms`;
@@ -406,9 +396,7 @@ export default function AgentInteractions({ agent, onBack }) {
                     }`}
                   >
                     <div className="flex items-center justify-between mb-2 gap-2">
-                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(execution.status)}`}>
-                        {execution.status}
-                      </span>
+                      <Badge tone={statusTone(execution.status)}>{execution.status}</Badge>
                       <div className="flex items-center gap-2">
                         {/* The only real difference between these rows. */}
                         <span className={`px-1.5 py-0.5 rounded text-[10px] uppercase tracking-wide ${
@@ -534,9 +522,7 @@ export default function AgentInteractions({ agent, onBack }) {
             </button>
           </div>
           {detailMode === 'run' && selectedRun && (
-            <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(selectedRun.status)}`}>
-              {selectedRun.status}
-            </span>
+            <Badge tone={statusTone(selectedRun.status)} size={12}>{selectedRun.status}</Badge>
           )}
         </div>
 

@@ -20,7 +20,32 @@ export const TONE = {
   info: { strong: 'var(--color-info)', soft: 'var(--color-info-soft)', text: 'var(--color-info-text)' },
   muted: { strong: 'var(--color-text-muted)', soft: 'var(--color-muted)', text: 'var(--color-text-secondary)' },
   accent: { strong: 'var(--color-accent-ui)', soft: 'var(--color-accent-ui-tint)', text: 'var(--color-accent-ui)' },
+  system: { strong: 'var(--color-system)', soft: 'var(--color-system-soft)', text: 'var(--color-system-text)' },
+  dev: { strong: 'var(--color-dev)', soft: 'var(--color-dev-soft)', text: 'var(--color-dev-text)' },
 };
+
+// The tone a record's status badge takes, the same on an agent card, a
+// run, a sandbox session or an evaluation: done is success, waiting is
+// warning, in flight is info, broken is error, and the rest is muted.
+const STATUS_TONES = {
+  active: 'success', complete: 'success', completed: 'success', ready: 'success', passed: 'success',
+  draft: 'warning', pending: 'warning', queued: 'warning', waiting: 'warning',
+  running: 'info', in_progress: 'info',
+  failed: 'error', error: 'error', expired: 'error',
+  archived: 'muted', cancelled: 'muted', canceled: 'muted', skipped: 'muted',
+};
+export const statusTone = (status) => STATUS_TONES[String(status || '').toLowerCase()] || 'muted';
+
+// The tone and label of a message role's badge, wherever a conversation
+// renders: the stream, a run's activity feed, a session preview.
+export const ROLE_BADGES = {
+  user: { tone: 'info', label: 'User' },
+  assistant: { tone: 'accent', label: 'Assistant' },
+  tool: { tone: 'warning', label: 'Tool' },
+  system: { tone: 'system', label: 'System' },
+  developer: { tone: 'dev', label: 'Dev' },
+};
+export const roleBadge = (role) => ROLE_BADGES[role] || { tone: 'muted', label: role };
 
 // The TUI glyph set. `chevron` rotates 90° when `open`.
 export const GLYPH = {
