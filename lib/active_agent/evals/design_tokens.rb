@@ -58,6 +58,13 @@ module ActiveAgent
         "--color-info" => "#3b82f6",
         "--color-info-soft" => "#dbeafe",
         "--color-info-text" => "#1e40af",
+        # The system and developer message roles: badge tones like the four above.
+        "--color-system" => "#8b5cf6",
+        "--color-system-soft" => "#ede9fe",
+        "--color-system-text" => "#6d28d9",
+        "--color-dev" => "#14b8a6",
+        "--color-dev-soft" => "#ccfbf1",
+        "--color-dev-text" => "#0f766e",
 
         # Trace span colors (observability)
         "--span-root" => "#9ca3af",
@@ -111,7 +118,11 @@ module ActiveAgent
         "--color-error-soft" => "rgba(220,38,38,0.15)",
         "--color-error-text" => "#f87171",
         "--color-info-soft" => "rgba(59,130,246,0.15)",
-        "--color-info-text" => "#93c5fd"
+        "--color-info-text" => "#93c5fd",
+        "--color-system-soft" => "rgba(139,92,246,0.15)",
+        "--color-system-text" => "#c4b5fd",
+        "--color-dev-soft" => "rgba(20,184,166,0.15)",
+        "--color-dev-text" => "#5eead4"
       }.freeze
 
       # One CSS rule declaring `tokens` as custom properties on `scope`, with
