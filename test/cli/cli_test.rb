@@ -65,7 +65,7 @@ class ActiveAgentCLITest < Minitest::Test
 
   def run_payload(status, passed: 0, evaluated: 0, results: [])
     { evaluation: { id: 7, name: "Orders" },
-      run: { id: 41, status: status, samples_evaluated: evaluated, samples_passed: passed },
+      run: { id: 41, run_id: "dashboard-run-41-20261022100000", status: status, samples_evaluated: evaluated, samples_passed: passed },
       results: results }
   end
 
@@ -215,13 +215,15 @@ class ActiveAgentCLITest < Minitest::Test
   def test_evals_runs_resolves_an_evaluation_by_name
     stub_tool("evaluations_list", { evaluations: [ { id: 7, name: "Orders" }, { id: 8, name: "Refunds" } ] })
     stub_tool("evaluations_get", { evaluation: { id: 7, name: "Orders" },
-                                   runs: [ { id: 41, number: 2, status: "complete", samples_evaluated: 4, samples_passed: 4 } ] },
+                                   runs: [ { id: 41, number: 2, status: "complete", samples_evaluated: 4, samples_passed: 4,
+                                             run_id: "dashboard-run-41-20261022100000" } ] },
               arguments: { "evaluation_id" => 7 })
 
     code, out, = cli("evals", "runs", "Orders")
 
     assert_equal 0, code, out
-    assert_match(/^41\s+2\s+complete\s+4\/4/, out)
+    assert_match(/^RUN\s+#\s+STATUS\s+PASSED\s+SCORE\s+CREATED\s+RUN_ID$/, out)
+    assert_match(/^41\s+2\s+complete\s+4\/4\s+-\s+-\s+dashboard-run-41-20261022100000$/, out)
   end
 
   def test_evals_run_without_wait_returns_once_started
@@ -244,6 +246,7 @@ class ActiveAgentCLITest < Minitest::Test
     assert_equal 0, code, out
     assert_equal [ 2 ], @sleeps
     assert_includes out, "(90.0%), threshold 80.0%"
+    assert_includes out, "Report: activeagent evals report dashboard-run-41-20261022100000"
     assert_match(/PASS$/, out)
   end
 
@@ -313,11 +316,25 @@ class ActiveAgentCLITest < Minitest::Test
     assert_equal envelope, JSON.parse(cli("evals", "report", "run-1")[1])
   end
 
-  def test_evals_report_without_the_export_endpoint_is_unavailable
-    stub_request(:get, "#{REPORTS}/run-1").to_return(status: 404, body: "")
+  def test_evals_report_tells_a_missing_run_from_a_dashboard_without_the_export
+    # The collector's own 404 names the run.
+    stub_request(:get, "#{REPORTS}/run-1").to_return(status: 404, body: { error: "No evaluation report with that run_id" }.to_json)
     code, _, err = cli("evals", "report", "run-1")
-    assert_equal CLI::EXIT_UNAVAILABLE, code
-    assert_includes err, "GET <mount>/api/evaluation_reports/:run_id"
+    assert_equal CLI::EXIT_FAILURE, code
+    assert_includes err, "No report for run run-1; `activeagent evals runs EVALUATION` shows each run's RUN_ID (No evaluation report with that run_id)"
+
+    # An older engine has no such route: Rails answers for it.
+    [ "", { status: 404, error: "Not Found" }.to_json ].each do |body|
+      stub_request(:get, "#{REPORTS}/run-1").to_return(status: 404, body: body)
+      code, _, err = cli("evals", "report", "run-1")
+      assert_equal CLI::EXIT_UNAVAILABLE, code, body
+      assert_includes err, "GET <mount>/api/evaluation_reports/:run_id"
+    end
+
+    stub_request(:get, "#{REPORTS}/run-1").to_return(status: 422, body: { error: "Only a complete run can be exported" }.to_json)
+    code, _, err = cli("evals", "report", "run-1")
+    assert_equal CLI::EXIT_FAILURE, code
+    assert_includes err, "HTTP 422 (Only a complete run can be exported)"
   end
 
   def test_evals_report_refuses_a_body_that_is_not_an_envelope
@@ -388,16 +405,137 @@ class ActiveAgentCLITest < Minitest::Test
     assert_includes out, "support -> Support: orders (4)"
   end
 
-  def test_commands_without_an_api_key_route_say_so
+  def test_catalogs_import_preview_shows_the_changes_without_importing
     path = File.join(@dir, "shop.yml")
-    File.write(path, "catalog: shop\n")
+    File.write(path, "catalog: shop\nproducts: []\n")
+    stub_tool("catalogs_preview", { mode: "merge", catalog: { key: "shop", action: "update" }, scenario_count: 4,
+                                    counts: { "create" => 1, "unchanged" => 3 },
+                                    changes: [ { level: "scenario", path: "support/orders/refund_2", action: "create" } ] },
+              arguments: { "document" => "catalog: shop\nproducts: []\n", "mode" => "merge" })
 
-    [ %w[catalogs export shop], [ "catalogs", "import", path, "--preview" ], %w[agents versions support] ].each do |argv|
-      code, _, err = cli(*argv)
-      assert_equal CLI::EXIT_UNAVAILABLE, code, argv.inspect
-      assert_includes err, "not yet available on this dashboard"
-    end
-    assert_not_requested :post, MCP
+    code, out, = cli("catalogs", "import", path, "--preview", "--mode", "merge")
+
+    assert_equal 0, code, out
+    assert_includes out, "Preview (merge): catalog shop would be updated; 4 scenarios in the document."
+    assert_includes out, "Changes: 1 create"
+    assert_match(%r{^create\s+scenario\s+support/orders/refund_2$}, out)
+    assert_not_requested(:post, MCP) { |request| JSON.parse(request.body).dig("params", "name") == "catalogs_import" }
+    assert_equal CLI::EXIT_USAGE, cli("catalogs", "import", path, "--mode", "sideways").first
+  end
+
+  def test_catalogs_export_writes_the_document_as_yaml_or_json
+    stub_tool("catalogs_export", { catalog: { key: "shop" }, format: "yaml", document: "catalog: shop\nproducts: []\n" },
+              arguments: { "catalog" => "shop", "format" => "yaml" })
+    stub_tool("catalogs_export", { catalog: { key: "shop" }, format: "json", product: "support", document: "{\n  \"catalog\": \"shop\"\n}" },
+              arguments: { "catalog" => "shop", "format" => "json", "product" => "support" })
+
+    assert_equal [ 0, "catalog: shop\nproducts: []\n", "" ], cli("catalogs", "export", "shop")
+
+    # A .json file asks for JSON, and --json prints the tool's whole answer.
+    path = File.join(@dir, "shop.json")
+    code, out, err = cli("catalogs", "export", "shop", "--product", "support", "-o", path)
+    assert_equal 0, code, err
+    assert_equal "", out
+    assert_equal({ "catalog" => "shop" }, JSON.parse(File.read(path)))
+    assert_includes err, "Wrote catalog shop (json) to #{path}."
+    assert_equal "support", JSON.parse(cli("catalogs", "export", "shop", "--product", "support", "--format", "json", "--json")[1])["product"]
+  end
+
+  def test_agents_versions_lists_each_version_with_what_it_changed
+    stub_tool("agents_versions", { agent: { id: 3, slug: "support", name: "Support", version_count: 2 },
+                                   versions: [ { version_number: 2, created_at: "2026-10-22T10:00:00Z", created_by: "ops", release: true,
+                                                 revision: "abc1234", change_summary: "Deploy", diff: { "model" => { "from" => "a", "to" => "b" } } },
+                                               { version_number: 1, created_at: "2026-10-21T10:00:00Z", release: false, change_summary: "Initial version" } ],
+                                   truncated: true },
+              arguments: { "agent" => "support", "limit" => 2 })
+
+    code, out, = cli("agents", "versions", "support", "--limit", "2")
+
+    assert_equal 0, code, out
+    assert_includes out, "Support (support): 2 versions"
+    assert_match(/^2\s+2026-10-22T10:00:00Z\s+ops\s+abc1234\s+Deploy\s+model$/, out)
+    assert_match(/^1\s+2026-10-21T10:00:00Z\s+-\s+-\s+Initial version\s+-$/, out)
+    assert_includes out, "raise --limit"
+  end
+
+  def test_traces_get_prints_the_trace_and_its_spans
+    stub_tool("traces_get", { trace_id: "abcd1234ef", agent: "SupportAgent", action: "reply", model: "gpt-5-mini", status: "ERROR",
+                              duration_ms: 120.5, tokens: { total: 30 }, error: "boom",
+                              spans: [ { span_id: "root", type: "root", name: "SupportAgent.reply", start: 0, duration: 120.5, status: "ERROR" } ],
+                              spans_total: 101, spans_omitted: 100 },
+              arguments: { "trace_id" => "abcd1234" })
+
+    code, out, = cli("traces", "get", "abcd1234")
+
+    assert_equal 0, code, out
+    assert_includes out, "Trace abcd1234ef: SupportAgent#reply on gpt-5-mini (ERROR, 120.5 ms, 30 tokens)"
+    assert_includes out, "Error: boom"
+    assert_match(/^root\s+root\s+SupportAgent\.reply\s+0\s+120\.5\s+ERROR$/, out)
+    assert_includes out, "(100 more spans; `activeagent traces export abcd1234ef` has them all)"
+  end
+
+  def test_traces_export_writes_the_ingest_payload
+    payload = { traces: [ { trace_id: "abcd1234ef", service_name: "app", timestamp: "2026-10-22T10:00:00.000000Z", spans: [] } ],
+                sdk: { name: "activeagent", version: "1.9.3" } }
+    stub_tool("traces_export", payload, arguments: { "trace_id" => "abcd1234ef" })
+    path = File.join(@dir, "trace.json")
+
+    code, out, err = cli("traces", "export", "abcd1234ef", "-o", path)
+
+    assert_equal 0, code, err
+    assert_equal "", out
+    assert_equal JSON.parse(payload.to_json), JSON.parse(File.read(path))
+    assert_includes err, "Wrote trace abcd1234ef to #{path}."
+    assert_equal JSON.parse(payload.to_json), JSON.parse(cli("traces", "export", "abcd1234ef")[1])
+  end
+
+  def test_traces_import_posts_the_payload_with_the_ingest_key
+    payload = { "traces" => [ { "trace_id" => "abcd1234ef", "service_name" => "app", "spans" => [] } ],
+                "sdk" => { "name" => "activeagent", "version" => "1.9.3" } }
+    path = File.join(@dir, "trace.json")
+    File.write(path, payload.to_json)
+    request = stub_request(:post, "#{URL}/api/traces").with(headers: { "Authorization" => "Bearer #{INGEST_KEY}" }, body: payload)
+      .to_return(status: 202, body: "")
+
+    code, out, = cli("traces", "import", path)
+
+    assert_equal 0, code, out
+    assert_includes out, "Sent 1 trace to #{URL}/api/traces: abcd1234ef."
+    assert_requested request
+
+    # One bare trace is wrapped, and sent as this CLI's own SDK.
+    File.write(path, payload["traces"].first.to_json)
+    bare = stub_request(:post, "#{URL}/api/traces").with do |r|
+      body = JSON.parse(r.body)
+      body["traces"] == payload["traces"] && body.dig("sdk", "name") == "activeagent-cli"
+    end.to_return(status: 202)
+    code, out, = cli("traces", "import", path, "--json")
+    assert_equal 0, code, out
+    assert_equal [ "abcd1234ef" ], JSON.parse(out)["trace_ids"]
+    assert_requested bare
+
+    File.write(path, { "nope" => true }.to_json)
+    code, _, err = cli("traces", "import", path)
+    assert_equal CLI::EXIT_USAGE, code
+    assert_includes err, "holds no traces"
+  end
+
+  def test_traces_import_reports_a_refusal_without_the_key
+    path = File.join(@dir, "trace.json")
+    File.write(path, { "traces" => [ { "trace_id" => "x" } ] }.to_json)
+    stub_request(:post, "#{URL}/api/traces").to_return(status: 401, body: { error: "Invalid API key #{INGEST_KEY}" }.to_json)
+
+    code, _, err = cli("traces", "import", path)
+
+    assert_equal CLI::EXIT_FAILURE, code
+    assert_includes err, "refused the ingest key"
+    assert_includes err, "[FILTERED]"
+    refute_includes err, INGEST_KEY
+
+    stub_request(:post, "#{URL}/api/traces").to_return(status: 429, body: { error: "Trace ingest limit reached" }.to_json)
+    code, _, err = cli("traces", "import", path)
+    assert_equal CLI::EXIT_FAILURE, code
+    assert_includes err, "HTTP 429 (Trace ingest limit reached)"
   end
 
   def test_agents_list_reads_the_agent_resources

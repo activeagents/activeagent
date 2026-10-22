@@ -37,8 +37,8 @@ module ActionAgent
 
       NAMES = %w[
         evaluations_list evaluations_get evaluations_create scenarios_merge explorations_submit evaluations_run
-        evaluation_runs_get evaluation_runs_compare traces_search traces_get input_requests_list input_requests_answer
-        catalogs_list catalogs_import catalog_set_run
+        evaluation_runs_get evaluation_runs_compare traces_search traces_get traces_export input_requests_list
+        input_requests_answer catalogs_list catalogs_import catalogs_preview catalogs_export catalog_set_run agents_versions
       ].freeze
 
       # The kinds input_requests_answer answers. An approval and a secret are
@@ -321,6 +321,17 @@ module ActionAgent
           }
         },
         {
+          name: "traces_export",
+          description: "One trace, whole, as the payload POST <mount>/api/traces ingests ({ traces: [trace], sdk }): " \
+                       "its spans untruncated, with the owner's credentials masked, so the trace can be sent to another " \
+                       "dashboard with that dashboard's ingest key. Read one to work with it instead: traces_get.",
+          inputSchema: {
+            type: "object",
+            properties: { trace_id: { type: "string", description: "The trace's id, its OpenTelemetry trace id, or that id's first 8 characters" } },
+            required: [ "trace_id" ]
+          }
+        },
+        {
           name: "input_requests_list",
           description: "List the requests for input this key's paused agent runs are waiting on, newest first: each " \
                        "request's id, kind (text, choice, confirm or secret), prompt, options, agent, run and expiry.",
@@ -364,9 +375,48 @@ module ActionAgent
             type: "object",
             properties: {
               document: { type: "string", description: "The catalog as YAML" },
-              name: { type: "string", description: "The catalog key when the document sets no `catalog:`" }
+              name: { type: "string", description: "The catalog key when the document sets no `catalog:`" },
+              mode: {
+                type: "string", enum: ScenarioCatalogImport::MODES,
+                description: "replace (the default) makes the catalog the document; merge keeps what the document leaves out"
+              }
             },
             required: [ "document" ]
+          }
+        },
+        {
+          name: "catalogs_preview",
+          description: "What catalogs_import of this document would change, without writing anything: whether the " \
+                       "catalog would be created, updated or left unchanged, how many products, sets and scenarios " \
+                       "would be created, updated, removed (or kept, in merge mode), and the first " \
+                       "#{ScenarioCatalogImport::PREVIEW_LIMIT} changes by path.",
+          inputSchema: {
+            type: "object",
+            properties: {
+              document: { type: "string", description: "The catalog as YAML" },
+              name: { type: "string", description: "The catalog key when the document sets no `catalog:`" },
+              mode: {
+                type: "string", enum: ScenarioCatalogImport::MODES,
+                description: "replace (the default) makes the catalog the document; merge keeps what the document leaves out"
+              }
+            },
+            required: [ "document" ]
+          }
+        },
+        {
+          name: "catalogs_export",
+          description: "A catalog's canonical document from its records, as YAML (the default) or JSON: the whole " \
+                       "catalog, or one product or one set of it, as a document of the catalog's key that a merge " \
+                       "import reads back. The same document the dashboard's Export YAML downloads.",
+          inputSchema: {
+            type: "object",
+            properties: {
+              catalog: { type: "string", description: "The catalog's key" },
+              product: { type: "string", description: "Only this product, by key" },
+              set: { type: "string", description: "Only this set of the product, by key" },
+              format: { type: "string", enum: %w[yaml json], description: "yaml (the default) or json" }
+            },
+            required: [ "catalog" ]
           }
         },
         {
@@ -387,6 +437,20 @@ module ActionAgent
               models: { type: "array", items: { type: "string" }, description: "Candidate models to compare; the agent's own model when omitted" }
             },
             required: %w[catalog product set]
+          }
+        },
+        {
+          name: "agents_versions",
+          description: "An agent's versions, newest first: each with its number, what it changed from the version " \
+                       "before (diff), who made it, whether it is the agent's current version, and whether it was cut " \
+                       "from the agent's code on deploy (release) rather than edited on the dashboard.",
+          inputSchema: {
+            type: "object",
+            properties: {
+              agent: { type: "string", description: "The agent's slug or id" },
+              limit: { type: "integer", description: "At most this many (default #{LIST_LIMIT}, max #{MAX_LIST_LIMIT})" }
+            },
+            required: [ "agent" ]
           }
         }
       ].freeze
@@ -426,11 +490,15 @@ module ActionAgent
         when "evaluation_runs_compare" then evaluation_runs_compare_tool
         when "traces_search" then traces_search_tool
         when "traces_get" then traces_get_tool
+        when "traces_export" then traces_export_tool
         when "input_requests_list" then input_requests_list_tool
         when "input_requests_answer" then input_requests_answer_tool
         when "catalogs_list" then catalogs_list_tool
         when "catalogs_import" then catalogs_import_tool
+        when "catalogs_preview" then catalogs_preview_tool
+        when "catalogs_export" then catalogs_export_tool
         when "catalog_set_run" then catalog_set_run_tool
+        when "agents_versions" then agents_versions_tool
         end
       end
 
@@ -821,18 +889,8 @@ module ActionAgent
         }
       end
 
-      # Looked up as Api::TraceReportsController#show looks a trace up: the
-      # OpenTelemetry trace id, then a prefix of it, then the record id.
       def traces_get_tool
-        id = tool_argument(:trace_id).to_s
-        raise MCPController::McpError.new("Missing required argument: trace_id", MCPController::JSONRPC_INVALID_PARAMS) if id.blank?
-
-        scope = owned_traces
-        trace = scope.find_by(trace_id: id) ||
-          scope.where("trace_id LIKE ?", "#{ActionAgent.trace_model.sanitize_sql_like(id)}%").first ||
-          (id.match?(/\A\d+\z/) && scope.find_by(id: id)) or
-          raise ToolError, "No trace #{id.truncate(64)} was found"
-
+        trace = find_tool_trace!
         detail = TelemetryTraceSerializer.detail(trace)
         spans = detail.delete(:spans)
         failed_spans = spans.select { |span| span[:error] }.map do |span|
@@ -847,6 +905,43 @@ module ActionAgent
           spans_omitted: [ spans.size - MAX_TRACE_SPANS, 0 ].max
         )
         PayloadBounds.bound(payload, max_string: MAX_STRING, max_items: MAX_TRACE_SPANS)
+      end
+
+      # The trace as Api::TracesController#create takes it, whole: the
+      # stored trace's spans and resource attributes with the SDK that
+      # reported it, so a POST of the result to another install's
+      # <mount>/api/traces stores the same trace there (an install skips a
+      # trace_id it already holds). Not bounded as traces_get bounds a trace,
+      # since the point is a copy; the owner's credentials are masked from
+      # it as from every tool's result.
+      def traces_export_tool
+        trace = find_tool_trace!
+
+        {
+          traces: [ {
+            trace_id: trace.trace_id,
+            service_name: trace.service_name,
+            environment: trace.environment,
+            timestamp: trace.timestamp&.iso8601(6),
+            resource_attributes: trace.resource_attributes.presence || {},
+            spans: Array(trace.spans)
+          } ],
+          sdk: trace.sdk_info.presence || {}
+        }
+      end
+
+      # The trace `trace_id` names, looked up as Api::TraceReportsController#show
+      # looks a trace up: the OpenTelemetry trace id, then a prefix of it,
+      # then the record id.
+      def find_tool_trace!
+        id = tool_argument(:trace_id).to_s
+        raise MCPController::McpError.new("Missing required argument: trace_id", MCPController::JSONRPC_INVALID_PARAMS) if id.blank?
+
+        scope = owned_traces
+        scope.find_by(trace_id: id) ||
+          scope.where("trace_id LIKE ?", "#{ActionAgent.trace_model.sanitize_sql_like(id)}%").first ||
+          (id.match?(/\A\d+\z/) && scope.find_by(id: id)) or
+          raise ToolError, "No trace #{id.truncate(64)} was found"
       end
 
       def input_requests_list_tool
@@ -948,19 +1043,16 @@ module ActionAgent
       end
 
       # Imports a catalog document as POST /api/scenario_catalogs does: the
-      # owner's agents and projects resolve the products' targets.
+      # owner's agents and projects resolve the products' targets, and `mode`
+      # is replace (the default) or merge, as there.
       def catalogs_import_tool
-        document = required_tool_argument!(:document).to_s
-        raise ToolError, "document is larger than #{ScenarioCatalog::MAX_BYTES} bytes" if document.bytesize > ScenarioCatalog::MAX_BYTES
-
+        document = catalog_document_argument!
         authorize_catalog_write!(ScenarioCatalog.new)
-        catalog = ScenarioCatalogImport.new(
-          owner: current_owner, document: document, name: tool_argument(:name).to_s.presence,
-          source_kind: "api", agents: owner_agents, projects: owned(Project)
-        ).call
+        catalog = catalog_import(document).call
 
         {
           catalog: ScenarioCatalogSerializer.summary(catalog),
+          mode: catalog_mode_argument,
           products: catalog.products.map do |product|
             { key: product.key, agent: product.agent&.name, project_id: product.project_id,
               sets: product.sets.map { |set| { key: set.key, scenario_count: set.scenarios.size } } }
@@ -970,12 +1062,95 @@ module ActionAgent
         raise ToolError, e.message
       end
 
+      # What catalogs_import of the document would change, as POST
+      # /api/scenario_catalogs/preview answers it, writing nothing.
+      def catalogs_preview_tool
+        catalog_import(catalog_document_argument!).preview
+      rescue ScenarioCatalogImport::Invalid => e
+        raise ToolError, e.message
+      end
+
+      # The catalog's canonical document from its records, as GET
+      # /api/scenario_catalogs/:id/export serves it, whole or narrowed to one
+      # product or one set.
+      def catalogs_export_tool
+        catalog = find_tool_catalog!
+        format = tool_argument(:format).to_s.presence || "yaml"
+        raise ToolError, "format is yaml or json" unless %w[yaml json].include?(format)
+
+        selection = {}
+        product = set = nil
+        if (product_key = tool_argument(:product).to_s.presence)
+          product = catalog.products.find_by(key: product_key) ||
+            raise(ToolError, "No product #{product_key.inspect} in catalog #{catalog.key}")
+          if (set_key = tool_argument(:set).to_s.presence)
+            set = product.sets.find_by(key: set_key) || raise(ToolError, "No set #{set_key.inspect} in product #{product.key}")
+            selection[:set_ids] = [ set.id ]
+          else
+            selection[:product_ids] = [ product.id ]
+          end
+        elsif tool_argument(:set).present?
+          raise ToolError, "set names a set of a product: give product too"
+        end
+
+        exported = catalog.export_catalog(**selection)
+        {
+          catalog: { id: catalog.id, key: catalog.key, name: catalog.name, digest: catalog.digest },
+          product: product&.key,
+          set: set&.key,
+          format: format,
+          digest: exported.digest,
+          document: format == "json" ? JSON.pretty_generate(exported.to_h) : exported.to_yaml
+        }
+      end
+
+      def catalog_import(document)
+        ScenarioCatalogImport.new(
+          owner: current_owner, document: document, name: tool_argument(:name).to_s.presence,
+          source_kind: "api", agents: owner_agents, projects: owned(Project), mode: catalog_mode_argument
+        )
+      end
+
+      def catalog_document_argument!
+        document = required_tool_argument!(:document).to_s
+        raise ToolError, "document is larger than #{ScenarioCatalog::MAX_BYTES} bytes" if document.bytesize > ScenarioCatalog::MAX_BYTES
+
+        document
+      end
+
+      # replace unless the call says merge; ScenarioCatalogImport refuses
+      # anything else.
+      def catalog_mode_argument
+        tool_argument(:mode).to_s.presence || "replace"
+      end
+
+      # The owner's catalog `catalog` names by key.
+      def find_tool_catalog!
+        key = required_tool_argument!(:catalog).to_s
+        owned(ScenarioCatalog).find_by(key: key) || raise(ToolError, "No catalog #{key.inspect}; catalogs_list names them")
+      end
+
+      # An agent's versions as GET /api/agents/:id/versions lists them, each
+      # with its diff from the version before, newest first.
+      def agents_versions_tool
+        agent = resolve_tool_agent!(required_tool_argument!(:agent))
+        limit = integer_argument(:limit, default: LIST_LIMIT, min: 1, max: MAX_LIST_LIMIT)
+        versions = agent.agent_versions.recent.limit(limit + 1).to_a
+
+        {
+          agent: { id: agent.id, slug: agent.slug, name: agent.name, version_count: agent.agent_versions.count },
+          versions: versions.first(limit).map do |version|
+            PayloadBounds.bound(AgentVersionSerializer.call(version, include_diff: true), max_string: MAX_STRING)
+          end,
+          truncated: versions.size > limit
+        }
+      end
+
       # Runs one set as POST /api/scenario_catalogs/:id/sets/:set_id/run
       # does, gated as evaluations_run is. A project's sandbox must already
       # be running: booting one is a dashboard action, not a tool's.
       def catalog_set_run_tool
-        catalog = owned(ScenarioCatalog).find_by(key: required_tool_argument!(:catalog).to_s) ||
-          raise(ToolError, "No catalog #{tool_argument(:catalog).inspect}; catalogs_list names them")
+        catalog = find_tool_catalog!
         product = catalog.products.find_by(key: required_tool_argument!(:product).to_s) ||
           raise(ToolError, "No product #{tool_argument(:product).inspect} in catalog #{catalog.key}")
         set = product.sets.find_by(key: required_tool_argument!(:set).to_s) ||

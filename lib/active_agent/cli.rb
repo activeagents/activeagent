@@ -15,10 +15,12 @@ module ActiveAgent
   #   activeagent evals run "Support orders" --wait --min-pass-rate 0.8
   #
   # Every command answers through an API-key-authenticated endpoint: the MCP
-  # facade's dashboard tools (<mount>/mcp) or the report collector
-  # (<mount>/api/evaluation_reports). A command whose dashboard route only
-  # takes a browser session today says so and exits EXIT_UNAVAILABLE rather
-  # than scraping the UI's API.
+  # facade's dashboard tools (<mount>/mcp) with the dashboard API key, or the
+  # ingest endpoints the framework's own reporters post to (the report
+  # collector at <mount>/api/evaluation_reports, trace ingest at
+  # <mount>/api/traces) with the ingest key. A dashboard that does not offer
+  # what a command needs (an older engine, or one that turned the dashboard
+  # tools off) exits EXIT_UNAVAILABLE saying so.
   #
   # CLI.start returns the exit code rather than exiting, so it can be called
   # from Ruby and tested in process.
@@ -32,7 +34,8 @@ module ActiveAgent
     EXIT_CONFIG = 3
     # An evaluation run failed, or passed fewer scenarios than --min-pass-rate.
     EXIT_GATE = 4
-    # The dashboard has no API-key route for the command yet.
+    # The dashboard does not offer what the command needs: an older engine,
+    # or one with its dashboard tools turned off.
     EXIT_UNAVAILABLE = 5
 
     # Every failure a command reports: the message is printed and the exit
@@ -46,8 +49,6 @@ module ActiveAgent
         @status = status
       end
     end
-
-    ISSUE_URL = "https://github.com/activeagents/activeagent/issues/619"
 
     def self.version
       ActiveAgent::VERSION
@@ -93,9 +94,9 @@ module ActiveAgent
       "logout" => "Remove a stored profile",
       "status" => "Check the URL and keys against the dashboard",
       "evals" => "Evaluations: list, runs, run, report, import",
-      "catalogs" => "Scenario catalogs: list, import, export",
+      "catalogs" => "Scenario catalogs: list, import (or preview), export",
       "agents" => "Agents: list, versions",
-      "traces" => "Telemetry traces: list",
+      "traces" => "Telemetry traces: list, get, export, import",
       "version" => "Print the version"
     }.freeze
 
@@ -110,7 +111,7 @@ module ActiveAgent
       when "evals" then subcommand("evals", argv, %w[list runs run report import])
       when "catalogs" then subcommand("catalogs", argv, %w[list import export])
       when "agents" then subcommand("agents", argv, %w[list versions])
-      when "traces" then subcommand("traces", argv, %w[list])
+      when "traces" then subcommand("traces", argv, %w[list get export import])
       else
         raise Error.new("unknown command '#{command}'. Commands: #{COMMANDS.keys.join(", ")}", exit_code: EXIT_USAGE)
       end
@@ -143,7 +144,7 @@ module ActiveAgent
         parser.separator "Environment: ACTIVEAGENT_URL, ACTIVEAGENT_API_KEY, ACTIVEAGENT_INGEST_KEY and"
         parser.separator "ACTIVEAGENT_PROFILE override the stored profile (for CI)."
         parser.separator "Exit codes: 0 ok, 1 failed, 2 usage, 3 not configured, 4 evaluation gate failed,"
-        parser.separator "5 not yet available on this dashboard."
+        parser.separator "5 not available on this dashboard (an older engine, or its dashboard tools turned off)."
       end
     end
 
@@ -242,9 +243,33 @@ module ActiveAgent
       value.nil? ? "-" : value.to_s.gsub(/[[:space:]\p{C}]+/, " ")
     end
 
-    def unavailable(command, endpoint)
-      raise Error.new("`#{command}` is not yet available on this dashboard: it needs an API-key-authenticated " \
-                      "#{endpoint}, which only takes a browser session today. See #{ISSUE_URL}.", exit_code: EXIT_UNAVAILABLE)
+    # Writes +body+ to +path+, or prints it, ending in one newline either
+    # way. With a path, the block's line is said on standard error (not with
+    # --json, whose standard output is the only thing a script reads).
+    def write_output(body, path)
+      body = "#{body}\n" unless body.end_with?("\n")
+      if path
+        File.write(path, body)
+        @err.puts yield if block_given? && !@options[:json]
+      else
+        @out.print body
+      end
+      EXIT_SUCCESS
+    end
+
+    def read_text_file(path)
+      File.read(path)
+    rescue Errno::ENOENT, Errno::EACCES, Errno::EISDIR => e
+      raise Error.new("Cannot read #{path} (#{e.class})", exit_code: EXIT_USAGE)
+    end
+
+    def read_json_file(path)
+      document = JSON.parse(read_text_file(path))
+      raise Error.new("#{path} must hold a JSON object", exit_code: EXIT_USAGE) unless document.is_a?(Hash)
+
+      document
+    rescue JSON::ParserError
+      raise Error.new("#{path} is not valid JSON", exit_code: EXIT_USAGE), cause: nil
     end
 
     def require_argument(argv, name, usage)
@@ -272,3 +297,4 @@ require_relative "cli/client"
 require_relative "cli/session_commands"
 require_relative "cli/eval_commands"
 require_relative "cli/resource_commands"
+require_relative "cli/trace_commands"

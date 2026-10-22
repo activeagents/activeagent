@@ -9,21 +9,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **`activeagent` command line** (`activeagent`, refs #619). The gem ships
-  an `activeagent` executable (stdlib `OptionParser` and `Net::HTTP`, no new
-  dependencies) that works with a dashboard over HTTP: `login`/`logout`
-  (named profiles in `~/.config/activeagent/credentials.yml`, `0600`;
-  `ACTIVEAGENT_URL`, `ACTIVEAGENT_API_KEY` and `ACTIVEAGENT_INGEST_KEY`
-  override them for CI), `status`, `evals list|runs|run|report|import`,
-  `catalogs list|import`, `agents list` and `traces list`, with `--json`
-  output and distinct exit codes. `evals run --min-pass-rate 0.8` waits for
-  the run and exits 4 below the threshold, for CI gating. Reads and runs go
-  through the MCP facade's dashboard tools with a dashboard API key; `evals
-  import` and `evals report` use the report collector with the ingest key.
-  `evals report --format json|html|md` needs the report export endpoint
-  (`GET <mount>/api/evaluation_reports/:run_id`). `catalogs export`,
-  `catalogs import --preview` and `agents versions` exit 5 until the
-  dashboard offers API-key routes for them. See `docs/framework/cli.md`.
+- **`activeagent` command line** (`activeagent`, `actionagent`; refs #619).
+  The gem ships an `activeagent` executable (stdlib `OptionParser` and
+  `Net::HTTP`, no new dependencies) that works with a dashboard over HTTP:
+  `login`/`logout` (named profiles in `~/.config/activeagent/credentials.yml`,
+  `0600`; `ACTIVEAGENT_URL`, `ACTIVEAGENT_API_KEY` and
+  `ACTIVEAGENT_INGEST_KEY` override them for CI), `status`,
+  `evals list|runs|run|report|import`, `catalogs list|import|export`
+  (`import --preview` shows what a document would change, `--mode merge`
+  keeps what it leaves out), `agents list|versions` and
+  `traces list|get|export|import`, with `--json` output and distinct exit
+  codes. `evals run --min-pass-rate 0.8` waits for the run and exits 4
+  below the threshold, for CI gating. Reads and runs go through the MCP
+  facade's dashboard tools with a dashboard API key; the imports and
+  `evals report` use the endpoints the framework's own reporters post to,
+  with the ingest key. A run, a catalog and a trace each move between
+  installs as one file: `evals report RUN --format json` writes the
+  version-1 envelope `evals import` posts (`--format html|md` the report
+  page or its Markdown, for a pull request comment), `catalogs export KEY`
+  the canonical document (YAML, or `--format json`) that `catalogs import`
+  reads, and `traces export TRACE` the payload `traces import` sends to
+  trace ingest. See `docs/framework/cli.md`.
+
+- **Four more dashboard tools on the MCP facade** (`actionagent`), the
+  API-key routes the CLI needed: `catalogs_export` (a catalog's canonical
+  document as YAML or JSON, whole or one product or set), `catalogs_preview`
+  (what `catalogs_import` would change, writing nothing), `agents_versions`
+  (an agent's versions with their diffs, as `GET /api/agents/:id/versions`)
+  and `traces_export` (one trace, whole and untruncated, as the payload
+  `POST <mount>/api/traces` takes, so a trace moves between installs).
+  `catalogs_import` takes `mode: replace|merge` as the API does. Every run
+  summary (`GET /api/evaluations`, the facade's `evaluations_get`,
+  `evaluations_run` and `evaluation_runs_get`) now carries `run_id`, the
+  handle `GET <mount>/api/evaluation_reports/:run_id` takes.
 
 ## [1.9.3] - 2026-10-21
 

@@ -65,7 +65,9 @@ module ActiveAgent
             "STATUS" => ->(r) { r["status"] },
             "PASSED" => ->(r) { passed(r) },
             "SCORE" => ->(r) { r["average_score"] },
-            "CREATED" => ->(r) { r["created_at"] }
+            "CREATED" => ->(r) { r["created_at"] },
+            # The handle `evals report` takes.
+            "RUN_ID" => ->(r) { r["run_id"] }
           }, empty: "No runs yet.")
         end
       end
@@ -108,6 +110,9 @@ module ActiveAgent
 
       # Without --format, a terminal gets Markdown to read and anything else
       # (a pipe, a file, -o) gets the JSON envelope, so scripts see JSON.
+      # RUN is the run's run_id: the RUN_ID column of `evals runs`, which is
+      # a published run's own run_id and a dashboard run's
+      # dashboard-run-<id>-<created_at>.
       def evals_report(argv)
         format = nil
         output = nil
@@ -118,23 +123,17 @@ module ActiveAgent
         end
         return EXIT_SUCCESS unless argv
 
-        run_id = require_argument(argv, "RUN (the report's run_id)", "evals report RUN")
+        run_id = require_argument(argv, "RUN (the run's run_id, the RUN_ID of `evals runs`)", "evals report RUN")
         format ||= !output && @out.respond_to?(:tty?) && @out.tty? ? "md" : "json"
         request = REPORT_FORMATS.fetch(format)
         response = client.get("/api/evaluation_reports/#{URI.encode_www_form_component(run_id).gsub("+", "%20")}",
                               accept: request[:accept], query: request[:query],
-                              not_found: "No report for run #{run_id}, or this dashboard has no report export " \
-                                         "(GET <mount>/api/evaluation_reports/:run_id) yet")
+                              missing: "No report for run #{run_id}; `activeagent evals runs EVALUATION` shows each run's RUN_ID",
+                              unavailable: "This dashboard has no report export (GET <mount>/api/evaluation_reports/:run_id); " \
+                                           "it predates actionagent 1.9.3")
         body = response.body.to_s
         body = JSON.pretty_generate(report_envelope(body)) if format == "json"
-
-        if output
-          File.write(output, body.end_with?("\n") ? body : "#{body}\n")
-          @err.puts "Wrote #{format} report for run #{run_id} to #{output}." unless @options[:json]
-        else
-          @out.puts body
-        end
-        EXIT_SUCCESS
+        write_output(body, output) { "Wrote #{format} report for run #{run_id} to #{output}." }
       end
 
       # Posts a saved report to the collector. FILE is a version-1 envelope
@@ -222,6 +221,7 @@ module ActiveAgent
               "TRACE" => ->(r) { r["trace_id"] }
             })
           end
+          @out.puts "Report: activeagent evals report #{run["run_id"]}" if run["run_id"]
           @out.puts(verdict == "pass" ? "PASS" : "FAIL")
         end
         verdict == "pass" ? EXIT_SUCCESS : EXIT_GATE
@@ -256,17 +256,6 @@ module ActiveAgent
         envelope
       rescue JSON::ParserError
         raise Error.new("The dashboard returned invalid JSON for the report"), cause: nil
-      end
-
-      def read_json_file(path)
-        document = JSON.parse(File.read(path))
-        raise Error.new("#{path} must hold a JSON object", exit_code: EXIT_USAGE) unless document.is_a?(Hash)
-
-        document
-      rescue Errno::ENOENT, Errno::EACCES, Errno::EISDIR => e
-        raise Error.new("Cannot read #{path} (#{e.class})", exit_code: EXIT_USAGE)
-      rescue JSON::ParserError
-        raise Error.new("#{path} is not valid JSON", exit_code: EXIT_USAGE), cause: nil
       end
     end
 

@@ -2,13 +2,13 @@
 
 module ActiveAgent
   class CLI
-    # `activeagent catalogs|agents|traces ...`, through the MCP facade. The
-    # commands whose dashboard route only takes a browser session today
-    # (catalog export and import preview, agent versions) exit
-    # EXIT_UNAVAILABLE naming the route they need.
+    # `activeagent catalogs|agents ...`, through the MCP facade's dashboard
+    # tools: scenario catalogs are listed, imported (or the import
+    # previewed) and exported as the dashboard's Catalogs page does it, and
+    # agents are listed with their versions.
     module ResourceCommands
-      DURATION = /\A(\d+)([smhd]?)\z/
-      DURATION_MINUTES = { "" => 1, "m" => 1, "h" => 60, "d" => 24 * 60 }.freeze
+      CATALOG_FORMATS = %w[yaml json].freeze
+      CATALOG_MODES = %w[replace merge].freeze
 
       private
 
@@ -29,26 +29,28 @@ module ActiveAgent
         end
       end
 
-      # Imports a catalog's YAML document. Products, sets and scenarios are
-      # matched by key, so importing the same file twice changes nothing.
+      # Imports a catalog's document (YAML, or the JSON `catalogs export
+      # --format json` writes, which YAML reads). Products, sets and
+      # scenarios are matched by key, so importing the same file twice
+      # changes nothing; --mode merge keeps what the document leaves out.
+      # --preview shows what the import would change and writes nothing.
       def catalogs_import(argv)
-        name = nil
+        arguments = {}
         preview = false
-        argv = parse(argv, "catalogs import FILE [--name KEY] [--preview]") do |p|
-          p.on("--name KEY", "The catalog key when the document sets no `catalog:`") { |v| name = v }
+        argv = parse(argv, "catalogs import FILE [--name KEY] [--mode replace|merge] [--preview]") do |p|
+          p.on("--name KEY", "The catalog key when the document sets no `catalog:`") { |v| arguments[:name] = v }
+          p.on("--mode MODE", CATALOG_MODES, "replace (the default) makes the catalog the document; merge keeps what it leaves out") do |v|
+            arguments[:mode] = v
+          end
           p.on("--preview", "Show what the import would change, without applying it") { preview = true }
         end
         return EXIT_SUCCESS unless argv
 
         path = require_argument(argv, "FILE", "catalogs import FILE")
-        unavailable("catalogs import --preview", "POST <mount>/api/scenario_catalogs/preview") if preview
-        document = begin
-          File.read(path)
-        rescue Errno::ENOENT, Errno::EACCES, Errno::EISDIR => e
-          raise Error.new("Cannot read #{path} (#{e.class})", exit_code: EXIT_USAGE)
-        end
+        arguments[:document] = read_text_file(path)
+        return catalogs_preview(arguments) if preview
 
-        payload = client.tool("catalogs_import", document: document, name: name)
+        payload = client.tool("catalogs_import", arguments)
         emit(payload) do
           catalog = payload.fetch("catalog", {})
           @out.puts "Imported catalog #{catalog["key"]} (#{catalog["product_count"]} products, #{catalog["scenario_count"]} scenarios)."
@@ -59,12 +61,51 @@ module ActiveAgent
         end
       end
 
+      def catalogs_preview(arguments)
+        payload = client.tool("catalogs_preview", arguments)
+        emit(payload) do
+          catalog = payload.fetch("catalog", {})
+          # The catalog's own action is about its record (name, description);
+          # what its products, sets and scenarios would do is the change list.
+          verdict = { "create" => "created", "update" => "updated" }.fetch(catalog["action"], "kept as it is")
+          @out.puts "Preview (#{payload["mode"]}): catalog #{catalog["key"]} would be #{verdict}; " \
+                    "#{payload["scenario_count"]} scenarios in the document."
+          counts = payload.fetch("counts", {}).reject { |action, _| action == "unchanged" }
+          @out.puts "Changes: #{counts.empty? ? "none" : counts.map { |action, count| "#{count} #{action}" }.join(", ")}"
+          table(Array(payload["changes"]), {
+            "ACTION" => ->(c) { c["action"] },
+            "LEVEL" => ->(c) { c["level"] },
+            "PATH" => ->(c) { c["path"] }
+          }, empty: "Nothing would change.")
+        end
+      end
+
+      # Writes a catalog's canonical document from the dashboard's records:
+      # the whole catalog, or one product or set of it. The same document
+      # the Catalogs page's Export YAML downloads; --format json writes it
+      # as JSON instead.
       def catalogs_export(argv)
-        argv = parse(argv, "catalogs export KEY [-o FILE]") { |p| p.on("-o", "--output FILE", "Write to FILE") }
+        arguments = {}
+        output = nil
+        argv = parse(argv, "catalogs export KEY [--product KEY [--set KEY]] [--format yaml|json] [-o FILE]") do |p|
+          p.on("--product KEY", "Only this product") { |v| arguments[:product] = v }
+          p.on("--set KEY", "Only this set of --product") { |v| arguments[:set] = v }
+          p.on("--format FORMAT", CATALOG_FORMATS, "yaml (the default; json when FILE ends in .json) or json") { |v| arguments[:format] = v }
+          p.on("-o", "--output FILE", "Write to FILE instead of standard output") { |v| output = v }
+        end
         return EXIT_SUCCESS unless argv
 
-        require_argument(argv, "KEY", "catalogs export KEY")
-        unavailable("catalogs export", "GET <mount>/api/scenario_catalogs/:id/export")
+        arguments[:catalog] = require_argument(argv, "KEY", "catalogs export KEY")
+        arguments[:format] ||= output.to_s.end_with?(".json") ? "json" : "yaml"
+        payload = client.tool("catalogs_export", arguments)
+        if @options[:json]
+          @out.puts JSON.pretty_generate(payload)
+          return EXIT_SUCCESS
+        end
+
+        write_output(payload["document"].to_s, output) do
+          "Wrote catalog #{payload.dig("catalog", "key")} (#{payload["format"]}) to #{output}."
+        end
       end
 
       # The agents the key reaches, from the facade's agent:// resources.
@@ -82,53 +123,29 @@ module ActiveAgent
         end
       end
 
+      # An agent's versions, newest first, with what each changed.
       def agents_versions(argv)
-        argv = parse(argv, "agents versions AGENT")
-        return EXIT_SUCCESS unless argv
-
-        require_argument(argv, "AGENT", "agents versions AGENT")
-        unavailable("agents versions", "GET <mount>/api/agents/:id/versions")
-      end
-
-      def traces_list(argv)
         arguments = {}
-        argv = parse(argv, "traces list [--agent NAME] [--since 24h] [--status error|ok] [--limit N]") do |p|
-          p.on("--agent AGENT", "An agent class name or a dashboard agent's slug") { |v| arguments[:agent] = v }
-          p.on("--since DURATION", "How far back: minutes, or 30m, 6h, 7d (default 24h)") { |v| arguments[:since_minutes] = since_minutes(v) }
-          p.on("--status STATUS", %w[error ok], "Only failed (error) or successful (ok) traces") { |v| arguments[:status] = v }
-          p.on("--service NAME", "Only this reporting service") { |v| arguments[:service] = v }
-          p.on("--limit N", "At most N traces (max 100)") { |v| arguments[:limit] = positive_integer(v, "--limit") }
+        argv = parse(argv, "agents versions AGENT [--limit N]") do |p|
+          p.on("--limit N", "At most N versions (max 50)") { |v| arguments[:limit] = positive_integer(v, "--limit") }
         end
         return EXIT_SUCCESS unless argv
-        raise Error.new("unexpected arguments: #{argv.join(" ")}", exit_code: EXIT_USAGE) unless argv.empty?
 
-        payload = client.tool("traces_search", arguments)
-        traces = payload.fetch("traces", [])
+        arguments[:agent] = require_argument(argv, "AGENT (a slug or id)", "agents versions AGENT")
+        payload = client.tool("agents_versions", arguments)
         emit(payload) do
-          table(traces, {
-            "TRACE" => ->(t) { t["short_id"] },
-            "TIME" => ->(t) { t["timestamp"] },
-            "AGENT" => ->(t) { [ t["agent"], t["action"] ].compact.join("#") },
-            "MODEL" => ->(t) { t["model"] },
-            "STATUS" => ->(t) { t["status"] },
-            "MS" => ->(t) { t["duration_ms"] },
-            "TOKENS" => ->(t) { t.dig("tokens", "total") }
-          }, empty: "No traces in the last #{payload["window_minutes"]} minutes.")
-          @out.puts "(more traces match; raise --limit or narrow the filters)" if payload["truncated"]
+          agent = payload.fetch("agent", {})
+          @out.puts "#{agent["name"]} (#{agent["slug"]}): #{agent["version_count"]} versions"
+          table(payload.fetch("versions", []), {
+            "VERSION" => ->(v) { v["version_number"] },
+            "CREATED" => ->(v) { v["created_at"] },
+            "BY" => ->(v) { v["created_by"] },
+            "RELEASE" => ->(v) { v["release"] ? (v["revision"] || v["release_digest"].to_s[0, 12]) : nil },
+            "SUMMARY" => ->(v) { v["change_summary"] },
+            "CHANGED" => ->(v) { v["diff"].is_a?(Hash) ? v["diff"].keys.join(", ") : nil }
+          }, empty: "No versions.")
+          @out.puts "(more versions; raise --limit)" if payload["truncated"]
         end
-      end
-
-      # Minutes in a duration such as 90, 30m, 6h or 7d; seconds round up
-      # to a whole minute.
-      def since_minutes(value)
-        match = DURATION.match(value.to_s.strip.downcase)
-        raise Error.new("--since must be minutes or a duration such as 30m, 6h or 7d", exit_code: EXIT_USAGE) unless match
-
-        amount = match[1].to_i
-        minutes = match[2] == "s" ? (amount / 60.0).ceil : amount * DURATION_MINUTES.fetch(match[2])
-        raise Error.new("--since must be at least a minute", exit_code: EXIT_USAGE) unless minutes.positive?
-
-        minutes
       end
     end
 
