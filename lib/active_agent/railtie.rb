@@ -13,6 +13,10 @@ module ActiveAgent
     config.active_agent.telemetry = ActiveSupport::OrderedOptions.new
     config.eager_load_namespaces << ActiveAgent
 
+    rake_tasks do
+      load File.expand_path("../tasks/active_agent/evals.rake", __dir__)
+    end
+
     initializer "active_agent.deprecator", before: :load_environment_config do |app|
       app.deprecators[:active_agent] = ActiveAgent.deprecator
     end
