@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+The `activeagent` command line: the gem's third surface beside the dashboard
+and its API, working with a dashboard over HTTP from a terminal or a CI job,
+and the facade tools it needed. A run, a scenario catalog and a trace each
+move between installs as one file. The framework and the dashboard engine
+move to 1.9.4 together.
+
+Upgrading: no migration. The CLI needs `actionagent` 1.9.4 on the dashboard
+for `catalogs export`, `catalogs import --preview`, `agents versions` and
+`traces export` (the facade's new tools), and 1.9.3 for `evals report` (the
+report export); an older dashboard answers those commands with exit code 5.
+
 ### Added
 
 - **`activeagent` command line** (`activeagent`, `actionagent`; refs #619).
