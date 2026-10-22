@@ -74,6 +74,9 @@ function assertInOrder(html, markers) {
 }
 
 const count = (html, pattern) => (html.match(pattern) || []).length;
+// The texts of the value pills inside each element carrying `testId`.
+const pillsIn = (html, testId) => [...html.matchAll(new RegExp(`data-testid="${testId}"[^>]*>(.*?)</div>`, 'g'))]
+  .map((match) => [...match[1].matchAll(/class="aa-pill"[^>]*>([^<]+)</g)].map((pill) => pill[1]));
 // The markup between two markers (to the end when `to` is absent).
 const between = (html, from, to) => {
   const start = html.indexOf(from);
@@ -466,14 +469,12 @@ test('every step shows each model\'s time and tokens, and the box adds them up p
   assert.match(header, /scenario-column-totals[^>]*>2\.1s · 900→120</, 'a pending answer adds nothing to its model');
 
   const group = between(html, 'data-testid="scenario-group-row"', 'data-scenario-key="t1"');
-  assert.match(group, /scenario-group-metrics[^>]*>1m 10s · 3\.2K→840</);
-  assert.match(group, /scenario-group-metrics[^>]*>2\.1s · 900→120</);
+  assert.deepEqual(pillsIn(group, 'scenario-group-metrics'), [['1m 10s', '3.2K→840'], ['2.1s', '900→120']], "each model's group time and tokens are pills");
   assert.match(group, /scenario-group-cost-tokens[^>]*>4\.1K→960</, "the group's tokens sit under its cost");
   assert.match(group, /scenario-group-time[^>]*>1m 10s</, "the group's time is its scenarios' slowest answers added up");
 
   const t1 = between(html, 'data-scenario-key="t1"', 'data-scenario-key="t2"');
-  assert.match(t1, /scenario-cell-metrics[^>]*>5\.2s · 1\.2K→340</, 'a passed cell carries its time and tokens');
-  assert.match(t1, /scenario-cell-metrics[^>]*>2\.1s · 900→120</, 'a failed cell does too, under its fault');
+  assert.deepEqual(pillsIn(t1, 'scenario-cell-metrics'), [['5.2s', '1.2K→340'], ['2.1s', '900→120']], 'a passed cell and a failed cell each carry time and token pills');
   assert.match(t1, /scenario-row-cost-tokens[^>]*>2\.1K→460</, "the scenario's tokens across the models sit under its cost");
   assert.match(t1, /scenario-row-time[^>]*>5\.2s</, 'TIME stays the slowest answer');
 
