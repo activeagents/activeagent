@@ -188,11 +188,14 @@ module ActionAgent
     # A job delivered again for a result that is already scored, or that a
     # concurrent delivery has claimed, scores nothing. It still checks
     # whether the run is complete: the earlier delivery may have stored the
-    # last result and stopped before completing the run.
+    # last result and stopped before completing the run. A result another
+    # delivery holds a live lease on is tried again when the lease expires
+    # (see #wait_for_claim!).
     def judge_result!(row)
       run = row.evaluation_run
       return unless run.running?
-      return finish_fan_out!(run) unless row.pending? && claim_result!(row)
+      return finish_fan_out!(run) unless row.pending?
+      return wait_for_claim!(row, run) unless claim_result!(row)
 
       spec = fan_out_specs(run).fetch([ row.provider.to_s, row.model ]) do
         Evals::ModelSpec.new(label: row.model, provider: row.provider.to_s, model: row.model)
@@ -228,10 +231,15 @@ module ActionAgent
           row = stored_result(run, scenario, spec)
           task = Evals::Scenario.from_hash(scenario.as_json_summary)
           row ||= store_replay(run, scenario, task, spec, Evals::Replay.failed(error))
-          # Another replay delivery may fail while this result is being
-          # scored. Only an unclaimed replay belongs to this failure path.
-          EvaluationScenarioResult.where(id: row.id, status: :pending, scoring_token: nil)
-            .update_all(status: :errored, error_message: row.error_message.presence || error_text(error), updated_at: Time.current)
+          attributes = { status: :errored, error_message: row.error_message.presence || error_text(error) }
+          if scoring_leases?
+            # Another replay delivery may fail while this result is being
+            # scored. Only an unclaimed replay belongs to this failure path.
+            EvaluationScenarioResult.where(id: row.id, status: :pending, scoring_token: nil)
+              .update_all(attributes.merge(updated_at: Time.current))
+          elsif row.pending?
+            row.update!(attributes)
+          end
         end
       end
       finish_fan_out!(run)
@@ -339,23 +347,55 @@ module ActionAgent
     # delivered after that write reads the new timestamp and could score too.
     # The lease excludes fresh readers as well, without holding a database
     # lock across a provider call. A redelivery can reclaim an expired lease.
+    #
+    # Without the lease columns (migration 029 not yet run) the claim is the
+    # timestamp comparison alone, as before the lease.
     def claim_result!(row)
       now = Time.current
+      claim = EvaluationScenarioResult.where(id: row.id, status: :pending, updated_at: row.updated_at)
+      return claim.update_all(updated_at: now) == 1 unless scoring_leases?
+
       token = SecureRandom.uuid
-      claimed = EvaluationScenarioResult.where(id: row.id, status: :pending, updated_at: row.updated_at)
-        .where("scoring_token IS NULL OR scoring_expires_at <= ?", now)
+      claimed = claim.where("scoring_token IS NULL OR scoring_expires_at <= ?", now)
         .update_all(scoring_token: token, scoring_expires_at: now + JUDGE_LEASE_DURATION, updated_at: now)
       @scoring_token = token if claimed == 1
+    end
+
+    # A claim lost to another delivery leaves the result pending, and that
+    # delivery may be a worker that stopped: the queue's redelivery of its
+    # job lands here, inside the lease the stopped worker still holds. So the
+    # job is enqueued again for when that lease expires. If the holder stores
+    # the result first, the later delivery finds it scored and only checks
+    # whether the run is complete. A result left pending with no live lease
+    # (the claim raced another write to the row) is tried again at once.
+    # Without the lease columns a lost claim is a concurrent delivery that is
+    # scoring the result now, as before.
+    def wait_for_claim!(row, run)
+      current = EvaluationScenarioResult.find_by(id: row.id) if scoring_leases?
+      if current&.pending?
+        retry_at = [ current.scoring_expires_at, Time.current ].compact.max
+        EvaluationJudgeJob.set(wait_until: retry_at).perform_later(row.id, @selection.to_h, run.id)
+      end
+      finish_fan_out!(run)
     end
 
     # Fence late successes and failures: after a lease is reclaimed, the old
     # worker cannot overwrite its successor. Only the current owner releases
     # the lease. A failure before claiming may mark an unclaimed row errored.
     def store_claimed_result!(row, **attributes)
+      return row.update!(attributes) unless scoring_leases?
+
       row.assign_attributes(attributes)
       row.validate!
       EvaluationScenarioResult.where(id: row.id, status: :pending, scoring_token: @scoring_token)
         .update_all(attributes.merge(scoring_token: nil, scoring_expires_at: nil, updated_at: Time.current))
+    end
+
+    # Whether migration 029's lease columns are installed. A host that
+    # upgraded the gem without running the generator keeps scoring with the
+    # timestamp claim instead of failing every judge job on a missing column.
+    def scoring_leases?
+      (%w[scoring_token scoring_expires_at] - EvaluationScenarioResult.column_names).empty?
     end
 
     # What Evals::Runner does with a replay that raises: an errored replay,

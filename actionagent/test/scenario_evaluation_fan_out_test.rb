@@ -442,6 +442,7 @@ class ActionAgentScenarioEvaluationFanOutTest < ActiveSupport::TestCase
     run = evaluation.run_later!(keys: [ "tickets_1" ])
     drain(only: [ ActionAgent::EvaluationRunJob, ActionAgent::EvaluationReplayJob ])
     row = run.scenario_results.sole
+    clear_enqueued_jobs # the replay's judge job; this test delivers it by hand
     prompts = []
     redelivered = false
     judge = fake_judge(prompts, on_call: ->(kind) {
@@ -457,6 +458,15 @@ class ActionAgentScenarioEvaluationFanOutTest < ActiveSupport::TestCase
     assert_equal 1, run.reload.scores.dig("_judge_usage", "by_kind", "score")
     assert_nil row.reload.scoring_token
     assert_nil row.scoring_expires_at
+
+    # The duplicate came back for when the first delivery's lease would
+    # expire, and finds the result already scored.
+    assert_equal 1, enqueued_jobs.count { |job| job["job_class"] == "ActionAgent::EvaluationJudgeJob" }
+    travel ActionAgent::ScenarioEvaluationRunner::JUDGE_LEASE_DURATION + 1.second do
+      with_judge(judge) { perform_enqueued_jobs(only: ActionAgent::EvaluationJudgeJob) }
+    end
+    assert_equal 1, prompts.count(:score)
+    assert_equal "complete", run.reload.status
   end
 
   test "an expired scoring lease is reclaimed on redelivery" do
@@ -473,17 +483,55 @@ class ActionAgentScenarioEvaluationFanOutTest < ActiveSupport::TestCase
     assert_equal "complete", run.reload.status
   end
 
-  test "a live scoring lease prevents a newly read delivery from scoring" do
-    run = build_suite.run_later!(keys: [ "tickets_1" ])
+  test "a redelivery inside a stopped worker's live lease scores the result once the lease expires" do
+    evaluation = build_suite
+    run = evaluation.run_later!(keys: [ "tickets_1" ])
     drain(only: [ ActionAgent::EvaluationRunJob, ActionAgent::EvaluationReplayJob ])
     row = run.scenario_results.sole
-    row.update!(scoring_token: "live-worker", scoring_expires_at: 10.minutes.from_now)
+    clear_enqueued_jobs # the replay's judge job; this test delivers it by hand
+    # The first delivery claims the result, then its worker dies mid-judge.
+    assert ActionAgent::ScenarioEvaluationRunner.new(evaluation, run: run).send(:claim_result!, row)
+    expires_at = row.reload.scoring_expires_at
 
+    # The queue redelivers the job while the dead worker's lease is live.
     ActionAgent::EvaluationJudgeJob.perform_now(row.id, {}, run.id)
 
-    assert_equal "pending", row.reload.status
-    assert_equal "live-worker", row.scoring_token
+    assert_equal "pending", row.reload.status, "a live lease is not scored over"
     assert_equal "running", run.reload.status
+    retry_job = enqueued_jobs.sole
+    assert_equal "ActionAgent::EvaluationJudgeJob", retry_job["job_class"]
+    assert_equal row.id, retry_job["arguments"].first
+    assert_in_delta expires_at.to_f, Time.iso8601(retry_job["scheduled_at"]).to_f, 0.001,
+      "the redelivery comes back when the stopped worker's lease expires"
+
+    travel_to(expires_at + 1.second) { perform_enqueued_jobs(only: ActionAgent::EvaluationJudgeJob) }
+
+    assert_equal "passed", row.reload.status
+    assert_nil row.scoring_token
+    assert_equal "complete", run.reload.status
+    assert_empty enqueued_jobs
+  end
+
+  test "a result scored before a deferred redelivery runs is not scored again" do
+    evaluation = build_suite
+    run = evaluation.run_later!(keys: [ "tickets_1" ])
+    drain(only: [ ActionAgent::EvaluationRunJob, ActionAgent::EvaluationReplayJob ])
+    row = run.scenario_results.sole
+    clear_enqueued_jobs # the replay's judge job; this test delivers it by hand
+    holder = ActionAgent::ScenarioEvaluationRunner.new(evaluation, run: run)
+    assert holder.send(:claim_result!, row)
+    ActionAgent::EvaluationJudgeJob.perform_now(row.id, {}, run.id)
+    assert_equal 1, enqueued_jobs.size
+
+    holder.send(:store_claimed_result!, row.reload, status: :passed, score: 1.0)
+    stored = row.reload.attributes
+    travel ActionAgent::ScenarioEvaluationRunner::JUDGE_LEASE_DURATION + 1.second do
+      perform_enqueued_jobs(only: ActionAgent::EvaluationJudgeJob)
+    end
+
+    assert_equal stored, row.reload.attributes
+    assert_equal "complete", run.reload.status
+    assert_empty enqueued_jobs
   end
 
   test "a late scoring success or failure cannot overwrite the new lease owner's result" do
@@ -577,5 +625,81 @@ class ActionAgentScenarioEvaluationFanOutTest < ActiveSupport::TestCase
     assert_nil row.error_message
     assert_nil row.scoring_token
     assert_equal "complete", run.reload.status
+  end
+
+  # A host that upgraded the gem but has not run migration 029 yet.
+  def without_scoring_lease_columns
+    klass = ActionAgent::EvaluationScenarioResult
+    columns = klass.column_names - %w[scoring_token scoring_expires_at]
+    queries = []
+    subscriber = ActiveSupport::Notifications.subscribe("sql.active_record") { |*, payload| queries << payload[:sql] }
+    klass.stub(:column_names, columns) { yield }
+    queries.grep(/scoring_(token|expires_at)/)
+  ensure
+    ActiveSupport::Notifications.unsubscribe(subscriber) if subscriber
+  end
+
+  test "without the scoring lease columns a fanned-out run still scores and completes" do
+    run = build_suite.run_later!
+
+    lease_queries = without_scoring_lease_columns { drain }
+
+    assert_empty lease_queries, "no query may name a column the host has not installed"
+    assert_equal "complete", run.reload.status
+    assert_equal 3, run.scenario_results.count
+    assert run.scenario_results.none?(&:pending?)
+  end
+
+  test "without the scoring lease columns a scoring failure is still stored" do
+    run = build_suite.run_later!(keys: [ "tickets_1" ])
+    drain(only: [ ActionAgent::EvaluationRunJob, ActionAgent::EvaluationReplayJob ])
+    row = run.scenario_results.sole
+
+    lease_queries = without_scoring_lease_columns do
+      with_method(ActionAgent::ScenarioEvaluationRunner, :fan_out_scorer, proc { |_run| raise "score exploded" }) do
+        ActionAgent::EvaluationJudgeJob.perform_now(row.id, {}, run.id)
+      end
+    end
+
+    assert_empty lease_queries
+    assert_equal "errored", row.reload.status
+    assert_match(/score exploded/, row.error_message)
+    assert_equal "complete", run.reload.status
+  end
+
+  test "without the scoring lease columns a replay job failure is still stored" do
+    evaluation = build_suite
+    run = evaluation.run_later!(keys: [ "tickets_1" ])
+    perform_enqueued_jobs(only: ActionAgent::EvaluationRunJob)
+    scenario = evaluation.scenarios.find_by!(key: "tickets_1")
+
+    lease_queries = without_scoring_lease_columns do
+      ActionAgent::ScenarioEvaluationRunner.new(evaluation, run: run.reload).fail_result!(
+        run, scenario.id, run.selection["models"].first, RuntimeError.new("replay job failed"))
+    end
+
+    assert_empty lease_queries
+    assert_equal "errored", run.scenario_results.sole.status
+    assert_equal "complete", run.reload.status
+  end
+
+  test "without the scoring lease columns a duplicate delivery is turned away by the timestamp claim" do
+    evaluation = build_suite
+    run = evaluation.run_later!(keys: [ "tickets_1" ])
+    drain(only: [ ActionAgent::EvaluationRunJob, ActionAgent::EvaluationReplayJob ])
+    row = run.scenario_results.sole
+    clear_enqueued_jobs # the replay's judge job; this test delivers it by hand
+    stale = ActionAgent::EvaluationScenarioResult.find(row.id)
+
+    lease_queries = without_scoring_lease_columns do
+      travel 1.second do
+        assert ActionAgent::ScenarioEvaluationRunner.new(evaluation, run: run).send(:claim_result!, row)
+        ActionAgent::ScenarioEvaluationRunner.new(evaluation, run: run).judge_result!(stale)
+      end
+    end
+
+    assert_empty lease_queries
+    assert_equal "pending", row.reload.status, "the stale reader loses the claim and scores nothing"
+    assert_empty enqueued_jobs, "without a lease there is nothing to come back for"
   end
 end

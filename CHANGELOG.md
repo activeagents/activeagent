@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+Upgrading: migration 029 adds the scoring lease columns to
+`evaluation_scenario_results`. A host runs
+`bin/rails generate action_agent:install --skip` then `bin/rails db:migrate`,
+after 1.9.3's 028. Until it does, fanned-out evaluation runs keep scoring
+with the claim 1.9.3 uses.
+
+### Fixed
+
+- **An evaluation judge job delivered twice scores its result once**
+  (`actionagent`). The claim on a pending result was a conditional write on
+  its timestamp, which turned away a stale reader but not a duplicate
+  delivered after the claim: that one read the new timestamp and asked the
+  judge to score the result again. A claim now takes a 30-minute lease
+  (`scoring_token`, `scoring_expires_at`) that a fresh reader cannot take
+  while it is live, and a worker that finishes after its lease was
+  reclaimed cannot overwrite its successor's result. A delivery that finds
+  a live lease, such as the queue's redelivery after a worker died
+  mid-judge, enqueues the job again for when the lease expires, so the run
+  still completes. Without migration 029 the judge job keeps the timestamp
+  claim instead of failing on the missing columns.
+
 ## [1.9.3] - 2026-10-21
 
 Releases `activeagent` and `actionagent` 1.9.3, with the matching browser
