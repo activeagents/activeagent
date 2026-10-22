@@ -651,7 +651,9 @@ the unframed page, which is the copy to archive next to a CI run, and
 page, the run as the evaluation report envelope another install imports
 (see [Exporting a stored run](/evals/publication#exporting-a-stored-run)),
 and the report as GitHub-flavored Markdown. The suite's run header carries
-the same downloads.
+the same downloads, and `activeagent evals report RUN --format html|json|md`
+writes the same three from a terminal, by the run's `run_id` (see
+[Command Line](/framework/cli#reports)).
 
 **Copy as Markdown** puts a piece of the run on the clipboard for an issue
 or a pull request: the whole report (the run report view and the run
@@ -767,8 +769,10 @@ leaves archived evaluations out unless `?archived=1`, returns
 `archived_count`, and gives each evaluation its `standing`,
 `headline_run_id`, `archived_at` and `per_model` passes, plus the
 `headline_run` in full when a newer run is pending or failed; every run
-carries its `agent_version` (`id`, `number`, `release_digest`, `revision`,
-`release`) and `version_state` (`current`, `earlier` or `unrecorded`).
+carries its `run_id` (the handle `GET <mount>/api/evaluation_reports/:run_id`
+and the CLI's `evals report` take), its `agent_version` (`id`, `number`,
+`release_digest`, `revision`, `release`) and `version_state` (`current`,
+`earlier` or `unrecorded`).
 
 ## Scenario catalogs
 
