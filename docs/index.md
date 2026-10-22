@@ -58,6 +58,10 @@ features:
     icon: 📈
     link: /framework/dashboard
     details: Add the actionagent gem and mount its engine for traces, metrics, the agent builder, conversations and evaluations.
+  - title: Command Line
+    icon: ⌨️
+    link: /framework/cli
+    details: Run evaluations and gate CI from a terminal; move runs, scenario catalogs and traces between dashboards as JSON.
   - title: Background Jobs
     link: /agents/generation
     icon: ⏳
