@@ -358,11 +358,11 @@ export const sumScenarioCosts = (entries = []) => {
 // added up across the models — sits under the figure, so the spend reads
 // beside what drove it.
 function CostBlock({ entry, compact = false, testId, tokens = null }) {
-  const column = { display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0, textAlign: 'right' };
+  const column = { display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, minWidth: 0, textAlign: 'right' };
   const tokenLine = tokens && (tokens.input != null || tokens.output != null) ? (
-    <span data-testid={testId ? `${testId}-tokens` : undefined} title="input→output tokens across the models" style={{ ...mono(10.5), whiteSpace: 'nowrap' }}>
+    <ValuePill size="mini" testId={testId ? `${testId}-tokens` : undefined} title="input→output tokens across the models">
       {fmtTokenIO(tokens.input, tokens.output)}
-    </span>
+    </ValuePill>
   ) : null;
   if (!entry) {
     return (
@@ -379,20 +379,15 @@ function CostBlock({ entry, compact = false, testId, tokens = null }) {
     if (entry.judgeCost != null) shares.push(`judge ${fmtSpend(entry.judgeCost, { estimated: entry.estimated })}`);
     return (
       <span style={column} data-testid={testId}>
-        <span
-          title={shares.join(' · ') || undefined}
-          style={{ fontFamily: MONO, fontSize: 11, fontWeight: 600, color: 'var(--color-text-primary)', whiteSpace: 'nowrap' }}
-        >
-          {fmtSpend(total, { estimated: entry.estimated })}
-        </span>
+        <ValuePill size="mini" title={shares.join(' · ') || undefined}>{fmtSpend(total, { estimated: entry.estimated })}</ValuePill>
         {tokenLine}
       </span>
     );
   }
   return (
-    <span style={{ ...column, fontFamily: MONO, fontSize: 11, color: 'var(--color-text-secondary)' }} data-testid={testId}>
-      <span style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>{fmtSpend(entry.cost, { estimated: entry.estimated })}</span>
-      {entry.judgeCost != null && <span style={{ color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>{`judge ${fmtSpend(entry.judgeCost, { estimated: entry.estimated })}`}</span>}
+    <span style={column} data-testid={testId}>
+      <ValuePill size="mini">{fmtSpend(entry.cost, { estimated: entry.estimated })}</ValuePill>
+      {entry.judgeCost != null && <span style={{ ...mono(10.5), whiteSpace: 'nowrap' }}>{`judge ${fmtSpend(entry.judgeCost, { estimated: entry.estimated })}`}</span>}
       {tokenLine}
     </span>
   );
@@ -518,7 +513,7 @@ export function ModelsPanel({ run, columns, results = [], scenarioCount = 0, jud
 // rather than squeezing a column.
 const gridFor = (level, n) => (level === 'tools'
   ? ['minmax(220px, 1.6fr)', '130px', ...Array(n).fill('minmax(160px, 1fr)'), '110px'].join(' ')
-  : ['minmax(200px, 1.6fr)', ...Array(n).fill('minmax(130px, 1fr)'), '80px', '48px'].join(' '));
+  : ['minmax(200px, 1.6fr)', ...Array(n).fill('minmax(150px, 1fr)'), '84px', '56px'].join(' '));
 
 const GRID_GAP = { tools: 10, steps: 8 };
 
@@ -557,13 +552,14 @@ function ResultCell({ result, expects, pending, compact = false }) {
     const fault = result.fault ? faultName(result.fault) : result.status === 'errored' ? 'errored' : null;
     const cost = resultCostText(result);
     const title = `${calls.map((call) => call.label).join(' ') || 'no tools called'}${cost ? ` · ${cost}` : ''}`;
+    const metrics = resultMetrics(result);
     return (
-      <span title={title} style={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0 }}>
-        <span style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, fontFamily: MONO, fontSize: 12, whiteSpace: 'nowrap' }}>
-          <ValuePill rank={pass ? 'good' : 'poor'} size="compact" testId="scenario-cell-score" style={{ flexShrink: 0 }}>{`${pass ? '[+]' : '[!]'} ${fmtScore(result.score)}`}</ValuePill>
-          {fault && <span style={{ fontSize: 11, color: 'var(--color-error-text)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>{fault}</span>}
+      <span title={title} style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0 }}>
+        <span style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 4, minWidth: 0 }}>
+          <ValuePill rank={pass ? 'good' : 'poor'} size="mini" testId="scenario-cell-score">{`${pass ? '[+]' : '[!]'} ${fmtScore(result.score)}`}</ValuePill>
+          <MetricPills metrics={metrics} testId="scenario-cell-metrics" style={{ display: 'contents' }} />
         </span>
-        <MetricsLine metrics={resultMetrics(result)} />
+        {fault && <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--color-error-text)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{fault}</span>}
       </span>
     );
   }
@@ -574,10 +570,12 @@ function ResultCell({ result, expects, pending, compact = false }) {
         {result.fault && <span style={{ fontSize: 11, color: 'var(--color-error-text)' }}>{faultName(result.fault)}</span>}
       </div>
       <CallLine calls={calls} empty="no tools called" />
-      <MetricsLine metrics={resultMetrics(result)} />
-      {resultCostText(result) && (
-        <span style={{ ...mono(11, 'var(--color-text-secondary)'), whiteSpace: 'nowrap' }} title={resultCostTitle(result)} data-testid="scenario-cell-cost">{resultCostText(result)}</span>
-      )}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+        <MetricPills metrics={resultMetrics(result)} testId="scenario-cell-metrics" style={{ display: 'contents' }} />
+        {resultCostText(result) && (
+          <ValuePill size="mini" title={resultCostTitle(result) || resultCostText(result)} testId="scenario-cell-cost">{resultCostText(result)}</ValuePill>
+        )}
+      </div>
     </div>
   );
 }
@@ -593,7 +591,24 @@ const metricsText = (metrics) => {
   return parts.length ? parts.join(' · ') : null;
 };
 
-// The line under a cell's score, a group cell's passes, or a header's bar:
+// A result's, a group's or a scenario's time and tokens as pills — the
+// same vocabulary as the comparison table's cells, so a step reads across
+// like a row of it. Neutral: one cell has nothing to be relative to.
+// Nothing when nothing was recorded.
+function MetricPills({ metrics, testId, title = 'time to answer · input→output tokens', align = 'flex-start', style }) {
+  if (!metrics) return null;
+  const time = metrics.durationMs == null ? null : fmtSpan(metrics.durationMs);
+  const tokens = fmtTokenIO(metrics.inputTokens, metrics.outputTokens);
+  if (time == null && tokens === '—') return null;
+  return (
+    <div data-testid={testId} title={title} style={{ display: 'flex', flexWrap: 'wrap', gap: 4, justifyContent: align, minWidth: 0, ...style }}>
+      {time != null && <ValuePill size="mini">{time}</ValuePill>}
+      {tokens !== '—' && <ValuePill size="mini">{tokens}</ValuePill>}
+    </div>
+  );
+}
+
+// The line under a header's bar (and the Markdown export):
 // how long the answers took and what they consumed, so a model that is
 // faster or leaner shows against the others on every step. Nothing when
 // nothing was recorded.
@@ -675,7 +690,7 @@ const ScenarioRow = React.memo(function ScenarioRow({
       onFocus={(event) => onFocus(key, event)}
       className={open ? undefined : 'hover:bg-[var(--color-hover)]'}
       style={{
-        display: 'grid', gridTemplateColumns: grid, gap: GRID_GAP[detail] ?? GRID_GAP.steps, padding: steps ? '6px 12px' : '10px 12px',
+        display: 'grid', gridTemplateColumns: grid, gap: GRID_GAP[detail] ?? GRID_GAP.steps, padding: steps ? '8px 12px' : '10px 12px',
         alignItems: steps ? 'center' : undefined,
         borderTop: '1px solid var(--color-border-light)', cursor: 'pointer',
         background: open ? 'var(--color-muted)' : undefined,
@@ -684,19 +699,23 @@ const ScenarioRow = React.memo(function ScenarioRow({
       }}
     >
       {steps ? (
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, minWidth: 0 }}>
-          {glyph}
-          {showKey && (
-            <span style={{ ...mono(11), minWidth: 0, maxWidth: '40%', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{keyText}</span>
-          )}
-          <span
-            title={showKey ? scenario.prompt : undefined}
-            style={{
-              flex: 1, minWidth: 0, fontSize: 13, color: scenario.orphan ? 'var(--color-text-muted)' : 'var(--color-text-primary)',
-              whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-            }}
-          >
-            {scenario.prompt}
+        // The key leads, the prompt previews under it; a narrow box drops
+        // the key and the prompt stands alone (the row's title keeps it).
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, minWidth: 0 }}>
+          <span style={{ paddingTop: showKey ? 1 : 2 }}>{glyph}</span>
+          <span style={{ display: 'grid', gap: 2, minWidth: 0, flex: 1 }}>
+            {showKey && (
+              <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: scenario.orphan ? 'var(--color-text-muted)' : 'var(--color-text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{keyText}</span>
+            )}
+            <span
+              title={showKey ? scenario.prompt : undefined}
+              style={{
+                minWidth: 0, fontSize: showKey ? 12 : 13, color: showKey ? 'var(--color-text-secondary)' : scenario.orphan ? 'var(--color-text-muted)' : 'var(--color-text-primary)',
+                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+              }}
+            >
+              {scenario.prompt}
+            </span>
           </span>
         </div>
       ) : (
@@ -729,7 +748,9 @@ const ScenarioRow = React.memo(function ScenarioRow({
       ))}
       <CostBlock entry={costEntry} compact={steps} testId="scenario-row-cost" tokens={tokens} />
       {steps && (
-        <span data-testid="scenario-row-time" title="the slowest answer across the models" style={{ ...mono(11), textAlign: 'right', whiteSpace: 'nowrap' }}>{fmtSpan(timeMs)}</span>
+        <span style={{ display: 'flex', justifyContent: 'flex-end' }}>
+          <ValuePill size="mini" testId="scenario-row-time" title="the slowest answer across the models">{fmtSpan(timeMs)}</ValuePill>
+        </span>
       )}
     </div>
   );
@@ -1073,19 +1094,19 @@ export function ScenarioMatrix({
                   </div>
                   {!steps && <span style={mono(11)}>{plural(group.rows.length, 'scenario')}</span>}
                   {cells.map((cell) => (
-                    <span key={cell.label} style={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0 }}>
+                    <span key={cell.label} style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0 }}>
                       {cell.rank ? (
-                        <ValuePill rank={cell.rank} size="compact" style={{ alignSelf: 'flex-start', fontSize: 11, padding: '3px 9px', minWidth: 0 }}>{cell.text}</ValuePill>
+                        <ValuePill rank={cell.rank} size="mini" style={{ alignSelf: 'flex-start' }}>{cell.text}</ValuePill>
                       ) : (
                         <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: cell.weight, color: cell.color, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{cell.text}</span>
                       )}
-                      <MetricsLine metrics={cell.metrics} testId="scenario-group-metrics" title="the group's answers' time added up, and their input→output tokens, on this model" />
+                      <MetricPills metrics={cell.metrics} testId="scenario-group-metrics" title="the group's answers' time added up, and their input→output tokens, on this model" />
                     </span>
                   ))}
                   <CostBlock entry={subtotal} compact={steps} testId="scenario-group-cost" tokens={groupTokens} />
                   {steps && (
-                    <span data-testid="scenario-group-time" title="the group's scenarios' times added up" style={{ ...mono(11), textAlign: 'right', whiteSpace: 'nowrap' }}>
-                      {fmtSpan(groupTime(group.rows, resultsByKey, columns))}
+                    <span style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                      <ValuePill size="mini" testId="scenario-group-time" title="the group's scenarios' times added up">{fmtSpan(groupTime(group.rows, resultsByKey, columns))}</ValuePill>
                     </span>
                   )}
                 </div>

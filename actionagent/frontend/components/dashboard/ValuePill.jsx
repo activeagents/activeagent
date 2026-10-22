@@ -17,6 +17,7 @@ const RANK_STYLE = {
 const SR_ONLY = { position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap' };
 
 export const SIZES = {
+  mini: { padding: '3px 8px', fontSize: 11, minWidth: 0 },
   compact: { padding: '5px 11px', fontSize: 12, minWidth: '6ch' },
   product: { padding: '6px 12px', fontSize: 13, minWidth: '7ch' },
   marketing: { padding: '10px 16px', fontSize: 15, minWidth: '7ch' },
