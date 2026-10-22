@@ -511,11 +511,15 @@ export function ModelsPanel({ run, columns, results = [], scenarioCount = 0, jud
 // result cells with their tool calls and cost. stepsMinWidth / toolsMinWidth
 // are what these add up to, so the box scrolls sideways inside itself
 // rather than squeezing a column.
+// The tools level shares the width across the model columns, whose cells
+// stack several lines. At the steps level a cell is one pill, so a model
+// column takes only what its header needs and the scenario column, where
+// the prompt previews, gets the rest.
 const gridFor = (level, n) => (level === 'tools'
   ? ['minmax(220px, 1.6fr)', '130px', ...Array(n).fill('minmax(160px, 1fr)'), '110px'].join(' ')
-  : ['minmax(200px, 1.6fr)', ...Array(n).fill('minmax(96px, 1fr)'), '84px', '56px'].join(' '));
+  : ['minmax(200px, 1fr)', ...Array(n).fill('minmax(96px, max-content)'), 'max-content', 'max-content'].join(' '));
 
-const GRID_GAP = { tools: 10, steps: 8 };
+const GRID_GAP = { tools: 10, steps: 14 };
 
 const EMPTY_LIST = [];
 const EMPTY_MAP = {};
