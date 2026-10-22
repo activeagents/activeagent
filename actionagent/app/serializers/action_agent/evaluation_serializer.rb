@@ -86,6 +86,7 @@ module ActionAgent
       {
         id: run.id,
         number: number,
+        run_id: export_run_id(run),
         status: run.status,
         average_score: average_score(run),
         samples_evaluated: run.samples_evaluated,
@@ -96,6 +97,14 @@ module ActionAgent
         agent_version: run.agent_version_summary,
         version_state: run.evaluation.standing_info.version_state(run)
       }
+    end
+
+    # The run_id the run exports under (EvaluationReportExport.run_id_for),
+    # the handle `GET <mount>/api/evaluation_reports/:run_id` and the CLI's
+    # `evals report` take; nil on an install whose runs predate the report
+    # identity migration.
+    def export_run_id(run)
+      EvaluationRun.column_names.include?("external_run_id") ? EvaluationReportExport.run_id_for(run) : nil
     end
 
     # Returns up to +limit+ of the evaluation's runs, newest first. Sorts the

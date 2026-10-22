@@ -9,8 +9,8 @@ class McpDashboardToolsTest < ActionDispatch::IntegrationTest
   RUNTIME_TOKEN = "aa_runtime_dashboard_tools_s3cret"
   DASHBOARD_TOOLS = %w[
     evaluations_list evaluations_get evaluations_create scenarios_merge explorations_submit evaluations_run
-    evaluation_runs_get evaluation_runs_compare traces_search traces_get input_requests_list input_requests_answer
-    catalogs_list catalogs_import catalog_set_run
+    evaluation_runs_get evaluation_runs_compare traces_search traces_get traces_export input_requests_list
+    input_requests_answer catalogs_list catalogs_import catalogs_preview catalogs_export catalog_set_run agents_versions
   ].freeze
 
   # A trace model whose tenant is its service name, so a multi-tenant scope
@@ -427,6 +427,61 @@ class McpDashboardToolsTest < ActionDispatch::IntegrationTest
     assert_equal nothing_body.dig("result", "content", 0, "text").sub("f" * 32, "ID"),
                  theirs_body.dig("result", "content", 0, "text").sub(other.trace_id, "ID")
     assert_equal true, call_tool("traces_get", { trace_id: other.id.to_s }).dig("result", "isError")
+
+    assert_equal own.trace_id, structured(call_tool("traces_export", { trace_id: own.trace_id })).dig("traces", 0, "trace_id")
+    assert_equal true, call_tool("traces_export", { trace_id: other.trace_id }).dig("result", "isError")
+  end
+
+  test "traces_export returns the trace whole, as the payload trace ingest stores" do
+    trace = create_trace(agent_class: "SupportAgent", spans: 150, big_attribute: "y" * 5_000)
+
+    result = structured(call_tool("traces_export", { trace_id: trace.trace_id.first(8) }))
+
+    exported = result["traces"].sole
+    assert_equal trace.trace_id, exported["trace_id"]
+    assert_equal [ "support-hub", "test" ], exported.values_at("service_name", "environment")
+    assert_equal trace.reload.timestamp.iso8601(6), exported["timestamp"]
+    assert_equal 151, exported["spans"].size
+    assert_equal "y" * 5_000, exported["spans"][1].dig("attributes", "tool.output.result")
+    assert_equal({ "agent.class" => "SupportAgent" }, exported["resource_attributes"])
+    assert_equal({}, result["sdk"])
+
+    # Posted to an install that lacks the trace, the result stores the same trace.
+    trace.destroy!
+    post "/activeagents/api/traces", params: result, as: :json
+    assert_response :accepted
+    copy = ActionAgent::TelemetryTrace.find_by!(trace_id: trace.trace_id)
+    assert_equal 151, copy.spans.size
+    assert_equal exported["spans"], copy.spans
+    assert_equal({ "agent.class" => "SupportAgent" }, copy.resource_attributes)
+
+    # The owner's credentials are masked from it, as from every tool's result.
+    leaky = create_trace(agent_class: "SupportAgent", big_attribute: "Bearer #{@key.token}")
+    masked = structured(call_tool("traces_export", { trace_id: leaky.trace_id }))
+    assert_equal "Bearer [REDACTED]", masked.dig("traces", 0, "spans", 1, "attributes", "tool.output.result")
+
+    assert_equal true, call_tool("traces_export", { trace_id: "does-not-exist" }).dig("result", "isError")
+    assert_equal(-32602, call_tool("traces_export").dig("error", "code"))
+  end
+
+  test "agents_versions lists an agent's versions with their diffs, newest first" do
+    @agent.update!(instructions: "Answer from data, briefly.")
+
+    result = structured(call_tool("agents_versions", { agent: "support" }))
+
+    assert_equal({ "id" => @agent.id, "slug" => "support", "name" => "Support", "version_count" => 2 }, result["agent"])
+    assert_equal [ 2, 1 ], result["versions"].map { |version| version["version_number"] }
+    assert_equal({ "from" => "Answer from data.", "to" => "Answer from data, briefly." }, result["versions"].first.dig("diff", "instructions"))
+    assert_equal true, result["versions"].first["is_latest"]
+    assert_nil result["versions"].last["diff"]
+    assert_equal false, result["truncated"]
+
+    limited = structured(call_tool("agents_versions", { agent: @agent.id.to_s, limit: 1 }))
+    assert_equal [ 2 ], limited["versions"].map { |version| version["version_number"] }
+    assert_equal true, limited["truncated"]
+
+    assert_equal true, call_tool("agents_versions", { agent: "nobody" }).dig("result", "isError")
+    assert_equal(-32602, call_tool("agents_versions").dig("error", "code"))
   end
 
   test "dashboard reads need no execution switch and spend no execution quota" do
@@ -504,6 +559,83 @@ class McpDashboardToolsTest < ActionDispatch::IntegrationTest
     assert_match(/No set "nightly"/, body.dig("result", "content", 0, "text"))
     body = call_tool("catalog_set_run", { catalog: "nope", product: "support", set: "smoke" })
     assert_match(/catalogs_list names them/, body.dig("result", "content", 0, "text"))
+  end
+
+  test "catalogs_preview shows what an import would change and writes nothing" do
+    ActionAgent::ScenarioCatalog.delete_all
+
+    preview = structured(call_tool("catalogs_preview", { document: CATALOG_DOCUMENT }))
+    assert_equal "create", preview.dig("catalog", "action")
+    assert_equal "replace", preview["mode"]
+    assert_equal 2, preview["scenario_count"]
+    assert_equal 0, ActionAgent::ScenarioCatalog.count
+
+    structured(call_tool("catalogs_import", { document: CATALOG_DOCUMENT }))
+    changed = CATALOG_DOCUMENT + "          - key: cancel\n            prompt: Cancel order ABC-123.\n"
+    preview = structured(call_tool("catalogs_preview", { document: changed, mode: "merge" }))
+    # The catalog record itself (key, name, description) is unchanged; the
+    # new scenario is in the change list.
+    assert_equal "unchanged", preview.dig("catalog", "action")
+    assert_equal "merge", preview["mode"]
+    assert_equal 1, preview.dig("counts", "create")
+    assert_includes preview["changes"], { "level" => "scenario", "path" => "support/smoke/cancel", "action" => "create" }
+    assert_equal 2, ActionAgent::ScenarioCatalog.sole.scenario_count
+
+    body = call_tool("catalogs_preview", { document: "catalog: x\nproducts: [{ name: nameless }]" })
+    assert_equal true, body.dig("result", "isError")
+    body = call_tool("catalogs_preview", { document: CATALOG_DOCUMENT, mode: "sideways" })
+    assert_equal true, body.dig("result", "isError")
+    assert_match(/replace or merge/, body.dig("result", "content", 0, "text"))
+    assert_equal(-32602, call_tool("catalogs_preview").dig("error", "code"))
+  end
+
+  test "catalogs_import merges when asked, keeping what the document leaves out" do
+    ActionAgent::ScenarioCatalog.delete_all
+    structured(call_tool("catalogs_import", { document: CATALOG_DOCUMENT }))
+    without_refund = CATALOG_DOCUMENT.sub("          - key: refund\n            prompt: Refund order ABC-123.\n", "")
+    assert_not_includes without_refund, "key: refund"
+
+    merged = structured(call_tool("catalogs_import", { document: without_refund, mode: "merge" }))
+    assert_equal "merge", merged["mode"]
+    assert_equal 2, ActionAgent::ScenarioCatalog.sole.scenario_count
+
+    replaced = structured(call_tool("catalogs_import", { document: without_refund }))
+    assert_equal "replace", replaced["mode"]
+    assert_equal 1, ActionAgent::ScenarioCatalog.sole.scenario_count
+  end
+
+  test "catalogs_export writes the catalog back as YAML or JSON, whole or one product or set" do
+    ActionAgent::ScenarioCatalog.delete_all
+    two_sets = CATALOG_DOCUMENT + "      - key: nightly\n        scenarios:\n          - key: cancel\n            prompt: Cancel order ABC-123.\n"
+    structured(call_tool("catalogs_import", { document: two_sets }))
+
+    exported = structured(call_tool("catalogs_export", { catalog: "support_desk" }))
+    assert_equal "yaml", exported["format"]
+    document = YAML.safe_load(exported["document"])
+    assert_equal "support_desk", document["catalog"]
+    assert_equal %w[smoke nightly], document.dig("products", 0, "sets").map { |set| set["key"] }
+    assert_equal %w[order_lookup refund], document.dig("products", 0, "sets", 0, "scenarios").map { |scenario| scenario["key"] }
+    assert_equal exported.dig("catalog", "digest"), exported["digest"]
+    assert_nil exported["product"]
+
+    narrowed = structured(call_tool("catalogs_export", { catalog: "support_desk", product: "support", set: "nightly", format: "json" }))
+    assert_equal [ "json", "support", "nightly" ], narrowed.values_at("format", "product", "set")
+    as_json = JSON.parse(narrowed["document"])
+    assert_equal "support_desk", as_json["catalog"]
+    assert_equal [ "nightly" ], as_json.dig("products", 0, "sets").map { |set| set["key"] }
+
+    # The JSON document imports as the YAML would: a merge of it changes nothing.
+    before = ActionAgent::ScenarioCatalog.sole.digest
+    structured(call_tool("catalogs_import", { document: narrowed["document"], mode: "merge" }))
+    assert_equal before, ActionAgent::ScenarioCatalog.sole.digest
+
+    body = call_tool("catalogs_export", { catalog: "nope" })
+    assert_equal true, body.dig("result", "isError")
+    assert_match(/catalogs_list names them/, body.dig("result", "content", 0, "text"))
+    assert_match(/give product too/, call_tool("catalogs_export", { catalog: "support_desk", set: "smoke" }).dig("result", "content", 0, "text"))
+    assert_match(/No set "nope"/, call_tool("catalogs_export", { catalog: "support_desk", product: "support", set: "nope" }).dig("result", "content", 0, "text"))
+    assert_match(/yaml or json/, call_tool("catalogs_export", { catalog: "support_desk", format: "toml" }).dig("result", "content", 0, "text"))
+    assert_equal(-32602, call_tool("catalogs_export").dig("error", "code"))
   end
 
   test "catalog_set_run honours the execution switch and quota, and asks for an agent when the product names none" do

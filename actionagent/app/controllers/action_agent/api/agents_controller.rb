@@ -591,23 +591,7 @@ module ActionAgent
       end
 
       def version_json(version, include_diff: false)
-        json = {
-          id: version.id,
-          version_number: version.version_number,
-          change_summary: version.change_summary,
-          created_by: version.created_by,
-          created_at: version.created_at,
-          is_latest: version.latest?,
-          release: version.release?,
-          release_digest: version.release_digest,
-          revision: version.revision
-        }
-
-        if include_diff && version.previous
-          json[:diff] = version.diff(version.previous)
-        end
-
-        json
+        AgentVersionSerializer.call(version, include_diff: include_diff)
       end
 
       def default_appearance_for(preset)
