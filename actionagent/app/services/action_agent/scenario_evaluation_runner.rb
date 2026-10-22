@@ -91,6 +91,7 @@ module ActionAgent
       ensure_browser_live!
 
       adapter = ActionAgent.scenario_evaluation_adapter_resolver&.call(@evaluation)
+      judge_provider if adapter.nil? && @evaluation.judge_model.present?
       return fan_out!(run, scenarios, specs) if fan_out?(adapter)
 
       records = scenarios.index_by(&:key)

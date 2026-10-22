@@ -237,6 +237,7 @@ module ActiveAgent
         when :message_delta
           delta = Anthropic::Transforms.gem_to_hash(api_response_chunk.delta)
           self.message_stack.last.merge!(delta)
+          self.stream_finish_reason = delta[:stop_reason] if delta[:stop_reason]
 
         # Message Completed [Full Message]
         when :message_stop

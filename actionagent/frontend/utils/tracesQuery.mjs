@@ -7,8 +7,9 @@
 // class: the server selects its traces from the record, because an observed
 // agent's traces carry the application's own class name and one class can
 // belong to several agents, one per action.
-export const tracesQuery = ({ minutes, agentId = null }) => {
+export const tracesQuery = ({ minutes, agentId = null, bucketSeconds = null }) => {
   const params = new URLSearchParams({ minutes: String(minutes) });
+  if (bucketSeconds != null) params.set('bucket_seconds', String(bucketSeconds));
   if (agentId != null && agentId !== '') params.set('agent_id', String(agentId));
   return `/api/traces?${params.toString()}`;
 };

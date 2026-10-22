@@ -11,6 +11,7 @@ import TraceCard from './TraceCard';
 import { formatDuration, getSpanIcon } from './SpanWaterfall';
 import { dashboardPath } from '../../utils/dashboardPath';
 import { tracesQuery } from '../../utils/tracesQuery.mjs';
+import { traceWindowData } from '../../utils/traceWindow.mjs';
 
 // Deterministic color assignment for agent classes
 const AGENT_PALETTE = ['#6366f1', '#10b981', '#f59e0b', '#ec4899', '#3b82f6', '#8b5cf6', '#14b8a6', '#f97316'];
@@ -49,49 +50,12 @@ const buildSpanStats = (traces) => {
     .sort((a, b) => b.total - a.total);
 };
 
-// Bucket traces for the throughput chart. Bucket width scales with the window
-// so the chart stays readable at every zoom level.
-const buildThroughputData = (traces, agents, windowMinutes, bucketSeconds = 60) => {
-  const now = Date.now();
-  const data = [];
-  const bucketMs = bucketSeconds * 1000;
-  const bucketCount = Math.max(1, Math.round((windowMinutes * 60) / bucketSeconds));
-
-  for (let i = bucketCount - 1; i >= 0; i--) {
-    const bucketStart = now - (i + 1) * bucketMs;
-    const bucketEnd = now - i * bucketMs;
-    const bucketTraces = traces.filter(
-      (t) => t.timestamp_ms >= bucketStart && t.timestamp_ms < bucketEnd
-    );
-
-    const agentBreakdown = {};
-    agents.forEach((agent) => {
-      agentBreakdown[agent] = bucketTraces.filter((t) => t.agent === agent).length;
-    });
-
-    data.push({
-      // Past a day, the clock alone is ambiguous — show the date too.
-      time: windowMinutes > 1440
-        ? new Date(bucketEnd).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit' })
-        : new Date(bucketEnd).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      timestamp: bucketEnd,
-      requests: bucketTraces.length,
-      errors: bucketTraces.filter((t) => t.status === 'ERROR').length,
-      avgLatency: bucketTraces.length > 0
-        ? Math.round(bucketTraces.reduce((a, t) => a + (t.duration_ms || 0), 0) / bucketTraces.length)
-        : 0,
-      traces: bucketTraces,
-      ...agentBreakdown,
-    });
-  }
-  return data;
-};
-
 // agentId scopes the view to one agent's traces (per-agent embed: same
 // component, different UX context); embedded hides the page title.
 export default function TracesView({ agentId = null, embedded = false }) {
   const { darkMode } = useTheme();
   const [traces, setTraces] = useState([]);
+  const [windowReport, setWindowReport] = useState(null);
   const [agentsList, setAgentsList] = useState([]);
   // agent_class => platform Agent id, so a card can open that agent's page.
   const [agentIds, setAgentIds] = useState({});
@@ -116,10 +80,11 @@ export default function TracesView({ agentId = null, embedded = false }) {
     try {
       // The shared window bounds the range; an embedded view scopes to its
       // agent, and the server narrows the agent list along with the traces.
-      const response = await fetch(tracesQuery({ minutes: timeWindow.minutes, agentId }));
+      const response = await fetch(tracesQuery({ minutes: timeWindow.minutes, bucketSeconds: timeWindow.bucketSeconds, agentId }));
       if (!response.ok) throw new Error(`Request failed (${response.status})`);
       const data = await response.json();
       setTraces(data.traces || []);
+      setWindowReport(data);
       setAgentsList(data.agents || []);
       setAgentIds(data.agent_ids || {});
       setLoadError(null);
@@ -128,7 +93,7 @@ export default function TracesView({ agentId = null, embedded = false }) {
     } finally {
       setIsLoading(false);
     }
-  }, [timeWindow.minutes, agentId]);
+  }, [timeWindow.minutes, timeWindow.bucketSeconds, agentId]);
 
   useEffect(() => {
     fetchTraces();
@@ -145,10 +110,11 @@ export default function TracesView({ agentId = null, embedded = false }) {
     setSelectedTimeBucket(null);
   }, [timeWindow.id]);
 
-  const throughputData = useMemo(
-    () => buildThroughputData(traces, agentsList, timeWindow.minutes, timeWindow.bucketSeconds),
-    [traces, agentsList, timeWindow]
+  const windowData = useMemo(
+    () => traceWindowData(windowReport, traces, agentsList, timeWindow),
+    [windowReport, traces, agentsList, timeWindow]
   );
+  const throughputData = windowData.buckets;
 
   // Keep roughly six labels on the axis whatever the bucket count.
   const tickInterval = Math.max(0, Math.ceil(throughputData.length / 6) - 1);
@@ -511,23 +477,20 @@ export default function TracesView({ agentId = null, embedded = false }) {
     );
   }
 
-  const summaryStats = {
-    requests: throughputData.reduce((sum, b) => sum + b.requests, 0),
-    errors: throughputData.reduce((sum, b) => sum + b.errors, 0),
-    avgLatency: (() => {
-      const withTraffic = throughputData.filter((b) => b.requests > 0);
-      if (withTraffic.length === 0) return 0;
-      return Math.round(withTraffic.reduce((sum, b) => sum + b.avgLatency, 0) / withTraffic.length);
-    })(),
-    throughput: (throughputData.reduce((sum, b) => sum + b.requests, 0) / timeWindow.minutes).toFixed(1),
-  };
+  const summaryStats = windowData.summary;
+  const detailNotice = windowData.truncated && (
+    <div role="status" data-testid="trace-window-notice" style={{ padding: '12px 24px', fontSize: 13, color: darkMode ? '#fbbf24' : '#92400e' }}>
+      Showing newest {traces.length} of {windowData.total} traces. Chart and totals cover the full window; lists and breakdowns use these loaded traces.
+    </div>
+  );
 
-  const emptyState = traces.length === 0;
+  const emptyState = summaryStats.requests === 0;
 
   // Dark mode uses lander CSS classes, light mode uses Tailwind
   if (darkMode) {
     return (
       <div className="preview-content" style={{ borderRadius: '12px', overflow: 'hidden', minHeight: 'calc(100vh - 200px)' }}>
+        {detailNotice}
         {/* Header inside dark container */}
         <div style={{ padding: '24px 24px 0 24px', borderBottom: '1px solid rgba(255,255,255,0.1)', marginBottom: '16px', paddingBottom: '16px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -934,6 +897,7 @@ export default function TracesView({ agentId = null, embedded = false }) {
   // Light mode - Tailwind classes
   return (
     <div className="space-y-6">
+      {detailNotice}
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-y-2">
         <div>

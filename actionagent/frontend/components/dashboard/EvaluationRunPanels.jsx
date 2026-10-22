@@ -14,6 +14,8 @@ import ModelComparisonTable from './evaluations/ModelComparisonTable';
 import ComparisonIntervals from './evaluations/ComparisonIntervals';
 import JudgeChip from './evaluations/JudgeChip';
 import CopyFixPromptButton, { dashboardUrl } from './evaluations/CopyFixPromptButton';
+import CopyMarkdownButton from './evaluations/CopyMarkdownButton';
+import { markdownPartUrl } from '../../utils/reportExport.mjs';
 import ImplementFixButton from './evaluations/ImplementFixButton';
 import ReplayLink from './replay/ReplayLink';
 import { fixPromptMarkdown } from '../../utils/fixPrompt.mjs';
@@ -418,7 +420,7 @@ function CallLine({ calls, empty, style }) {
 // latency, tokens and what the replays cost under it — then the judge's
 // verdict when the run compared cohorts. A model's card carries the agent's
 // spend only; the judge's is the run's (see RunsList and CriteriaFooter).
-export function ModelsPanel({ run, columns, results = [], scenarioCount = 0, judgedBy, verdict, evaluation = null, onJudgeChanged }) {
+export function ModelsPanel({ run, columns, results = [], scenarioCount = 0, judgedBy, verdict, evaluation = null, onJudgeChanged, markdownUrl = null }) {
   const summaries = run?.scores?._models || {};
   const judgeEstimated = runSpend(run)?.judge?.estimated ?? true;
   return (
@@ -426,6 +428,12 @@ export function ModelsPanel({ run, columns, results = [], scenarioCount = 0, jud
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
         <MicroLabel>Models</MicroLabel>
         <JudgeChip evaluation={evaluation} run={run} label={judgedBy} onChanged={onJudgeChanged} testId="suite-judge" />
+        <CopyMarkdownButton
+          url={markdownPartUrl(markdownUrl, { part: 'verdict' })}
+          testId="copy-verdict-markdown"
+          title="Copy the verdict and the model comparison as Markdown"
+          style={{ marginLeft: 'auto' }}
+        />
       </div>
       {columns.length === 0 && (
         <Empty style={{ border: '1px solid var(--color-border-light)', borderRadius: 10 }}>[ ] no models scored yet</Empty>
@@ -1213,7 +1221,7 @@ function ResultCard({ label, run, result, expects, running }) {
 // `inRun` says whether the selected run covers this scenario: a scenario the
 // run skipped offers a replay instead of empty result cards, and a suite with
 // no run at all says so rather than blaming a run that never happened.
-export function ScenarioDetail({ scenario, run, columns, resultsByKey, running, inRun = true, onRerun, onToggleEnabled, canMutate = true }) {
+export function ScenarioDetail({ scenario, run, columns, resultsByKey, running, inRun = true, onRerun, onToggleEnabled, canMutate = true, markdownUrl = null }) {
   const expects = expectList(scenario, 'tools');
   const results = resultsByKey[scenario.key] || {};
   const anyResult = columns.some((label) => results[label]);
@@ -1224,8 +1232,16 @@ export function ScenarioDetail({ scenario, run, columns, resultsByKey, running, 
         <span style={mono(11)}>{scenario.key}</span>
         <span style={{ fontSize: 12, color: 'var(--color-text-cell)' }}>expects</span>
         <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 600, color: 'var(--color-text-primary)' }}>{expects.join(' or ') || '—'}</span>
+        {run && anyResult && (
+          <CopyMarkdownButton
+            url={markdownPartUrl(markdownUrl, { part: 'scenario', scenario: scenario.key })}
+            testId="copy-scenario-markdown"
+            title="Copy this scenario — the prompt, expectations and each model's result — as Markdown"
+            style={{ marginLeft: 'auto' }}
+          />
+        )}
         {canMutate && (
-          <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 14 }}>
+          <span style={{ marginLeft: run && anyResult && markdownUrl ? 0 : 'auto', display: 'flex', alignItems: 'center', gap: 14 }}>
             <button
               type="button"
               onClick={(event) => { event.stopPropagation(); onToggleEnabled?.(scenario); }}
@@ -1271,7 +1287,7 @@ export function ScenarioDetail({ scenario, run, columns, resultsByKey, running, 
 // is never posted and a card with none left says so.
 export function FixList({
   items, columns = [], agentName, onNavigate, onOpenScenario, run = null, results = [], evaluation = null, runNumber = null, scenarios = [],
-  onRerun = null, runnableFor = null,
+  onRerun = null, runnableFor = null, markdownUrl = null,
 }) {
   const runnable = (item) => (runnableFor ? runnableFor(item) : runnableKeys(item.scenario_keys || [], scenarios));
   // Which model cohort the list is read for. A fault one model keeps
@@ -1306,6 +1322,13 @@ export function FixList({
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }} data-testid="fix-list">
+      <CopyMarkdownButton
+        url={markdownPartUrl(markdownUrl, { part: 'fix_items', model: selected })}
+        label={selected === 'all' ? 'Copy What to fix as Markdown' : `Copy What to fix for ${splitModelLabel(selected).short} as Markdown`}
+        testId="copy-fixes-markdown"
+        title="Copy What to fix as Markdown, for the model the filter shows"
+        style={{ alignSelf: 'flex-end' }}
+      />
       {filterable && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }} data-testid="fix-list-model-filter">
           <span style={mono(11)}>for</span>
@@ -1420,6 +1443,7 @@ export function FixList({
                 </span>
               ))}
               <CopyFixPromptButton build={() => promptFor(item)} style={{ marginLeft: 'auto' }} />
+              <CopyMarkdownButton text={item.markdown} testId="copy-fix-markdown" title="Copy this fix as Markdown, for an issue or a pull request" />
               <ImplementFixButton item={item} evaluation={evaluation} run={run} />
             </div>
           </div>

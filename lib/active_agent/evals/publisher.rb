@@ -94,11 +94,7 @@ module ActiveAgent
       # report may be a Report or its saved JSON hash. Full prompts, answers and
       # tool results are included; applications should make publication opt-in.
       def call(report:, run_id:, source:, agent_name:, suite:)
-        identities = { "run_id" => run_id, "source" => source, "agent_name" => agent_name, "suite" => suite }
-        identities.each do |key, value|
-          raise ArgumentError, "#{key} must be a nonempty string" unless value.is_a?(String) && !value.strip.empty?
-        end
-        body = encode(identities.merge("version" => 1, "report" => report_hash(report)))
+        body = encode(self.class.envelope(report: report, run_id: run_id, source: source, agent_name: agent_name, suite: suite))
         raise Error, "Evaluation report exceeds the 2 MiB delivery limit; publish a smaller selection" if body.bytesize > MAX_BYTES
 
         deliver("retain the report and run_id for retry") do
@@ -143,6 +139,24 @@ module ActiveAgent
         end
       end
 
+      # The version-1 envelope a collector stores: the four identities, the
+      # version and the report's hash. What #call sends, and what a
+      # collector's export of a stored run returns, so the export can be
+      # posted again. report may be a Report or its saved JSON hash.
+      #
+      # Raises ArgumentError for an identity that is not a nonempty string,
+      # or a report that is neither.
+      def self.envelope(report:, run_id:, source:, agent_name:, suite:)
+        identities = { "run_id" => run_id, "source" => source, "agent_name" => agent_name, "suite" => suite }
+        identities.each do |key, value|
+          raise ArgumentError, "#{key} must be a nonempty string" unless value.is_a?(String) && !value.strip.empty?
+        end
+        hash = report.to_h if report.respond_to?(:to_h) && !report.nil? && !report.is_a?(Array)
+        raise ArgumentError, "report must be a Report or its saved JSON hash" unless hash.is_a?(Hash)
+
+        identities.merge("version" => 1, "report" => hash)
+      end
+
       private
 
       # Posts +body+ to the endpoint with the bearer key and the delivery timeouts.
@@ -174,13 +188,6 @@ module ActiveAgent
         raise Error.new("Evaluation collector returned a malformed response (#{e.class}); #{guidance}", retryable: true), cause: nil
       rescue IOError, SocketError, SystemCallError, Timeout::Error, OpenSSL::SSL::SSLError => e
         raise Error.new("Evaluation delivery failed (#{e.class}); #{guidance}", retryable: true)
-      end
-
-      def report_hash(report)
-        hash = report.to_h if report.respond_to?(:to_h) && !report.nil? && !report.is_a?(Array)
-        raise ArgumentError, "report must be a Report or its saved JSON hash" unless hash.is_a?(Hash)
-
-        hash
       end
 
       # Returns the envelope as JSON. A report holding invalid UTF-8, NaN,

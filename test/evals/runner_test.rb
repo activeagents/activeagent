@@ -353,7 +353,7 @@ class EvalsRunnerTest < ActiveSupport::TestCase
     assert_includes markdown, "| `gpt-5-mini` | 3/3 (100%) | 100% |"
     assert_includes markdown, "**Best model: gpt-5-mini**"
     assert_includes markdown, "| `history_1` Who changed the shipping policy? | ✅ 100% | ❌ 100% missing capability | ~$0.0010 |"
-    assert_includes markdown, "- **missing capability** ×1 (history_1):"
+    assert_includes markdown, "### ❗ missing capability\n\nScenarios: `history_1` · models: `qwen3:8b`"
     assert_equal "gpt-5-mini", parsed["verdict"]["winner"]
     assert_equal 6, parsed["results"].size
   end

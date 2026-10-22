@@ -125,8 +125,19 @@ module ActionAgent
     # derived from every persisted result's diagnosis, which older runs
     # recorded in earlier shapes, so a run they fail for still serves its
     # results. Without +links+ the item paths are relative to the mount.
-    def fix_items(run, links: nil)
-      links ? run.fix_items(links: links) : run.fix_items
+    # With +markdown+ each item carries its `markdown`
+    # (ActiveAgent::Evals::ReportMarkdown#fix_item_markdown), which the
+    # dashboard's fix cards copy.
+    def fix_items(run, links: nil, markdown: false)
+      unless markdown
+        return links ? run.fix_items(links: links) : run.fix_items
+      end
+
+      report = links ? run.to_report(links: links) : run.to_report
+      items = report.fix_items
+      return items unless report.respond_to?(:fix_item_markdown)
+
+      items.map { |item| item.merge("markdown" => report.fix_item_markdown(item)) }
     rescue StandardError => e
       Rails.logger.warn(
         "[ActionAgent] evaluation run #{run.id} fix_items failed: #{e.class}: #{e.message}"
