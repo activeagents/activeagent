@@ -320,4 +320,97 @@ class ActionAgentEvaluationRunnerServiceTest < ActiveSupport::TestCase
     assert_equal 2, run.scores.dig("errors", "traces")
     assert_equal 500, run.scores.dig("latency", "observed", "avg_duration_ms")
   end
+
+  def pinned_judge(model, config:, resolver_options: {})
+    ActionAgent::ProviderKey.delete_all
+    ActionAgent::Agent.delete_all
+    agent = ActionAgent::Agent.create!(name: "Judged", provider: "mock", model: "mock-model")
+    evaluation = agent.evaluations.create!(name: "Quality", judge_kind: "llm", judge_model: model,
+      criteria: [ { "key" => "quality", "type" => "llm_judge" } ])
+    service = ActionAgent::EvaluationRunnerService.new(evaluation)
+    ActiveAgent.stub(:configuration, config) do
+      if resolver_options.any?
+        service.stub(:owner_provider_options, resolver_options) { yield service }
+      else
+        yield service
+      end
+    end
+  end
+
+  test "pinned models resolve their provider and strip only the route qualifier" do
+    config = { anthropic: { access_token: "synthetic" }, openai: { access_token: "synthetic" },
+               openrouter: { access_token: "synthetic" } }
+    {
+      "gpt-4o-mini" => [ :openai, "gpt-4o-mini" ],
+      "claude-haiku-4-5" => [ :anthropic, "claude-haiku-4-5" ],
+      "openai/custom-deployment" => [ :openai, "custom-deployment" ],
+      "openrouter/anthropic/claude-haiku-4.5" => [ :openrouter, "anthropic/claude-haiku-4.5" ],
+      "meta-llama/llama-3.3-70b-instruct" => [ :openrouter, "meta-llama/llama-3.3-70b-instruct" ],
+      "custom-model" => [ :anthropic, "custom-model" ]
+    }.each do |model, (provider, sent_model)|
+      pinned_judge(model, config: config) do |service|
+        assert_equal provider, service.judge_provider, model
+        assert_equal sent_model, service.send(:judge_requested_model), model
+        assert_equal sent_model, service.send(:judge_class).prompt_options[:model], model
+        assert_equal provider.to_s, service.send(:judge_descriptor)["provider"]
+      end
+    end
+  end
+
+  test "a pin beats a credential resolver's default model without changing its endpoint" do
+    pinned_judge("openai/custom-deployment", config: {},
+      resolver_options: { access_token: "synthetic", model: "resolver-default", base_url: "https://gateway.example/v1" }) do |service|
+      options = service.send(:judge_class).prompt_options
+      assert_equal "custom-deployment", options[:model]
+      assert_equal "https://gateway.example/v1", options[:base_url]
+      assert_equal "custom-deployment", service.send(:judge_requested_model)
+    end
+  end
+
+  test "a missing explicit or native route fails clearly rather than using another provider" do
+    config = { openrouter: { access_token: "synthetic" } }
+    %w[gpt-4o-mini anthropic/claude-haiku-4-5].each do |model|
+      pinned_judge(model, config: config) do |service|
+        error = assert_raises(ArgumentError) { service.call }
+        assert_match(/No credentials for judge provider/, error.message)
+        run = service.instance_variable_get(:@evaluation).evaluation_runs.last
+        assert_equal "failed", run.status
+        assert_equal error.message, run.error_message
+      end
+    end
+  end
+
+  test "a run that never asks the judge is not held to an unavailable pin" do
+    pinned_judge("gpt-4o-mini", config: { anthropic: { access_token: "synthetic" } }) do |service|
+      evaluation = service.instance_variable_get(:@evaluation)
+      evaluation.update!(criteria: [ { "key" => "response_present", "type" => "response_present", "config" => {} } ])
+      record_generation(evaluation.agent)
+
+      run = service.call
+      assert_equal "complete", run.status
+      assert_nil run.scores["_judge_usage"]
+    end
+  end
+
+  test "with no credentials a pinned judge still skips scoring instead of inventing a route" do
+    pinned_judge("gpt-4o-mini", config: {}) do |service|
+      assert_nil service.judge_provider
+      assert_not service.send(:judge_available?)
+    end
+  end
+
+  test "an Ollama pin resolves to the configured local host" do
+    pinned_judge("ollama/llama3.2", config: {}, resolver_options: { host: "http://localhost:11434/v1" }) do |service|
+      assert_equal :ollama, service.judge_provider
+      assert_equal "llama3.2", service.send(:judge_requested_model)
+    end
+  end
+
+  test "a pinned provider does not resolve another provider's unreadable credentials" do
+    config = { openai: { access_token: "synthetic" } }
+    pinned_judge("gpt-4o-mini", config: config) do |service|
+      resolve = ->(name) { raise "unrelated credentials unavailable" if name == :anthropic; {} }
+      service.stub(:owner_provider_options, resolve) { assert_equal :openai, service.judge_provider }
+    end
+  end
 end

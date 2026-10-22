@@ -132,6 +132,7 @@ module ActiveAgent
                     :stream_broadcaster, :streaming,   # Callback (Streams)
                     :stream_completion_pending,        # Callback (Streams)
                     :stream_completion_result,         # Callback (Streams)
+                    :stream_finish_reason,             # Callback (Streams)
                     :tools_function,                   # Callback (Tools)
                     :usage_stack,                      # Usage Tracking
                     :stream_usage_index,               # Usage Tracking (Streams)
@@ -607,6 +608,7 @@ module ActiveAgent
           messages:,
           raw_request:  prompt_request_type.serialize(request),
           raw_response: api_response,
+          streamed_finish_reason: stream_finish_reason,
           usages: usage_stack,
           **attributes
         )

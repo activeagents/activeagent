@@ -283,7 +283,7 @@ SolidAgent::AgentManifest.validate(path)  # => [] in CI
 manifest = SolidAgent::AgentManifest.parse(path)
 
 klass = SolidAgent::AgentManifest.load_agent(path, class_name: "ChangelogWriterAgent")
-klass._manifest_model         # => "claude-sonnet-4-20250514"
+klass._manifest_model         # => "claude-sonnet-5-5"
 klass._manifest_instructions  # the Markdown body
 
 SolidAgent::AgentManifest.convert(path, :crewai, "tmp/agents.yaml")

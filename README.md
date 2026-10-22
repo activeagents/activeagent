@@ -57,6 +57,9 @@ bundle add openai
 # Requesty (uses OpenAI-compatible API)
 bundle add openai
 
+# Opper (uses OpenAI-compatible API)
+bundle add openai
+
 # DeepSeek (uses OpenAI-compatible API)
 bundle add openai
 

@@ -335,8 +335,10 @@ module ActiveAgent
           # Detect Ollama by presence of nanosecond duration fields
           if usage.key?(:total_duration)
             from_ollama(usage_hash)
-          # Detect Anthropic by presence of cache_creation or service_tier
-          elsif usage.key?(:cache_creation) || usage.key?(:service_tier)
+          # Detect Anthropic by presence of cache_creation or service_tier, or by its
+          # cache token fields (a usage payload does not always carry the former two)
+          elsif usage.key?(:cache_creation) || usage.key?(:service_tier) ||
+                usage.key?(:cache_read_input_tokens) || usage.key?(:cache_creation_input_tokens)
             from_anthropic(usage_hash)
           # Detect OpenAI Responses API by input_tokens/output_tokens with details
           elsif usage.key?(:input_tokens) && usage.key?(:input_tokens_details)

@@ -26,7 +26,7 @@ module ActiveAgent
   #
   # @example Basic agent
   #   class MyAgent < ActiveAgent::Base
-  #     generate_with :openai, model: "gpt-4"
+  #     generate_with :openai, model: "gpt-5"
   #
   #     def greet
   #       prompt instructions: "Greet the user warmly"
@@ -112,7 +112,7 @@ module ActiveAgent
     # @return [void]
     #
     # @example
-    #   generate_with :openai, model: "gpt-4", temperature: 0.7
+    #   generate_with :openai, model: "gpt-5"
     def self.generate_with(provider_reference, **agent_options)
       self.prompt_provider = provider_reference
 

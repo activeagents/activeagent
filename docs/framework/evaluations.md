@@ -69,12 +69,32 @@ can archive next to a CI run or hand to a teammate, the way a test suite
 publishes its report. It carries the same reading the dashboard's suite card
 does, in the same order: stat tiles, a panel per model with the judge's pick
 and the verdict, the scenario × model matrix, a disclosure per scenario
-holding every answer, and then the what-to-fix cards. The Markdown follows
-the same order: the model table, the matrix, every answer, then the
-recommendations. `theme:` is its only argument — `"light"` or `"dark"` pins
-the palette, nil follows the viewer's system preference. It is the same page
-the dashboard serves at
-`/api/evaluations/:id/runs/:run_id/report`.
+holding every answer, and then the what-to-fix cards. `theme:` is its only
+argument — `"light"` or `"dark"` pins the palette, nil follows the viewer's
+system preference. It is the same page the dashboard serves at
+`/api/evaluations/:id/runs/:run_id/report`. Its one inline script backs its
+*Copy as Markdown* buttons (with a fallback where the Clipboard API is
+refused); nothing is loaded from outside the file.
+
+The Markdown has the same content as the page, in GitHub-flavored Markdown,
+because GitHub strips the page's styles when it is pasted into a pull
+request: the model table and the run's cost, the best model with the
+verdict's rationale, the comparison, the scenario × model matrix, every
+answer — one `<details>` block per scenario holding its prompt, expectations,
+a table of each model's status, score, tool calls, fault and cost, and each
+answer quoted — and **What to fix**, one heading per fix item with its
+scenarios and models, the recommendation, the judge's quoted instruction
+change, the tools and server involved, and where the fix lives. Table cells
+escape `|` and fold line breaks. The pieces people paste one at a time are
+public on their own and read exactly as they do in the whole report:
+
+```ruby
+report.verdict_markdown                         # verdict, model table, comparison
+report.fix_items_markdown                       # What to fix
+report.fix_items_markdown(model: "gpt-5-mini")  # What to fix for one model
+report.fix_item_markdown(report.fix_items.first)
+report.scenario_markdown("order_lookup")        # one scenario, every model's result
+```
 
 `SupportAgent.evaluate` is whatever runs your agent and returns an
 `ActiveAgent::Evals::Replay` (or a hash with the same keys). With ActiveAgent
@@ -795,7 +815,11 @@ This preserves host run/result IDs and response/judge trace IDs without a
 schema migration. Existing result and report URLs continue to work:
 
 - `<mount>/api/evaluations/:id/runs/:run_id` returns persisted result JSON.
-- `<mount>/api/evaluations/:id/runs/:run_id/report` serves the HTML report.
+- `<mount>/api/evaluations/:id/runs/:run_id/report` serves the HTML report;
+  `report.md` serves it as Markdown (`?part=verdict|fix_items|scenario`, with
+  `model=` or `scenario=`, for one piece), `report.json` as the
+  [evaluation report envelope](/evals/publication#exporting-a-stored-run), and
+  `?download=1` downloads any of them as `<evaluation>-run-<n>.html|md|json`.
 - `<mount>/evaluations/:id/runs/:run_id/report` opens it within the dashboard.
 - `<mount>/evaluations/:id` opens an evaluation on its run history, and
   `<mount>/evaluations/:id/runs/:run_id` one of its runs — a page of its own
@@ -818,3 +842,35 @@ judge's together. A scenario run's per-model summaries under
 `scores._models` carry the same per model: `cost` (the effective one),
 `priced`, `reported`, `estimated`, `judge_cost` and `judge_calls`. The index
 adds `run_count` and a `previous_run` summary per evaluation.
+
+### Routing a pinned judge
+
+An unpinned judge uses the first configured provider in Anthropic, OpenAI,
+OpenRouter, Ollama order. A pinned native name selects its native provider:
+`gpt-5-mini` uses OpenAI and `claude-haiku-4-5` uses Anthropic. Adding an
+unrelated provider key no longer changes that route.
+
+Use a provider-qualified ID to choose a route explicitly. For example,
+`openai/my-deployment` sends `my-deployment` through the owner's OpenAI
+endpoint, `ollama/llama3.2` sends `llama3.2` to Ollama, and
+`openrouter/anthropic/claude-haiku-4.5` sends `anthropic/claude-haiku-4.5`
+through OpenRouter. A vendor ID such as `meta-llama/llama-3.3-70b-instruct`
+also selects OpenRouter. The pin wins over the credential resolver's model
+default; its endpoint and credentials are preserved. Unrecognized bare
+custom names retain the default provider behavior.
+
+A pin that starts with a provider name, such as `anthropic/claude-haiku-4-5`
+or `openai/gpt-4o-mini`, selects that provider. Earlier releases sent such a
+pin to whichever provider had credentials first, so an install with only an
+OpenRouter key reached it through OpenRouter. To keep that route, pin
+`openrouter/` followed by OpenRouter's own ID, such as
+`openrouter/anthropic/claude-haiku-4.5`.
+
+A missing native or explicitly named route does not silently use another
+provider. A run that asks the judge fails with an actionable error when
+some other provider is configured; a rules-only run ignores the pin, and with
+no credentials at all scoring remains skipped. Automatic conversion
+of native IDs to gateway aliases, balance checks, outage failover and
+cross-provider request retries are not implemented. Pin the gateway's exact
+model ID when you want that route. Host evaluation adapters continue to own
+their judge execution.
