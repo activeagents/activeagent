@@ -21,8 +21,10 @@ module ActiveAgent
     #   the MCP facade at <mount>/mcp, whose dashboard tools back most
     #   commands.
     # - +ingest_key+, the install's ingest key (ActionAgent.ingest_api_key,
-    #   or the tenant's telemetry key), for the collector endpoints under
-    #   <mount>/api/evaluation_reports. Defaults to +api_key+.
+    #   or the tenant's telemetry key), for the endpoints the framework's
+    #   reporters post to: the report collector at
+    #   <mount>/api/evaluation_reports and trace ingest at <mount>/api/traces.
+    #   Defaults to +api_key+.
     class Client
       DETAIL_LIMIT = 200
       JSONRPC_INVALID_PARAMS = -32602
@@ -61,6 +63,10 @@ module ActiveAgent
 
       def reports_endpoint
         "#{url}/api/evaluation_reports"
+      end
+
+      def traces_endpoint
+        "#{url}/api/traces"
       end
 
       # A Publisher for the mount's collector, authenticated with the ingest key.
@@ -111,22 +117,45 @@ module ActiveAgent
                         "the install sets ActionAgent.mcp_dashboard_tools = false", exit_code: EXIT_UNAVAILABLE)
       end
 
+      # Rails' own 404 body, from a dashboard whose routes have no such path.
+      GENERIC_NOT_FOUND = /\Anot found\z/i
+
       # GETs +path+ under the mount with the ingest key and returns the
-      # response, raising on anything but 200.
-      def get(path, accept:, query: nil, not_found: nil)
+      # response, raising on anything but 200. A 404 is one of two things:
+      # the endpoint's own refusal, a JSON error naming what is missing,
+      # raised as +missing+ with that detail; or nothing at the path at all
+      # (an older engine), raised as +unavailable+ with EXIT_UNAVAILABLE.
+      def get(path, accept:, query: nil, missing: nil, unavailable: nil)
         require_key!(@ingest_key, "an ingest key")
         uri = URI("#{url}#{path}")
         uri.query = query if query
         response = exchange(:get, uri, @ingest_key, accept: accept)
         return response if response.code == "200"
 
-        if response.code == "404" && not_found
-          raise refused(not_found, response, @ingest_key, 404, exit_code: EXIT_UNAVAILABLE)
+        case response.code
+        when "404"
+          detail = error_detail(response, @ingest_key)
+          raise Error.new("#{missing} (#{detail})", status: 404) if missing && detail && !detail.match?(GENERIC_NOT_FOUND)
+
+          raise Error.new(unavailable || "Nothing at #{path} answers; check the dashboard URL", status: 404, exit_code: EXIT_UNAVAILABLE)
+        when "401"
+          raise refused("the dashboard refused the ingest key; use the mount's ingest_api_key (--ingest-key)", response, @ingest_key, 401)
+        else
+          raise refused("GET #{path} answered HTTP #{response.code}", response, @ingest_key, response.code.to_i)
         end
+      end
+
+      # POSTs +body+, a JSON string, to +path+ under the mount with the
+      # ingest key and returns the response, raising on anything but a 2xx.
+      def post(path, body)
+        require_key!(@ingest_key, "an ingest key")
+        response = exchange(:post, URI("#{url}#{path}"), @ingest_key, body: body)
+        return response if response.code.start_with?("2")
+
         if response.code == "401"
           raise refused("the dashboard refused the ingest key; use the mount's ingest_api_key (--ingest-key)", response, @ingest_key, 401)
         end
-        raise refused("GET #{path} answered HTTP #{response.code}", response, @ingest_key, response.code.to_i)
+        raise refused("POST #{path} answered HTTP #{response.code}", response, @ingest_key, response.code.to_i)
       end
 
       private
@@ -170,13 +199,16 @@ module ActiveAgent
       end
 
       def refused(message, response, key, status, exit_code: EXIT_FAILURE)
-        detail = begin
-          parsed = JSON.parse(response.body.to_s)
-          sanitize(parsed["error"], key) if parsed.is_a?(Hash)
-        rescue JSON::ParserError, EncodingError
-          nil
-        end
+        detail = error_detail(response, key)
         Error.new(detail ? "#{message} (#{detail})" : message, status: status, exit_code: exit_code)
+      end
+
+      # The sanitized `error` string of a JSON error body, or nil.
+      def error_detail(response, key)
+        parsed = JSON.parse(response.body.to_s)
+        sanitize(parsed["error"], key) if parsed.is_a?(Hash)
+      rescue JSON::ParserError, EncodingError
+        nil
       end
 
       # Control characters and runs of whitespace become one space, the keys
