@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import AgentAvatar from '../AgentAvatar';
 import AgentStatCard, { rateTone } from './AgentStatCard';
+import { Badge, statusTone } from './primitives';
 import { fmtPasses, fmtPercent } from '../../utils/evalFormat.mjs';
 
 // Mirrors Api::AgentsController::LIST_SORTS. Ordering is applied server-side
@@ -51,15 +52,6 @@ export default function AgentList({
     if (days === 1) return 'Yesterday';
     if (days < 7) return `${days} days ago`;
     return date.toLocaleDateString();
-  };
-
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'active': return 'bg-green-100 text-green-700';
-      case 'draft': return 'bg-yellow-100 text-yellow-700';
-      case 'archived': return 'bg-gray-100 text-gray-500';
-      default: return 'bg-gray-100 text-gray-500';
-    }
   };
 
   const formatDuration = (ms) => {
@@ -193,11 +185,7 @@ export default function AgentList({
                 key={agent.id}
                 name={agent.name}
                 subtitle={agent.description || 'No description'}
-                badge={
-                  <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${getStatusColor(agent.status)}`}>
-                    {agent.status}
-                  </span>
-                }
+                badge={<Badge tone={statusTone(agent.status)}>{agent.status}</Badge>}
                 onClick={() => onSelect(agent)}
                 stats={[
                   { label: `Runs ${stats.window_days || 30}d`, value: stats.runs ?? 0, title: runsTitle },
@@ -228,15 +216,7 @@ export default function AgentList({
                 footer={
                   <>
                     <span style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
-                      <span style={{
-                        padding: '2px 6px',
-                        borderRadius: '4px',
-                        background: 'rgba(128,128,128,0.15)',
-                        whiteSpace: 'nowrap',
-                        flexShrink: 0,
-                      }}>
-                        {agent.provider}
-                      </span>
+                      <Badge tone="muted" style={{ flexShrink: 0 }}>{agent.provider}</Badge>
                       {/* Model ids run long (meta-llama/llama-3.3-70b-instruct);
                           truncate rather than wrap the card to three lines. */}
                       <span
