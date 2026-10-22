@@ -18,6 +18,8 @@ import CopyMarkdownButton from './evaluations/CopyMarkdownButton';
 import { markdownPartUrl } from '../../utils/reportExport.mjs';
 import ImplementFixButton from './evaluations/ImplementFixButton';
 import ReplayLink from './replay/ReplayLink';
+import ValuePill from './ValuePill';
+import MetricStrip from './MetricStrip';
 import { fixPromptMarkdown } from '../../utils/fixPrompt.mjs';
 
 // The panels a scenario suite's expanded body is built from — Models, the
@@ -550,7 +552,6 @@ function ResultCell({ result, expects, pending, compact = false }) {
   }
   if (!isSettled(result)) return <span style={{ ...mono(12), fontWeight: 600 }}>…</span>;
   const pass = isPassed(result);
-  const color = pass ? 'var(--color-success)' : 'var(--color-error)';
   const calls = callList(result.tool_calls, expects);
   if (compact) {
     const fault = result.fault ? faultName(result.fault) : result.status === 'errored' ? 'errored' : null;
@@ -558,9 +559,8 @@ function ResultCell({ result, expects, pending, compact = false }) {
     const title = `${calls.map((call) => call.label).join(' ') || 'no tools called'}${cost ? ` · ${cost}` : ''}`;
     return (
       <span title={title} style={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0 }}>
-        <span style={{ display: 'flex', alignItems: 'baseline', gap: 6, minWidth: 0, fontFamily: MONO, fontSize: 12, whiteSpace: 'nowrap' }}>
-          <span style={{ fontWeight: 700, color, flexShrink: 0 }}>{pass ? '[+]' : '[!]'}</span>
-          <span style={{ fontWeight: 600, color, flexShrink: 0 }}>{fmtScore(result.score)}</span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, fontFamily: MONO, fontSize: 12, whiteSpace: 'nowrap' }}>
+          <ValuePill rank={pass ? 'good' : 'poor'} size="compact" testId="scenario-cell-score" style={{ flexShrink: 0 }}>{`${pass ? '[+]' : '[!]'} ${fmtScore(result.score)}`}</ValuePill>
           {fault && <span style={{ fontSize: 11, color: 'var(--color-error-text)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>{fault}</span>}
         </span>
         <MetricsLine metrics={resultMetrics(result)} />
@@ -569,9 +569,8 @@ function ResultCell({ result, expects, pending, compact = false }) {
   }
   return (
     <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 3 }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, flexWrap: 'wrap', fontFamily: MONO, fontSize: 12 }}>
-        <span style={{ fontWeight: 700, color }}>{pass ? '[+]' : '[!]'}</span>
-        <span style={{ fontWeight: 600, color }}>{fmtScore(result.score)}</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', fontFamily: MONO, fontSize: 12 }}>
+        <ValuePill rank={pass ? 'good' : 'poor'} size="compact" testId="scenario-cell-score">{`${pass ? '[+]' : '[!]'} ${fmtScore(result.score)}`}</ValuePill>
         {result.fault && <span style={{ fontSize: 11, color: 'var(--color-error-text)' }}>{faultName(result.fault)}</span>}
       </div>
       <CallLine calls={calls} empty="no tools called" />
@@ -1003,12 +1002,14 @@ export function ScenarioMatrix({
               </span>
             );
           })}
-          <span style={{ textAlign: 'right' }} title="What the scenario cost across every model, and what judging it cost; under it, its input→output tokens">
-            <MicroLabel size={10} color="var(--color-text-muted)">Cost</MicroLabel>
+          <span style={{ textAlign: 'right', display: 'grid', gap: 1, justifyItems: 'end' }} title="What the scenario cost across every model, and what judging it cost; under it, its input→output tokens">
+            <MicroLabel size={10} color="var(--color-text-primary)" style={{ fontWeight: 700 }}>Cost</MicroLabel>
+            <MicroLabel size={9} color="var(--color-text-muted)">per scenario</MicroLabel>
           </span>
           {steps && (
-            <span style={{ textAlign: 'right' }} title="The slowest answer across the run's models; a group's add up">
-              <MicroLabel size={10} color="var(--color-text-muted)">Time</MicroLabel>
+            <span style={{ textAlign: 'right', display: 'grid', gap: 1, justifyItems: 'end' }} title="The slowest answer across the run's models; a group's add up">
+              <MicroLabel size={10} color="var(--color-text-primary)" style={{ fontWeight: 700 }}>Time</MicroLabel>
+              <MicroLabel size={9} color="var(--color-text-muted)">slowest</MicroLabel>
             </span>
           )}
         </div>
@@ -1031,7 +1032,8 @@ export function ScenarioMatrix({
             const passed = settled.filter((s) => isPassed(resultsByKey[s.key][label])).length;
             const total = inRun.length;
             const color = total && passed === total ? 'var(--color-success-text)' : passed === 0 ? 'var(--color-error-text)' : 'var(--color-text-cell)';
-            return { label, text: `${fmtPasses(passed, total)} passed`, color, weight: 600, metrics };
+            const rank = total && passed === total ? 'good' : passed === 0 ? 'poor' : 'mid';
+            return { label, text: `${fmtPasses(passed, total)} passed`, color, weight: 600, metrics, rank };
           });
           const subtotal = sumScenarioCosts(group.rows.map((s) => costByKey.get(s.key)));
           const groupTokens = sumTokens(group.rows.map((s) => tokensByKey.get(s.key)));
@@ -1072,7 +1074,11 @@ export function ScenarioMatrix({
                   {!steps && <span style={mono(11)}>{plural(group.rows.length, 'scenario')}</span>}
                   {cells.map((cell) => (
                     <span key={cell.label} style={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0 }}>
-                      <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: cell.weight, color: cell.color, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{cell.text}</span>
+                      {cell.rank ? (
+                        <ValuePill rank={cell.rank} size="compact" style={{ alignSelf: 'flex-start', fontSize: 11, padding: '3px 9px', minWidth: 0 }}>{cell.text}</ValuePill>
+                      ) : (
+                        <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: cell.weight, color: cell.color, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{cell.text}</span>
+                      )}
                       <MetricsLine metrics={cell.metrics} testId="scenario-group-metrics" title="the group's answers' time added up, and their input→output tokens, on this model" />
                     </span>
                   ))}
@@ -1172,9 +1178,17 @@ function ResultCard({ label, run, result, expects, running }) {
     || result.error_message || '';
   const criteria = Object.entries(result.scores || {});
   const meta = resultMeta(result);
+  const tokens = result.input_tokens != null || result.output_tokens != null ? (result.input_tokens || 0) + (result.output_tokens || 0) : null;
+  const metrics = [
+    { key: 'score', label: 'Score', unit: pass ? 'passed' : 'failed', value: result.score == null ? null : fmtScore(result.score), rank: pass ? 'good' : 'poor' },
+    { key: 'time', label: 'Time', unit: 'to answer', value: result.duration_ms == null ? null : fmtMs(result.duration_ms) },
+    { key: 'tokens', label: 'Tokens', unit: tokens == null ? null : `${fmtK(result.input_tokens || 0)}→${fmtK(result.output_tokens || 0)}`, value: tokens == null ? null : fmtK(tokens) },
+    { key: 'cost', label: 'Cost', unit: result.judge_usage?.cost != null ? `judge ${fmtSpend(result.judge_usage.cost, { estimated: resultJudgeEstimated(result) })}` : 'agent', value: result.cost == null ? null : fmtSpend(result.cost, { estimated: resultEstimated(result) }), title: resultCostTitle(result) },
+  ];
 
   return shell(
     <>
+      <MetricStrip items={metrics} testId="scenario-result-metrics" />
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap', fontFamily: MONO, fontSize: 11 }}>
         <MicroLabel size={10} color="var(--color-text-muted)">tools</MicroLabel>
         <CallLine calls={calls} empty="none called" style={{ display: 'contents' }} />
@@ -1209,10 +1223,9 @@ function ResultCard({ label, run, result, expects, running }) {
       )}
     </>,
     <>
-      <Badge tone={statusTone}>{result.score == null ? result.status : `${result.status} · ${fmtScore(result.score)}`}</Badge>
-      {meta && <span style={{ marginLeft: 'auto', ...mono(11) }} title={resultCostTitle(result)}>{meta}</span>}
+      <Badge tone={statusTone} title={meta || undefined}>{result.status}</Badge>
       {result.agent_run_id && (
-        <ReplayLink kind="scenario_result" id={result.id} title="Replay this scenario's run" testId="scenario-result-replay" style={meta ? undefined : { marginLeft: 'auto' }} />
+        <ReplayLink kind="scenario_result" id={result.id} title="Replay this scenario's run" testId="scenario-result-replay" style={{ marginLeft: 'auto' }} />
       )}
     </>
   );

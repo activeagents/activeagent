@@ -1,5 +1,6 @@
 import React, { useRef } from 'react';
 import { MONO, MicroLabel, Card } from './primitives';
+import ValuePill from './ValuePill';
 import useMeasuredWidth from '../../hooks/useMeasuredWidth';
 
 // Chart building blocks for the APM-style Metrics view: the golden-signal
@@ -120,12 +121,17 @@ export const stackBuckets = (layers, max, titleFor) => {
 };
 
 // Golden-signal tile: label + delta · value + unit · sub-line · sparkline.
-export function SignalTile({ label, value, unit, sub, delta, deltaColor, deltaSub, spark, sparkColor }) {
+// `deltaRank` tints the change against the previous window the way a
+// comparison cell is tinted: good, poor, or none when the direction says
+// nothing (more tokens is not worse on its own).
+export function SignalTile({ label, value, unit, sub, delta, deltaRank = 'none', deltaSub, spark, sparkColor }) {
   return (
     <Card padding="14px 16px 12px" style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0 }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <MicroLabel size={11} spacing="0.05em">{label}</MicroLabel>
-        <span style={{ marginLeft: 'auto', fontFamily: MONO, fontSize: 11, fontWeight: 600, color: deltaColor, whiteSpace: 'nowrap' }}>{delta}</span>
+        {delta && (
+          <ValuePill rank={deltaRank} size="compact" title={deltaSub} style={{ marginLeft: 'auto', fontSize: 11, padding: '3px 9px', minWidth: 0 }} testId="signal-delta">{delta}</ValuePill>
+        )}
       </div>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
         <span style={{ fontFamily: MONO, fontSize: 26, fontWeight: 700, lineHeight: 1.1, letterSpacing: '-0.01em', color: 'var(--color-text-primary)' }}>{value}</span>

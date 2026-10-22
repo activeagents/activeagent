@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import ComparisonTable from './ComparisonTable';
+import { MONO } from './primitives';
 
 // A date-only string ("2026-08-26") parses as UTC midnight, which
 // toLocaleDateString then shifts back a day for every viewer west of UTC.
@@ -187,32 +189,34 @@ export default function DashboardAnalytics({ onSelectAgent }) {
       {/* Bottom Row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Top Agents */}
-        <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 p-6">
-          <h3 className="font-semibold text-gray-900 mb-4">Top Agents</h3>
+        <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 overflow-hidden">
+          <h3 className="font-semibold text-gray-900 px-6 pt-6 pb-2">Top Agents</h3>
           {analytics?.top_agents?.length > 0 ? (
-            <div className="space-y-3">
-              {analytics.top_agents.map((agent, index) => (
-                <div
-                  key={agent.id}
-                  onClick={() => onSelectAgent?.(agent)}
-                  className="flex items-center space-x-4 p-3 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors"
-                >
-                  <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center text-red-600 font-semibold">
-                    {index + 1}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-gray-900 truncate">{agent.name}</p>
-                    <p className="text-sm text-gray-500">{agent.run_count} runs</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-medium text-gray-900">{formatNumber(agent.total_tokens)}</p>
-                    <p className="text-xs text-gray-500">tokens</p>
-                  </div>
-                </div>
-              ))}
-            </div>
+            // A ranked table: runs tint by rank among these agents; tokens
+            // are a size, not a score, so they stay neutral.
+            <ComparisonTable
+              testId="top-agents"
+              identity={{
+                key: 'name', label: 'Agent', unit: 'By runs',
+                render: (agent) => (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+                    <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 600, color: 'var(--color-text-muted)', width: 18, textAlign: 'right' }}>{analytics.top_agents.indexOf(agent) + 1}</span>
+                    <span className="truncate">{agent.name}</span>
+                  </span>
+                ),
+              }}
+              columns={[
+                { key: 'run_count', label: 'Runs', unit: 'In period', better: 'higher', format: (value) => formatNumber(value) },
+                { key: 'total_tokens', label: 'Tokens', unit: 'Total', better: 'lower', band: 'none', format: (value) => formatNumber(value) },
+                { key: 'tokens_per_run', label: 'Tokens', unit: 'Per run', better: 'lower', band: 'none', value: (agent) => (agent.run_count ? agent.total_tokens / agent.run_count : null), format: (value) => (value == null ? '—' : formatNumber(Math.round(value))) },
+              ]}
+              rows={analytics.top_agents}
+              rowKey={(agent) => agent.id}
+              rowProps={(agent) => ({ onClick: () => onSelectAgent?.(agent), style: { cursor: 'pointer' }, 'data-testid': 'top-agent-row' })}
+              defaultSort="run_count"
+            />
           ) : (
-            <div className="py-8 text-center text-gray-400">
+            <div className="py-8 px-6 text-center text-gray-400">
               No agent activity yet
             </div>
           )}
