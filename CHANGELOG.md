@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Evals in the test suite** (`activeagent`). An eval is an ordinary test
+  under `test/evals`, collected by `rails test` like any other, whose
+  `ActiveAgent::Evals::TestCase` skips it unless `EVALS` is on, so the
+  suite never calls a model by accident. `bin/rails test:evals` switches
+  evals on and runs them through the same runner (`TEST=path` narrows,
+  `TESTOPTS` passes through); `EVALS=1 bin/rails test ...` runs one file,
+  one line, or the whole suite with the evals in. The same switch gates an
+  RSpec suite (`filter_run_excluding eval: true unless
+  ActiveAgent::Evals::TestHelper.enabled?`, with `expect_with :minitest`
+  for the assertions). `require "active_agent/evals/test_helper"`
+  after `rails/test_help` gives `ActiveAgent::Evals::TestCase` and the
+  `TestHelper` module: `run_eval MyAgent.with(...).action` returns an
+  `ActiveAgent::Evals::Replay` — the answer, every tool call with its
+  arguments, result or error and timing, duration and tokens — and
+  `assert_answer_present`, `assert_output_contains` /
+  `refute_output_contains`, `assert_tool_called` (with an argument subset)
+  / `refute_tool_called` and `assert_tools_succeeded` read it, failing with
+  what the agent did. `assert_eval_passes` (and `score_eval`) scores the
+  replay as a dashboard run does and fails with the fault and the fix;
+  `run_eval_suite` replays a YAML suite across models and returns the
+  `Report`, which `assert_pass_rate` gates and `to_html` writes.
+  `ActiveAgent::Evals::Capture` is the assertion-free core: it runs a
+  generation into a `Replay`, capturing tool calls on the agent's
+  `tools_function` (where the telemetry tool spans are; MCP-served tools
+  are dispatched before that hook and are not recorded), replays under
+  another `model:` or `provider:` the way a comparison run does, and takes
+  a block for an agent run some other way. The framework's railtie now
+  loads the gem's rake tasks; the empty `activeagent_tasks.rake`
+  placeholder is gone.
+
 ### Changed
 
 - **One badge for every status and message role in the dashboard**
