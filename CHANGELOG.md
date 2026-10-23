@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **The dashboard follows the system appearance** (`actionagent`). Settings
+  → Appearance offers System, Light and Dark; System (the default when
+  nothing was chosen) follows the OS light/dark setting and changes with it
+  while the page is open. Light and Dark are fixed, as the old toggle's
+  choices were, and a choice that toggle saved still holds. The header's
+  sun/moon button flips to the opposite of what shows and saves it as a
+  fixed choice; pick System on the settings page to follow the OS again.
+
 ### Changed
 
 - **One badge for every status and message role in the dashboard**
