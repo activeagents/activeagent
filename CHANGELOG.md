@@ -9,11 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **Evals in the test suite** (`activeagent`). An eval is a test case in
-  `test/evals/*_eval.rb`: `rails test` collects only `*_test.rb`, so the
-  suite never calls a model by accident, and `bin/rails active_agent:evals`
-  runs them through the same runner (`EVALS=path-or-glob` narrows,
-  `TESTOPTS` passes through). `require "active_agent/evals/test_helper"`
+- **Evals in the test suite** (`activeagent`). An eval is an ordinary test
+  under `test/evals`, collected by `rails test` like any other, whose
+  `ActiveAgent::Evals::TestCase` skips it unless `EVALS` is on, so the
+  suite never calls a model by accident. `bin/rails test:evals` switches
+  evals on and runs them through the same runner (`TEST=path` narrows,
+  `TESTOPTS` passes through); `EVALS=1 bin/rails test ...` runs one file,
+  one line, or the whole suite with the evals in. The same switch gates an
+  RSpec suite (`filter_run_excluding eval: true unless
+  ActiveAgent::Evals::TestHelper.enabled?`, with `expect_with :minitest`
+  for the assertions). `require "active_agent/evals/test_helper"`
   after `rails/test_help` gives `ActiveAgent::Evals::TestCase` and the
   `TestHelper` module: `run_eval MyAgent.with(...).action` returns an
   `ActiveAgent::Evals::Replay` — the answer, every tool call with its

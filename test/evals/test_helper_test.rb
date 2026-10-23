@@ -4,8 +4,20 @@ require "test_helper"
 require "active_agent/evals/test_helper"
 require_relative "support/eval_agents"
 
-class EvalsTestHelperTest < ActiveAgent::Evals::TestCase
+# The helper's own tests always run, so they include the helper rather than
+# inherit the TestCase, whose tests are skipped unless evals are switched on.
+class EvalsTestHelperTest < ActiveSupport::TestCase
+  include ActiveAgent::Evals::TestHelper
+
   SUITE = File.expand_path("fixtures/support_suite.yml", __dir__)
+
+  def with_env(values)
+    saved = values.keys.to_h { |key| [ key, ENV[key] ] }
+    values.each { |key, value| value.nil? ? ENV.delete(key) : ENV[key] = value }
+    yield
+  ensure
+    saved.each { |key, value| value.nil? ? ENV.delete(key) : ENV[key] = value }
+  end
 
   def order_replay(number = "ABC-123")
     run_eval EvalsTest::OrdersAgent.with(question: "Where is order #{number}?").ask
@@ -120,19 +132,41 @@ class EvalsTestHelperTest < ActiveAgent::Evals::TestCase
     assert report.results.first.passed?
   end
 
-  test "the rake task's file selection finds evals by convention, a directory, or a glob" do
-    Dir.mktmpdir do |root|
-      FileUtils.mkdir_p(File.join(root, "test/evals/orders"))
-      FileUtils.touch(File.join(root, "test/evals/support_agent_eval.rb"))
-      FileUtils.touch(File.join(root, "test/evals/orders/refunds_eval.rb"))
-      FileUtils.touch(File.join(root, "test/evals/helper_test.rb"))
-
-      files = ActiveAgent::Evals::TestHelper.files(nil, root: root)
-      assert_equal %w[test/evals/orders/refunds_eval.rb test/evals/support_agent_eval.rb], files
-
-      assert_equal %w[test/evals/orders/refunds_eval.rb], ActiveAgent::Evals::TestHelper.files("test/evals/orders", root: root)
-      assert_equal %w[test/evals/support_agent_eval.rb], ActiveAgent::Evals::TestHelper.files("test/evals/*_eval.rb", root: root)
-      assert_empty ActiveAgent::Evals::TestHelper.files("test/nothing", root: root)
+  test "EVALS switches evals on" do
+    { nil => false, "" => false, "0" => false, "false" => false, "off" => false, "1" => true, "true" => true, "yes" => true }.each do |value, expected|
+      with_env("EVALS" => value) do
+        assert_equal expected, ActiveAgent::Evals::TestHelper.enabled?, "EVALS=#{value.inspect}"
+      end
     end
+  end
+
+  test "a TestCase skips its tests unless evals are switched on, so rails test never calls a model" do
+    eval_case = Class.new(ActiveAgent::Evals::TestCase) do
+      def self.name = "GuardedEval"
+
+      def test_calls_the_agent
+        assert_answer_present run_eval { "answered" }
+      end
+    end
+
+    with_env("EVALS" => nil) do
+      result = Minitest.run_one_method(eval_case, "test_calls_the_agent")
+      assert result.skipped?, "expected a skip, got #{result.failure.inspect}"
+      assert_match(%r{bin/rails test:evals}, result.failure.message)
+    end
+
+    with_env("EVALS" => "1") do
+      result = Minitest.run_one_method(eval_case, "test_calls_the_agent")
+      assert result.passed?, result.failure&.message
+    end
+  end
+
+  test "the railtie's rake file defines test:evals" do
+    require "rake"
+    Rake::TaskManager.record_task_metadata = true
+    app = Rake::Application.new
+    Rake.with_application(app) { load File.expand_path("../../lib/tasks/active_agent/evals.rake", __dir__) }
+
+    assert_match(%r{test/evals}, app["test:evals"].comment)
   end
 end
