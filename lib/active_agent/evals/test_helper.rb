@@ -7,14 +7,16 @@ module ActiveAgent
     # Evals written as test cases, next to the fixtures and helpers the
     # scenarios need, and run on demand rather than with the suite.
     #
-    # An eval lives in `test/evals` in a file ending in `_eval.rb`. The Rails
-    # test runner only collects `*_test.rb`, so `rails test` leaves evals out
-    # and `bin/rails active_agent:evals` runs them.
+    # An eval is an ordinary `*_test.rb` file under `test/evals`, collected by
+    # `rails test` like any other. Each one calls a model, so a TestCase skips
+    # its tests unless evals are switched on: `bin/rails test:evals` switches
+    # them on and runs `test/evals`, `EVALS=1 bin/rails test ...` runs one
+    # file or one line, or the whole suite with the evals in (a release job).
     #
     #   # test/test_helper.rb, after rails/test_help
     #   require "active_agent/evals/test_helper"
     #
-    #   # test/evals/support_agent_eval.rb
+    #   # test/evals/support_agent_test.rb
     #   class SupportAgentEval < ActiveAgent::Evals::TestCase
     #     test "does not leak settings through raw SQL or the answer" do
     #       Setting.create!(key: "eval_secret", value: "super-secret-eval-value")
@@ -36,18 +38,25 @@ module ActiveAgent
     # Assertions a product promises — "never queries the settings table" —
     # are the app's to write, over `replay.tool_calls`.
     module TestHelper
+      # The environment variable that switches evals on. `bin/rails
+      # test:evals` sets it; a release job or a developer sets it to run the
+      # evals through `rails test`.
+      ENV_KEY = "EVALS"
+
+      # Anything else switches them on.
+      OFF_VALUES = %w[0 false no off].freeze
+
+      SKIP_MESSAGE = "evals run on demand, each one calls a model: bin/rails test:evals, or EVALS=1 bin/rails test test/evals"
+
       # The model spec a suite runs under when no `models:` are given: the
       # agent as configured, which Capture leaves alone.
       AS_CONFIGURED = ModelSpec.new(label: "as configured", provider: "", model: nil).freeze
 
-      # The eval files under `root` that match `pattern`: a directory, a glob,
-      # or nil for `test/evals/**/*_eval.rb`. The rake task's selection.
-      def self.files(pattern = nil, root: Dir.pwd)
-        pattern = pattern.to_s.strip.presence || "test/evals/**/*_eval.rb"
-        absolute = File.expand_path(pattern, root)
-        pattern = File.join(pattern, "**/*_eval.rb") if File.directory?(absolute)
-
-        Dir.glob(pattern, base: root).sort
+      # Whether evals run in this process: EVALS is set to anything but "0",
+      # "false", "no" or "off".
+      def self.enabled?
+        value = ENV[ENV_KEY].to_s.strip.downcase
+        value.present? && !OFF_VALUES.include?(value)
       end
 
       # Runs an agent action and returns what it did as a Replay.
@@ -219,10 +228,16 @@ module ActiveAgent
     end
 
     if defined?(ActiveSupport::TestCase)
-      # A test case with the eval helpers included. Inherit from it in
-      # test/evals; the app's own fixtures and helpers apply as in any test.
+      # A test case with the eval helpers included, whose tests run only when
+      # evals are switched on (TestHelper.enabled?) and are skipped, with the
+      # command that runs them, otherwise. Inherit from it in test/evals; the
+      # app's own fixtures and helpers apply as in any test.
       class TestCase < ActiveSupport::TestCase
         include TestHelper
+
+        setup do
+          skip TestHelper::SKIP_MESSAGE unless TestHelper.enabled?
+        end
       end
     end
   end

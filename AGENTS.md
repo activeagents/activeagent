@@ -291,8 +291,8 @@ The engine's tests live in `actionagent/test/`. Both `bin/test` and the
 Rakefile's `test` task collect the framework and engine suites by default.
 
 `test/evals/` holds the tests *of* the evaluation module. The convention the
-module offers host apps — evals as test cases in `test/evals/*_eval.rb`, run
-by `bin/rails active_agent:evals` and never by `rails test` — is
+module offers host apps — evals as ordinary tests in `test/evals`, skipped
+unless `EVALS` is on, run by `bin/rails test:evals` — is
 `ActiveAgent::Evals::TestHelper` (`lib/active_agent/evals/test_helper.rb`,
 assertions over the `Replay` that `ActiveAgent::Evals::Capture` builds from
 a generation) and `lib/tasks/active_agent/evals.rake`, which the railtie

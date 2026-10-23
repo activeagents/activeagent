@@ -1,10 +1,14 @@
 # frozen_string_literal: true
 
-# The convention a host app follows, exercised on the dummy app: an eval is a
-# test case in test/evals whose file ends in _eval.rb, so `rails test` never
-# collects it, and `bin/rails active_agent:evals` runs it:
+# The convention a host app follows, exercised on the dummy app: an eval is
+# an ordinary test under test/evals; `rails test` collects it and skips it,
+# and `bin/rails test:evals` runs it:
 #
-#   cd test/dummy && bin/rails active_agent:evals
+#   cd test/dummy && bin/rails test:evals
+#   cd test/dummy && bin/rails test            # 2 skips, no model called
+#
+# The gem's own runner leaves test/dummy/test/evals out (bin/test, Rakefile):
+# this is the host app's sample, not a test of the gem.
 #
 # A host app's eval starts with `require "test_helper"`; the dummy app's
 # helper is the gem's.

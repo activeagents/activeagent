@@ -181,9 +181,10 @@ MyAgent.with(param: "value").my_action.generate_now
 ## Evals
 
 An eval is a test that calls a model and checks what the agent did — the
-answer, the tools it called. They live in `test/evals`, in files ending in
-`_eval.rb`, so `rails test` leaves them out, and `bin/rails
-active_agent:evals` runs them:
+answer, the tools it called. They are ordinary tests under `test/evals`;
+`ActiveAgent::Evals::TestCase` skips them unless `EVALS` is on, so `rails
+test` never calls a model, and `bin/rails test:evals` switches them on and
+runs them, on demand or in a release job:
 
 ```ruby
 class SupportAgentEval < ActiveAgent::Evals::TestCase
