@@ -461,3 +461,17 @@ ActionAgent.sandbox_service = "cloud_run"
 
 Whichever backend runs, schedule `bin/rails action_agent:sandbox:reap` so
 expired sandboxes are stopped.
+
+## Trace console without JavaScript
+
+Open `<mount>/console/traces` for the server-rendered trace console, or
+`<mount>/console/traces/metrics` for the last 24 hours of agent statistics.
+The console includes its styles in the HTML. It needs no CDN, JavaScript,
+asset pipeline, or frontend build. Expand a trace with its summary or use
+**Open trace** for a standalone detail page.
+
+Refresh is manual by default so an open trace stays open. **Auto-refresh**
+reloads the current page every 30 seconds; `?refresh=60` uses 60 seconds.
+**Stop refreshing** removes that setting. A refresh reloads the whole page
+and closes expanded details. The host's dashboard authentication and tenant
+scoping apply to these pages as well.
