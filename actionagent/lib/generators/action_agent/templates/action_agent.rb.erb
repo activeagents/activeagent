@@ -315,9 +315,10 @@ ActionAgent.configure do |config|
   # UI
   # ==========================================================================
   #
-  # Custom layout for dashboard views (the default layout loads Tailwind,
-  # Turbo and Stimulus from CDNs — override for CSP-strict or air-gapped
-  # environments).
+  # Custom layout for dashboard views. The default layouts load nothing
+  # from external hosts, so this is only needed to wrap the dashboard in
+  # your application's own chrome. A custom layout replaces the trace
+  # console's built-in styles and refresh controls.
   #
   # config.layout = "application"
 end
