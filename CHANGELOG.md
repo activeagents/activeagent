@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Discover and call generated agent previews** (`activeagent`). TestUnit
+  writes previews under `test/agents/previews`, with current URLs and query
+  parameters passed to the agent. Discovery checks for newly added files,
+  and the default image interceptor accepts generation objects.
+
 ### Changed
 
 - **One badge for every status and message role in the dashboard**
