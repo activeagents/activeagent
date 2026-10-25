@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Keep the trace console usable offline** (`actionagent`). The console
+  ships its own inline styles and uses native details and ordinary links
+  instead of CDN-hosted Tailwind, Turbo and Stimulus. Automatic refresh is
+  opt-in (30 or 60 seconds) and uses the browser's refresh mechanism;
+  expanding a trace no longer depends on JavaScript or a host asset pipeline.
 - **Discover and call generated agent previews** (`activeagent`). TestUnit
   writes previews under `test/agents/previews`, with current URLs and query
   parameters passed to the agent. Discovery checks for newly added files,
