@@ -1,0 +1,14 @@
+<h1>Agent Previews</h1>
+<% if @previews.empty? %>
+  <p>No previews found. Generate an agent or add an ActiveAgent::Preview subclass under test/agents/previews.</p>
+<% end %>
+<% @previews.each do |preview| %>
+  <section>
+    <h2><%= preview.preview_name %></h2>
+    <ul>
+      <% preview.prompts.each do |prompt| %>
+        <li><%= link_to prompt, rails_agent_preview_path("#{preview.preview_name}/#{prompt}") %></li>
+      <% end %>
+    </ul>
+  </section>
+<% end %>

@@ -19,10 +19,13 @@ class TestUnit::Generators::AgentGeneratorTest < Rails::Generators::TestCase
   test "generates preview files" do
     run_generator [ "user", "create", "update" ]
 
-    assert_file "test/docs/previews/user_agent_preview.rb" do |content|
+    assert_file "test/agents/previews/user_agent_preview.rb" do |content|
       assert_match(/class UserAgentPreview < ActiveAgent::Preview/, content)
       assert_match(/def create/, content)
       assert_match(/def update/, content)
+      assert_includes content, "/rails/agents/user_agent/create"
+      assert_not_includes content, "Preview this email"
+      assert_includes content, "UserAgent.with(params).create"
     end
   end
 
@@ -33,7 +36,7 @@ class TestUnit::Generators::AgentGeneratorTest < Rails::Generators::TestCase
       assert_match(/class Admin::UserAgentTest < ActiveSupport::TestCase/, content)
     end
 
-    assert_file "test/docs/previews/admin/user_agent_preview.rb" do |content|
+    assert_file "test/agents/previews/admin/user_agent_preview.rb" do |content|
       assert_match(/class Admin::UserAgentPreview < ActiveAgent::Preview/, content)
     end
   end
@@ -59,7 +62,7 @@ class TestUnit::Generators::AgentGeneratorTest < Rails::Generators::TestCase
       assert_no_match(/^  test "/, content) # No actual test methods (only commented ones)
     end
 
-    assert_file "test/docs/previews/user_agent_preview.rb" do |content|
+    assert_file "test/agents/previews/user_agent_preview.rb" do |content|
       assert_match(/class UserAgentPreview < ActiveAgent::Preview/, content)
       assert_no_match(/def [a-z]/, content) # No action methods
     end

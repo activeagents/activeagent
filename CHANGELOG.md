@@ -14,6 +14,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   instead of CDN-hosted Tailwind, Turbo and Stimulus. Automatic refresh is
   opt-in (30 or 60 seconds) and uses the browser's refresh mechanism;
   expanding a trace no longer depends on JavaScript or a host asset pipeline.
+- **Discover and call generated agent previews** (`activeagent`). TestUnit
+  writes previews under `test/agents/previews`, with current URLs and query
+  parameters passed to the agent. Discovery checks for newly added files,
+  and the default image interceptor accepts generation objects.
+
+- **Restore Rails browser previews** (`activeagent`). `/rails/agents` lists
+  previews and renders their prompt requests without executing a provider.
+  Namespaced actions and Markdown downloads work, unknown actions return
+  404, and all endpoints enforce Rails' local-request restriction. Preview
+  directories participate in development reloading, including configured
+  paths and the legacy `test/docs/previews` directory. The dashboard gem is
+  not needed; the routes remain disabled outside development by default.
 
 - **Generate runnable agent tests** (`activeagent`). TestUnit agent tests
   inherit from `ActiveSupport::TestCase` instead of the nonexistent
