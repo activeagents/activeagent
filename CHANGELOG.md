@@ -15,6 +15,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   opt-in (30 or 60 seconds) and uses the browser's refresh mechanism;
   expanding a trace no longer depends on JavaScript or a host asset pipeline.
 
+- **Generate runnable agent tests** (`activeagent`). TestUnit agent tests
+  inherit from `ActiveSupport::TestCase` instead of the nonexistent
+  `ActiveAgent::TestCase`. Plain and namespaced agents, including agents
+  without actions, can load in a Rails host without calling a provider.
+
 ### Changed
 
 - **One badge for every status and message role in the dashboard**
