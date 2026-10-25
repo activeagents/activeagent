@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Host links in the dashboard's user menu** (`actionagent`).
+  `ActionAgent.user_menu_links` takes an Array of `{ label:, href: }` or a
+  Proc receiving the signed-in user and the current owner, and the header's
+  avatar menu lists them above "Sign out". A hosted platform points them at
+  its workspace, members and account settings pages, and shows its admin
+  pages to the users who may use them; a self-hosted install leaves it unset
+  and sees the menu it had. Malformed entries are dropped and a raising Proc
+  is logged, so the menu seam cannot take the dashboard down.
+
 ### Fixed
 
 - **Generate runnable agent tests** (`activeagent`). TestUnit agent tests

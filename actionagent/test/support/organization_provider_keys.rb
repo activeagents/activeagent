@@ -41,6 +41,7 @@ module OrganizationProviderKeys
     ActionAgent.permission_checker = nil
     ActionAgent.members_resolver = nil
     ActionAgent.member_invite_url = nil
+    ActionAgent.user_menu_links = nil
     super
   end
 
