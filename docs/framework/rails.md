@@ -238,4 +238,11 @@ Preview files reload with the application in development.
 Set `config.active_agent.show_previews = false` to omit the routes.
 Previews default to disabled outside development. When enabled, the
 controller uses the same local-request restriction as Rails' own diagnostic
-pages. The `actionagent` dashboard gem is not required.
+pages. Setting `config.consider_all_requests_local = true` bypasses that
+restriction, so remote requests can access previews when
+`config.active_agent.show_previews = true`. Preview content can include
+agent instructions and interpolated parameters; keep
+`config.consider_all_requests_local = false` in any remotely accessible
+environment where previews are enabled.
+
+The `actionagent` dashboard gem is not required.

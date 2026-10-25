@@ -105,6 +105,7 @@ module ActiveAgent
     initializer "active_agent.set_autoload_paths", before: :set_autoload_paths do |app|
       options = app.config.active_agent
       options.preview_paths |= [ "#{app.root}/test/agents/previews", "#{app.root}/test/docs/previews" ]
+      # This runs before set_configs assigns show_previews its development default.
       if options.show_previews.nil? ? Rails.env.development? : options.show_previews
         app.config.autoload_paths.concat(options.preview_paths)
       end
