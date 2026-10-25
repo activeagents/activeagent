@@ -68,7 +68,7 @@ module ActiveAgent
     class << self
       # Returns all agent preview classes.
       def all
-        load_previews if descendants.empty?
+        load_previews
         descendants.sort_by { |agent| agent.name.titleize }
       end
 
@@ -111,7 +111,7 @@ module ActiveAgent
 
       def load_previews
         preview_paths.each do |preview_path|
-          Dir["#{preview_path}/**/*_preview.rb"].sort.each { |file| require file }
+          Dir["#{preview_path}/**/*_preview.rb"].sort.each { |file| require_dependency file }
         end
       end
 
