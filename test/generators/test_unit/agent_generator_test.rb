@@ -10,7 +10,7 @@ class TestUnit::Generators::AgentGeneratorTest < Rails::Generators::TestCase
     run_generator [ "user", "create", "update" ]
 
     assert_file "test/agents/user_agent_test.rb" do |content|
-      assert_match(/class UserAgentTest < ActiveAgent::TestCase/, content)
+      assert_match(/class UserAgentTest < ActiveSupport::TestCase/, content)
       assert_match(/test "create"/, content)
       assert_match(/test "update"/, content)
     end
@@ -33,7 +33,7 @@ class TestUnit::Generators::AgentGeneratorTest < Rails::Generators::TestCase
     run_generator [ "admin/user", "create" ]
 
     assert_file "test/agents/admin/user_agent_test.rb" do |content|
-      assert_match(/class Admin::UserAgentTest < ActiveAgent::TestCase/, content)
+      assert_match(/class Admin::UserAgentTest < ActiveSupport::TestCase/, content)
     end
 
     assert_file "test/agents/previews/admin/user_agent_preview.rb" do |content|
@@ -50,7 +50,7 @@ class TestUnit::Generators::AgentGeneratorTest < Rails::Generators::TestCase
     run_generator [ "user_agent", "create" ]
 
     assert_file "test/agents/user_agent_test.rb" do |content|
-      assert_match(/class UserAgentTest < ActiveAgent::TestCase/, content)
+      assert_match(/class UserAgentTest < ActiveSupport::TestCase/, content)
     end
   end
 
@@ -58,7 +58,7 @@ class TestUnit::Generators::AgentGeneratorTest < Rails::Generators::TestCase
     run_generator [ "user" ]
 
     assert_file "test/agents/user_agent_test.rb" do |content|
-      assert_match(/class UserAgentTest < ActiveAgent::TestCase/, content)
+      assert_match(/class UserAgentTest < ActiveSupport::TestCase/, content)
       assert_no_match(/^  test "/, content) # No actual test methods (only commented ones)
     end
 
