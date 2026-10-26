@@ -45,6 +45,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Select trace time windows in dark mode** (`actionagent`). The dark
+  Traces header includes the shared time-window selector and zoom controls,
+  including when embedded on an agent page or when the window is empty.
+
 - **Show tool usage in both dashboard themes** (`actionagent`). The Traces
   page renders the same tool counts, durations, failures and empty state
   in dark and light mode, using the shared telemetry colors.

@@ -572,6 +572,7 @@ export default function TracesView({ agentId = null, embedded = false }) {
               </p>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', minWidth: 0 }}>
+              <TimeWindowSelector />
               {/* View Mode Toggle */}
               <div style={{ display: 'flex', background: 'rgba(255,255,255,0.1)', borderRadius: '8px', padding: '2px', maxWidth: '100%', overflowX: 'auto' }}>
                 {['timeline', 'agents', 'actions', 'tools', 'spans'].map((mode) => (

@@ -95,3 +95,47 @@ for (const theme of ['light', 'dark']) {
     assert.match(container.textContent, /No tool calls in this window/);
   });
 }
+
+for (const theme of ['light', 'dark']) {
+  test(`${theme} time window refreshes tool results and preserves the embedded agent`, async () => {
+    await mount(theme, [trace([{ type: 'tool', name: 'tool.search_docs', duration: 20 }])], { embedded: true, agentId: 42 });
+    await clickButton('tools');
+    const selector = container.querySelector('select[aria-label="Time window"]');
+    assert.ok(selector, 'the time window must be selectable in either theme');
+    assert.equal(selector.value, '30m');
+    const initialQuery = new URL(requests.at(-1), window.location.origin).searchParams;
+    assert.equal(initialQuery.get('minutes'), '30');
+    assert.equal(initialQuery.get('agent_id'), '42');
+
+    payload = { traces: [trace([{ type: 'tool', name: 'tool.lookup_order', duration: 300 }])], agents: ['LookupAgent'] };
+    await view.act(async () => {
+      selector.value = '1h';
+      selector.dispatchEvent(new window.Event('change', { bubbles: true }));
+    });
+    const query = new URL(requests.at(-1), window.location.origin).searchParams;
+    assert.equal(query.get('minutes'), '60');
+    assert.equal(query.get('bucket_seconds'), '120');
+    assert.equal(query.get('agent_id'), '42');
+    assert.equal(localStorage.getItem('activeagents.timeWindow'), '1h');
+    assert.ok(container.querySelector('[title="lookup_order"]'));
+    assert.equal(container.querySelector('[title="search_docs"]'), null);
+  });
+
+  test(`${theme} time-window zoom respects the shortest and longest windows`, async () => {
+    await mount(theme, []);
+    const selector = container.querySelector('select[aria-label="Time window"]');
+    assert.ok(selector, 'the time window must remain available for empty results');
+    const choose = async (id) => view.act(async () => {
+      selector.value = id;
+      selector.dispatchEvent(new window.Event('change', { bubbles: true }));
+    });
+    await choose('5m');
+    assert.equal(container.querySelector('button[aria-label="Zoom in"]').disabled, true);
+    await view.act(async () => container.querySelector('button[aria-label="Zoom out"]').click());
+    assert.equal(selector.value, '10m');
+    await choose('90d');
+    assert.equal(container.querySelector('button[aria-label="Zoom out"]').disabled, true);
+    await view.act(async () => container.querySelector('button[aria-label="Zoom in"]').click());
+    assert.equal(selector.value, '30d');
+  });
+}
