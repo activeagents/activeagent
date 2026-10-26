@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Upgrading
+
+Dashboard installs need migration 030, `add_catalog_scenario_metadata`:
+run `bin/rails generate action_agent:install --skip` and `bin/rails db:migrate`.
+Previously discarded scenario extensions require re-importing the original
+document; the upgrade cannot recover fields absent from the stored records.
+
 ### Added
 
 - **The dashboard follows the system appearance** (`actionagent`). Settings
@@ -44,6 +51,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   unchanged. Every path and view is the same, only the order and grouping.
 
 ### Fixed
+
+- **Keep scenario catalog extension fields** (`activeagent`, `actionagent`).
+  Opaque scenario fields survive parsing, YAML/JSON export, database reload,
+  standard-field edits and storage restore. Their changes affect import
+  previews and catalog digests, including when only an extension changes.
+  Empty values and literal `metadata` keys are preserved; canonical format
+  fields cannot be replaced through the metadata container.
 
 - **The agent interactions page follows the dark theme** (`actionagent`). It
   was written in Tailwind's grey scale (white panes, grey text) and stayed

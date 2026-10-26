@@ -211,7 +211,7 @@ module ActionAgent
         record = set.scenarios.find_or_initialize_by(key: scenario.key)
         record.assign_attributes(
           prompt: scenario.prompt, notes: scenario.notes, expectations: scenario.expectations,
-          tags: scenario.tags, params: scenario.params, production_only: scenario.production_only?
+          tags: scenario.tags, params: scenario.params, production_only: scenario.production_only?, metadata: scenario.metadata
         )
         record.position = position_for(record, scenario.position, offset)
         record.save!
