@@ -123,4 +123,19 @@ class CatalogScenarioMetadataTest < ActiveSupport::TestCase
     assert_equal "high", exported["priority"]
     assert_empty exported.keys & %w[tools expectations]
   end
+
+  test "an install that has not run the metadata migration still imports and exports" do
+    connection = ActiveRecord::Base.connection
+    table = ActionAgent::CatalogScenario.table_name
+    connection.remove_column table, :metadata
+    ActionAgent::CatalogScenario.reset_column_information
+
+    catalog = importer.call
+    scenario = exported_scenario(catalog)
+    assert_equal "Say hello.", scenario["prompt"]
+    assert_not_includes scenario.keys, "priority"
+  ensure
+    connection.add_column table, :metadata, :json unless connection.column_exists?(table, :metadata)
+    ActionAgent::CatalogScenario.reset_column_information
+  end
 end
