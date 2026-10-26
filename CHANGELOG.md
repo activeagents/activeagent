@@ -45,6 +45,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Bound trace console list limits** (`actionagent`). The console defaults
+  to 50 recent matching traces, clamps integer limits to 1–1000, and uses
+  the default for malformed values. Its documentation describes the bounded
+  recent list rather than claiming pagination.
+
 - **Select trace time windows in dark mode** (`actionagent`). The dark
   Traces header includes the shared time-window selector and zoom controls,
   including when embedded on an agent page or when the window is empty.
