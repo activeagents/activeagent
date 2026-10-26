@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **Boot on Ruby 3.4 and 4.0 with bootsnap 1.24.6 or newer** (`actionagent`).
+  `ProviderKey#owner_record` unwrapped delegators with
+  `... while defined?(::Delegator) && ...`, which Prism miscompiles when the
+  source is compiled from a string ("argument stack underflow"); bootsnap
+  compiles files that way on those Rubies as its Ruby bug #22023 workaround,
+  so a host on bootsnap 1.26 (and local runs on Ruby 3.4.9 or 4.0.1) failed
+  to boot the engine. The `defined?` check now sits outside the loop, and a
+  test compiles every shipped Ruby file from a string.
+
 ## [1.9.4] - 2026-10-25
 
 ### Added
