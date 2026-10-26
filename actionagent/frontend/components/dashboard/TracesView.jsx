@@ -494,9 +494,11 @@ export default function TracesView({ agentId = null, embedded = false }) {
           </div>
         ) : (
           <div className="rounded-xl border overflow-x-auto" style={{ background: colors.cardBg, borderColor: colors.cardBorder }}>
-            {/* Flexbox rather than a 12-col grid: grid-cols-12 / col-span-*
-                aren't in the compiled Tailwind build. The min width scrolls
-                the table on narrow screens instead of crushing its columns. */}
+            {/* Flexbox rather than a 12-column grid: Tailwind compiles only
+                the class names it finds in the source, and the grid column
+                utilities appear nowhere else. Naming one, even in a comment,
+                would add it to the build. The min width scrolls the table on
+                narrow screens instead of crushing its columns. */}
             <div style={{ minWidth: 520 }}>
               <div className="flex items-center gap-4 px-4 py-2 text-xs font-medium border-b" style={{ color: colors.textSecondary, borderColor: colors.cardBorder }}>
                 <div className="flex-1">Tool</div>
