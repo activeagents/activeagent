@@ -522,17 +522,27 @@ class ActionAgentInstallGeneratorTest < Rails::Generators::TestCase
     namespace.module_eval(File.read(migration_file_name("db/migrate/add_catalog_scenario_metadata.rb")))
     { "PostgreSQL" => :jsonb, "Mysql2" => :json, "Trilogy" => :json, "SQLite" => :json }.each do |adapter, type|
       migration = namespace::AddCatalogScenarioMetadata.new
-      connection = Minitest::Mock.new
-      connection.expect(:table_exists?, true, [ "active_agent_catalog_scenarios" ])
-      connection.expect(:column_exists?, false, [ "active_agent_catalog_scenarios", :metadata ])
-      connection.expect(:adapter_name, adapter)
-      connection.expect(:add_column, nil, [ "active_agent_catalog_scenarios", :metadata, type ])
+      added = []
+      connection = connection_without_metadata_column(adapter, added)
       ActiveRecord::Migration.suppress_messages { migration.stub(:connection, connection) { migration.up } }
-      assert connection.verify
+      assert_equal [ [ "active_agent_catalog_scenarios", :metadata, type, {} ] ], added, adapter
     end
   end
 
   private
+
+  # The real connection, reporting +adapter+ and a table without the column,
+  # and recording add_column calls in +added+ instead of running them.
+  # Everything else reaches the real adapter, so Rails' own migration
+  # plumbing (such as Rails 8.2's per-adapter migration_strategy) keeps working.
+  def connection_without_metadata_column(adapter, added)
+    Class.new(SimpleDelegator) do
+      define_method(:adapter_name) { adapter }
+      define_method(:table_exists?) { |_table| true }
+      define_method(:column_exists?) { |*_arguments, **_options| false }
+      define_method(:add_column) { |*arguments, **options| added << [ *arguments, options ] }
+    end.new(ActiveRecord::Base.connection)
+  end
 
   # Points the generator at a directory holding +files+ (name => content)
   # for the block.
