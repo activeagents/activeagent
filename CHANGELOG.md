@@ -45,6 +45,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Show tool usage in both dashboard themes** (`actionagent`). The Traces
+  page renders the same tool counts, durations, failures and empty state
+  in dark and light mode, using the shared telemetry colors.
+
 - **The agent interactions page follows the dark theme** (`actionagent`). It
   was written in Tailwind's grey scale (white panes, grey text) and stayed
   light under the dark theme at every width, with its run stream rendered

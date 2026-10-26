@@ -8,6 +8,7 @@ import { useTimeWindow } from '../../contexts/TimeWindowContext';
 import AgentStatCard from './AgentStatCard';
 import TimeWindowSelector from './TimeWindowSelector';
 import TraceCard from './TraceCard';
+import { telemetryColors } from './TelemetryObject';
 import { formatDuration, getSpanIcon } from './SpanWaterfall';
 import { dashboardPath } from '../../utils/dashboardPath';
 import { tracesQuery } from '../../utils/tracesQuery.mjs';
@@ -480,6 +481,70 @@ export default function TracesView({ agentId = null, embedded = false }) {
     );
   }
 
+  const renderToolsBreakdown = (dark) => {
+    const colors = telemetryColors(dark);
+    return (
+      <div style={{ padding: dark ? '0 24px 24px' : 0 }}>
+        {toolStats.length === 0 ? (
+          <div className="text-center py-8 text-sm" style={{ color: colors.textSecondary }}>
+            No tool calls in this window
+          </div>
+        ) : (
+          <div className="rounded-xl border overflow-x-auto" style={{ background: colors.cardBg, borderColor: colors.cardBorder }}>
+            <div style={{ minWidth: 520 }}>
+              <div className="flex items-center gap-4 px-4 py-2 text-xs font-medium border-b" style={{ color: colors.textSecondary, borderColor: colors.cardBorder }}>
+                <div className="flex-1">Tool</div>
+                <div className="w-20 text-right">Calls</div>
+                <div className="w-24 text-right">Total time</div>
+                <div className="w-20 text-right">Avg</div>
+                <div className="w-20 text-right">Slowest</div>
+              </div>
+              {toolStats.map((stat) => {
+                const share = toolStats[0].totalDuration
+                  ? (stat.totalDuration / toolStats[0].totalDuration) * 100
+                  : 0;
+                return (
+                  <div key={stat.name} className="px-4 py-2 border-b last:border-0" style={{ borderColor: colors.cardBorder }}>
+                    <div className="flex items-center gap-4 text-sm">
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium truncate" style={{ color: colors.textPrimary }} title={stat.name}>{stat.name}</div>
+                        {stat.agents.length > 0 && (
+                          <div className="text-xs truncate" style={{ color: colors.textMuted }} title={stat.agents.join(', ')}>
+                            {stat.agents.join(', ')}
+                          </div>
+                        )}
+                      </div>
+                      <div className="w-20 text-right" style={{ fontFamily: TYPOGRAPHY.mono, color: colors.textBody }}>
+                        {stat.count.toLocaleString()}
+                        {stat.errors > 0 && (
+                          <span className="ml-1" style={{ color: colors.bad }} title={`${stat.errors} failed`}>
+                            ({stat.errors})
+                          </span>
+                        )}
+                      </div>
+                      <div className="w-24 text-right font-medium" style={{ fontFamily: TYPOGRAPHY.mono, color: colors.textPrimary }}>
+                        {formatDuration(stat.totalDuration)}
+                      </div>
+                      <div className="w-20 text-right" style={{ fontFamily: TYPOGRAPHY.mono, color: colors.textSecondary }}>
+                        {formatDuration(stat.avgDuration)}
+                      </div>
+                      <div className="w-20 text-right" style={{ fontFamily: TYPOGRAPHY.mono, color: colors.textSecondary }}>
+                        {formatDuration(stat.maxDuration)}
+                      </div>
+                    </div>
+                    <div className="h-1 rounded mt-1.5" style={{ background: colors.trackBg }}>
+                      <div className="h-1 rounded" style={{ width: `${Math.max(share, 1)}%`, background: colors.good }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const summaryStats = windowData.summary;
   const detailNotice = windowData.truncated && (
     <div role="status" data-testid="trace-window-notice" style={{ padding: '12px 24px', fontSize: 13, color: darkMode ? '#fbbf24' : '#92400e' }}>
@@ -864,6 +929,8 @@ export default function TracesView({ agentId = null, embedded = false }) {
           </div>
         )}
 
+        {viewMode === 'tools' && renderToolsBreakdown(true)}
+
         {/* Span Duration Breakdown View */}
         {viewMode === 'spans' && renderSpansBreakdown(true)}
 
@@ -1174,72 +1241,7 @@ export default function TracesView({ agentId = null, embedded = false }) {
         </div>
       )}
 
-      {/* Tool usage — which tools get called and what they cost in aggregate.
-          A 20ms tool called 40 times can dominate a 3s one called once, and
-          neither is visible from a single trace's waterfall. */}
-      {viewMode === 'tools' && (
-        toolStats.length === 0 ? (
-          <div className="text-center py-8 text-gray-500 text-sm">
-            No tool calls in this window
-          </div>
-        ) : (
-          <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto">
-            {/* A table meant to scroll: its four figure columns keep their
-                widths and the box scrolls sideways on a phone. */}
-            <div className="min-w-[560px]">
-            {/* Flexbox rather than a 12-col grid: grid-cols-12 / col-span-*
-                aren't in the compiled Tailwind build. */}
-            <div className="flex items-center gap-4 px-4 py-2 text-xs font-medium text-gray-500 border-b border-gray-100">
-              <div className="flex-1">Tool</div>
-              <div className="w-20 text-right">Calls</div>
-              <div className="w-24 text-right">Total time</div>
-              <div className="w-20 text-right">Avg</div>
-              <div className="w-20 text-right">Slowest</div>
-            </div>
-            {toolStats.map((stat) => {
-              const share = toolStats[0].totalDuration
-                ? (stat.totalDuration / toolStats[0].totalDuration) * 100
-                : 0;
-              return (
-                <div key={stat.name} className="px-4 py-2 border-b border-gray-50 last:border-0">
-                  <div className="flex items-center gap-4 text-sm">
-                    <div className="flex-1 min-w-0">
-                      <div className="font-medium text-gray-900 truncate" title={stat.name}>{stat.name}</div>
-                      {stat.agents.length > 0 && (
-                        <div className="text-xs text-gray-400 truncate" title={stat.agents.join(', ')}>
-                          {stat.agents.join(', ')}
-                        </div>
-                      )}
-                    </div>
-                    <div className="w-20 text-right text-gray-700" style={{ fontFamily: TYPOGRAPHY.mono }}>
-                      {stat.count.toLocaleString()}
-                      {stat.errors > 0 && (
-                        <span className="text-red-600 ml-1" title={`${stat.errors} failed`}>
-                          ({stat.errors})
-                        </span>
-                      )}
-                    </div>
-                    <div className="w-24 text-right text-gray-900 font-medium" style={{ fontFamily: TYPOGRAPHY.mono }}>
-                      {formatDuration(stat.totalDuration)}
-                    </div>
-                    <div className="w-20 text-right text-gray-500" style={{ fontFamily: TYPOGRAPHY.mono }}>
-                      {formatDuration(stat.avgDuration)}
-                    </div>
-                    <div className="w-20 text-right text-gray-500" style={{ fontFamily: TYPOGRAPHY.mono }}>
-                      {formatDuration(stat.maxDuration)}
-                    </div>
-                  </div>
-                  {/* Share of the heaviest tool's total time */}
-                  <div className="h-1 bg-gray-100 rounded mt-1.5">
-                    <div className="h-1 bg-green-500 rounded" style={{ width: `${Math.max(share, 1)}%` }} />
-                  </div>
-                </div>
-              );
-            })}
-            </div>
-          </div>
-        )
-      )}
+      {viewMode === 'tools' && renderToolsBreakdown(false)}
       {/* Span Duration Breakdown View */}
       {viewMode === 'spans' && renderSpansBreakdown(false)}
 
