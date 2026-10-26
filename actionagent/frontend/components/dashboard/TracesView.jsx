@@ -481,6 +481,9 @@ export default function TracesView({ agentId = null, embedded = false }) {
     );
   }
 
+  // Tool usage — which tools get called and what they cost in aggregate.
+  // A 20ms tool called 40 times can dominate a 3s one called once, and
+  // neither is visible from a single trace's waterfall.
   const renderToolsBreakdown = (dark) => {
     const colors = telemetryColors(dark);
     return (
@@ -491,6 +494,9 @@ export default function TracesView({ agentId = null, embedded = false }) {
           </div>
         ) : (
           <div className="rounded-xl border overflow-x-auto" style={{ background: colors.cardBg, borderColor: colors.cardBorder }}>
+            {/* Flexbox rather than a 12-col grid: grid-cols-12 / col-span-*
+                aren't in the compiled Tailwind build. The min width scrolls
+                the table on narrow screens instead of crushing its columns. */}
             <div style={{ minWidth: 520 }}>
               <div className="flex items-center gap-4 px-4 py-2 text-xs font-medium border-b" style={{ color: colors.textSecondary, borderColor: colors.cardBorder }}>
                 <div className="flex-1">Tool</div>
@@ -532,6 +538,7 @@ export default function TracesView({ agentId = null, embedded = false }) {
                         {formatDuration(stat.maxDuration)}
                       </div>
                     </div>
+                    {/* Share of the heaviest tool's total time */}
                     <div className="h-1 rounded mt-1.5" style={{ background: colors.trackBg }}>
                       <div className="h-1 rounded" style={{ width: `${Math.max(share, 1)}%`, background: colors.good }} />
                     </div>
