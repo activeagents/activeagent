@@ -131,6 +131,17 @@ class GithubAppClientTest < ActiveSupport::TestCase
     assert_raises(ActionAgent::GithubClient::Error) { ActionAgent::GithubClient.new("ghu_user").organization_membership("../repos") }
   end
 
+  test "a membership GitHub refuses to show raises, since the App may lack Members (read)" do
+    stub_request(:get, "https://api.github.com/user/memberships/orgs/acme")
+      .to_return(status: 403, body: { message: "Resource not accessible by integration" }.to_json)
+
+    error = assert_raises(ActionAgent::GithubClient::MembershipForbidden) do
+      ActionAgent::GithubClient.new("ghu_user").organization_membership("acme")
+    end
+    assert_equal 403, error.status
+    assert_match "Resource not accessible by integration", error.message
+  end
+
   test "a validation failure's messages follow GitHub's own in the error" do
     stub_request(:post, "https://api.github.com/repos/acme/shop/pulls").to_return(
       status: 422, body: { message: "Validation Failed", errors: [ { resource: "PullRequest", message: "A pull request already exists for acme:fix." } ] }.to_json

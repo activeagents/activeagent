@@ -103,6 +103,32 @@ module ActionAgent
       GithubClient.new(mint_token!(permissions: LISTING_PERMISSIONS))
     end
 
+    # The repositories GitHub lists for the installation, whether selected
+    # or not (GithubClient#repositories' shape). Mints a listing token.
+    def reachable_repositories
+      listing_client.installation_repositories
+    end
+
+    # The repository +full_name+ names, as the installation reaches it, or
+    # nil when it reaches none: asked of GitHub by name, so it also finds one
+    # the owner has not selected. Mints a listing token.
+    def find_repository(full_name)
+      listing_client.repository(full_name)
+    end
+
+    # A client that reads the files of the one repository +repo+ (a
+    # repository row with an "id"), with a freshly minted token limited to
+    # its contents, for a project's preflight and secret discovery. The
+    # token is held by the client only.
+    def contents_client(repo)
+      GithubClient.new(mint_token!(permissions: CHECKOUT_PERMISSIONS, repository_ids: [ repo["id"] ]))
+    end
+
+    # How a project or sandbox says where its repository is reached through.
+    def checkout_source
+      "app"
+    end
+
     # Records what GitHub reported about the installation when it was linked.
     def assign_from_github(installation)
       account = installation["account"] || {}

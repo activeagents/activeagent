@@ -60,6 +60,10 @@ module ActionAgent
     # cannot see, which GitHub does not tell apart. Also 409, which GitHub
     # answers for the commits and trees of a repository with no commits.
     class NotFound < Error; end
+    # GitHub answered 403 to an organization membership lookup: the GitHub
+    # App lacks the organization permission Members (read), or the
+    # organization's SAML single sign-on has not authorized the token.
+    class MembershipForbidden < Error; end
     # GitHub minted no token because the installation was removed from its
     # account (404) or suspended (403). +reason+ is :removed or :suspended.
     class InstallationUnavailable < Error
@@ -323,14 +327,19 @@ module ActionAgent
 
     # The user's membership in +organization+ ({ "state" =>, "role" => }), or
     # nil when GitHub reports none.
+    #
+    # @raise [MembershipForbidden] when GitHub answers 403, as it does to a
+    #   GitHub App user token while the App lacks Members (read)
     def organization_membership(organization)
       raise Error, "#{organization.inspect} is not a GitHub login" unless organization.is_a?(String) && organization.match?(LOGIN)
 
       get("/user/memberships/orgs/#{organization}")
-    rescue Error => e
-      raise unless e.status.in?([ 403, 404 ])
-
+    rescue NotFound
       nil
+    rescue Error => e
+      raise unless e.status == 403
+
+      raise MembershipForbidden.new("GitHub refused to show the membership in #{organization}: #{e.message}", status: 403)
     end
 
     # The repositories an installation token reaches, reduced like
