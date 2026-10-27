@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useTheme } from '../../contexts/ThemeContext';
-import { isSandboxRuntime, isStoppedRuntime, isUndocumented } from '../../utils/toolRoster.mjs';
+import {
+  isCustomServer, isRemovedCustomServer, isSandboxRuntime, isStoppedRuntime, isUndocumented,
+} from '../../utils/toolRoster.mjs';
+import McpServerConfigsPanel from './McpServerConfigsPanel';
 
 const REFRESH_INTERVAL_MS = 60000;
 
@@ -42,10 +45,11 @@ const formatNumber = (num) => {
  *
  * Rows come from three places at once: servers detected in telemetry and
  * solid_agent records (via the `mcp__server__tool` naming convention),
- * servers an agent declares in its config, and the platform's default
- * catalog. A server therefore appears whether it has been used, merely
- * configured, or never touched — and the ones that can run in a sandbox
- * can be started from here.
+ * servers an agent declares in its config, the platform's default
+ * catalog, and the servers this owner added by URL (McpServerConfigsPanel,
+ * where they are managed). A server therefore appears whether it has been
+ * used, merely configured, or never touched — and the ones that can run in
+ * a sandbox can be started from here.
  */
 export default function McpServersView({ focusServer, onOpenTools }) {
   const { darkMode } = useTheme();
@@ -188,6 +192,8 @@ export default function McpServersView({ focusServer, onOpenTools }) {
           <StatCard label="Tool Calls" value={formatNumber(summary.total_calls)} hint="through MCP servers" />
         </div>
 
+        <McpServerConfigsPanel onChanged={fetchServers} />
+
         {notice && (
           <div style={{
             marginBottom: '16px', padding: '12px 16px', borderRadius: '8px', fontSize: '14px',
@@ -258,6 +264,22 @@ export default function McpServersView({ focusServer, onOpenTools }) {
                             title="This checkout sandbox has stopped; agents may still name its runtime"
                           >
                             not running
+                          </span>
+                        )}
+                        {isCustomServer(server) && (
+                          <span
+                            style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '6px', background: darkMode ? 'rgba(59,130,246,0.15)' : '#eff6ff', color: darkMode ? '#93c5fd' : '#1d4ed8' }}
+                            title="A server you added by URL under Your MCP servers"
+                          >
+                            your server
+                          </span>
+                        )}
+                        {isRemovedCustomServer(server) && (
+                          <span
+                            style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '6px', background: darkMode ? 'rgba(245,158,11,0.15)' : '#fffbeb', color: darkMode ? '#fcd34d' : '#b45309' }}
+                            title="This server was deleted; agents may still name it"
+                          >
+                            removed
                           </span>
                         )}
                         {isUndocumented(server) && (
