@@ -1097,7 +1097,8 @@ with:
   `?github_app=members_permission`, not `not_admin`: add the permission on
   the App's settings page, accept it on the installation, and link again.
   The manifest from **Create GitHub App** asks for all four
-- no webhook, and no Workflows, Administration or Secrets permission
+- no Workflows, Administration or Secrets permission
+- optionally, a webhook (see [GitHub App webhooks](#github-app-webhooks))
 
 Then configure it, and restart the dashboard:
 
@@ -1155,6 +1156,44 @@ GitHub once more, and the mark clears as soon as GitHub mints a token for it,
 as it does again once a suspended installation is unsuspended. An App
 uninstalled from an account comes back as a new installation when it is
 installed again; unlink the old one.
+
+#### GitHub App webhooks
+
+Without a webhook, the dashboard learns that an installation was removed or
+suspended only when GitHub next refuses a token. With one, it learns when it
+happens. On the App's settings page on GitHub, set the **Webhook URL** to
+`<mount>/api/github_app/webhooks` (for example
+`https://example.com/activeagents/api/github_app/webhooks`), give it a
+**Webhook secret**, check **Active**, and subscribe it to the
+**Installation** and **Installation repositories** events (GitHub also
+sends the App's authorization revocations). Then configure the secret:
+
+```ruby
+ActionAgent.configure do |config|
+  config.github_app_webhook_secret = Rails.application.credentials.dig(:github_app, :webhook_secret)
+end
+```
+
+Unset, it falls back to `GITHUB_APP_WEBHOOK_SECRET`, and with neither the
+endpoint answers 404. A delivery is accepted only when its
+`X-Hub-Signature-256` is the HMAC-SHA256 of its body under that secret (a
+401 otherwise). The endpoint answers 202 straight away and applies the
+delivery in `ActionAgent::GithubWebhookJob`, so the host app needs a running
+Active Job backend:
+
+| Event | Action | Effect |
+|-------|--------|--------|
+| `installation` | `deleted` | the installation is marked removed |
+| `installation` | `suspend` / `unsuspend` | it is marked suspended, and the mark is cleared |
+| `installation` | `new_permissions_accepted` | its permissions are recorded |
+| `installation_repositories` | `removed` | the removed repositories leave the owner's selection |
+| `installation_repositories` | `added` | nothing to store: the repository picker lists them the next time it opens |
+| `github_app_authorization` | `revoked` | the user's stored OAuth connection is deleted, when `github_client_id` is the App's client id (a connection made through a separate OAuth App is not this grant) |
+
+A delivery about an installation no owner linked changes nothing, and other
+events are answered 202 and ignored. Each `X-GitHub-Delivery` is recorded
+(in `github_webhook_deliveries`, for seven days) before its job is enqueued,
+so a redelivery of the same delivery is a no-op.
 
 ### An OAuth connection
 

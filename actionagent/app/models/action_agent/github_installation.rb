@@ -49,7 +49,8 @@ module ActionAgent
 
     # Whether GitHub will still mint tokens for this installation, as far as
     # the dashboard last heard: false once a mint found it removed or
-    # suspended, until a later mint succeeds or it is linked again.
+    # suspended, or a webhook delivery reported it (GithubWebhookJob), until
+    # a later mint succeeds, an unsuspend is delivered, or it is linked again.
     def usable?
       removed_at.nil? && suspended_at.nil?
     end

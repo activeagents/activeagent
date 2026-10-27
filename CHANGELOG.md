@@ -24,6 +24,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   carries, so an exported run imported into another install keeps its place
   in the run history instead of reading as just run. A report naming no
   finish time is dated on arrival, and a malformed one is refused.
+- **GitHub App webhooks** (`actionagent`). `POST <mount>/api/github_app/webhooks`
+  receives the App's deliveries, verified with `X-Hub-Signature-256` under
+  `ActionAgent.github_app_webhook_secret` (falling back to
+  `GITHUB_APP_WEBHOOK_SECRET`; unset, the endpoint answers 404), and applies
+  them in `ActionAgent::GithubWebhookJob`: an uninstall marks the linked
+  installation removed, suspend and unsuspend set and clear `suspended_at`,
+  accepted permissions are recorded, a repository removed from the
+  installation leaves the owner's selection, and a revoked App authorization
+  deletes the user's stored connection when connections authorize through the
+  App. Each `X-GitHub-Delivery` is recorded for seven days, so a redelivery
+  is a no-op. Ships a new migration,
+  `create_active_agent_github_webhook_deliveries`; run
+  `rails generate action_agent:install` and `rails db:migrate` to add it.
 
 ### Fixed
 
