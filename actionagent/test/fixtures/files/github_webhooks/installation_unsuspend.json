@@ -1,0 +1,52 @@
+{
+  "action": "unsuspend",
+  "installation": {
+    "id": 77,
+    "client_id": "Iv1.testclientid",
+    "account": {
+      "login": "acme",
+      "id": 555,
+      "type": "Organization",
+      "site_admin": false,
+      "html_url": "https://github.com/acme"
+    },
+    "repository_selection": "selected",
+    "access_tokens_url": "https://api.github.com/app/installations/77/access_tokens",
+    "repositories_url": "https://api.github.com/installation/repositories",
+    "html_url": "https://github.com/organizations/acme/settings/installations/77",
+    "app_id": 424242,
+    "app_slug": "acme-dashboard",
+    "target_id": 555,
+    "target_type": "Organization",
+    "permissions": {
+      "contents": "write",
+      "metadata": "read",
+      "pull_requests": "write",
+      "members": "read"
+    },
+    "events": [],
+    "created_at": "2026-10-01T12:00:00.000Z",
+    "updated_at": "2026-10-27T12:00:00.000Z",
+    "single_file_name": null,
+    "has_multiple_single_files": false,
+    "single_file_paths": [],
+    "suspended_by": null,
+    "suspended_at": null
+  },
+  "repositories": [
+    {
+      "id": 101,
+      "node_id": "R_kgDO101",
+      "name": "api",
+      "full_name": "acme/api",
+      "private": true
+    }
+  ],
+  "sender": {
+    "login": "octocat",
+    "id": 9001,
+    "type": "User",
+    "site_admin": false,
+    "html_url": "https://github.com/octocat"
+  }
+}
