@@ -37,4 +37,20 @@ class AtlasCloudProviderLoadingTest < ActiveSupport::TestCase
   ensure
     ENV["ATLASCLOUD_API_KEY"] = previous_key
   end
+
+  test "Atlas Cloud options allow overriding base_url" do
+    require "active_agent/providers/atlas_cloud_provider"
+
+    options = ActiveAgent::Providers::AtlasCloud::Options.new(api_key: "atlas-test", base_url: "https://proxy.example.com/v1")
+
+    assert_equal "https://proxy.example.com/v1", options.base_url
+  end
+
+  test "Atlas Cloud options fall back to the default endpoint for a blank base_url" do
+    require "active_agent/providers/atlas_cloud_provider"
+
+    options = ActiveAgent::Providers::AtlasCloud::Options.new(api_key: "atlas-test", base_url: "")
+
+    assert_equal "https://api.atlascloud.ai/v1", options.base_url
+  end
 end

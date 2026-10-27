@@ -41,11 +41,6 @@ end
 
 ## Choosing a Provider
 
-### [Atlas Cloud](/providers/atlas_cloud)
-**Best for:** OpenAI-compatible access to Atlas Cloud text models
-
-Use Atlas Cloud model identifiers with Active Agent's chat, streaming, structured output, and tool-calling interfaces. The provider reads `ATLASCLOUD_API_KEY` and uses the Atlas Cloud endpoint automatically.
-
 ### [Anthropic](/providers/anthropic)
 **Best for:** Complex reasoning, coding tasks, long context
 
@@ -73,6 +68,11 @@ GPT-4o, GPT-4.1, GPT-5, and o3 models. Two APIs available: Responses API (defaul
 Access 200+ models from OpenAI, Anthropic, Google, Meta, and more through one API. Intelligent routing, automatic fallbacks, multimodal support, PDF processing.
 
 **Choose when:** You want to compare models, need fallback options, or want flexible provider switching. Good for reducing vendor lock-in.
+
+### [Atlas Cloud](/providers/atlas_cloud)
+**Best for:** OpenAI-compatible access to Atlas Cloud text models
+
+Use Atlas Cloud model identifiers with Active Agent's chat, streaming, structured output, and tool-calling interfaces. The provider reads `ATLASCLOUD_API_KEY` and uses the Atlas Cloud endpoint automatically.
 
 ### [RubyLLM](/providers/ruby_llm)
 **Best for:** Multi-provider flexibility through a single unified gem

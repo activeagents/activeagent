@@ -22,7 +22,7 @@ import SettingsView from '../components/dashboard/SettingsView';
 import DashboardAssistant from '../components/dashboard/DashboardAssistant';
 import ProjectsView from '../components/dashboard/ProjectsView';
 import ExplorationsView from '../components/dashboard/ExplorationsView';
-import ScenarioCatalogsView from '../components/dashboard/ScenarioCatalogsView';
+import ScenariosView from '../components/dashboard/scenarios/ScenariosView';
 import { ThemeProvider, useTheme } from '../contexts/ThemeContext';
 import { TimeWindowProvider } from '../contexts/TimeWindowContext';
 import { useInputRequests } from '../hooks/useInputRequests';
@@ -36,6 +36,8 @@ import {
   navView,
 } from '../utils/dashboardRoutes.mjs';
 import { openedFromSessions } from '../utils/sessionsQuery.mjs';
+import { requestConfirm } from '../utils/confirm.mjs';
+import { ConfirmHost } from '../components/dashboard/ConfirmDialog';
 
 /**
  * Dashboard - Main dashboard application
@@ -81,7 +83,7 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
       const route = matchDashboardRoute(dashboardRelativePath(), features);
       if (route.focusServer) setFocusServer(route.focusServer);
       if (route.sessionId) setReplaySession({ kind: route.sessionKind, id: route.sessionId });
-      if (route.replacePath) window.history.replaceState({}, '', route.replacePath);
+      if (route.replacePath) window.history.replaceState({}, '', dashboardPath(route.replacePath));
       if (route.agentId) loadAgent(route.agentId, route.view);
       else setCurrentView(route.view);
     };
@@ -207,7 +209,14 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
   };
 
   const handleDeleteAgent = async (id) => {
-    if (!confirm('Are you sure you want to delete this agent?')) return;
+    const agent = agents.find((a) => a.id === id);
+    if (!(await requestConfirm({
+      title: agent ? `Delete ${agent.name}?` : 'Delete this agent?',
+      message: 'Its versions and run history are deleted with it. This cannot be undone.',
+      confirmLabel: 'Delete agent',
+      danger: true,
+      requireText: agent?.name,
+    }))) return;
 
     setIsLoading(true);
     try {
@@ -317,8 +326,10 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
     ) : null),
     runner: () => (selectedAgent ? (
       <AgentRunner
+        key={`runner-${selectedAgent.id}-${window.location.search}`}
         agent={selectedAgent}
         recorderUrl={meta.recorderUrl}
+        freshConversation={new URLSearchParams(window.location.search).has('new')}
         onBack={() => navigateTo('editor', selectedAgent)}
       />
     ) : null),
@@ -374,7 +385,7 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
     ),
     evaluations: () => <EvaluationsView />,
     projects: () => <ProjectsView visit={visit} />,
-    catalogs: () => <ScenarioCatalogsView visit={visit} />,
+    scenarios: () => <ScenariosView visit={visit} />,
     sessions: () => <SessionsView agents={agents} user={user} />,
     exploration: () => <ExplorationsView visit={visit} />,
     replay: () => (replaySession ? (
@@ -402,6 +413,7 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
     sandbox: () => (
       <SandboxRunner
         initialType="playwright_mcp"
+        showAgents
         onClose={() => navigateTo('list')}
       />
     ),
@@ -464,7 +476,10 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
           account={account}
         />
 
-        <main className="flex-1 p-6 overflow-auto">
+        {/* The window scrolls, not main, so main clips instead of becoming a
+            scroll container: one that never scrolls would pin sticky panes
+            (a conversation's browser) in place. */}
+        <main className="flex-1 p-6 overflow-x-clip">
           {renderContent()}
         </main>
       </div>
@@ -476,6 +491,8 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
           onClose={() => setShowTemplateLibrary(false)}
         />
       )}
+
+      <ConfirmHost />
 
       {/* Notification Toast */}
       {notification && (

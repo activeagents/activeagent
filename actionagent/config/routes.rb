@@ -29,8 +29,16 @@ ActionAgent::Engine.routes.draw do
 
     # The collector for evaluation reports an application ran itself
     # (ActiveAgent::Evals::Publisher), at <mount>/api/evaluation_reports.
-    # Authenticated like trace ingest, with a bearer token.
+    # Authenticated like trace ingest, with a bearer token. GET
+    # <mount>/api/evaluation_reports/:run_id exports a stored run in the
+    # envelope the collector takes. A run_id may hold dots, so the path has
+    # no format extension.
     resources :evaluation_reports, only: [ :create ]
+    get "evaluation_reports/:run_id", to: "evaluation_reports#show", as: :evaluation_report,
+                                      constraints: { run_id: %r{[^/]+} }, format: false
+
+    post "feedback", to: "feedback_ingest#create"
+    get "feedback", to: "feedbacks#index"
 
     # A JSON API has no :new or :edit forms to serve.
     resources :agents, except: [ :new, :edit ] do
@@ -56,6 +64,8 @@ ActionAgent::Engine.routes.draw do
       end
       collection do
         get :presets
+        # The builder's roster for an agent not created yet.
+        get :tool_roster, action: :new_tool_roster
       end
     end
 
@@ -98,6 +108,8 @@ ActionAgent::Engine.routes.draw do
       resources :code_sessions, only: [ :index, :create, :show ] do
         member do
           post :cancel
+          # Another turn of the session's conversation.
+          post :messages
         end
       end
       resource :claude_login, only: [ :show, :create, :destroy ], controller: "claude_logins" do
@@ -138,6 +150,7 @@ ActionAgent::Engine.routes.draw do
       # The setup assistant, the requests for input waiting on the project's
       # agents, and the models the App assistant may read.
       post :setup, to: "project_setup#start"
+      post "setup/claude_code", to: "project_setup#fix_with_claude_code", as: :setup_claude_code
       patch :setup, to: "project_setup#update"
       get :input_requests, to: "project_setup#input_requests"
       get :app_models, to: "project_setup#app_models"
@@ -250,13 +263,28 @@ ActionAgent::Engine.routes.draw do
     # Scenario catalogs: YAML catalogs of scenarios (products, sets), imported
     # from a document, a file or a connected repository, exported as YAML,
     # synced to Active Storage, and run one set at a time as an evaluation.
+    # The dashboard's Scenarios page edits them entry by entry
+    # (ScenarioCatalogEntriesController) and previews an import before it
+    # is applied.
     resources :scenario_catalogs, only: [ :index, :show, :create, :update, :destroy ] do
+      post :preview, on: :collection
       member do
         get :export
         post :sync
         post "sets/:set_id/run", action: :run_set, as: :run_set
         post "sets/:set_id/materialize", action: :materialize_set, as: :materialize_set
       end
+    end
+    scope "scenario_catalogs/:id", controller: "scenario_catalog_entries", as: :scenario_catalog do
+      post "products", action: :create_product, as: :products
+      patch "products/:product_id", action: :update_product, as: :product
+      delete "products/:product_id", action: :destroy_product
+      post "products/:product_id/sets", action: :create_set, as: :product_sets
+      patch "sets/:set_id", action: :update_set, as: :set
+      delete "sets/:set_id", action: :destroy_set
+      post "sets/:set_id/scenarios", action: :create_scenario, as: :set_scenarios
+      patch "sets/:set_id/scenarios/:scenario_id", action: :update_scenario, as: :set_scenario
+      delete "sets/:set_id/scenarios/:scenario_id", action: :destroy_scenario
     end
 
     # Credentials: dashboard API keys (token shown once on create) and the

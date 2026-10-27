@@ -80,6 +80,12 @@ module ActionAgent
       app.config.filter_parameters += [ :credential, :api_key, :access_token, :password, :claude_login_code, /\Arecording_events\z/, /(?:\A|\.)(?:answer|value)\z/i ]
     end
 
+    # Evaluation run reports are served as Markdown (`report.md`). Rails
+    # registers text/markdown as :md from 7.1; an older host gets it here.
+    initializer "action_agent.markdown_mime_type" do
+      Mime::Type.register "text/markdown", :md, [], %w[md markdown] unless Mime[:md]
+    end
+
     # The project setup assistant's request_secret answers go to its
     # handler. Registered on every reload, so the handler is always the
     # current class's.

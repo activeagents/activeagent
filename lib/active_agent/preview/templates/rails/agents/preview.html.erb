@@ -1,0 +1,3 @@
+<h1><%= @preview.preview_name %> / <%= @prompt %></h1>
+<p><%= link_to "Download Markdown", "#{download_rails_agent_preview_path("#{@preview.preview_name}/#{@prompt}")}?#{request.query_parameters.to_query}" %></p>
+<pre><%= @content %></pre>

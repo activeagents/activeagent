@@ -77,7 +77,7 @@ app/agents/support_agent.rb
 app/views/agents/support/instructions.md
 app/views/agents/support/respond.md.erb
 test/agents/support_agent_test.rb
-test/docs/previews/support_agent_preview.rb
+test/agents/previews/support_agent_preview.rb
 ```
 
 Multiple actions:
@@ -212,3 +212,37 @@ end
 
 - **[Configuration](/framework/configuration)** - Environment-specific settings and YAML configuration
 - **[Instrumentation](/framework/instrumentation)** - Rails.logger integration and event monitoring
+
+## Browser previews
+
+In development, open `/rails/agents` to list your agent previews. Choose an
+action to inspect the request as escaped Markdown, or download it as a
+`.md` file. A preview builds the request without calling the provider. It
+uses the agent's normal provider configuration.
+
+The generator writes `ActiveAgent::Preview` subclasses under
+`test/agents/previews`. Existing previews under `test/docs/previews` are
+also discovered. Add another directory before the application initializes:
+
+```ruby
+# config/application.rb
+config.active_agent.preview_paths << Rails.root.join("lib/agent_previews").to_s
+```
+
+Generated preview methods pass their query parameters through `with(params)`
+to the agent. An action that needs parameters can be opened with, for
+example, `/rails/agents/support_agent/respond?message=Hello`.
+Namespaced previews use `/rails/agents/admin/user_agent/create`.
+Preview files reload with the application in development.
+
+Set `config.active_agent.show_previews = false` to omit the routes.
+Previews default to disabled outside development. When enabled, the
+controller uses the same local-request restriction as Rails' own diagnostic
+pages. Setting `config.consider_all_requests_local = true` bypasses that
+restriction, so remote requests can access previews when
+`config.active_agent.show_previews = true`. Preview content can include
+agent instructions and interpolated parameters; keep
+`config.consider_all_requests_local = false` in any remotely accessible
+environment where previews are enabled.
+
+The `actionagent` dashboard gem is not required.

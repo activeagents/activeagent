@@ -5,7 +5,8 @@ import { COST_LEGEND, costTitle, fmtPasses, fmtScore, fmtSpend } from '../../../
 import { plural, typicalFaultText } from '../../../utils/evaluationRuns.mjs';
 
 // The comparison at a glance: one row per model cohort of a run, best first —
-// passed (with its percent), mean score, average latency, average tokens per
+// passed (with its percent), mean score, average latency and its P50 / P95
+// (nearest rank, as the report computes them), average tokens per
 // interaction, cost (and per interaction), what the judge spent on the
 // cohort when a judge was asked, and the model's typical fault. The
 // scorecards under it carry the same figures per model with bars and fault
@@ -17,7 +18,7 @@ const td = { padding: '9px 12px', verticalAlign: 'top', fontSize: 13, color: 'va
 const num = { ...td, fontFamily: MONO, fontSize: 12, whiteSpace: 'nowrap', textAlign: 'right' };
 const numHead = { ...th, textAlign: 'right' };
 
-const rateTone = (rate) => (rate == null ? 'var(--color-text-muted)' : rate >= 0.85 ? 'var(--color-success-text)' : rate >= 0.5 ? 'var(--color-warning-text)' : 'var(--color-error)');
+export const rateTone = (rate) => (rate == null ? 'var(--color-text-muted)' : rate >= 0.85 ? 'var(--color-success-text)' : rate >= 0.5 ? 'var(--color-warning-text)' : 'var(--color-error)');
 
 export default function ModelComparisonTable({ rows = [], unit = 'scenario', judgedBy = null, judgeEstimated = false, title = 'Model comparison', testId = 'model-comparison-table' }) {
   if (!rows.length) return null;
@@ -25,6 +26,7 @@ export default function ModelComparisonTable({ rows = [], unit = 'scenario', jud
   const showJudge = rows.some((row) => row.judgeCost != null || row.judgeCalls > 0);
   const showTokens = rows.some((row) => row.avgTokens != null);
   const showLatency = rows.some((row) => row.avgDurationMs != null);
+  const showPercentiles = rows.some((row) => row.p50DurationMs != null);
   const estimatedAnywhere = rows.some((row) => (row.cost != null && row.estimated) || (row.judgeCost != null && judgeEstimated));
 
   return (
@@ -46,6 +48,7 @@ export default function ModelComparisonTable({ rows = [], unit = 'scenario', jud
               <th style={numHead}>Passed</th>
               <th style={numHead}>Mean score</th>
               {showLatency && <th style={numHead}>Avg latency</th>}
+              {showPercentiles && <th style={numHead} title="Median and 95th percentile latency, nearest rank">P50 / P95</th>}
               {showTokens && <th style={numHead} title={`Average input + output tokens per ${unit}`}>Avg tokens</th>}
               {showCost && <th style={numHead} title={`Cohort spend, and per ${unit}`}>Cost</th>}
               {showJudge && <th style={numHead} title="What the judge spent scoring this model's answers">Judge</th>}
@@ -69,6 +72,11 @@ export default function ModelComparisonTable({ rows = [], unit = 'scenario', jud
                   </td>
                   <td style={num}>{fmtScore(row.avgScore)}</td>
                   {showLatency && <td style={num}>{row.avgDurationMs == null ? '—' : fmtMs(row.avgDurationMs)}</td>}
+                  {showPercentiles && (
+                    <td style={num} data-testid="model-comparison-percentiles">
+                      {row.p50DurationMs == null ? '—' : `${fmtMs(row.p50DurationMs)} / ${fmtMs(row.p95DurationMs)}`}
+                    </td>
+                  )}
                   {showTokens && (
                     <td style={num} title={row.avgInputTokens == null ? undefined : `${Math.round(row.avgInputTokens)} in · ${Math.round(row.avgOutputTokens || 0)} out per ${unit}`}>
                       {row.avgTokens == null ? '—' : fmtK(Math.round(row.avgTokens))}

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { COUNTED_STANDINGS, evaluationStanding, headlineRun, headlineSummary, notCountedText } from '../utils/evaluationRuns.mjs';
+import { COUNTED_STANDINGS, evaluationStanding, headlineRun, headlineSummary, modelLeaderboard, notCountedText, wilsonLowerBound } from '../utils/evaluationRuns.mjs';
 
 // The Evaluations page's tiles describe the headline run of each
 // evaluation that stands against the agent as it is now.
@@ -56,9 +56,10 @@ test('the tiles pool the headline runs of the evaluations that count and say wha
   assert.equal(summary.focused, false);
   // Per model, pooled across the counted runs: the API's per_model, else the run's own summaries.
   assert.deepEqual(summary.perModel, [
-    { label: 'gpt-5-mini', passed: 7, total: 9 },
-    { label: 'qwen3:8b', passed: 3, total: 5 },
+    { label: 'gpt-5-mini', passed: 7, total: 9, byEvaluation: { 1: { passed: 5, total: 5 }, 2: { passed: 2, total: 4 } } },
+    { label: 'qwen3:8b', passed: 3, total: 5, byEvaluation: { 1: { passed: 3, total: 5 } } },
   ]);
+  assert.deepEqual(summary.columns.map((column) => column.id), [1, 2, 5]);
   // Spend over the counted runs, marked as an estimate when any part was.
   assert.ok(Math.abs(summary.spend.agentCost - 0.12) < 1e-12);
   assert.equal(summary.spend.interactions, 14);
@@ -88,4 +89,34 @@ test('an empty page has nothing to count', () => {
   assert.equal(summary.passRatio, null);
   assert.deepEqual(summary.perModel, []);
   assert.equal(notCountedText(summary), null);
+});
+
+test('the leaderboard ranks models by the Wilson lower bound, not the raw rate', () => {
+  const summary = { perModel: [
+    { label: 'openrouter/openai/gpt-4o-mini', passed: 36, total: 211 },
+    { label: 'openrouter/anthropic/claude-haiku-5.5', passed: 75, total: 173 },
+    { label: 'openrouter/anthropic/claude-sonnet-4.5', passed: 12, total: 27 },
+    { label: 'lucky', passed: 1, total: 1 },
+    { label: 'unscored', passed: 0, total: 0 },
+  ] };
+
+  const board = modelLeaderboard(summary);
+
+  // 1/1 is a 100% rate on one sample: it ranks below 75/173.
+  assert.deepEqual(board.map((row) => row.label), [
+    'openrouter/anthropic/claude-haiku-5.5',
+    'openrouter/anthropic/claude-sonnet-4.5',
+    'lucky',
+    'openrouter/openai/gpt-4o-mini',
+  ]);
+  assert.deepEqual(board.map((row) => row.rank), [1, 2, 3, 4]);
+  assert.ok(Math.abs(board[0].ratio - 75 / 173) < 1e-12);
+  assert.ok(board[0].lower < board[0].ratio);
+  assert.deepEqual(modelLeaderboard({}), []);
+});
+
+test('the Wilson lower bound', () => {
+  assert.equal(wilsonLowerBound(0, 0), 0);
+  assert.ok(Math.abs(wilsonLowerBound(7, 8) - 0.529) < 0.005);
+  assert.ok(wilsonLowerBound(100, 100) > wilsonLowerBound(10, 10));
 });

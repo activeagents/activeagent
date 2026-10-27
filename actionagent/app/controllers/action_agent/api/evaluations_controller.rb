@@ -48,7 +48,7 @@ module ActionAgent
       #
       # Three fields feed the dashboard's model pickers. They describe the
       # credentials of #picker_credentials_owner:
-      #   - judge_provider:        the provider a judge model runs on, null
+      #   - judge_provider:        the default provider of an unpinned judge, null
       #                            when none has credentials or the lookup
       #                            raised
       #   - judge_provider_error:  true when that lookup raised, as it does
@@ -82,17 +82,29 @@ module ActionAgent
       # `evaluation: { archived: true | false }` archives the evaluation —
       # it keeps its runs but leaves the index, the pooled pass rate and the
       # agent's scorecard — or brings it back. A new run brings it back too.
+      # `evaluation: { judge_model: "…" }` pins the model the judge runs on
+      # from the next run; blank unpins it, back to the provider's default.
       def update
         evaluation = evaluations_scope.find(params[:id])
-        archived = params.require(:evaluation)[:archived]
-        if archived.nil?
+        attributes = params.require(:evaluation)
+        archived = attributes[:archived]
+        pin_judge = attributes.key?(:judge_model)
+        if archived.nil? && !pin_judge
           return render json: { errors: [ "evaluation.archived must be true or false" ] }, status: :unprocessable_entity
         end
 
-        ActiveModel::Type::Boolean.new.cast(archived) ? evaluation.archive! : evaluation.unarchive!
+        judge_model = attributes[:judge_model].to_s.strip.presence
+        if judge_model && judge_model.length > MAX_JUDGE_MODEL
+          return render json: { errors: [ "evaluation.judge_model is longer than #{MAX_JUDGE_MODEL} characters" ] }, status: :unprocessable_entity
+        end
+
+        evaluation.update!(judge_model: judge_model) if pin_judge
+        ActiveModel::Type::Boolean.new.cast(archived) ? evaluation.archive! : evaluation.unarchive! unless archived.nil?
 
         render json: { evaluation: serialize(evaluation.reload) }
       end
+
+      MAX_JUDGE_MODEL = 200
 
       # Runs listed per evaluation on GET /api/evaluations/:id. The rest of
       # the history stays reachable by run id; `run_count` says how long it is.
@@ -243,14 +255,44 @@ module ActionAgent
       # the page follows the viewer's own preference. The page is served
       # outside the React app, so its fix item actions link at the absolute
       # mount path (request.script_name) rather than relative to it.
+      #
+      # `report.json` (or `?format=json`) returns the run instead as the
+      # version-1 envelope the evaluation report collector takes
+      # (EvaluationReportExport), the same the API-key export at
+      # GET /api/evaluation_reports/:run_id serves; 422 for a run that is not
+      # complete. `report.md` (or `?format=md`) returns it as GitHub-flavored
+      # Markdown, the whole report or one `part` — `verdict`, `fix_items`
+      # (narrowed by `model`, a model label) or `scenario` (named by
+      # `scenario`, its key; 404 for one the run did not replay) — which the
+      # dashboard's "Copy as Markdown" buttons read. `download=1` sends any of
+      # them as an attachment named for the evaluation and the run's number:
+      # `orders-eu-run-3.html`, `orders-eu-run-3-fix-items.md`.
       def run_report
         evaluation = evaluations_scope.find(params[:id])
         run = evaluation.evaluation_runs.find(params[:run_id])
         raise ActiveRecord::RecordNotFound unless evaluation.scenario_suite?
 
-        report = run.to_report(links: run.report_links(mount: request.script_name))
+        export = EvaluationReportExport.new(run)
+        if request.format.symbol == :md
+          body = export.markdown(part: params[:part], model: params[:model], scenario: params[:scenario])
+          return send_report(body, export.filename("md", part: params[:part]), "text/markdown") if download?
 
-        render html: report.to_html(theme: params[:theme]).html_safe, layout: false
+          return render plain: body, content_type: "text/markdown"
+        end
+        if request.format.json?
+          body = export.to_json
+          return send_report(body, export.filename("json"), "application/json") if download?
+
+          return render json: body
+        end
+
+        report = run.to_report(links: run.report_links(mount: request.script_name))
+        html = report.to_html(theme: params[:theme])
+        return send_report(html, export.filename("html"), "text/html") if download?
+
+        render html: html.html_safe, layout: false
+      rescue EvaluationReportExport::NotExportable, EvaluationReportExport::UnknownPart => e
+        render json: { errors: [ e.message ] }, status: :unprocessable_entity
       end
 
       # DELETE /api/evaluations/:id
@@ -260,6 +302,14 @@ module ActionAgent
       end
 
       private
+
+      def download?
+        ActiveModel::Type::Boolean.new.cast(params[:download]) == true
+      end
+
+      def send_report(body, filename, type)
+        send_data body, filename: filename, type: type, disposition: "attachment"
+      end
 
       def include_archived?
         ActiveModel::Type::Boolean.new.cast(params[:archived]) == true
@@ -411,7 +461,7 @@ module ActionAgent
 
       def run_number(evaluation, run) = EvaluationSerializer.run_number(evaluation, run)
 
-      def safe_fix_items(run) = EvaluationSerializer.fix_items(run)
+      def safe_fix_items(run) = EvaluationSerializer.fix_items(run, markdown: true)
     end
   end
 end

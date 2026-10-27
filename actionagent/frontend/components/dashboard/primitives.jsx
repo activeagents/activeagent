@@ -20,7 +20,32 @@ export const TONE = {
   info: { strong: 'var(--color-info)', soft: 'var(--color-info-soft)', text: 'var(--color-info-text)' },
   muted: { strong: 'var(--color-text-muted)', soft: 'var(--color-muted)', text: 'var(--color-text-secondary)' },
   accent: { strong: 'var(--color-accent-ui)', soft: 'var(--color-accent-ui-tint)', text: 'var(--color-accent-ui)' },
+  system: { strong: 'var(--color-system)', soft: 'var(--color-system-soft)', text: 'var(--color-system-text)' },
+  dev: { strong: 'var(--color-dev)', soft: 'var(--color-dev-soft)', text: 'var(--color-dev-text)' },
 };
+
+// The tone a record's status badge takes, the same on an agent card, a
+// run, a sandbox session or an evaluation: done is success, waiting is
+// warning, in flight is info, broken is error, and the rest is muted.
+const STATUS_TONES = {
+  active: 'success', complete: 'success', completed: 'success', ready: 'success', passed: 'success',
+  draft: 'warning', pending: 'warning', queued: 'warning', waiting: 'warning',
+  running: 'info', in_progress: 'info',
+  failed: 'error', error: 'error', expired: 'error',
+  archived: 'muted', cancelled: 'muted', canceled: 'muted', skipped: 'muted',
+};
+export const statusTone = (status) => STATUS_TONES[String(status || '').toLowerCase()] || 'muted';
+
+// The tone and label of a message role's badge, wherever a conversation
+// renders: the stream, a run's activity feed, a session preview.
+export const ROLE_BADGES = {
+  user: { tone: 'info', label: 'User' },
+  assistant: { tone: 'accent', label: 'Assistant' },
+  tool: { tone: 'warning', label: 'Tool' },
+  system: { tone: 'system', label: 'System' },
+  developer: { tone: 'dev', label: 'Dev' },
+};
+export const roleBadge = (role) => ROLE_BADGES[role] || { tone: 'muted', label: role };
 
 // The TUI glyph set. `chevron` rotates 90° when `open`.
 export const GLYPH = {
@@ -85,19 +110,25 @@ export function MicroLabel({ children, size = 11, color = 'var(--color-text-seco
 }
 
 // A selectable chip. Pill (radius 999) by default, radius 6 when `square`.
-export function Chip({ selected = false, onClick, children, square = false, mono = false, title, style, testId }) {
+// `disabled` dims it to half and takes it out of the Tab order (its `title`
+// says why), so a chip that cannot be used yet is not a live button that
+// does nothing.
+export function Chip({ selected = false, onClick, children, square = false, mono = false, disabled = false, title, style, testId }) {
   return (
     <button
       type="button"
       data-testid={testId}
-      onClick={onClick}
+      onClick={disabled ? undefined : onClick}
+      disabled={disabled}
+      aria-disabled={disabled || undefined}
       title={title}
       style={{
-        padding: '4px 10px', borderRadius: square ? 6 : 999, cursor: onClick ? 'pointer' : 'default',
+        padding: '4px 10px', borderRadius: square ? 6 : 999, cursor: onClick && !disabled ? 'pointer' : 'default',
         fontFamily: mono ? MONO : 'inherit', fontSize: mono ? 11 : 12, fontWeight: mono ? 400 : 500,
         background: selected ? 'var(--color-accent-ui-tint)' : 'var(--color-card)',
         border: `1px solid ${selected ? 'var(--color-accent-ui)' : 'var(--color-border)'}`,
         color: selected ? 'var(--color-accent-ui)' : mono ? 'var(--color-text-muted)' : 'var(--color-text-cell)',
+        opacity: disabled ? 0.5 : undefined,
         ...style,
       }}
     >
@@ -208,11 +239,38 @@ export function PassBar({ passed, total, label, labelWidth = 128, width, height 
   );
 }
 
+// A segmented bar: one track on --color-border-light, one span per part sized
+// value/total in its tone's strong color (a two-tone run progress bar, say:
+// passed green · failed red · the rest the track). `rest` carries role and
+// aria attributes through, so a caller can make it a progressbar.
+export function SegmentedBar({ parts = [], total = 0, height = 4, radius = 2, style, testId, title, ...rest }) {
+  return (
+    <div
+      data-testid={testId}
+      title={title}
+      style={{ display: 'flex', height, borderRadius: radius, overflow: 'hidden', background: 'var(--color-border-light)', ...style }}
+      {...rest}
+    >
+      {parts.map((part, index) => (
+        <span
+          key={index}
+          style={{
+            width: `${total > 0 ? (100 * (Number(part.value) || 0)) / total : 0}%`,
+            background: (TONE[part.tone] || TONE.muted).strong,
+            transition: 'width 300ms',
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
 // A mono in-app link ending in `->`, in the info color.
-export function MonoLink({ children, onClick, href = '#', color = 'var(--color-info)', size = 11, style, title }) {
+export function MonoLink({ children, onClick, href = '#', color = 'var(--color-info)', size = 11, style, title, testId }) {
   return (
     <a
       href={href}
+      data-testid={testId}
       title={title}
       onClick={(event) => { if (onClick) { event.preventDefault(); onClick(event); } }}
       style={{ fontFamily: MONO, fontSize: size, color, textDecoration: 'none', ...style }}

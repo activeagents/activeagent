@@ -10,8 +10,20 @@ import ContextMeter, { contextWindowFor, estimateTokens } from './ContextMeter';
 import TraceSpanBar from './TraceSpanBar';
 import TraceDetail from './TraceDetail';
 import NeedsInputLane from './NeedsInputLane';
+import NewInteractionPicker from './NewInteractionPicker';
 import { formatDuration } from './SpanWaterfall';
-import { dashboardPath } from '../../utils/dashboardPath';
+import { dashboardPath, dashboardRelativePath, pushDashboardPath } from '../../utils/dashboardPath';
+import CodeInteraction from './interactions/CodeInteraction';
+import {
+  codeRootId,
+  conversationPath,
+  INTERACTION_SOURCES,
+  interactionsListPath,
+  interactionsQuery,
+  isCodeInteraction,
+  latestConversation,
+  parseInteractionsLocation,
+} from '../../utils/codeConversations.mjs';
 import ReplayLink from './replay/ReplayLink';
 import {
   Chevron,
@@ -228,12 +240,59 @@ export default function InteractionsView({ agentId = null, embedded = false }) {
 
   const { timeWindow } = useTimeWindow();
 
+  // The top-level view keeps its filters and the conversation it shows in
+  // the URL (parseInteractionsLocation); an embedded one has neither.
+  const routed = !embedded && !agentId;
+  const readLocation = () => (routed
+    ? parseInteractionsLocation(dashboardRelativePath(), window.location.search)
+    : { view: 'list', source: 'all', project: null, codeId: null });
+  const [location, setLocation] = useState(readLocation);
+  const [projects, setProjects] = useState([]);
+  const { source, project } = location;
+
+  useEffect(() => {
+    if (!routed) return undefined;
+    const apply = () => setLocation(readLocation());
+    window.addEventListener('popstate', apply);
+    window.addEventListener('dashboard:navigate', apply);
+    return () => {
+      window.removeEventListener('popstate', apply);
+      window.removeEventListener('dashboard:navigate', apply);
+    };
+  }, [routed]);
+
+  useEffect(() => {
+    if (!routed) return;
+    fetch('/api/projects').then((res) => (res.ok ? res.json() : { projects: [] }))
+      .then((data) => setProjects(data.projects || [])).catch(() => {});
+  }, [routed]);
+
+  const go = (path) => {
+    pushDashboardPath(path);
+    setLocation(readLocation());
+  };
+  const setFilters = (next) => go(interactionsListPath({ source, project, ...next }));
+  const openConversation = (rootId) => go(conversationPath(rootId));
+
+  // /interactions/latest opens the newest conversation (of ?project=).
+  useEffect(() => {
+    if (location.view !== 'latest') return;
+    const query = interactionsQuery({ source: source === 'all' ? 'claude_code' : source, project });
+    fetch(`/api/interactions?${query}`).then((res) => res.json()).then((data) => {
+      const row = latestConversation(data.interactions);
+      const path = row ? conversationPath(codeRootId(row.id)) : interactionsListPath({ source, project });
+      window.history.replaceState({}, '', dashboardPath(path));
+      setLocation(readLocation());
+    }).catch(() => {});
+  }, [location.view, source, project]);
+
   const fetchSessions = useCallback(async () => {
     try {
-      // Both filters apply: the shared window bounds the range, and an
-      // embedded view scopes to its agent.
+      // Every filter applies: the shared window bounds the range, an
+      // embedded view scopes to its agent, and the top-level one to the
+      // source and project chosen.
       const response = await fetch(
-        `/api/interactions?minutes=${timeWindow.minutes}${agentId ? `&agent_id=${agentId}` : ''}`
+        `/api/interactions?${interactionsQuery({ minutes: timeWindow.minutes, agentId, source, project })}`
       );
       if (!response.ok) throw new Error(`Request failed (${response.status})`);
       const data = await response.json();
@@ -244,7 +303,7 @@ export default function InteractionsView({ agentId = null, embedded = false }) {
     } finally {
       setIsLoading(false);
     }
-  }, [timeWindow.minutes, agentId]);
+  }, [timeWindow.minutes, agentId, source, project]);
 
   useEffect(() => {
     fetchSessions();
@@ -357,6 +416,12 @@ export default function InteractionsView({ agentId = null, embedded = false }) {
   }, [sessions, sortBy, sortSessions]);
 
   const toggleSession = async (id) => {
+    // A code conversation opens on its own page, with its composer and
+    // browser; in an embedded view (an agent's) none is listed.
+    if (routed && codeRootId(id)) {
+      openConversation(codeRootId(id));
+      return;
+    }
     if (expandedSession === id) {
       setExpandedSession(null);
       return;
@@ -382,6 +447,10 @@ export default function InteractionsView({ agentId = null, embedded = false }) {
   const [isGenerationOpen, toggleGeneration] = useDisclosureSet();
 
   const colors = telemetryColors(darkMode);
+
+  if (routed && location.view === 'conversation') {
+    return <CodeInteraction rootId={location.codeId} onBack={() => go(interactionsListPath({ source, project }))} />;
+  }
 
   if (isLoading) {
     return (
@@ -427,8 +496,58 @@ export default function InteractionsView({ agentId = null, embedded = false }) {
             ))}
           </div>
           <TimeWindowSelector />
+          {routed && <NewInteractionPicker />}
         </div>
       </div>
+
+      {routed && (
+        <div className="flex flex-wrap items-center gap-3" data-testid="interactions-filters">
+          <div
+            className="flex items-center rounded-lg p-1"
+            role="group"
+            aria-label="Source"
+            style={{ background: darkMode ? 'rgba(255,255,255,0.06)' : '#f3f4f6' }}
+          >
+            {INTERACTION_SOURCES.map((option) => (
+              <button
+                key={option.id}
+                type="button"
+                onClick={() => setFilters({ source: option.id })}
+                aria-pressed={source === option.id}
+                className="px-2 py-1 text-xs rounded transition-colors"
+                style={source === option.id
+                  ? { background: darkMode ? '#2a2a2a' : '#ffffff', color: colors.textPrimary }
+                  : { color: colors.textSecondary }}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+          {projects.length > 0 && (
+            <label className="flex items-center gap-1 text-xs" style={{ color: colors.textSecondary }}>
+              Project
+              <select
+                value={project || ''}
+                onChange={(event) => setFilters({ project: event.target.value ? Number(event.target.value) : null })}
+                className="text-xs rounded border px-1 py-0.5"
+                style={{ background: colors.cardBg, borderColor: colors.cardBorder, color: colors.textPrimary }}
+              >
+                <option value="">All projects</option>
+                {projects.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+              </select>
+            </label>
+          )}
+          <button
+            type="button"
+            onClick={() => go(`/interactions/latest${project ? `?project=${project}` : ''}`)}
+            className="px-2 py-1 text-xs rounded border"
+            style={{ borderColor: colors.cardBorder, color: colors.textPrimary }}
+            title="Open the most recent Claude Code or Codex conversation"
+          >
+            Latest conversation
+          </button>
+        </div>
+      )}
 
       <NeedsInputLane agentId={agentId} />
 
@@ -571,7 +690,15 @@ export default function InteractionsView({ agentId = null, embedded = false }) {
                   style={isExpanded ? { background: colors.hoverBg } : undefined}
                 >
                   <div className="flex items-center gap-3 min-w-0">
-                    {session.source === 'telemetry' ? (
+                    {isCodeInteraction(session) ? (
+                      <span
+                        className="px-2 py-1 text-xs font-medium rounded flex-shrink-0"
+                        style={{ background: darkMode ? 'rgba(249,115,22,0.15)' : '#fff7ed', color: darkMode ? '#fdba74' : '#c2410c' }}
+                        title={`${session.turn_count} ${session.turn_count === 1 ? 'turn' : 'turns'}${session.active ? ', one running now' : ''}`}
+                      >
+                        {session.runner === 'codex' ? 'CODEX' : 'CLAUDE CODE'}{session.active ? ' · LIVE' : ''}
+                      </span>
+                    ) : session.source === 'telemetry' ? (
                       <span
                         className="px-2 py-1 text-xs font-medium rounded flex-shrink-0"
                         style={{ background: darkMode ? 'rgba(168,85,247,0.15)' : '#faf5ff', color: darkMode ? '#d8b4fe' : '#7e22ce' }}

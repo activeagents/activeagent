@@ -210,6 +210,7 @@ export const runCohorts = (run) => {
       label, model: stats.model || label, provider: stats.provider || null,
       samples: stats.scenarios ?? null, passed: stats.passed ?? null, errored: stats.errored ?? 0,
       avg_score: stats.avg_score ?? null, avg_duration_ms: stats.avg_duration_ms ?? null,
+      p50_duration_ms: stats.p50_duration_ms ?? null, p95_duration_ms: stats.p95_duration_ms ?? null,
       input_tokens: stats.input_tokens ?? null, output_tokens: stats.output_tokens ?? null,
       cost: stats.cost ?? null, priced: pricedCount(stats, stats.scenarios), reported: stats.reported ?? null,
       estimated: isEstimated(stats, stats.scenarios), judge_cost: stats.judge_cost ?? null, judge_calls: stats.judge_calls ?? 0,
@@ -281,6 +282,36 @@ export const runsMeta = (runs = [], runCount = null) => {
   const total = runTotalOf(runs, runCount);
   const paged = runs.length < total || (!Number.isFinite(runCount) && runs.length >= RUNS_PAGE);
   return `${plural(total, 'run')}${paged ? ` · latest ${runs.length}` : ''}`;
+};
+
+// How many runs a suite's list shows until it is expanded: enough to read
+// the trend, few enough that the shown run's scenarios stay near the top.
+export const RUNS_SHOWN = 3;
+
+// The positions in a newest-first run list that a capped list shows: the
+// latest `limit`, plus the selected run when it is older, so a deep link or
+// a pick from the expanded list stays on screen once the list folds. No
+// limit shows every run.
+export const shownRunIndexes = (runs = [], { limit = null, selectedId = null } = {}) => {
+  const all = runs.map((_run, index) => index);
+  if (!Number.isFinite(limit) || runs.length <= limit) return all;
+  return all.filter((index) => index < limit || (selectedId != null && runs[index].id === selectedId));
+};
+
+// A scenario's state in the shown run, read like a build step: `passed` or
+// `failed` once every model column has a settled result (failed when any
+// did not pass), `running` while the run has some of its results in or
+// pending, `queued` while the run has none of them yet, `skipped` when the
+// run does not cover it, and `missing` when the run finished without them.
+// `row` is the scenario's results keyed by model column.
+export const scenarioStep = (row = {}, columns = [], { inRun = false, running = false } = {}) => {
+  if (!inRun) return 'skipped';
+  const results = columns.map((label) => row[label]);
+  const settled = results.filter((result) => result && result.status !== 'pending');
+  const anyFailed = settled.some((result) => result.status !== 'passed');
+  if (columns.length > 0 && settled.length === columns.length) return anyFailed ? 'failed' : 'passed';
+  if (!running) return anyFailed ? 'failed' : 'missing';
+  return results.some(Boolean) ? 'running' : 'queued';
 };
 
 // A run's position in its evaluation's history, oldest = 1: the number the
@@ -510,7 +541,9 @@ export const COUNTED_STANDINGS = ['current', 'unrecorded'];
 //
 // `perModel` pools each model label's passes across the counted runs,
 // read from the evaluations' `per_model` (the API's) or the runs' own
-// summaries.
+// summaries; `byEvaluation` keeps each evaluation's part, keyed by id, and
+// `columns` names the counted evaluations in page order, for the
+// leaderboard's matrix.
 export const headlineSummary = (evaluations = [], { focusId = null } = {}) => {
   const matched = focusId != null ? evaluations.filter((evaluation) => String(evaluation.id) === String(focusId)) : [];
   const focused = matched.length > 0;
@@ -518,6 +551,7 @@ export const headlineSummary = (evaluations = [], { focusId = null } = {}) => {
   const notCounted = { total: 0, stale: 0, archived: 0, none: 0 };
   const runs = [];
   const perModel = {};
+  const columns = [];
   let samplesScored = 0;
   let samplesPassed = 0;
 
@@ -533,15 +567,19 @@ export const headlineSummary = (evaluations = [], { focusId = null } = {}) => {
       return;
     }
     runs.push(run);
+    columns.push({ id: evaluation.id, name: evaluation.name || `evaluation ${evaluation.id}` });
     samplesScored += run.samples_evaluated || 0;
     samplesPassed += run.samples_passed || 0;
     const models = evaluation.per_model && typeof evaluation.per_model === 'object' && Object.keys(evaluation.per_model).length
       ? Object.entries(evaluation.per_model).map(([label, stats]) => ({ label, passed: stats?.passed || 0, total: stats?.total || 0 }))
       : runCohorts(run).filter((cohort) => cohort.label && cohort.samples > 0).map((cohort) => ({ label: cohort.label, passed: cohort.passed || 0, total: cohort.samples || 0 }));
     models.forEach(({ label, passed, total }) => {
-      const entry = (perModel[label] ||= { label, passed: 0, total: 0 });
+      const entry = (perModel[label] ||= { label, passed: 0, total: 0, byEvaluation: {} });
       entry.passed += passed;
       entry.total += total;
+      const cell = (entry.byEvaluation[evaluation.id] ||= { passed: 0, total: 0 });
+      cell.passed += passed;
+      cell.total += total;
     });
   });
 
@@ -554,10 +592,38 @@ export const headlineSummary = (evaluations = [], { focusId = null } = {}) => {
     samplesPassed,
     passRatio: samplesScored ? samplesPassed / samplesScored : null,
     perModel: Object.values(perModel),
+    columns,
     spend: spendSummary(runs),
     focused,
   };
 };
+
+// --- model leaderboard -------------------------------------------------------
+//
+// The models a page's headline runs compared, ranked. A raw pass rate
+// would put 7/8 above 75/173 on luck alone, so the rank is the lower
+// bound of the Wilson score interval (95%): a model leads when even its
+// pessimistic rate is the best. `ratio` is still what the row shows.
+
+const Z = 1.96;
+
+export const wilsonLowerBound = (passed, total) => {
+  const n = Number(total) || 0;
+  if (n <= 0) return 0;
+  const p = (Number(passed) || 0) / n;
+  const z2 = Z * Z;
+  const centre = p + z2 / (2 * n);
+  const margin = Z * Math.sqrt((p * (1 - p)) / n + z2 / (4 * n * n));
+  return Math.max(0, (centre - margin) / (1 + z2 / n));
+};
+
+// The summary's models ranked best first, each with its ratio, bound and
+// rank. Models with nothing scored are left out.
+export const modelLeaderboard = (summary) => (summary?.perModel || [])
+  .filter((entry) => entry.total > 0)
+  .map((entry) => ({ ...entry, ratio: entry.passed / entry.total, lower: wilsonLowerBound(entry.passed, entry.total) }))
+  .sort((a, b) => b.lower - a.lower || b.total - a.total || a.label.localeCompare(b.label))
+  .map((entry, index) => ({ ...entry, rank: index + 1 }));
 
 // "2 not counted · 1 stale · 1 archived", or null when every evaluation counted.
 export const notCountedText = (summary) => {
@@ -677,7 +743,8 @@ export const samplingFixItems = (evaluation, run) => {
 const faultWords = (fault) => String(fault || '').replace(/_/g, ' ');
 
 // One row per model cohort for the comparison table: passed/total, mean
-// score, average latency, average tokens per interaction, cost (over the
+// score, average latency and its P50 / P95, average tokens per
+// interaction, cost (over the
 // `priced` interactions, and per priced interaction, `estimated` when any
 // part was), the judge's spend on the cohort, and the model's
 // typical fault — its most frequent one, with the diagnosis of the
@@ -689,6 +756,34 @@ const faultWords = (fault) => String(fault || '').replace(/_/g, ' ');
 //
 // `labelFor(result)` maps a result to its column label (the suite panel's
 // labelForResult); it defaults to the result's model name.
+// The run's model comparison as the Models panel plots it: one row per
+// model, best first, with its pass rate and interval in percent and its
+// scenario count, plus the conclusion and the caption's confidence and
+// resample count. Read from what the run recorded (`_comparison`, the
+// framework's Report#comparison); null for a single-model run, or one
+// recorded before runs kept a comparison, so the panel draws nothing
+// rather than resampling in the browser.
+export const comparisonPlot = (run) => {
+  const comparison = run?.scores?._comparison;
+  if (!comparison || typeof comparison !== 'object' || !Array.isArray(comparison.ranking) || comparison.ranking.length < 2) return null;
+
+  const method = comparison.method || {};
+  return {
+    rows: comparison.ranking.map((label) => {
+      const stats = comparison.models?.[label] || {};
+      return {
+        label,
+        passRate: stats.pass_rate ?? null,
+        interval: Array.isArray(stats.interval) && stats.interval.length === 2 ? stats.interval : null,
+        scenarios: stats.scenarios ?? 0,
+      };
+    }),
+    conclusion: comparison.conclusion || null,
+    confidence: Math.round(Number(method.confidence ?? 0.95) * 100),
+    resamples: method.resamples ?? null,
+  };
+};
+
 export const modelComparisonRows = (run, { results = [], scenarioCount = 0, labelFor = (r) => r?.model, columns = null } = {}) => {
   const cohorts = runCohorts(run);
   const byLabel = new Map(cohorts.map((cohort) => [cohort.label, cohort]));
@@ -732,6 +827,10 @@ export const modelComparisonRows = (run, { results = [], scenarioCount = 0, labe
       passRate: total ? passed / total : null,
       avgScore: avgScore == null ? null : Number(avgScore),
       avgDurationMs: cohort.avg_duration_ms ?? null,
+      // The run's recorded nearest-rank percentiles; a run recorded before
+      // reports kept them, and a sampling run, has none.
+      p50DurationMs: cohort.p50_duration_ms ?? null,
+      p95DurationMs: cohort.p95_duration_ms ?? null,
       inputTokens: cohort.input_tokens ?? null,
       outputTokens: cohort.output_tokens ?? null,
       avgInputTokens: perInteraction(cohort.input_tokens),
@@ -867,3 +966,445 @@ export const runRequestBody = (selection = {}, models = [], sandboxId = null) =>
 export const keepSandboxChoice = (choice, options) => (
   choice && (options || []).some((option) => option.value === choice) ? choice : ''
 );
+
+// --- a scenario run's selection ---------------------------------------------
+//
+// A pending run's selection is the request as posted ({ group } / { keys } /
+// { models: ["a", "b"] }); once the runner starts it becomes the resolved
+// summary ({ scenario_keys, models: [{ label, provider, model }] }). Both
+// are read here. These three moved from EvaluationRunPanels, which
+// re-exports them for its importers.
+
+export const selectionOf = (run) => run?.selection || run?.scores?._selection || {};
+
+export const selectionModelLabels = (run) =>
+  (selectionOf(run).models || []).map((m) => (typeof m === 'string' ? m : m?.label)).filter(Boolean);
+
+// The scenario keys a run covers: the resolved selection once the runner
+// started; before that, what the request implies against the suite. A run
+// still going covers every enabled scenario, and so does one that failed
+// with nothing recorded — run_later! stores only the posted models, and the
+// runner can raise ("unsupported model provider") before it writes the
+// resolved selection — so such a run reads `[?]` on every row rather than
+// `[-] not in this run`.
+export function runScenarioKeys(run, scenarios = []) {
+  const selection = selectionOf(run);
+  if (Array.isArray(selection.scenario_keys) && selection.scenario_keys.length) return selection.scenario_keys;
+  if (!run) return [];
+  if (Array.isArray(selection.keys) && selection.keys.length) return selection.keys;
+  if (Array.isArray(selection.scenario_ids) && selection.scenario_ids.length) {
+    const ids = selection.scenario_ids.map(String);
+    return scenarios.filter((s) => ids.includes(String(s.id))).map((s) => s.key);
+  }
+  const enabled = scenarios.filter((s) => s.enabled !== false);
+  if (selection.group) return enabled.filter((s) => s.group === selection.group).map((s) => s.key);
+  if (isInProgress(run) || run.status === 'failed') return enabled.map((s) => s.key);
+  return [];
+}
+
+// What a partial run covered, as a chip beside it: `partial: <group>` for a
+// group run, `16 of 100 scenarios` for a key list shorter than the enabled
+// catalog (a pending run's posted `keys` included); null for a run of the
+// whole suite.
+export const runSelectionLabel = (run, scenarios = []) => {
+  const selection = selectionOf(run);
+  if (selection.group) return `partial: ${selection.group}`;
+  const keys = selection.scenario_keys || selection.keys;
+  const enabledCount = scenarios.filter((s) => s.enabled !== false).length;
+  if (Array.isArray(keys) && keys.length && keys.length < enabledCount) return `${keys.length} of ${enabledCount} scenarios`;
+  return null;
+};
+
+// The keys a re-run may post — those still in the catalog with enabled !==
+// false, once each in first-appearance order — and `dropped`, the rest, so a
+// link can read `29 of 31` and name what it left out. The server drops a
+// disabled or removed key silently (selected_scenarios is
+// `scenarios.enabled.where(key:)`) while the pending run's expected count
+// would still include it; filtering first keeps both honest.
+export const runnableKeys = (keys = [], scenarios = []) => {
+  const enabled = new Set(scenarios.filter((s) => s && s.enabled !== false).map((s) => s.key));
+  const runnable = [];
+  const dropped = [];
+  [...new Set((keys || []).filter((key) => key != null))].forEach((key) => (enabled.has(key) ? runnable : dropped).push(key));
+  return { keys: runnable, dropped };
+};
+
+// The keys a `re-run failed` link posts: every scenario with a settled
+// result that did not pass, filtered to what can be replayed.
+export const rerunFailedKeys = (results = [], scenarios = []) => runnableKeys(
+  (results || []).filter((r) => r && r.scenario_key && r.status !== 'pending' && r.status !== 'passed').map((r) => r.scenario_key),
+  scenarios,
+);
+
+// The selection `run again ->` posts for a run: its group, its key list
+// filtered to what can be replayed, or nothing for a run of the whole suite.
+export const runRequestSelection = (run, scenarios = []) => {
+  const selection = selectionOf(run);
+  if (selection.group) return { group: selection.group };
+  const keys = Array.isArray(selection.scenario_keys) && selection.scenario_keys.length ? selection.scenario_keys : selection.keys;
+  if (Array.isArray(keys) && keys.length) return { keys: runnableKeys(keys, scenarios).keys };
+  return {};
+};
+
+// --- the suite's build page -------------------------------------------------
+//
+// Layout figures and pure helpers for the suite panel's build page: a
+// RunHeader card, a runs rail beside a viewport-fit Steps box (a strip of
+// the latest runs above it when the panel is narrow), and the matrix read
+// as build steps. Nothing here touches the DOM: the panel measures, and
+// passes the numbers in.
+
+// The rail's column and its gap to the box, the panel root's two 16px
+// paddings (clientWidth includes them), and the content width from which
+// the rail fits beside a two-model steps grid: 272 + 16 + 644, rounded up.
+export const RAIL_WIDTH = 272;
+export const RAIL_GAP = 16;
+export const PANEL_GUTTER = 32;
+export const RAIL_BREAKPOINT = 940;
+
+// The Steps box's and the rail's max height: viewport-fit, never under 360px
+// nor over 900px. The strip's expanded run list caps lower.
+export const STEPS_HEIGHT = 'clamp(360px, calc(100vh - 240px), 900px)';
+export const STRIP_LIST_HEIGHT = 320;
+
+// A rail row draws up to this many per-model bars; more fold into one.
+export const RAIL_BARS_MAX = 3;
+
+// How many runs' fetched results the panel keeps: the selected run, the
+// latest and the previously selected one.
+export const DETAILS_KEPT = 3;
+
+// Under this box width a steps row drops the scenario key into its title so
+// the prompt keeps its room.
+export const KEY_COLUMN_MIN_WIDTH = 720;
+
+// Where a browser remembers the `[ ] tools` chip.
+export const DETAIL_STORAGE_KEY = 'aa.evaluations.detail';
+
+// The grid's minimum width at each detail level for `n` model columns, so
+// the box scrolls sideways inside itself instead of squeezing a column.
+// Steps: key 200 + 130 per model + cost 80 + time 48 + gaps 8 × (n + 2) +
+// padding 24. Tools: scenario 220 + expects 130 + 160 per model + cost 110
+// + gaps 10 × (n + 2) + padding 24.
+export const stepsMinWidth = (n) => 368 + 138 * n;
+export const toolsMinWidth = (n) => 504 + 170 * n;
+
+// The remembered detail level, `tools` or `steps`, or null for no (valid)
+// entry — a storage that is missing, refuses, or answers something else
+// (the test harness's stub says 'light' to every key) reads as unset.
+export const readDetailChoice = (storage) => {
+  try {
+    const value = storage?.getItem(DETAIL_STORAGE_KEY);
+    return value === 'tools' || value === 'steps' ? value : null;
+  } catch {
+    return null;
+  }
+};
+
+// Remembers the detail level, or forgets it for null; a storage that
+// refuses (private mode, quota) is left alone.
+export const writeDetailChoice = (storage, value) => {
+  try {
+    if (value == null) storage?.removeItem?.(DETAIL_STORAGE_KEY);
+    else storage?.setItem(DETAIL_STORAGE_KEY, value);
+  } catch {
+    // The chip still works for this page; it is only not remembered.
+  }
+};
+
+// The build's cursor over `steps` ([{ key, step }] in suite order, every
+// in-run scenario — not only the filtered rows, so a filter cannot make
+// follow chase a hidden row): the first step being replayed, else the first
+// still queued, else none. The runner is sequential and scenario-major, so
+// the first `running` step is the one in flight. A `loading` step is a
+// result not fetched yet, never a cursor.
+export const currentStepKey = (steps = []) =>
+  (steps.find((entry) => entry?.step === 'running') || steps.find((entry) => entry?.step === 'queued'))?.key ?? null;
+
+// A group's step from its rows' steps, read like a job of the build: rows
+// outside the run (`skipped`, `none`) are ignored once any row is in it;
+// a group of nothing but those is `none` when no run exists and `skipped`
+// otherwise; results still loading say so first; any row replaying, or a
+// mix of queued and settled rows, is `running`; nothing landed yet is
+// `queued`; a settled group fails or misses when any row did, else passed.
+export const groupStep = (steps = []) => {
+  if (!steps.length) return 'none';
+  const inRun = steps.filter((step) => step !== 'skipped' && step !== 'none');
+  if (!inRun.length) return steps.every((step) => step === 'none') ? 'none' : 'skipped';
+  if (inRun.includes('loading')) return 'loading';
+  if (inRun.includes('running')) return 'running';
+  const queued = inRun.filter((step) => step === 'queued').length;
+  if (queued && queued < inRun.length) return 'running';
+  if (queued) return 'queued';
+  if (inRun.includes('failed')) return 'failed';
+  if (inRun.includes('missing')) return 'missing';
+  return 'passed';
+};
+
+// The box's row order. `suite` is the catalog's order — `rows` itself, so a
+// memoised list keeps its identity. `failed-first` is a new array: groups
+// (by first appearance, key `row.group || ''`) by failed count, most first,
+// and failed rows first within each group, both stably, so the relative
+// order of equals stays the suite's. `stepOf(row)` reads a row's step.
+export const orderScenarioRows = (rows = [], stepOf = () => null, order = 'suite') => {
+  if (order !== 'failed-first') return rows;
+  const groups = [];
+  const byName = new Map();
+  rows.forEach((row) => {
+    const name = row?.group || '';
+    let group = byName.get(name);
+    if (!group) {
+      group = { failed: 0, rows: [] };
+      byName.set(name, group);
+      groups.push(group);
+    }
+    const failed = stepOf(row) === 'failed';
+    if (failed) group.failed += 1;
+    group.rows.push({ row, failed });
+  });
+  return groups
+    .sort((a, b) => b.failed - a.failed)
+    .flatMap((group) => [...group.rows.filter((entry) => entry.failed), ...group.rows.filter((entry) => !entry.failed)].map((entry) => entry.row));
+};
+
+// The groups a run does not touch — none of whose scenarios are among
+// `runKeys` — so a partial run starts with them folded as "not in this
+// run". Ungrouped scenarios count under ''. Nothing is outside a run that
+// covers nothing (no run yet, or an unresolved selection).
+export const groupsOutsideRun = (scenarios = [], runKeys = new Set()) => {
+  const keys = runKeys instanceof Set ? runKeys : new Set(runKeys || []);
+  const outside = new Set();
+  if (!keys.size) return outside;
+  const covered = new Set();
+  scenarios.forEach((scenario) => {
+    (keys.has(scenario?.key) ? covered : outside).add(scenario?.group || '');
+  });
+  covered.forEach((name) => outside.delete(name));
+  return outside;
+};
+
+// The TIME column: a scenario's slowest settled answer across the run's
+// model columns, in ms; null until one has landed. `row` is the scenario's
+// results keyed by column.
+export const scenarioTime = (row = {}, columns = []) => {
+  const times = columns
+    .map((label) => row?.[label])
+    .filter((result) => result && result.status !== 'pending' && result.duration_ms != null && Number.isFinite(Number(result.duration_ms)))
+    .map((result) => Number(result.duration_ms));
+  return times.length ? Math.max(...times) : null;
+};
+
+const finiteOrNull = (value) => (value != null && Number.isFinite(Number(value)) ? Number(value) : null);
+
+// What one settled result took: `{ durationMs, inputTokens, outputTokens }`,
+// each null where the result did not record it; null for a pending or
+// missing result, or one that recorded none of the three. A model that
+// answers faster, or on fewer tokens, is cheaper to run at scale, so the box
+// shows these beside every score.
+export const resultMetrics = (result) => {
+  if (!result || result.status === 'pending') return null;
+  const metrics = {
+    durationMs: finiteOrNull(result.duration_ms),
+    inputTokens: finiteOrNull(result.input_tokens),
+    outputTokens: finiteOrNull(result.output_tokens),
+  };
+  return metrics.durationMs == null && metrics.inputTokens == null && metrics.outputTokens == null ? null : metrics;
+};
+
+// The same figures added up over `results`. A sum stays null where no
+// result recorded that figure, so a model without token counts reads "—"
+// rather than 0; `count` is how many results contributed. null when none did.
+export const sumMetrics = (results = []) => {
+  const total = { durationMs: null, inputTokens: null, outputTokens: null, count: 0 };
+  results.forEach((result) => {
+    const metrics = resultMetrics(result);
+    if (!metrics) return;
+    total.count += 1;
+    ['durationMs', 'inputTokens', 'outputTokens'].forEach((key) => {
+      if (metrics[key] != null) total[key] = (total[key] || 0) + metrics[key];
+    });
+  });
+  return total.count ? total : null;
+};
+
+// The tokens under a scenario's COST cell: input and output added up over
+// its settled results in `columns`, `{ input, output }`; null until one of
+// them carries a count.
+export const scenarioTokens = (row = {}, columns = []) => {
+  const sum = sumMetrics(columns.map((label) => row?.[label]));
+  if (!sum || (sum.inputTokens == null && sum.outputTokens == null)) return null;
+  return { input: sum.inputTokens, output: sum.outputTokens };
+};
+
+// Token pairs added up, for a group's COST cell; a side stays null where no
+// pair has it, and the whole is null when there is nothing to add.
+export const sumTokens = (pairs = []) => {
+  const known = pairs.filter(Boolean);
+  if (!known.length) return null;
+  const side = (key) => (known.some((pair) => pair[key] != null) ? known.reduce((sum, pair) => sum + (pair[key] || 0), 0) : null);
+  return { input: side('input'), output: side('output') };
+};
+
+// Per model column, the time and tokens over the given scenarios — every
+// key of `resultsByKey` unless `keys` narrows them — as `{ [label]:
+// sumMetrics(...) }`: the box's header shows the run's per model, a group
+// row its scenarios'.
+export const columnTotals = (resultsByKey = {}, columns = [], keys = Object.keys(resultsByKey)) =>
+  Object.fromEntries(columns.map((label) => [label, sumMetrics(keys.map((key) => resultsByKey[key]?.[label]))]));
+
+// A group row's TIME: its scenarios' times (each the slowest answer across
+// the models) added up; null until one has landed.
+export const groupTime = (rows = [], resultsByKey = {}, columns = []) => {
+  const times = rows.map((scenario) => scenarioTime(resultsByKey[scenario?.key], columns)).filter((time) => time != null);
+  return times.length ? times.reduce((sum, time) => sum + time, 0) : null;
+};
+
+// How long a run has taken, in ms: the runtime the API recorded when it has
+// one; else from its timestamps — to its completion, or to `now` while it
+// runs. null for a run that has not started (pending), one that failed
+// (its duration says nothing), or one without a start time.
+export const runElapsedMs = (run, now = Date.now()) => {
+  if (!run) return null;
+  const recorded = run.usage?.runtime_ms;
+  if (recorded != null && Number.isFinite(Number(recorded))) return Number(recorded);
+  if (run.status === 'pending' || run.status === 'failed' || !run.created_at) return null;
+  const started = Date.parse(run.created_at);
+  const ended = run.completed_at ? Date.parse(run.completed_at) : now;
+  if (!Number.isFinite(started) || !Number.isFinite(ended)) return null;
+  return Math.max(0, ended - started);
+};
+
+const pad2 = (n) => String(n).padStart(2, '0');
+
+const clockParts = (ms) => {
+  const total = Math.max(0, Math.floor(Number(ms) / 1000));
+  return { hours: Math.floor(total / 3600), minutes: Math.floor((total % 3600) / 60), seconds: total % 60, total };
+};
+
+// A ticking duration: `02:14` under an hour, `1:02:14` above, `—` for none.
+export const fmtClock = (ms) => {
+  if (ms == null || !Number.isFinite(Number(ms))) return '—';
+  const { hours, minutes, seconds } = clockParts(ms);
+  return hours ? `${hours}:${pad2(minutes)}:${pad2(seconds)}` : `${pad2(minutes)}:${pad2(seconds)}`;
+};
+
+// A settled duration: `58s` under a minute, `12m 04s` under an hour,
+// `1h 02m` above, `—` for none.
+export const fmtDuration = (ms) => {
+  if (ms == null || !Number.isFinite(Number(ms))) return '—';
+  const { hours, minutes, seconds, total } = clockParts(ms);
+  if (total < 60) return `${total}s`;
+  if (!hours) return `${minutes}m ${pad2(seconds)}s`;
+  return `${hours}h ${pad2(minutes)}m`;
+};
+
+// A span in a cell: to the millisecond under a second (`820ms`), to a tenth
+// or a hundredth under a minute (`12.4s`, `5.25s`, as fmtMs reads), and
+// fmtDuration's reading from a minute up (`1m 15s`); `—` for none.
+export const fmtSpan = (ms) => {
+  if (ms == null || !Number.isFinite(Number(ms))) return '—';
+  const n = Number(ms);
+  if (n >= 60000) return fmtDuration(n);
+  return n >= 1000 ? `${(n / 1000).toFixed(n >= 10000 ? 1 : 2).replace(/\.?0+$/, '')}s` : `${Math.round(n)}ms`;
+};
+
+// How long to wait between polls of a running run, by how many results it
+// already carries: show_run re-sends every result's output each poll, so a
+// bigger run is asked less often.
+export const pollIntervalFor = (resultCount) => {
+  const count = Number(resultCount) || 0;
+  if (count <= 500) return 3000;
+  if (count <= 2000) return 6000;
+  return 10000;
+};
+
+// Whether two serialisations of one result show the same thing: id, status,
+// score, fault, costs on both sides and the output's length (its text is
+// not compared; a result whose output changed without its length is not a
+// case the runner produces).
+export const sameResult = (a, b) =>
+  !!a && !!b
+  && a.id === b.id && a.status === b.status && a.score === b.score && a.fault === b.fault && a.cost === b.cost
+  && (a.judge_usage?.cost ?? null) === (b.judge_usage?.cost ?? null)
+  && (a.output || '').length === (b.output || '').length;
+
+// A poll's results reconciled with the previous poll's: `results` in the
+// incoming order, each replaced by its previous object (matched by id) when
+// nothing about it changed, so memoised rows keep their identity; `changed`
+// says whether anything landed or moved (or the count differs). When nothing
+// changed, `results` is `previous` itself.
+export const reconcileResults = (previous = [], incoming = []) => {
+  const before = new Map();
+  (previous || []).forEach((result) => { if (result && result.id != null) before.set(result.id, result); });
+  let reused = 0;
+  const results = (incoming || []).map((result) => {
+    const kept = result && result.id != null ? before.get(result.id) : null;
+    if (kept && sameResult(kept, result)) {
+      reused += 1;
+      return kept;
+    }
+    return result;
+  });
+  const changed = results.length !== (previous || []).length || reused !== results.length;
+  return { results: changed ? results : previous || [], changed };
+};
+
+// A run's results by scenario key, then by model column (`labelFor(result)`
+// names the column): { key: { label: result } }. A key whose columns map to
+// the same result objects as in `previous` keeps its previous object, and
+// the whole map is `previous` when every key did, so a poll that landed two
+// results changes two entries.
+export const groupResultsByKey = (results = [], labelFor = (result) => result?.model, previous = {}) => {
+  const next = {};
+  (results || []).forEach((result) => {
+    if (!result || !result.scenario_key) return;
+    (next[result.scenario_key] ||= {})[labelFor(result)] = result;
+  });
+  const keys = Object.keys(next);
+  let reused = 0;
+  keys.forEach((key) => {
+    const kept = previous?.[key];
+    if (!kept) return;
+    const labels = Object.keys(next[key]);
+    if (labels.length === Object.keys(kept).length && labels.every((label) => kept[label] === next[key][label])) {
+      next[key] = kept;
+      reused += 1;
+    }
+  });
+  return previous && reused === keys.length && keys.length === Object.keys(previous).length ? previous : next;
+};
+
+// A rail row's bars: each model's when there are few, else one bar for all
+// of them — `4 models`, passes summed — whose title lists each model's k/n.
+export const combinedBars = (bars = [], max = RAIL_BARS_MAX) => {
+  if (bars.length <= max) return bars;
+  const sum = (field) => bars.reduce((total, bar) => total + (Number(bar?.[field]) || 0), 0);
+  return [{
+    label: 'combined',
+    short: `${bars.length} models`,
+    passed: sum('passed'),
+    total: sum('total'),
+    title: bars.map((bar) => `${bar.short} ${bar.passed ?? '—'}/${bar.total ?? '—'}`).join(' · '),
+  }];
+};
+
+// The fetched run details worth keeping — those whose run id is among `ids`
+// (nulls ignored). The map itself when nothing is evicted, so state is not
+// replaced for no change.
+export const keepDetails = (details = {}, ids = []) => {
+  const keep = new Set((ids || []).filter((id) => id != null).map(String));
+  const entries = Object.entries(details || {});
+  const kept = entries.filter(([key]) => keep.has(String(key)));
+  return kept.length === entries.length ? details || {} : Object.fromEntries(kept);
+};
+
+// Where the box scrolls to put the cursor row about a third of the way down
+// the box's visible rows (under the sticky header), from the row's offsetTop
+// inside the box. Clamped at the top.
+export const cursorScrollTop = ({ rowTop = 0, headerHeight = 0, boxHeight = 0 } = {}) =>
+  Math.max(0, rowTop - headerHeight - Math.round((boxHeight - headerHeight) / 3));
+
+// Where the box scrolls to put an opened row directly under the sticky
+// column header and its sticky group row, so its drill-down starts in view.
+export const openRowScrollTop = ({ rowTop = 0, headerHeight = 0, groupRowHeight = 0 } = {}) =>
+  Math.max(0, rowTop - headerHeight - groupRowHeight);

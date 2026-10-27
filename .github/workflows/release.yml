@@ -13,9 +13,18 @@ name: Release
 # fails with an authorization error and the other gem is unaffected.
 #
 # The browser sidecar (browser-sidecar/) is published at the dashboard's
-# version too: the npm package with the NPM_TOKEN secret, and the image to
+# version too: the npm package through npm trusted publishing (OIDC, no
+# stored token), and the image to
 # ghcr.io/activeagents/browser-sidecar with the workflow's own token. Each is
-# skipped when that version is already published.
+# skipped when that version is already published; the npm job then fails if
+# browser-sidecar/ no longer packs the same as that published version, since
+# a sidecar change needs a new version.
+#
+# The package is public as soon as the job succeeds; there is no staging
+# step. The trusted publisher on npmjs.com for @activeagents/browser-sidecar
+# must name this repository and this workflow file (release.yml), with no
+# environment (this job runs in none). A sidecar that failed to publish is
+# retried with workflow_dispatch: the gems already on RubyGems are skipped.
 on:
   push:
     tags: [ "v*" ]
@@ -112,19 +121,23 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      id-token: write # npm provenance
+      id-token: write # npm trusted publishing (OIDC); provenance comes with it
     defaults:
       run:
         working-directory: browser-sidecar
     steps:
       - uses: actions/checkout@v4
+      # No registry-url: it writes an .npmrc whose token is a placeholder, and
+      # when the OIDC exchange fails npm publishes with that placeholder and
+      # reports only E401. npm's default registry is npmjs.org already.
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
-          registry-url: https://registry.npmjs.org
+          node-version: 24
+      # Trusted publishing needs npm 11.5.1 or later; the npm bundled with
+      # Node may be older.
+      - name: Update npm
+        run: npm install -g npm@11
       - name: Publish the package unless this version is on npm
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           version="$(node -p 'require("./package.json").version')"
           engine="$(sed -nE 's/^ *VERSION = "([^"]+)".*/\1/p' ../actionagent/lib/action_agent/version.rb)"
@@ -133,11 +146,18 @@ jobs:
             exit 1
           fi
           if npm view "@activeagents/browser-sidecar@${version}" version > /dev/null 2>&1; then
+            # Skipping is right only when the sidecar is what was published:
+            # a change released under a published version would never reach npm.
+            ../.github/scripts/browser-sidecar-unchanged.sh . "$version"
             echo "@activeagents/browser-sidecar ${version} is already on npm; skipping."
             exit 0
           fi
+          # npm swallows a refused exchange; this names the registry's reason
+          # and the claims the trusted publisher on npmjs.com must match.
+          ../.github/scripts/npm-trusted-publisher-check.sh @activeagents/browser-sidecar
           npm ci
-          npm publish --provenance --access public
+          npm publish
+          echo "::notice::@activeagents/browser-sidecar ${version} is published."
 
   publish-browser-sidecar-image:
     if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'

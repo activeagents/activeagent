@@ -334,6 +334,23 @@ class EvaluationsStandingApiTest < ActionDispatch::IntegrationTest
     assert_response :unprocessable_entity
   end
 
+  test "an evaluation's judge model is pinned and unpinned through update" do
+    evaluation = suite
+
+    patch "/activeagents/api/evaluations/#{evaluation.id}", params: { evaluation: { judge_model: " anthropic/claude-sonnet-4.5 " } }, as: :json
+    assert_response :success
+    assert_equal "anthropic/claude-sonnet-4.5", evaluation.reload.judge_model
+    assert_nil evaluation.archived_at, "pinning the judge leaves archiving alone"
+
+    patch "/activeagents/api/evaluations/#{evaluation.id}", params: { evaluation: { judge_model: "" } }, as: :json
+    assert_response :success
+    assert_nil evaluation.reload.judge_model
+
+    patch "/activeagents/api/evaluations/#{evaluation.id}", params: { evaluation: { judge_model: "m" * 201 } }, as: :json
+    assert_response :unprocessable_entity
+    assert_nil evaluation.reload.judge_model
+  end
+
   test "a new run brings an archived evaluation back" do
     evaluation = suite
     evaluation.archive!

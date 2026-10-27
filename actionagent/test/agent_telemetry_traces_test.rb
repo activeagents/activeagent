@@ -160,4 +160,88 @@ class AgentTelemetryTracesTest < ActionDispatch::IntegrationTest
     assert_response :not_found
     assert_not_includes response.body, "SupportBot"
   end
+
+  test "trace statistics and buckets include errors beyond the capped details" do
+    now = Time.current.change(usec: 0)
+    travel_to now do
+      rows = 1001.times.map do |index|
+        { trace_id: "window-#{index}", service_name: "synthetic", timestamp: now - (index + 1).seconds,
+          status: index == 1000 ? "ERROR" : "OK", total_duration_ms: 100.0,
+          agent_class: "AuditAgent", agent_action: "respond", spans: [], created_at: now, updated_at: now }
+      end
+      ActionAgent::TelemetryTrace.insert_all!(rows)
+      body = traces(minutes: 60, bucket_seconds: 120)
+
+      assert_equal 500, body["traces"].size
+      assert_equal 1001, body["total_count"]
+      assert_equal 500, body["returned_count"]
+      assert_equal true, body["truncated"]
+      assert_equal 1001, body.dig("summary", "requests")
+      assert_equal 1, body.dig("summary", "errors")
+      assert_equal 1001, body["buckets"].sum { |bucket| bucket["requests"] }
+      assert_equal 1, body["buckets"].sum { |bucket| bucket["errors"] }
+      assert_equal 30, body["buckets"].size
+      assert_equal 1000, traces(minutes: 60, limit: 99999)["returned_count"]
+    end
+  end
+
+  test "latency is averaged per recorded request and bucket boundaries are half open" do
+    now = Time.current.change(usec: 0)
+    travel_to now do
+      base = { service_name: "synthetic", status: "OK", agent_class: "AuditAgent", spans: [], created_at: now, updated_at: now }
+      rows = [ { timestamp: now - 120.seconds, total_duration_ms: 1000.0 } ]
+      rows += Array.new(9) { { timestamp: now - 30.seconds, total_duration_ms: 100.0 } }
+      rows += [ { timestamp: now - 60.seconds, total_duration_ms: nil } ]
+      rows += [ { timestamp: now, total_duration_ms: 99999.0 }, { timestamp: now - 121.seconds, total_duration_ms: 99999.0 } ]
+      ActionAgent::TelemetryTrace.insert_all!(rows.each_with_index.map { |row, index| base.merge(row).merge(trace_id: "latency-#{index}") })
+      body = traces(minutes: 2, bucket_seconds: 60)
+
+      assert_equal 11, body["total_count"]
+      assert_equal 190, body.dig("summary", "avg_latency_ms")
+      assert_equal [ 1, 10 ], body["buckets"].map { |bucket| bucket["requests"] }
+      assert_equal [ 1000, 100 ], body["buckets"].map { |bucket| bucket["avg_latency_ms"] }
+      assert_equal (now.to_f * 1000).to_i, body["window_end_ms"]
+      assert_equal ((now - 120.seconds).to_f * 1000).to_i, body["window_start_ms"]
+    end
+  end
+
+  test "trace aggregates share the list filters and caller's tenant scope" do
+    mine = report_trace(agent_class: "SupportBot", action: "respond", service_name: "billing", environment: "mine")
+    mine.update!(status: "ERROR")
+    report_trace(agent_class: "SupportBot", action: "respond", service_name: "other", environment: "mine")
+    report_trace(agent_class: "OtherBot", action: "respond", service_name: "billing", environment: "mine").update!(status: "ERROR")
+    report_trace(agent_class: "SupportBot", action: "respond", service_name: "billing", environment: "theirs").update!(status: "ERROR")
+    tenant = ->(_owner) { ActionAgent::TelemetryTrace.where(environment: "mine") }
+
+    body = ActionAgent::TelemetryTrace.stub(:for_account, tenant) { traces(agent: "SupportBot", service: "billing", status: "error") }
+    assert_equal [ mine.id ], body["traces"].map { |trace| trace["id"] }
+    assert_equal 1, body["total_count"]
+    assert_equal false, body["truncated"]
+    assert_equal 1, body.dig("summary", "requests")
+    assert_equal 1, body.dig("summary", "errors")
+    assert_equal 1, body["buckets"].sum { |bucket| bucket["requests"] }
+    refute body["buckets"].any? { |bucket| bucket.dig("agents", "OtherBot") }
+  end
+
+  test "an empty window has zero totals and a bounded zero-filled chart" do
+    body = traces(minutes: 60, bucket_seconds: 120)
+    assert_equal 0, body["total_count"]
+    assert_equal false, body["truncated"]
+    assert_equal({ "requests" => 0, "errors" => 0, "avg_latency_ms" => 0, "throughput_per_minute" => 0.0 }, body["summary"])
+    assert_equal 30, body["buckets"].size
+    assert body["buckets"].all? { |bucket| bucket["requests"].zero? }
+
+    body = traces(minutes: 129600, bucket_seconds: 0)
+    assert_operator body["buckets"].size, :<=, ActionAgent::TraceWindowReport::MAX_BUCKETS
+  end
+
+  test "container-valued trace parameters use the shared coercion rules" do
+    body = traces(minutes: [ 60, 120 ], limit: { n: 500 }, bucket_seconds: { n: 1 })
+    assert_equal 60, body["window_minutes"]
+    assert_equal 60, body["bucket_seconds"]
+    assert_equal 60, body["buckets"].size
+    body = traces(minutes: [ 2 ], bucket_seconds: [ 30, 60 ])
+    assert_equal 30, body["bucket_seconds"]
+    assert_equal 4, body["buckets"].size
+  end
 end

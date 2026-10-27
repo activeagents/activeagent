@@ -6,15 +6,19 @@ import ScenarioSuitePanel from './ScenarioSuitePanel';
 import EvaluationForm from './evaluations/EvaluationForm';
 import EvaluationRunDetail from './evaluations/EvaluationRunDetail';
 import CriteriaFooter from './evaluations/CriteriaFooter';
+import CopyMarkdownButton from './evaluations/CopyMarkdownButton';
+import ModelLeaderboard from './evaluations/ModelLeaderboard';
 import RunsList, { RunBadge, runsSummary } from './evaluations/RunsList';
 import { fmtRate } from './evaluations/SpendStrip';
 import { Badge, Button, Card, Glyph, StatCard, MONO, TONE, toneFor } from './primitives';
-import { timeAgo } from '../../utils/format';
+import { splitModelLabel, timeAgo } from '../../utils/format';
 import { COST_LEGEND, fmtPasses, fmtPercent, fmtSpend } from '../../utils/evalFormat.mjs';
 import {
-  criterionGroup, evaluationStanding, headlineRun, headlineSummary, modelCount, notCountedText, plural, runLabel, runSpend,
+  criterionGroup, evaluationStanding, headlineRun, headlineSummary, modelCount, modelLeaderboard, notCountedText, plural, runLabel, runSpend,
   samplingFixItems,
 } from '../../utils/evaluationRuns.mjs';
+import { requestConfirm } from '../../utils/confirm.mjs';
+import { reportExports } from '../../utils/reportExport.mjs';
 
 // Evaluations, each with every run it has had. An evaluation is a named set
 // of criteria against one agent — scored over its recorded generations, or,
@@ -151,6 +155,7 @@ export default function EvaluationsView({ embedded = false, agentId = null }) {
   // Archived evaluations leave the list unless asked for; the API says how
   // many it left out.
   const [showArchived, setShowArchived] = useState(false);
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [archivedCount, setArchivedCount] = useState(0);
 
   // URL → state: browser back/forward, and in-app navigation.
@@ -321,7 +326,13 @@ export default function EvaluationsView({ embedded = false, agentId = null }) {
   // DELETE /api/evaluations/:id has always existed; nothing in the UI called
   // it, so a mis-created evaluation permanently blocked reuse of its name.
   const handleDelete = async (evaluation) => {
-    if (!window.confirm(`Delete "${evaluation.name}"? Its runs are deleted with it.`)) return;
+    if (!(await requestConfirm({
+      title: `Delete ${evaluation.name}?`,
+      message: 'Its runs are deleted with it. This cannot be undone.',
+      confirmLabel: 'Delete evaluation',
+      danger: true,
+      requireText: evaluation.name,
+    }))) return;
     setDeletingId(evaluation.id);
     setLoadError(null);
     try {
@@ -367,7 +378,9 @@ export default function EvaluationsView({ embedded = false, agentId = null }) {
   };
 
   if (reportRef) {
-    const reportUrl = dashboardPath(`/api/evaluations/${reportRef.evaluationId}/runs/${reportRef.runId}/report`);
+    const reportFiles = reportExports(`/evaluations/${reportRef.evaluationId}/runs/${reportRef.runId}/report`);
+    const reportUrl = dashboardPath(reportFiles.report);
+    const exportLinkStyle = { padding: '6px 12px', borderRadius: 8, fontSize: 13, fontWeight: 500, color: 'var(--color-text-cell)', border: '1px solid var(--color-border-strong)', textDecoration: 'none', whiteSpace: 'nowrap' };
     const framedUrl = `${reportUrl}?theme=${darkMode ? 'dark' : 'light'}`;
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -379,20 +392,33 @@ export default function EvaluationsView({ embedded = false, agentId = null }) {
             <h1 style={{ margin: 0, fontSize: 24, fontWeight: 700, letterSpacing: '-0.01em', color: 'var(--color-text-primary)' }}>Run report</h1>
             <span style={monoStyle(11)}>{`evaluation ${reportRef.evaluationId} · run ${reportRef.runId}`}</span>
           </div>
-          <a
-            href={reportUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            title="The report is one self-contained page — save it to export"
-            style={{ padding: '6px 12px', borderRadius: 8, fontSize: 13, fontWeight: 500, color: 'var(--color-text-cell)', border: '1px solid var(--color-border-strong)', textDecoration: 'none' }}
-          >
-            Open standalone <span style={{ fontFamily: MONO }}>{'->'}</span>
-          </a>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }} data-testid="run-report-exports">
+            <CopyMarkdownButton url={dashboardPath(reportFiles.markdown)} title="Copy the whole report as GitHub-flavored Markdown, for a pull request or an issue" testId="run-report-copy-markdown" />
+            {[
+              ['html', 'Download HTML', 'The report as one self-contained page'],
+              ['json', 'Download JSON', 'The run as the evaluation report envelope — POST it to another install’s /api/evaluation_reports to import it'],
+              ['md', 'Download Markdown', 'The report as GitHub-flavored Markdown'],
+            ].map(([format, label, hint]) => (
+              <a key={format} href={dashboardPath(reportFiles[format])} download title={hint} data-testid={`run-report-download-${format}`} style={exportLinkStyle}>
+                {label}
+              </a>
+            ))}
+            <a
+              href={reportUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              title="The report as one self-contained page, outside the dashboard"
+              style={exportLinkStyle}
+            >
+              Open standalone <span style={{ fontFamily: MONO }}>{'->'}</span>
+            </a>
+          </div>
         </div>
         <iframe
           ref={reportFrame}
           src={framedUrl}
           title="Evaluation run report"
+          allow="clipboard-write"
           onLoad={() => setReportLoads((n) => n + 1)}
           scrolling="no"
           style={{
@@ -451,19 +477,36 @@ export default function EvaluationsView({ embedded = false, agentId = null }) {
   const scoredSub = summary.focused
     ? 'headline run of this evaluation'
     : `headline run of ${plural(summary.counted, 'current evaluation')}${notCounted ? ` · ${notCounted}` : ''}`;
-  // The pass rate's fraction sits on the tile, and under it one line per
-  // model so a comparison's cohorts can be told apart.
-  const perModelLines = summary.perModel.length > 1 ? summary.perModel.map((entry) => `${entry.label} ${fmtPasses(entry.passed, entry.total)}`) : [];
+  // The pass rate's fraction sits on the tile; when the runs compared
+  // models, the leader under it and a toggle for the leaderboard, which
+  // lays every model against every evaluation below the tiles.
+  const leaderboard = modelLeaderboard(summary);
+  const leader = leaderboard.length > 1 ? leaderboard[0] : null;
   // The operating figure clients budget against: the agent's spend over the
   // interactions the headline runs covered, with the judge's own spend
-  // named apart so it never inflates it; "~" marks an estimated part.
-  const spendSub = spend.agentCost != null
-    ? [
-      `agent ${fmtSpend(spend.agentCost, { estimated: spend.estimated })} over ${plural(spend.interactions, 'interaction')}`,
-      spend.judgeCost != null ? `judge ${fmtSpend(spend.judgeCost, { estimated: spend.judgeEstimated })} offline` : 'no judge spend',
-    ].join(' · ')
-    : 'no priced runs yet';
+  // named apart so it never inflates it; "~" marks an estimated part. One
+  // fact per line — the scope, then the two figures in mono so they line
+  // up, then the estimate's legend when a part was estimated — in place of
+  // a sentence that wrapped to four lines.
   const spendEstimated = (spend.agentCost != null && spend.estimated) || (spend.judgeCost != null && spend.judgeEstimated);
+  const spendSub = spend.agentCost != null
+    ? (
+      <span style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <span data-testid="stat-agent-cost-scope">{`over ${plural(spend.interactions, 'interaction')}`}</span>
+        <span style={{ display: 'grid', gridTemplateColumns: 'max-content minmax(0, 1fr)', columnGap: 10, rowGap: 2, fontFamily: MONO, fontSize: 11, color: 'var(--color-text-muted)' }}>
+          <span>agent</span>
+          <span data-testid="stat-agent-cost-agent" style={{ color: 'var(--color-text-cell)' }}>{fmtSpend(spend.agentCost, { estimated: spend.estimated })}</span>
+          <span>judge</span>
+          <span data-testid="stat-agent-cost-judge" style={{ color: 'var(--color-text-cell)' }} title="The judge's spend is the evaluation's own, outside the interactions, so it is not in the figure above">
+            {spend.judgeCost != null ? `${fmtSpend(spend.judgeCost, { estimated: spend.judgeEstimated })} · offline` : 'none'}
+          </span>
+        </span>
+        {spendEstimated && (
+          <span title={COST_LEGEND} style={{ fontFamily: MONO, fontSize: 11, color: 'var(--color-text-muted)' }}>~ estimated</span>
+        )}
+      </span>
+    )
+    : 'no priced runs yet';
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -527,9 +570,29 @@ export default function EvaluationsView({ embedded = false, agentId = null }) {
             : (
               <span style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                 <span data-testid="stat-pass-rate-fraction">{`${samplesPassed}/${samplesScored} passed`}</span>
-                {perModelLines.map((line) => (
-                  <span key={line} style={{ fontFamily: MONO, fontSize: 11, color: 'var(--color-text-muted)' }} data-testid="stat-pass-rate-model">{line}</span>
-                ))}
+                {leader && (
+                  <>
+                    {/* The model's name gives way before its rate does. */}
+                    <span
+                      data-testid="stat-pass-rate-leader"
+                      title={`${leader.label} ${fmtPasses(leader.passed, leader.total)}: best of ${leaderboard.length} models by the low end of its pass rate`}
+                      style={{ display: 'flex', gap: 6, minWidth: 0, fontFamily: MONO, fontSize: 11, color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}
+                    >
+                      <span>best</span>
+                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0, color: 'var(--color-text-cell)' }}>{splitModelLabel(leader.label).short}</span>
+                      <span style={{ flexShrink: 0 }}>{fmtPercent(leader.ratio)}</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setShowLeaderboard((value) => !value)}
+                      aria-expanded={showLeaderboard}
+                      data-testid="stat-pass-rate-leaderboard-toggle"
+                      style={{ alignSelf: 'flex-start', background: 'transparent', border: 'none', padding: 0, cursor: 'pointer', fontFamily: MONO, fontSize: 11, color: 'var(--color-text-secondary)' }}
+                    >
+                      <Glyph kind="chevron" open={showLeaderboard} /> {`${showLeaderboard ? 'hide' : 'compare'} ${leaderboard.length} models`}
+                    </button>
+                  </>
+                )}
               </span>
             )}
           testId="stat-pass-rate"
@@ -545,10 +608,12 @@ export default function EvaluationsView({ embedded = false, agentId = null }) {
           label="Cost / interaction"
           value={fmtRate(spend.perInteraction, spend.estimated)}
           valueColor={spend.perInteraction == null ? 'var(--color-text-muted)' : undefined}
-          sub={spendEstimated ? `${spendSub} · ${COST_LEGEND}` : spendSub}
+          sub={spendSub}
           testId="stat-agent-cost"
         />
       </div>
+
+      {showLeaderboard && <ModelLeaderboard rows={leaderboard} columns={summary.columns} />}
 
       {/* Evaluations */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>

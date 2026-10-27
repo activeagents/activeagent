@@ -407,3 +407,26 @@ end
 - **[Instrumentation](/framework/instrumentation)** - Local logging with ActiveSupport::Notifications
 - **[Usage Statistics](/actions/usage)** - Token usage and cost tracking
 - **[Configuration](/framework/configuration)** - General framework configuration
+
+## User feedback
+
+Collect thumbs up/down with optional comments and review votes in the agent’s
+Feedback tab. See [User feedback](./feedback) for submission, authentication,
+upgrade instructions and dashboard filters.
+
+### Trace window totals and capped details
+
+The dashboard's Traces view computes totals and chart buckets over the full
+selected time window, scoped to the caller and the active server filters.
+The detail list returns the newest 500 traces by default (at most 1000).
+When that list is truncated, the view says how many traces it loaded; its
+lists, agent/action breakdowns and span details describe those loaded rows.
+Clicking a chart bucket filters the loaded rows, not a second complete page.
+
+`GET <mount>/api/traces` includes `total_count`, `returned_count`,
+`truncated`, `summary` (requests, errors, average recorded latency and
+requests per minute), and zero-filled `buckets`. The `bucket_seconds`
+parameter selects the chart interval, bounded to at most 180 buckets.
+`window_start_ms` and `window_end_ms` pin the window to the server clock;
+its start is inclusive and its end is exclusive. A missing duration does
+not count as zero when averaging latency.

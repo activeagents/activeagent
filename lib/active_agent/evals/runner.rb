@@ -54,10 +54,14 @@ module ActiveAgent
       # @param release [Hash, nil] the release of the agent under evaluation,
       #   `{ "digest", "revision", "label" }`, carried onto the Report so a
       #   published run names the code it scored (see Report.new)
+      # @param refine_gate [#call, nil] asked before each recommendation call,
+      #   after `judge_limit`; false skips it. A caller that scores each
+      #   scenario in its own Runner (a background job per scenario) shares one
+      #   run-wide limit this way, since `judge_limit` counts per instance.
       def initialize(scenarios:, models:, replay:, criteria: [], judge: nil, judge_task: true, available_tools: {},
                      instructions: nil, agent_name: "The agent", threshold: PASS_THRESHOLD,
                      refine_faults: DEFAULT_REFINE_FAULTS, judge_limit: DEFAULT_JUDGE_LIMIT, on_result: nil,
-                     around_evaluation: nil, require_judge_scores: false, metadata: {}, release: nil)
+                     around_evaluation: nil, require_judge_scores: false, metadata: {}, release: nil, refine_gate: nil)
         @scenarios = scenarios
         @models = models
         @replay = replay
@@ -75,6 +79,7 @@ module ActiveAgent
         @require_judge_scores = require_judge_scores
         @metadata = metadata
         @release = release
+        @refine_gate = refine_gate
         @judge_calls = 0
         @scorer = Scorer.new(criteria: criteria, judge: judge)
       end
@@ -187,6 +192,7 @@ module ActiveAgent
       def refine!(diagnosis, scenario, replay, result)
         return unless @judge && @refine_faults.include?(result.fault)
         return if @judge_calls >= @judge_limit
+        return if @refine_gate && !@refine_gate.call
 
         @judge_calls += 1
         refined = @judge.recommend(scenario: scenario, replay: replay, diagnosis: result,

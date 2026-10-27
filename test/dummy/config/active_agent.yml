@@ -19,6 +19,11 @@ open_router: &open_router
   service: "OpenRouter"
   access_token: <%= Rails.application.credentials.dig(:open_router, :access_token) || Rails.application.credentials.dig(:open_router, :api_key) %>
 # endregion open_router_anchor
+# region atlas_cloud_anchor
+atlas_cloud: &atlas_cloud
+  service: "AtlasCloud"
+  api_key: <%= ENV["ATLASCLOUD_API_KEY"] %>
+# endregion atlas_cloud_anchor
 # region ollama_anchor
 ollama: &ollama
   service: "Ollama"
@@ -58,6 +63,11 @@ development:
     <<: *open_router
     model: "qwen/qwen3-30b-a3b:free"
   # endregion open_router_dev_config
+  # region atlas_cloud_dev_config
+  atlas_cloud:
+    <<: *atlas_cloud
+    model: "qwen/qwen3.8-max"
+  # endregion atlas_cloud_dev_config
   # region ollama_dev_config
   ollama:
     <<: *ollama
@@ -92,6 +102,9 @@ test:
   open_router:
     <<: *open_router
     model: "qwen/qwen3-30b-a3b:free"
+  atlas_cloud:
+    <<: *atlas_cloud
+    model: "qwen/qwen3.8-max"
   ollama:
     <<: *ollama
   anthropic:

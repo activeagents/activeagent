@@ -146,6 +146,11 @@ class ActionAgentScenarioEvaluationRunnerTest < ActiveSupport::TestCase
     assert scores["_verdict"]["winner"].present?
     assert_equal "pass rate", scores["_verdict"]["judge"]
     assert_equal run.selection, scores["_selection"]
+    comparison = scores["_comparison"]
+    assert_equal %w[mock/alpha mock/beta], comparison["models"].keys.sort
+    assert_equal [ 3 ], comparison["pairs"].map { |pair| pair["scenarios"] }, "one pair, compared on the three scenarios both ran"
+    assert_equal run.to_report.comparison, comparison
+    assert comparison["conclusion"].present?
   end
 
   test "an expected tool the agent never calls is diagnosed and rolled up into recommendations" do
@@ -164,6 +169,7 @@ class ActionAgentScenarioEvaluationRunnerTest < ActiveSupport::TestCase
     assert_equal [ "tickets_2" ], recommendation["scenario_keys"]
     assert_equal 1, recommendation["count"]
     assert_equal({ "expected_tool_not_called" => 1 }, run.scores["_models"]["mock-model"]["faults"])
+    assert_not run.scores.key?("_comparison"), "a single-model run compares nothing"
   end
 
   test "a scenario the mock provider answers passes when nothing is expected of the answer" do
@@ -259,13 +265,70 @@ class ActionAgentScenarioEvaluationRunnerTest < ActiveSupport::TestCase
     assert_in_delta ActionAgent::ModelPricing.estimate(model: "claude-opus-5", input_tokens: usage["input_tokens"], output_tokens: usage["output_tokens"]),
                     usage["cost"], 1e-9
     assert_equal "claude-opus-5", run.scores["_judge_label"]
+    assert_equal({ "claude-opus-5" => usage["calls"] }, usage["models"])
+    assert_equal({ "agent" => "EvaluationJudgeAgent", "provider" => "anthropic", "model" => "claude-opus-5",
+                   "model_source" => "evaluation", "answered" => { "claude-opus-5" => usage["calls"] } }, run.scores["_judge"])
     assert_equal "mock/alpha", run.scores.dig("_verdict", "winner")
 
     # EvaluationRun#usage keeps the two sides apart, and says the judge's
     # figures are the engine's own meter, the verdict being the call no
     # result owns.
     assert_equal 4, run.usage[:replays]
-    assert_equal usage.merge("source" => "meter", "estimated" => true, "run" => { "calls" => 1, "cost" => nil, "by_kind" => { "verdict" => 1 } }), run.usage[:judge]
+    assert_equal usage.except("models").merge("source" => "meter", "estimated" => true, "run" => { "calls" => 1, "cost" => nil, "by_kind" => { "verdict" => 1 } }), run.usage[:judge]
+  end
+
+  # A judge that answers every call as the next of +models+, in turn.
+  def judge_answering_as(*models)
+    reply = Struct.new(:content, :input_tokens, :output_tokens, :model) do
+      def message = Struct.new(:content).new(content)
+      def usage = Struct.new(:input_tokens, :output_tokens).new(input_tokens, output_tokens)
+      def generate_now = self
+    end
+    served = models.cycle
+    Class.new do
+      define_singleton_method(:prompt) do |message:, instructions:|
+        content = if instructions.include?("comparing model cohorts")
+          { winner: "mock/alpha", rationale: "Marginally better." }.to_json
+        elsif instructions.include?("recommend the fix")
+          { recommendation: "Enable find_tickets.", suggested_tool: nil, instruction_change: nil }.to_json
+        else
+          { score: 0.9 }.to_json
+        end
+        reply.new(content, 200, 10, served.next)
+      end
+    end
+  end
+
+  def run_unpinned_judge(judge)
+    evaluation = build_suite
+    evaluation.update!(judge_kind: "llm", judge_model: nil,
+      criteria: [ { "key" => "quality", "type" => "llm_judge", "config" => { "prompt" => "Is the answer useful?" } } ])
+    runner = ActionAgent::ScenarioEvaluationRunner.new(evaluation, selection: { keys: %w[tickets_1], models: [ "mock/alpha", "mock/beta" ] })
+    runner.stub(:judge_provider, :anthropic) do
+      runner.stub(:judge_class, judge) { runner.call }
+    end
+  end
+
+  # With no judge model pinned the provider picks its own default, which a
+  # router such as openrouter/auto can change from call to call: the run is
+  # labelled with the model that actually answered, not the provider.
+  test "a judge with no model pinned is named after the model that answered" do
+    run = run_unpinned_judge(judge_answering_as("z-ai/glm-5.3-flash"))
+
+    assert_equal "complete", run.status
+    calls = run.scores.dig("_judge_usage", "calls")
+    assert_equal "z-ai/glm-5.3-flash", run.scores["_judge_label"]
+    assert_equal "z-ai/glm-5.3-flash", run.scores.dig("_verdict", "judge")
+    assert_equal({ "agent" => "EvaluationJudgeAgent", "provider" => "anthropic", "model" => nil,
+                   "model_source" => "provider_default", "answered" => { "z-ai/glm-5.3-flash" => calls } }, run.scores["_judge"])
+  end
+
+  test "a judge whose default answered as several models is named after its provider" do
+    run = run_unpinned_judge(judge_answering_as("z-ai/glm-5.3-flash", "openai/gpt-5.6-luna"))
+
+    assert_equal "anthropic default", run.scores["_judge_label"]
+    assert_equal %w[openai/gpt-5.6-luna z-ai/glm-5.3-flash], run.scores.dig("_judge", "answered").keys.sort
+    assert_equal run.scores.dig("_judge_usage", "calls"), run.scores.dig("_judge", "answered").values.sum
   end
 
   test "a rules-only run records no judge spend" do
@@ -417,5 +480,17 @@ class ActionAgentScenarioEvaluationRunnerTest < ActiveSupport::TestCase
     ActionAgent::MCPClient.stub(:new, refuser) { yield }
   ensure
     ActionAgent.mcp_catalog = original
+  end
+
+  test "an unavailable pinned route fails before any scenario replay" do
+    evaluation = build_suite
+    evaluation.update!(judge_model: "gpt-4o-mini")
+    ActionAgent::ProviderKey.delete_all
+    ActiveAgent.stub(:configuration, { anthropic: { access_token: "synthetic" } }) do
+      error = assert_raises(ArgumentError) { evaluation.run! }
+      assert_match(/No credentials for judge provider openai/, error.message)
+    end
+    assert_equal "failed", evaluation.evaluation_runs.last.status
+    assert_equal 0, evaluation.agent.agent_runs.count
   end
 end

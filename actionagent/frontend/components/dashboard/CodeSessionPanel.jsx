@@ -3,6 +3,8 @@ import { useTheme } from '../../contexts/ThemeContext';
 import SandboxClaudeLogin from './SandboxClaudeLogin';
 import FixVerification from './evaluations/FixVerification';
 import { timeAgo } from '../../utils/format';
+import { dashboardPath, navigateTo } from '../../utils/dashboardPath';
+import { conversationPath } from '../../utils/codeConversations.mjs';
 import {
   CODE_SESSION_POLL_INTERVAL_MS,
   MODEL_CHOICE_STORAGE_KEY,
@@ -31,6 +33,7 @@ import {
   transcriptRows,
   upsertBy,
   claudeCodeNotConnectedHint,
+  codexNotConnectedHint,
 } from '../../utils/codeSessions.mjs';
 
 // The composer's limit, as the model validates it.
@@ -84,7 +87,10 @@ export function StatusBadge({ tone = 'neutral', children }) {
 // its diff is shown. One session runs per checkout at a time.
 // `claudeCode` is claudeCodeAuth of the sandbox listing: whether sessions can
 // run, by an API key connected below or this machine's own Claude Code login.
-export default function CodeSessionPanel({ sandbox, claudeCode, codex, onRecheckConnection }) {
+// With `readOnly` it only follows the sandbox's sessions, opening
+// `focusSessionId` (the Project page's view of a boot fix): no composer,
+// no sign-in, and `title` above them.
+export default function CodeSessionPanel({ sandbox, claudeCode, codex, onRecheckConnection, readOnly = false, focusSessionId = null, title = 'Code sessions' }) {
   const { darkMode } = useTheme();
   const base = `/api/sandboxes/${encodeURIComponent(sandbox.session_id)}/code_sessions`;
   const [sessions, setSessions] = useState(null); // summaries, newest first
@@ -120,7 +126,7 @@ export default function CodeSessionPanel({ sandbox, claudeCode, codex, onRecheck
       .then((list) => {
         if (cancelled) return;
         setSessions(list);
-        const open = list.find(isCodeSessionActive) || list[0];
+        const open = list.find((session) => session.id === focusSessionId) || list.find(isCodeSessionActive) || list[0];
         setSelectedId((current) => current ?? open?.id ?? null);
       })
       .catch((e) => {
@@ -130,6 +136,11 @@ export default function CodeSessionPanel({ sandbox, claudeCode, codex, onRecheck
       });
     return () => { cancelled = true; };
   }, [fetchSessions]);
+
+  // A newer session to follow (the Project page started another boot fix).
+  useEffect(() => {
+    if (focusSessionId != null) setSelectedId(focusSessionId);
+  }, [focusSessionId]);
 
   // The selected session: fetched from its first event, then polled for the
   // events after the ones held until it settles. Stops on unmount, on a
@@ -185,10 +196,7 @@ export default function CodeSessionPanel({ sandbox, claudeCode, codex, onRecheck
   const watchedId = activeSession && activeSession.id !== selectedId ? activeSession.id : null;
   // Why the composer is locked: Claude Code cannot run (no API key, or this
   // machine is not logged in), or the checkout is busy with another session.
-  const notConnected = runner === 'codex'
-    ? (!codex?.supported ? { text: 'This sandbox backend does not support Codex.' }
-      : !codex?.connected ? { text: 'Connect an OpenAI API key in the Codex integration below.' } : null)
-    : claudeCodeNotConnectedHint(claudeCode);
+  const notConnected = runner === 'codex' ? codexNotConnectedHint(codex) : claudeCodeNotConnectedHint(claudeCode);
   const blockedReason = notConnected ? 'not_connected' : activeSession ? 'busy' : null;
   useEffect(() => {
     if (watchedId == null) return undefined;
@@ -284,12 +292,14 @@ export default function CodeSessionPanel({ sandbox, claudeCode, codex, onRecheck
 
   return (
     <div className={`mt-2 p-3 rounded-lg border space-y-3 ${border}`}>
-      {claudeCode?.mode === 'sandbox_login' && <SandboxClaudeLogin sandbox={sandbox} onChange={onRecheckConnection} />}
+      {!readOnly && claudeCode?.mode === 'sandbox_login' && <SandboxClaudeLogin sandbox={sandbox} onChange={onRecheckConnection} />}
       <div className="flex items-center justify-between">
-        <p className={`text-sm font-medium ${strong}`}>Code sessions</p>
+        <p className={`text-sm font-medium ${strong}`}>{title}</p>
         <p className={`text-xs ${muted}`}>A session edits this checkout and never commits or pushes. Publishing is a separate step, below.</p>
       </div>
 
+      {readOnly && error && <div className={errorBox}>{error}</div>}
+      {!readOnly && (
       <div className="space-y-2">
         <label className={`flex items-center gap-2 text-xs ${muted}`}>
           Agent
@@ -370,6 +380,7 @@ export default function CodeSessionPanel({ sandbox, claudeCode, codex, onRecheck
         </div>
         {error && <div className={errorBox}>{error}</div>}
       </div>
+      )}
 
       {sessions && sessions.length > 0 && (
         <div className="space-y-1">
@@ -440,11 +451,21 @@ function SessionDetail({ session, rows, loaded, detailError, cancelling, onCance
             {[sessionCounts(session), sessionModelLabel(session)].filter(Boolean).join(' · ')}
           </span>
         </div>
-        {active && (
-          <button type="button" onClick={onCancel} disabled={cancelling} className={`${secondaryButton} shrink-0 disabled:opacity-50`}>
-            {cancelling ? 'Cancelling…' : 'Cancel'}
-          </button>
-        )}
+        <div className="flex items-center gap-2 shrink-0">
+          <a
+            href={dashboardPath(conversationPath(session.conversation_id || session.id))}
+            onClick={(event) => { event.preventDefault(); navigateTo(conversationPath(session.conversation_id || session.id)); }}
+            className={linkButton}
+            data-testid="code-session-open-interaction"
+          >
+            Open in Interactions
+          </a>
+          {active && (
+            <button type="button" onClick={onCancel} disabled={cancelling} className={`${secondaryButton} shrink-0 disabled:opacity-50`}>
+              {cancelling ? 'Cancelling…' : 'Cancel'}
+            </button>
+          )}
+        </div>
       </div>
 
       <p className={`text-xs whitespace-pre-wrap break-words max-h-24 overflow-y-auto ${muted}`}>{session.prompt}</p>
@@ -495,7 +516,7 @@ function SessionDetail({ session, rows, loaded, detailError, cancelling, onCance
   );
 }
 
-function TranscriptRow({ row, darkMode, muted, strong }) {
+export function TranscriptRow({ row, darkMode, muted, strong }) {
   const nested = row.nested ? `ml-4 pl-2 border-l ${darkMode ? 'border-gray-700' : 'border-gray-200'}` : '';
 
   switch (row.kind) {
@@ -553,7 +574,7 @@ const DIFF_LINE_CLASSES = {
   context: { dark: 'text-gray-300', light: 'text-gray-700' },
 };
 
-function DiffView({ diff, pending, onReload, muted, linkButton, darkMode }) {
+export function DiffView({ diff, pending, onReload, muted, linkButton, darkMode }) {
   const lines = useMemo(() => diffLines(diff), [diff]);
 
   if (diff == null) {

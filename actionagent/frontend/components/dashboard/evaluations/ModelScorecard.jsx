@@ -30,7 +30,7 @@ function Stat({ label, children, title, nowrap = true }) {
 }
 
 export default function ModelScorecard({
-  label, short, provider, winner = false, passed, total, avgScore, criteria, latencyMs, inputTokens, outputTokens,
+  label, short, provider, winner = false, passed, total, avgScore, criteria, latencyMs, p50Ms = null, p95Ms = null, inputTokens, outputTokens,
   cost, perInteraction, estimated = false, judgeCost = null, judgeCalls = 0, judgeEstimated = false,
   unit = 'interaction', badges = [], note, testId = 'model-scorecard',
 }) {
@@ -64,6 +64,7 @@ export default function ModelScorecard({
         <Stat label="score">{fmtScore(avgScore)}</Stat>
         {criteria && <Stat label="criteria">{fmtPasses(criteria.cleared, criteria.scored)}</Stat>}
         {latencyMs != null && <Stat label="latency">{fmtMs(latencyMs)}</Stat>}
+        {p50Ms != null && <Stat label="p50 / p95">{`${fmtMs(p50Ms)} / ${fmtMs(p95Ms)}`}</Stat>}
         {(inputTokens != null || outputTokens != null) && (
           <span style={{ whiteSpace: 'nowrap' }}>
             <span style={{ color: 'var(--color-token-in)' }}>in</span>{' '}

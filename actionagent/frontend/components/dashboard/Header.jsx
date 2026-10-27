@@ -23,6 +23,9 @@ export default function Header({ user, account }) {
   // extracted copy posted to the platform's /session, which 404s on any
   // other host.
   const signOutPath = window.ACTIVE_AGENT_DASHBOARD?.meta?.signOutPath;
+  // Host pages to reach from the dashboard: workspace, members, account
+  // settings, and the host's admin pages for the users it shows them to.
+  const userMenuLinks = window.ACTIVE_AGENT_DASHBOARD?.meta?.userMenuLinks || [];
 
   const handleSignOut = () => {
     if (!signOutPath) return;
@@ -137,6 +140,23 @@ export default function Header({ user, account }) {
               </div>
 
               {/* Menu items */}
+              {userMenuLinks.length > 0 && (
+              <div className="py-1 border-b" style={{ borderColor: darkMode ? '#2a2a2a' : '#e5e7eb' }}>
+                {userMenuLinks.map((link) => (
+                  <a
+                    key={link.href}
+                    href={link.href}
+                    className={`w-full flex items-center space-x-3 px-4 py-2 text-left text-sm transition-colors ${
+                      darkMode
+                        ? 'text-gray-300 hover:bg-gray-800'
+                        : 'text-gray-700 hover:bg-gray-100'
+                    }`}
+                  >
+                    <span>{link.label}</span>
+                  </a>
+                ))}
+              </div>
+              )}
               {signOutPath && (
               <div className="py-1">
                 <button

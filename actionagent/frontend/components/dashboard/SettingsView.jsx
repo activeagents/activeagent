@@ -3,8 +3,10 @@ import { useTheme } from '../../contexts/ThemeContext';
 import GithubIntegrationCard from './GithubIntegrationCard';
 import ClaudeCodeIntegrationCard from './ClaudeCodeIntegrationCard';
 import CodexIntegrationCard from './CodexIntegrationCard';
+import SlackIntegrationCard from './SlackIntegrationCard';
 import ProviderKeysCard, { useProviderKeyEditor } from './ProviderKeysCard';
 import { providerKeysPath } from '../../utils/providerKeys.mjs';
+import { requestConfirm } from '../../utils/confirm.mjs';
 
 const TAB_IDS = ['profile', 'api-keys', 'integrations', 'notifications', 'billing'];
 
@@ -89,7 +91,12 @@ export default function SettingsView({ user, account }) {
   };
 
   const revokeApiKey = async (id) => {
-    if (!window.confirm('Revoke this API key? Requests using it will stop working immediately.')) return;
+    if (!(await requestConfirm({
+      title: 'Revoke this API key?',
+      message: 'Requests using it stop working immediately. This cannot be undone.',
+      confirmLabel: 'Revoke key',
+      danger: true,
+    }))) return;
     try {
       const res = await fetch(`/api/api_keys/${id}`, { method: 'DELETE' });
       if (!res.ok) throw new Error('delete failed');
@@ -370,6 +377,9 @@ export default function SettingsView({ user, account }) {
           </div>
           <div className="border rounded-lg p-6" style={cardStyle}>
             <CodexIntegrationCard onChange={() => setIntegrationsVersion((v) => v + 1)} />
+          </div>
+          <div className="border rounded-lg p-6" style={cardStyle}>
+            <SlackIntegrationCard onChange={() => setIntegrationsVersion((v) => v + 1)} />
           </div>
         </div>
       )}

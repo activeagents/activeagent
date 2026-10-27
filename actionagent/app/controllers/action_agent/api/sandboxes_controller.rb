@@ -110,7 +110,7 @@ module ActionAgent
           code_sessions_supported: code_sessions_supported?,
           codex_sessions_supported: codex_sessions_supported?,
           pull_requests_supported: pull_requests_supported?,
-          codex_connected: owned(ProviderKey).where(provider: "codex").any? { |key| key.runtime_environment.present? },
+          **codex_status,
           browser_modes: browser_modes,
           **claude_code_status
         }
@@ -359,10 +359,21 @@ module ActionAgent
         []
       end
 
+      # Whether the configured backend runs Codex sessions, and runs them
+      # with the configured authentication (CodexAuth.backend_refusal).
       def codex_sessions_supported?
-        SandboxOrchestrator.new.supports_code_runner?("codex")
+        orchestrator = SandboxOrchestrator.new
+        orchestrator.supports_code_runner?("codex") && CodexAuth.backend_refusal(orchestrator).nil?
       rescue StandardError, LoadError
         false
+      end
+
+      # How Codex authenticates and whether the caller's can run: the mode,
+      # a boolean, and in :local_login mode this machine's login status.
+      # Never a credential.
+      def codex_status
+        status = CodexAuth.status(owned(ProviderKey))
+        { codex_auth: status[:mode], codex_connected: status[:connected], codex_login: status[:login] }.compact
       end
 
       # Whether the configured backend can read a checkout's changes, which

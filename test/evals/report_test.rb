@@ -2,6 +2,7 @@
 
 require "test_helper"
 require_relative "evals_test_support"
+require "cgi"
 
 class EvalsReportTest < ActiveSupport::TestCase
   include EvalsTestSupport
@@ -73,6 +74,12 @@ class EvalsReportTest < ActiveSupport::TestCase
              judge: { "recommendation" => "Add an audit tool.", "suggested_tool" => { "name" => "record_history", "description" => "Who changed what" } }),
       result(history, llama, replay(answer: "Alice changed it on Monday."))
     ]
+  end
+
+  # The page as a reader sees it: without the Markdown the copy buttons
+  # carry and the script that copies it.
+  def visible(html)
+    html.gsub(%r{<textarea class="md-store".*?</textarea>}m, "").gsub(%r{<script>.*?</script>}m, "")
   end
 
   def report(**options)
@@ -186,7 +193,7 @@ class EvalsReportTest < ActiveSupport::TestCase
   def test_to_h_and_to_json_are_unchanged_by_fix_items
     parsed = JSON.parse(report(tool_resolver: resolver, links: LINKS).to_json)
 
-    assert_equal %w[models criteria recommendations verdict metadata results], parsed.keys
+    assert_equal %w[models criteria recommendations verdict comparison metadata results], parsed.keys
     assert_not parsed.key?("fix_items")
     assert_equal 10, parsed["results"].size
   end
@@ -200,7 +207,7 @@ class EvalsReportTest < ActiveSupport::TestCase
     assert_match(/<html lang="en">/, html)
     assert_includes html, "<title>Evaluation — 5 scenarios × 2 models</title>"
     assert_not_includes html, "http://", "the page must not reference external assets"
-    assert_not_includes html, "<script"
+    assert_equal [ "<script>" ], html.scan(/<script[^>]*>/), "one inline script, the copy buttons', and nothing loaded"
     assert_includes html, "--color-accent-ui: #ef4444;"
     assert_includes html, "@media (prefers-color-scheme: dark)"
     assert_includes html, ":root:not(.theme-light) {"
@@ -278,20 +285,87 @@ class EvalsReportTest < ActiveSupport::TestCase
     assert_equal heads.sort, heads, "What to fix follows the scenario matrix and the per-scenario details"
   end
 
-  def test_markdown_reads_models_then_the_scenario_results_then_the_recommendations
-    markdown = report.to_markdown
-    heads = [ "| Model |", "| Scenario |", "## Answers", "## Recommendations" ].map { |head| markdown.index(head) }
+  def test_html_copies_each_piece_as_the_markdown_the_report_writes
+    report = report(tool_resolver: resolver, links: LINKS)
+    html = report.to_html
+    store = ->(id) { CGI.unescapeHTML(html[%r{<textarea class="md-store" id="#{id}" hidden readonly>(.*?)</textarea>}m, 1].to_s) }
 
-    assert_not_includes heads, nil, "every section renders"
-    assert_equal heads.sort, heads, "the recommendations follow the scenario matrix and the answers"
+    assert_equal report.to_markdown, store.call("md-report")
+    assert_equal report.verdict_markdown, store.call("md-verdict")
+    assert_equal report.fix_items_markdown, store.call("md-fixes")
+    assert_equal report.fix_items_markdown(model: "gpt-5-mini"), store.call("md-fixes-m0")
+    assert_equal report.fix_item_markdown(report.fix_items.first), store.call("md-fix-0")
+    assert_equal report.scenario_markdown("s_order", answer_limit: ActiveAgent::Evals::ReportHtml::ANSWER_LIMIT), store.call("md-scenario-s_order")
+    assert_includes html, %(<button type="button" class="copy-md" data-md="md-report" title="Copy the whole report as GitHub-flavored Markdown">Copy as Markdown</button>)
+    assert_includes html, %(data-md="md-fixes" data-md-model)
+    assert_includes html, "navigator.clipboard.writeText"
+    assert_includes html, %(document.execCommand("copy")), "the copy falls back where the Clipboard API is refused"
+    assert_not_includes html, "<img src=x", "the embedded Markdown is escaped too"
   end
 
-  def test_markdown_sets_the_recommendations_off_by_one_blank_line_and_ends_with_a_newline
+  def test_markdown_reads_models_then_the_scenario_results_then_what_to_fix
+    markdown = report.to_markdown
+    heads = [ "| Model |", "**Best model", "| Scenario |", "## Answers", "## What to fix" ].map { |head| markdown.index(head) }
+
+    assert_not_includes heads, nil, "every section renders"
+    assert_equal heads.sort, heads, "what to fix follows the scenario matrix and the answers, as on the HTML page"
+  end
+
+  def test_markdown_sets_what_to_fix_off_by_one_blank_line_and_ends_with_a_newline
     markdown = report.to_markdown
 
-    assert_includes markdown, "\n\n## Recommendations\n", "a blank line precedes the recommendations"
-    assert_not_includes markdown, "\n\n\n## Recommendations", "only one blank line precedes the recommendations"
+    assert_includes markdown, "</details>\n\n## What to fix\n", "a blank line precedes what to fix"
+    assert_not_includes markdown, "\n\n\n## What to fix", "only one blank line precedes what to fix"
     assert markdown.end_with?("\n"), "the report ends with a newline"
+    assert_not_includes markdown, "\n\n\n", "no section leaves a double blank line"
+  end
+
+  def test_markdown_folds_each_scenarios_answers_into_a_details_block
+    markdown = report.to_markdown
+    block = markdown[%r{<details>\n<summary><code>s_order</code>.*?</details>}m]
+
+    assert_equal report.results.map { |result| result.scenario.key }.uniq.size, markdown.scan("<details>\n<summary>").size
+    assert block, "one block per scenario"
+    assert_includes block, "<summary><code>s_order</code> Where is order &lt;b&gt;ABC-123&lt;/b&gt;? — ❌ gpt-5-mini · ❌ openrouter/meta-llama/llama-3.1-8b</summary>\n\n**Prompt**",
+                    "the summary escapes HTML and a blank line lets GitHub render the Markdown inside"
+    assert_includes block, "| Model | Status | Score | Tools | Fault | Cost |"
+    assert_includes block, "| `openrouter/meta-llama/llama-3.1-8b` | ❌ failed | 50% | — | missing capability | — |"
+    assert_includes block, "> &lt;img src=x onerror=alert(1)&gt; no such order", "an answer cannot open HTML inside the block"
+    assert_includes block, "- Expects tools: `lookup_order`"
+  end
+
+  def test_markdown_escapes_pipes_and_line_breaks_in_table_cells
+    piped = [ result(scenario("pipe_1", "Compare a | b\nand c"), gpt, replay(answer: "a | b", tool_calls: [ { "name" => "look|up" } ])) ]
+    markdown = Report.new(results: piped, models: [ gpt ]).to_markdown
+
+    assert_includes markdown, "| `pipe_1` Compare a \\| b and c | ✅ 100% |"
+    assert_includes markdown, "| `gpt-5-mini` | ✅ passed | 100% | look\\|up | — |"
+  end
+
+  def test_markdown_pieces_read_as_they_do_in_the_report
+    markdown = report.to_markdown
+    item = report.fix_items.find { |entry| entry["kind"] == "instruction" }
+
+    assert_includes markdown, report.fix_item_markdown(item, heading: "###")
+    assert_includes report.fix_item_markdown(item), "> Use lookup_order for order questions."
+    assert_includes report.fix_item_markdown(item), "judge suggestion"
+    assert report.fix_items_markdown.start_with?("## What to fix\n\n### ")
+    assert_includes report.verdict_markdown, "**Best model: openrouter/meta-llama/llama-3.1-8b**"
+    assert_includes report.verdict_markdown, "### Comparison"
+    assert_includes report.verdict_markdown, "| Model | Passed |"
+    single = report.scenario_markdown("s_order")
+    assert single.start_with?("### Scenario `s_order`\n\n**Prompt**")
+    assert_not_includes single, "<details>"
+    assert_raises(KeyError) { report.scenario_markdown("nope") }
+  end
+
+  def test_markdown_fix_items_narrow_to_one_model
+    only_gpt = report.fix_items_markdown(model: "gpt-5-mini")
+
+    assert only_gpt.start_with?("## What to fix for `gpt-5-mini`")
+    assert_includes only_gpt, "expected tool not called"
+    assert_not_includes only_gpt, "tool error"
+    assert_includes Report.new(results: results.select(&:passed?), models: models).fix_items_markdown, "_Nothing to fix._"
   end
 
   def test_html_matrix_colors_calls_against_expectations_and_links_to_the_details
@@ -346,7 +420,7 @@ class EvalsReportTest < ActiveSupport::TestCase
     report = Report.new(models: models.first(1), results: [
       result(scenario("s_1", "Ping"), gpt, ActiveAgent::Evals::Replay.failed(RuntimeError.new("provider down")), score: nil)
     ])
-    html = report.to_html
+    html = visible(report.to_html)
 
     assert_not_includes html, "judge's pick"
     assert_not_includes html, "Verdict"
@@ -380,7 +454,7 @@ class EvalsReportTest < ActiveSupport::TestCase
   end
 
   def test_an_empty_report_still_renders
-    html = Report.new(results: [], models: models).to_html
+    html = visible(Report.new(results: [], models: models).to_html)
 
     assert_includes html, "<title>Evaluation — 0 scenarios × 2 models</title>"
     assert_includes html, %(<div class="value tone-error">—</div><div class="sub">0/0 passed</div>), "nothing scored reads as a dash"
@@ -443,12 +517,11 @@ class EvalsReportTest < ActiveSupport::TestCase
     assert_match(/expected tool not called ×\d+ <span class="detail">· s_\w+: /, table)
 
     # The fix cards carry their models, and a chip per model narrows the list
-    # through the stylesheet alone — the page still ships no script.
+    # through the stylesheet alone — the page's only script is the copy buttons'.
     assert_includes html, %(<input type="radio" name="fix-model" value="all" checked>)
     assert_includes html, %(<input type="radio" name="fix-model" value="m0">)
     assert_match(/<div class="fix" data-models="m[01]( m[01])?">/, html)
     assert_includes html, %(.fix-section:has(input[value="m0"]:checked) .fix[data-models]:not([data-models~="m0"]) { display: none; })
-    assert_not_includes html, "<script"
   end
 
   # gpt-5-mini's replays carry a cost on 1 of 5 scenarios, llama's on none:
@@ -459,7 +532,7 @@ class EvalsReportTest < ActiveSupport::TestCase
     assert_equal [ 1, 1, 0, 0.0012 ], summary[gpt.label].values_at("priced", "reported", "estimated", "cost")
     assert_equal [ 0, 0, 0, nil ], summary[llama.label].values_at("priced", "reported", "estimated", "cost")
 
-    html = report.to_html
+    html = visible(report.to_html)
     table = html[%r{<div class="compare">(.*?)</table></div>}m, 1]
     gpt_row = table[%r{<tr>\s*<td class="model-cell"><span class="name">gpt-5-mini</span>.*?</tr>}m]
     assert_includes gpt_row, %(~$0.0012<span class="per">~$0.0012/scenario</span>)
@@ -548,7 +621,7 @@ class EvalsReportTest < ActiveSupport::TestCase
 
   def test_to_h_carries_the_release_and_the_judge_usage_only_when_there_are_any
     plain = report.to_h
-    assert_equal %w[models criteria recommendations verdict metadata results], plain.keys
+    assert_equal %w[models criteria recommendations verdict comparison metadata results], plain.keys
     assert plain["results"].none? { |result| result.key?("judge_usage") }
     assert_equal plain.to_json, report.to_json.then { |json| JSON.parse(json).to_json }, "nothing new leaks into the JSON"
 
@@ -561,7 +634,7 @@ class EvalsReportTest < ActiveSupport::TestCase
   end
 
   def test_html_renders_the_costs_with_the_estimate_mark_the_judge_and_the_legend_once
-    html = costed_report.to_html
+    html = visible(costed_report.to_html)
 
     # The cost tile totals agent and judge, apart underneath.
     assert_includes html, %(<div class="micro">Cost</div><div class="value">~$0.0340</div><div class="sub">agent ~$0.0275 · judge ~$0.0065</div>)
@@ -596,15 +669,15 @@ class EvalsReportTest < ActiveSupport::TestCase
   def test_markdown_renders_the_judge_column_the_matrix_cost_column_the_cost_per_answer_and_the_total
     markdown = costed_report.to_markdown
 
-    assert_includes markdown, "| Model | Passed | Mean score | Mean latency | Tokens in/out | Cost | Judge | Faults |"
-    assert_includes markdown, "| `gpt-5-mini` | 2/2 (100%) | 100% | — | 180/29 | $0.0032 | ~$0.0010 (1 call) | — |"
-    assert_includes markdown, "| ~$0.0243 | ~$0.0015 (1 call) |"
+    assert_includes markdown, "| Model | Passed | Mean score | Mean latency | Median / P95 | Tokens in/out | Cost | Cost / 1,000 | Judge | Faults |"
+    assert_includes markdown, "| `gpt-5-mini` | 2/2 (100%) | 100% | — | — | 180/29 | $0.0032 | $1.6000 | ~$0.0010 (1 call) | — |"
+    assert_includes markdown, "| ~$0.0243 | ~$12.1650 | ~$0.0015 (1 call) |", "an estimated cohort reads its rate per 1,000 as an estimate"
     assert_includes markdown, "**Total: ~$0.0340** (agent ~$0.0275 · judge ~$0.0065)\n_~ estimated from tokens × model rates_\n"
     assert_includes markdown, "| Scenario | `gpt-5-mini` | `openrouter/meta-llama/llama-3.1-8b` | Cost |"
     assert_includes markdown, "| ✅ 100% | ✅ 100% | ~$0.0255 (judge ~$0.0025) |"
     assert_includes markdown, "| ✅ 100% | ⚠️ run error | $0.0020 |"
-    assert_includes markdown, "### `s_inbox` · `openrouter/meta-llama/llama-3.1-8b` · passed · score 100% · ~$0.0243 · judge ~$0.0015"
-    assert_includes markdown, "### `s_order` · `openrouter/meta-llama/llama-3.1-8b` · errored · $0.00"
+    assert_includes markdown, "| `openrouter/meta-llama/llama-3.1-8b` | ✅ passed | 100% | inbox_status | — | ~$0.0243 · judge ~$0.0015 |"
+    assert_includes markdown, "| `openrouter/meta-llama/llama-3.1-8b` | ⚠️ errored | — | — | run error | $0.00 |"
   end
 
   def test_a_report_without_a_judge_has_no_judge_column_and_no_legend_when_every_cost_is_reported
@@ -619,14 +692,132 @@ class EvalsReportTest < ActiveSupport::TestCase
     assert_not_includes html, "~$", "every cost was reported, so nothing is marked as an estimate"
     assert_not_includes html, "estimated from tokens"
     assert_includes html, %(<div class="micro">Cost</div><div class="value">$0.0100</div><div class="sub">agent only · 10 scenario runs priced</div>)
-    assert_includes markdown, "| Model | Passed | Mean score | Mean latency | Tokens in/out | Cost | Faults |"
+    assert_includes markdown, "| Model | Passed | Mean score | Mean latency | Median / P95 | Tokens in/out | Cost | Cost / 1,000 | Faults |"
     assert_includes markdown, "**Total: $0.0100** (agent $0.0100)\n\n**Best model"
   end
 
+  def test_latency_reads_at_the_median_and_the_95th_percentile_beside_the_mean
+    timed = [ 400, 100, 300, 200 ].each_with_index.map do |ms, i|
+      Result.new(scenario: scenario("s_#{i}"), spec: gpt, replay: replay(duration_ms: ms), scores: {}, score: 1.0, status: "passed")
+    end
+    untimed = Result.new(scenario: scenario("s_0"), spec: llama, replay: replay, scores: {}, score: 1.0, status: "passed")
+    report = Report.new(results: timed + [ untimed ], models: models)
+
+    assert_equal [ 250, 200, 400 ], report.summary_by_model[gpt.label].values_at("avg_duration_ms", "p50_duration_ms", "p95_duration_ms")
+    assert_equal [ nil, nil ], report.summary_by_model[llama.label].values_at("p50_duration_ms", "p95_duration_ms")
+    assert_includes report.to_markdown, "| 250 ms | 200 / 400 ms |"
+    html = report.to_html
+    assert_includes html, %(<td class="num">200ms / 400ms</td>)
+    assert_includes html, "<span>p50 / p95 <b>200ms / 400ms</b></span>"
+    assert_includes html, "<span>p50 / p95 <b>—</b></span>", "a model with no timed replay reads as missing"
+  end
+
+  def test_a_comparing_report_carries_the_comparison_of_its_results
+    comparison = report.comparison
+
+    assert_equal ActiveAgent::Evals::Comparison.new(results: results, models: models).to_h, comparison
+    assert_equal comparison, report.to_h["comparison"]
+    assert_equal [ llama.label, gpt.label ], comparison["ranking"]
+    assert_equal [ 40.0, [ 0.0, 80.0 ], false ], comparison["pairs"].sole.values_at("difference", "interval", "decisive")
+  end
+
+  def test_a_single_model_report_has_no_comparison
+    single = report(models: models.first(1), results: results.select { |result| result.label == gpt.label })
+
+    assert_nil single.comparison
+    assert_not single.to_h.key?("comparison")
+    assert_not_includes single.to_markdown, "## Comparison"
+  end
+
+  def test_a_recorded_comparison_is_rendered_instead_of_resampling
+    recorded = { method: { resamples: 5_000, confidence: 0.95, seed: 0 }, ranking: [ gpt.label, llama.label ],
+                 models: { gpt.label => { scenarios: 5, pass_rate: 20.0, interval: [ 0.0, 60.0 ] },
+                           llama.label => { scenarios: 5, pass_rate: 60.0, interval: [ 20.0, 100.0 ] } },
+                 pairs: [], conclusion: "Recorded." }
+    rebuilt = report(comparison: recorded)
+
+    assert_equal "Recorded.", rebuilt.comparison["conclusion"]
+    assert_equal [ gpt.label, llama.label ], rebuilt.to_h.dig("comparison", "ranking"), "the recorded ranking, with string keys"
+    assert_includes rebuilt.to_markdown, "\nRecorded.\n"
+    assert_includes rebuilt.to_markdown, "| `gpt-5-mini` | 20.0% | 0.0 to 60.0 | 5 |", "nested keys are read as strings too"
+    assert_nil report(models: models.first(1), results: results.first(1), comparison: recorded).comparison,
+               "a single-model report compares nothing, whatever it is handed"
+  end
+
+  def test_markdown_compares_the_models_between_the_summary_and_the_matrix
+    markdown = report.to_markdown
+    section = markdown[/## Comparison\n.*?\n_95% CI.*?_\n/m]
+
+    assert section, "the comparison renders as one section"
+    assert_operator markdown.index("**Best model"), :<, markdown.index("## Comparison")
+    assert_operator markdown.index("## Comparison"), :<, markdown.index("| Scenario |")
+    assert_includes section, "| Model | Pass rate | 95% CI | Scenarios |"
+    assert_includes section, "| `openrouter/meta-llama/llama-3.1-8b` | 60.0% | 20.0 to 100.0 | 5 |\n| `gpt-5-mini` | 20.0% | 0.0 to 60.0 | 5 |"
+    assert_includes section, "| `openrouter/meta-llama/llama-3.1-8b` vs `gpt-5-mini` | +40.0 points | 0.0 to 80.0 | 5 | no |"
+    assert_includes section, "\nThe pairwise difference interval includes zero: the ranking is not decisive evidence of superiority.\n"
+    assert_includes section, "_95% CI from 5,000 resamples of whole scenarios (seed 0)._"
+  end
+
+  def test_markdown_writes_a_dash_where_there_were_too_few_scenarios_for_an_interval
+    markdown = report(results: results.select { |result| result.scenario.key == "s_inbox" }).to_markdown
+
+    assert_includes markdown, "| `gpt-5-mini` | 100.0% | — | 1 |"
+    assert_includes markdown, "| — | 1 | no |"
+    assert_includes markdown, "\nThe models share too few scenarios to compare.\n"
+  end
+
+  def test_markdown_writes_a_dash_for_a_model_with_no_results
+    markdown = report(results: results.select { |result| result.label == gpt.label }).to_markdown
+
+    assert_includes markdown, "| `openrouter/meta-llama/llama-3.1-8b` | — | — | 0 |"
+    assert_includes markdown, "| `gpt-5-mini` vs `openrouter/meta-llama/llama-3.1-8b` | — | — | 0 | no |"
+  end
+
+  def test_html_plots_each_models_interval_best_first_with_the_conclusion_under_it
+    html = report.to_html
+    plot = html[%r{<div class="intervals">(.*?)</div>\n</div>}m, 1].to_s
+
+    assert_includes plot, %(<div class="micro sm">Pass rate · 95% CI</div>)
+    names = plot.scan(%r{<span class="iv-name">([^<]+)</span>}).flatten
+    assert_equal %w[llama-3.1-8b gpt-5-mini], names, "best first, as the comparison ranks them"
+    assert_includes plot, %(<span class="iv-range" style="left:20.0%;width:80.0%"></span><span class="iv-point" style="left:60.0%"></span>)
+    assert_includes plot, %(<span class="iv-figures"><b>60.0%</b> 20.0 to 100.0 · 5 scenarios</span>)
+    assert_includes plot, %(<span class="iv-tick" style="left:50%">50%</span>)
+    assert_includes plot, %(<p class="iv-conclusion">The pairwise difference interval includes zero: the ranking is not decisive evidence of superiority.</p>)
+    assert_includes plot, %(<p class="iv-caption">95% CI from 5,000 resamples of whole scenarios</p>)
+    assert_operator html.index(%(<div class="compare">)), :<, html.index(%(<div class="intervals">)), "the plot follows the comparison table"
+  end
+
+  def test_html_plot_draws_no_range_where_there_were_too_few_scenarios
+    html = report(results: results.select { |result| result.scenario.key == "s_inbox" }).to_html
+
+    assert_includes html, %(<span class="iv-track"><span class="iv-point" style="left:100.0%"></span></span><span class="iv-figures"><b>100.0%</b> no interval · 1 scenario</span>)
+    assert_includes html, %(<p class="iv-conclusion">The models share too few scenarios to compare.</p>)
+  end
+
+  # A row of its own would size its figures column to its own text, giving
+  # each track, and the axis under them, a different width.
+  def test_html_plot_rows_and_axis_share_one_grid_so_the_ticks_line_up_with_the_dots
+    html = report.to_html
+
+    assert_match(/\.intervals \{[^}]*display: grid; grid-template-columns: minmax\(120px, 200px\) minmax\(160px, 1fr\) minmax\(190px, auto\);/, html)
+    assert_includes html, ".iv-row { display: contents; }"
+    assert_no_match(/\.iv-row \{[^}]*grid-template-columns/, html)
+    assert_includes html, ".intervals > .micro, .iv-conclusion, .iv-caption { grid-column: 1 / -1; }"
+    assert_includes html, "@media (max-width: 640px) { .intervals { grid-template-columns: minmax(0, 1fr);"
+  end
+
+  def test_html_plot_renders_a_recorded_comparison_and_escapes_it
+    recorded = report.comparison.merge("conclusion" => "<b>Recorded</b>.")
+
+    assert_includes report(comparison: recorded).to_html, %(<p class="iv-conclusion">&lt;b&gt;Recorded&lt;/b&gt;.</p>)
+  end
+
   def test_html_of_a_single_model_run_has_no_comparison_table_or_filter
-    html = report(models: models.first(1), results: results.select { |r| r.label == models.first.label }).to_html
+    html = visible(report(models: models.first(1), results: results.select { |r| r.label == models.first.label }).to_html)
 
     assert_not_includes html, %(class="compare")
     assert_not_includes html, %(name="fix-model")
+    assert_not_includes html, %(<div class="intervals">)
   end
 end

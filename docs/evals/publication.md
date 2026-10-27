@@ -218,7 +218,7 @@ application's agent.
 | Response | When |
 |---|---|
 | 201 | The report was stored. The receipt carries `id`, `evaluation_id`, `run_id` (exactly as sent), `status: "complete"`, `duplicate: false` and `url`, the run's dashboard page (`<mount>/evaluations/:evaluation_id/runs/:id`). |
-| 200 | The same report was already stored under this `run_id`; the receipt names the stored run, with `duplicate: true`. A retry is answered before the quota and the rate limit are consulted, so a report that used the last unit of either still gets its receipt. |
+| 200 | The same report was already stored under this `run_id`, or the report is this install's own export of the run the `run_id` names ([Exporting a stored run](#exporting-a-stored-run)); the receipt names the stored run, with `duplicate: true`. A retry is answered before the quota and the rate limit are consulted, so a report that used the last unit of either still gets its receipt. |
 | 409 | A different report is already stored under this `run_id`. |
 | 422 | The report is not a valid version-1 report (the error names the field), or the agent already has an evaluation of that name that no report with this source, suite and scope created: publish under another suite or scope. |
 | 403 | Storing the report needs an operator first: the owner holds as many observed agents as it can (`ActionAgent::AgentRegistrar::MAX_OBSERVED_PER_OWNER`), the agent holds 100 evaluations, the evaluation would hold more than 2,000 scenarios, or `trace_owner_resolver` placed the tenant's agent nowhere. |
@@ -276,6 +276,66 @@ tenant's dashboard beside its traced agents, and a `run_id` is unique within the
 
 The run cannot be started again from the dashboard, because its agent runs elsewhere.
 Evaluate again from the application and publish the new run.
+
+### Exporting a stored run
+
+`GET <mount>/api/evaluation_reports/:run_id`, authenticated and scoped to the
+tenant exactly as the POST is, returns a complete run as the version-1
+envelope `ActiveAgent::Evals::Publisher` sends — built by the same
+`Publisher.envelope` — so it can be POSTed to another install's collector,
+and POSTed back to this one as an identical retry (200 with
+`duplicate: true`). `:run_id` is:
+
+- for a run an application published, its `run_id` exactly as published;
+- for a run the dashboard executed, which has none, the stable
+  `dashboard-run-<id>-<created_at as YYYYMMDDhhmmss UTC>`. The receipt of a
+  posted-back export names it, and another install stores the run under it.
+
+The export's identities are the run's: an imported run's `source` and
+`suite`, a dashboard run's agent service (else the host application's name)
+and evaluation name, and the agent's class name (else its name). The report
+is rebuilt from what the run recorded, costs as reported with nothing
+estimated, so the same run always exports the same envelope; its metadata
+leaves out the run's database id. Responses: 200 with the envelope, 404 for
+a `run_id` the key's tenant holds no run under (another tenant's run is a
+404), 422 for a run that is not complete or an unknown `format`, 401 and 501
+as for the POST. On a single-tenant install the export also needs
+`ActionAgent.ingest_api_key` to be set: a mount with no key still takes
+reports, but answers the GET with 401, since every stored run would
+otherwise be readable under its `run_id` by anyone who reaches the mount.
+Instead of the envelope, `?format=html` returns the run's
+self-contained report page (`text/html`) — the page the dashboard's run
+report serves, following the viewer's light or dark preference, its fix
+actions linking into the dashboard by absolute path — and `?format=md` its
+Markdown (`text/markdown`). `?download=1` sends any format as an attachment
+named `<evaluation>-run-<n>.json|html|md`.
+
+```bash
+curl -H "Authorization: Bearer $KEY" \
+  https://dashboard.example.com/activeagents/api/evaluation_reports/ci-2026-10-21 > run.json
+curl -OJ -H "Authorization: Bearer $KEY" \
+  "https://dashboard.example.com/activeagents/api/evaluation_reports/ci-2026-10-21?format=html&download=1"
+curl -X POST -H "Authorization: Bearer $OTHER_KEY" -H "Content-Type: application/json" \
+  --data @run.json https://other.example.com/activeagents/api/evaluation_reports
+```
+
+The dashboard's run report serves the same envelope to a signed-in session at
+`<mount>/api/evaluations/:id/runs/:run_id/report.json`, and `?download=1`
+saves it (or the `.html` page, or the `.md` report) as a file named
+`<evaluation>-run-<n>.<ext>`.
+
+From the command line (on a multi-tenant install name the tenant with
+`ACCOUNT_ID=<id>`):
+
+```bash
+# A run by its run_id, or by evaluation and run id; FORMAT=json (default), html or md
+bin/rails action_agent:evaluations:export RUN=ci-2026-10-21 FILE=tmp/run.json
+bin/rails action_agent:evaluations:export EVALUATION=3 RUN=12 FORMAT=md > tmp/run.md
+
+# Stored through the collector's own import; importing it again is an identical retry
+bin/rails action_agent:evaluations:import FILE=tmp/run.json
+# => Stored: run ci-2026-10-21 as run #41 of evaluation #7 (orders (eu)), complete
+```
 
 ### Metering
 

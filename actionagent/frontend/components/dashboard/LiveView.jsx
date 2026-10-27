@@ -5,15 +5,22 @@ import {
   agentBanner,
   closeMessage,
   controlLabel,
+  encodeChunk,
+  fileChooserWaitLabel,
+  handoffReport,
   initialLiveViewState,
   keyMessage,
   leavesView,
   liveViewReducer,
   mouseMessage,
   pageLabel,
+  personRequestBanner,
   releaseMessage,
   takeOverButton,
   textMessage,
+  UPLOAD_CHUNK_BYTES,
+  uploadPlan,
+  uploadProgressLabel,
   wheelMessage,
 } from '../../utils/liveView.mjs';
 
@@ -34,18 +41,75 @@ async function requestTicket(sessionId, mode) {
 // its paste event carries the clipboard's text.
 const isPasteShortcut = (event) => (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'v';
 
+// An upload waits while this much is still queued on the socket, so frames
+// keep arriving and the browser does not hold a whole file in its buffer.
+const UPLOAD_BUFFERED_BYTES = 1024 * 1024;
+const pause = (ms) => new Promise((resolve) => { setTimeout(resolve, ms); });
+
+// What the person driving is shown when the page asks for files: a file
+// input of their own, as the page's would take (`chooser`, the sidecar's
+// file_chooser), and Cancel; or how far the upload has got.
+export function FileChooserPrompt({ chooser, upload, onFiles, onCancel }) {
+  const { darkMode } = useTheme();
+  const muted = darkMode ? 'text-gray-400' : 'text-gray-500';
+  const strong = darkMode ? 'text-white' : 'text-gray-900';
+  const several = chooser.multiple;
+
+  return (
+    <div
+      role="dialog"
+      aria-label="Choose a file for the page"
+      data-testid="live-view-file-chooser"
+      className={`absolute inset-x-4 top-4 p-3 rounded border shadow space-y-2 ${darkMode ? 'bg-gray-800 border-gray-600' : 'bg-white border-gray-300'}`}
+    >
+      <p className={`text-sm font-medium ${strong}`}>The page asked for {several ? 'files' : 'a file'}</p>
+      <p className={`text-xs ${muted}`}>
+        Choose {several ? `up to ${chooser.max_files} files` : 'one'} from this computer, or drop {several ? 'them' : 'it'} on the
+        view. {chooser.accept ? `The page takes ${chooser.accept}. ` : ''}Only the browser receives the files, and they stay in the
+        sandbox until the browser stops.
+      </p>
+      {upload ? (
+        <p className={`text-xs ${strong}`} role="status">{uploadProgressLabel(upload)}</p>
+      ) : (
+        <input
+          type="file"
+          multiple={several}
+          accept={chooser.accept || undefined}
+          onChange={(event) => onFiles(event.target.files)}
+          aria-label={several ? 'Files for the page' : 'File for the page'}
+          className={`block text-xs ${strong}`}
+        />
+      )}
+      <button
+        type="button"
+        onClick={onCancel}
+        className={`px-3 py-1 text-sm rounded ${darkMode ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+      >
+        Cancel
+      </button>
+    </div>
+  );
+}
+
 // A sandbox browser's live view: the page on screen, drawn from the frames
 // the browser streams, with "Watch live", "Take over" and "Hand back".
 // While this viewer holds control, its mouse and wheel over the frame go to
 // the page, and so do its keys while the frame has keyboard focus. It holds
-// control, and the agent waits, until Hand back or Stop watching. `headed`
-// is whether the browser also has a window open on the dashboard's machine.
-export default function LiveView({ sessionId, headed = false }) {
+// control, and the agent waits, until Hand back or Stop watching. When the
+// page asks for a file while this viewer drives, it is chosen here (or
+// dropped on the view) and sent to the browser. `headed`
+// is whether the browser also has a window open on the dashboard's machine,
+// and `watchOnOpen` starts watching when the view is first shown.
+// `onHandBack` is told, with handoffReport's shape, each time this viewer
+// hands control back after driving, so a conversation with the agent can
+// say what happened. `handBackLabel` renames the Hand back button.
+export default function LiveView({ sessionId, headed = false, watchOnOpen = false, onHandBack = null, handBackLabel = 'Hand back' }) {
   const { darkMode } = useTheme();
   const [state, dispatch] = useReducer(liveViewReducer, initialLiveViewState);
   const [connection, setConnection] = useState('idle'); // idle | connecting | open
   const [notice, setNotice] = useState(null);
   const [taking, setTaking] = useState(false);
+  const [upload, setUpload] = useState(null); // { sent, total }
   const socketRef = useRef(null);
   const closingRef = useRef(false);
   // Counts calls to watch and disconnect, so a watch whose ticket arrives
@@ -58,7 +122,23 @@ export default function LiveView({ sessionId, headed = false }) {
   const moveFrame = useRef({ message: null, scheduled: false });
   const lastPoint = useRef(null);
   const lastEscape = useRef(null);
+  // Counts uploads begun and cancelled, so a cancelled one sends no more.
+  const uploadRef = useRef(0);
   const mine = state.control.mine;
+  // When this viewer last took control, for the handoff report.
+  const takenAtRef = useRef(null);
+  const latest = useRef(state);
+  latest.current = state;
+  useEffect(() => {
+    if (mine) {
+      takenAtRef.current = state.control.since || Date.now();
+      return;
+    }
+    if (takenAtRef.current === null) return;
+    const takenAt = takenAtRef.current;
+    takenAtRef.current = null;
+    onHandBack?.(handoffReport({ by: null, takenAt, releasedAt: Date.now(), page: latest.current.page }));
+  }, [mine]);
 
   const send = useCallback((message) => {
     const ws = socketRef.current;
@@ -134,11 +214,17 @@ export default function LiveView({ sessionId, headed = false }) {
         }
         if (message.type === 'ready') setConnection('open');
         if (message.type === 'frame') draw(message);
+        if ((message.type === 'file_upload' && message.status !== 'progress') || (message.type === 'file_chooser' && !message.chooser)) {
+          uploadRef.current += 1;
+          setUpload(null);
+        }
         dispatch(message);
       };
       ws.onclose = (event) => {
         if (socketRef.current !== ws) return;
         socketRef.current = null;
+        uploadRef.current += 1;
+        setUpload(null);
         setConnection('idle');
         dispatch({ type: 'reset' });
         setNotice(closeMessage(event.code, { requested: closingRef.current }));
@@ -149,6 +235,13 @@ export default function LiveView({ sessionId, headed = false }) {
       setNotice(e.message);
     }
   };
+
+  const watchedOnOpen = useRef(false);
+  useEffect(() => {
+    if (!watchOnOpen || watchedOnOpen.current) return;
+    watchedOnOpen.current = true;
+    void watch();
+  }, [watchOnOpen]);
 
   const takeOver = async () => {
     dispatch({ type: 'clear_error' });
@@ -167,6 +260,60 @@ export default function LiveView({ sessionId, headed = false }) {
     send({ type: 'hand_back' });
     canvasRef.current?.blur();
   };
+
+  // Sends the files a person chose, or dropped on the view, to the page's
+  // file chooser: their names and sizes, then their bytes a chunk at a time.
+  const uploadFiles = async (fileList) => {
+    const chooser = state.fileChooser;
+    const plan = uploadPlan(fileList, chooser);
+    if (plan.error) {
+      setNotice(plan.error);
+      return;
+    }
+    const ws = socketRef.current;
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+
+    uploadRef.current += 1;
+    const attempt = uploadRef.current;
+    setNotice(null);
+    dispatch({ type: 'clear_error' });
+    send({ type: 'file_upload', chooser: chooser.id, files: plan.files });
+    let sent = 0;
+    setUpload({ sent, total: plan.total });
+    try {
+      for (const file of Array.from(fileList)) {
+        for (let offset = 0; offset < file.size; offset += UPLOAD_CHUNK_BYTES) {
+          while (ws.bufferedAmount > UPLOAD_BUFFERED_BYTES && uploadRef.current === attempt) await pause(50);
+          if (uploadRef.current !== attempt || ws.readyState !== WebSocket.OPEN) return;
+          const bytes = new Uint8Array(await file.slice(offset, offset + UPLOAD_CHUNK_BYTES).arrayBuffer());
+          send({ type: 'file_chunk', chooser: chooser.id, data: encodeChunk(bytes) });
+          sent += bytes.length;
+          setUpload({ sent, total: plan.total });
+        }
+      }
+    } catch (e) {
+      setNotice(`Could not read the file: ${e.message}`);
+      cancelChooser();
+    }
+  };
+
+  const cancelChooser = () => {
+    uploadRef.current += 1;
+    setUpload(null);
+    if (state.fileChooser) send({ type: 'file_cancel', chooser: state.fileChooser.id });
+  };
+
+  const chooserOpen = mine && Boolean(state.fileChooser);
+  const drop = chooserOpen ? {
+    onDragOver: (event) => {
+      event.preventDefault();
+      event.dataTransfer.dropEffect = 'copy';
+    },
+    onDrop: (event) => {
+      event.preventDefault();
+      if (!upload) void uploadFiles(event.dataTransfer.files);
+    },
+  } : {};
 
   // Focus goes to the frame when this view takes control, and leaves it when
   // control is handed back or taken away.
@@ -251,9 +398,11 @@ export default function LiveView({ sessionId, headed = false }) {
   const secondaryButton = `px-3 py-1 text-sm rounded disabled:opacity-50 ${darkMode ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`;
   const primaryButton = 'px-3 py-1 text-sm rounded text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50';
   const banner = agentBanner(state);
+  const personBanner = personRequestBanner(state);
   const holder = controlLabel(state);
   const takeOverAction = takeOverButton(state, { taking });
   const page = pageLabel(state.page);
+  const waitingForFile = fileChooserWaitLabel(state);
   const open = connection === 'open';
   const { frameSize } = state;
 
@@ -267,7 +416,7 @@ export default function LiveView({ sessionId, headed = false }) {
         )}
         {/* One button that changes, so focus stays on it when control changes hands. */}
         {open && (mine ? (
-          <button ref={controlButtonRef} type="button" onClick={handBack} className={primaryButton}>Hand back</button>
+          <button ref={controlButtonRef} type="button" onClick={handBack} className={primaryButton}>{handBackLabel}</button>
         ) : (
           <button ref={controlButtonRef} type="button" onClick={takeOver} disabled={takeOverAction.disabled} className={primaryButton}>
             {takeOverAction.label}
@@ -279,6 +428,15 @@ export default function LiveView({ sessionId, headed = false }) {
 
       {notice && <p className={`text-xs ${muted}`} role="status">{notice}</p>}
       {state.error && <p className={`text-xs ${darkMode ? 'text-red-400' : 'text-red-600'}`} role="alert">{state.error}</p>}
+      {personBanner && (
+        <p
+          role="alert"
+          data-testid="live-view-person-request"
+          className={`p-2 rounded text-xs border ${darkMode ? 'bg-blue-900/20 border-blue-800 text-blue-200' : 'bg-blue-50 border-blue-200 text-blue-800'}`}
+        >
+          {personBanner}{open ? ' Take over to help, then hand back.' : ' Watch live, then take over to help.'}
+        </p>
+      )}
       {banner && (
         <p
           role="status"
@@ -291,15 +449,26 @@ export default function LiveView({ sessionId, headed = false }) {
       {connection !== 'idle' && (
         <div className="space-y-1">
           {page && <p className={`text-xs font-mono truncate ${muted}`} title={page}>{page}</p>}
-          <canvas
-            ref={canvasRef}
-            tabIndex={mine ? 0 : -1}
-            role={mine ? 'application' : 'img'}
-            aria-label={mine ? "The sandbox's browser: your mouse and keys go to it. Press Escape twice to leave it." : "Live view of the sandbox's browser"}
-            className={`block w-full rounded border bg-black ${mine ? 'cursor-default outline-none focus:ring-2 focus:ring-blue-500' : ''} ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}
-            style={{ aspectRatio: frameSize ? `${frameSize.width} / ${frameSize.height}` : '16 / 10' }}
-            {...pointer}
-          />
+          {waitingForFile && <p className={`text-xs ${muted}`} role="status">{waitingForFile}</p>}
+          <div className="relative" data-testid="live-view-frame" {...drop}>
+            <canvas
+              ref={canvasRef}
+              tabIndex={mine ? 0 : -1}
+              role={mine ? 'application' : 'img'}
+              aria-label={mine ? "The sandbox's browser: your mouse and keys go to it. Press Escape twice to leave it." : "Live view of the sandbox's browser"}
+              className={`block w-full rounded border bg-black ${mine ? 'cursor-default outline-none focus:ring-2 focus:ring-blue-500' : ''} ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}
+              style={{ aspectRatio: frameSize ? `${frameSize.width} / ${frameSize.height}` : '16 / 10' }}
+              {...pointer}
+            />
+            {chooserOpen && (
+              <FileChooserPrompt
+                chooser={state.fileChooser}
+                upload={upload}
+                onFiles={(files) => void uploadFiles(files)}
+                onCancel={cancelChooser}
+              />
+            )}
+          </div>
           {mine && (
             <p className={`text-xs ${muted}`}>
               Your mouse and keys go to the browser, and the agent waits until you hand back. Press Escape twice to move focus

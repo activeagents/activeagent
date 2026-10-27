@@ -58,6 +58,7 @@ module ActionAgent
         providerKeyScope: ActionAgent.provider_key_scope,
         personalProviderKeys: ProviderKey.personal_keys_enabled?,
         signOutPath: ActionAgent.sign_out_path,
+        userMenuLinks: ActionAgent.user_menu_links_for(current_user, current_owner),
         # Named here rather than by the layout, so a host layout
         # (ActionAgent.layout) does not have to know about it. Nil when the
         # host turned capture off, and the dashboard then loads no recorder.

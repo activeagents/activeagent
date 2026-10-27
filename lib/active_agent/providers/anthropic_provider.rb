@@ -43,7 +43,7 @@ module ActiveAgent
       def initialize(kwargs = {})
         super
 
-        self.json_format_retry_count = kwargs[:max_retries] || ::Anthropic::Client::DEFAULT_MAX_RETRIES
+        self.json_format_retry_count = options.max_retries
       end
 
       # @todo Add support for Anthropic::BedrockClient and Anthropic::VertexClient
@@ -222,6 +222,8 @@ module ActiveAgent
             # No-Op; Wait for Function call to be complete
           when :thinking_delta, :signature_delta
             # TODO: Add with thinking rendering support
+          when :citations_delta
+            # No-Op; the citations arrive with the full block at content_block_stop
           else
             raise "Unexpected delta type: #{api_delta.type}"
           end
@@ -235,6 +237,7 @@ module ActiveAgent
         when :message_delta
           delta = Anthropic::Transforms.gem_to_hash(api_response_chunk.delta)
           self.message_stack.last.merge!(delta)
+          self.stream_finish_reason = delta[:stop_reason] if delta[:stop_reason]
 
         # Message Completed [Full Message]
         when :message_stop

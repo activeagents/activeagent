@@ -625,6 +625,27 @@ class ActionAgentEvaluationRunVerdictTest < ActiveSupport::TestCase
     assert_equal run.models, report.summary_by_model.keys
   end
 
+  # The comparison is resampled once, when the run completes
+  # (ScenarioEvaluationRunner#scores_for); a page rebuilt from the run renders
+  # what was recorded rather than resampling on every view.
+  test "the report renders the comparison the run recorded" do
+    run = create_comparison_run
+    recorded = run.to_report.comparison.merge("conclusion" => "Recorded when the run completed.")
+    run.update!(scores: run.scores.merge("_comparison" => recorded))
+
+    assert_equal recorded, run.recorded_comparison
+    report = run.to_report
+    assert_equal "Recorded when the run completed.", report.comparison["conclusion"]
+    assert_includes report.to_html, %(<p class="iv-conclusion">Recorded when the run completed.</p>)
+  end
+
+  test "a run recorded before runs kept a comparison gets one from its results" do
+    run = create_comparison_run
+
+    assert_nil run.recorded_comparison
+    assert_equal [ "ollama/qwen3:8b", "gpt-5-mini" ], run.to_report.comparison["ranking"]
+  end
+
   # A run whose selection never recorded its specs (nothing writes one now)
   # has only the results' own provider and model to label a cohort with. The
   # report is still self-consistent — it just cannot match a recorded winner

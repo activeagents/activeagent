@@ -39,7 +39,8 @@ module ActionAgent
     HOST_PROVIDERS = %w[ollama].freeze
     # Tools connected with a credential, configured beside the providers
     # (Settings -> Integrations) but never offered to the agent builder.
-    CONNECTION_PROVIDERS = %w[claude_code codex].freeze
+    # Slack's is the bot token the agents' slack tools post with (SlackTools).
+    CONNECTION_PROVIDERS = %w[claude_code codex slack].freeze
     PROVIDERS = (KEY_PROVIDERS + HOST_PROVIDERS + CONNECTION_PROVIDERS).freeze
 
     # Only an Anthropic API key (sk-ant-api03-…, from the Claude Console or
@@ -52,6 +53,7 @@ module ActionAgent
     # dashboard never touches the credential.
     CLAUDE_CODE_CREDENTIAL = /\Ask-ant-api\d{2}-[A-Za-z0-9_-]+\z/
     CODEX_CREDENTIAL = /\Ask-(?!ant-|or-)[A-Za-z0-9_-]+\z/
+    SLACK_CREDENTIAL = /\Axoxb-[A-Za-z0-9-]+\z/
     # A Claude subscription token, as earlier versions stored. Recognized so
     # a stored one is never handed out (see #needs_replacing?).
     SUBSCRIPTION_TOKEN_PREFIX = "sk-ant-oat"
@@ -95,6 +97,8 @@ module ActionAgent
     }, if: -> { provider == "claude_code" }
     validates :credential, format: { with: CODEX_CREDENTIAL, message: "must be an OpenAI API key (sk-…)" },
       if: -> { provider == "codex" }
+    validates :credential, format: { with: SLACK_CREDENTIAL, message: "must be a Slack bot token (xoxb-…)" },
+      if: -> { provider == "slack" }
     validates :api_key, length: { maximum: 500 }, allow_nil: true
 
     # Deletes every Claude Code connection that still holds a Claude
@@ -257,7 +261,14 @@ module ActionAgent
       # +owner+ itself — unwrapped from a SimpleDelegator-style decorator —
       # once it is known to be an instance of the owner model.
       def owner_record(owner)
-        owner = owner.__getobj__ while defined?(::Delegator) && owner.is_a?(::Delegator)
+        # Not `... while defined?(::Delegator) && ...`: Prism (Ruby 3.4 and
+        # 4.0) miscompiles `defined?` inside a `while` modifier's condition
+        # when the source arrives as a string, which is how bootsnap 1.24.6+
+        # compiles files on those Rubies, and the whole engine then fails to
+        # boot with "argument stack underflow".
+        if defined?(::Delegator)
+          owner = owner.__getobj__ while owner.is_a?(::Delegator)
+        end
         association = owner_association
         return owner if owner.nil? || association.nil?
 

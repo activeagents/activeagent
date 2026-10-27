@@ -519,8 +519,19 @@ module ActionAgent
         # Why provisioning failed. Scrubbed of the session's secrets when
         # SandboxProvisionJob stored it.
         error_message: error_summary,
-        browser: browser_summary
+        browser: browser_summary,
+        # The project this checkout was booted for, so a listing can link to
+        # its page; nil for a sandbox started on its own.
+        project: project_link
       }
+    end
+
+    # { id:, name: } of the project this checkout was booted for, or nil. An
+    # install that has not run the projects migration has no column for it.
+    def project_link
+      return nil unless has_attribute?(:project_id) && project_id
+
+      project && { id: project.id, name: project.name }
     end
 
     # A failed boot's message is a one-line reason followed by the tail of

@@ -30,11 +30,14 @@ module ActionAgent
   # leaves the run unrecorded rather than claiming the dashboard's latest.
   #
   # An identical retry returns the stored run, before anything is asked of the
-  # `admit` callable. Different content under a run_id already stored raises
-  # Conflict. Imports for one owner run one at a time under an advisory lock
-  # (OwnerLock), so concurrent first deliveries find or create one agent,
-  # evaluation and scenario set, and the unique index on the run's tenant and
-  # run_id settles any delivery the lock does not serialize.
+  # `admit` callable. So does a run's own export (EvaluationReportExport)
+  # posted back to the install and tenant that hold the run, whether the run
+  # was imported or executed by the dashboard. Different content under a
+  # run_id already stored raises Conflict. Imports for one owner run one at a
+  # time under an advisory lock (OwnerLock), so concurrent first deliveries
+  # find or create one agent, evaluation and scenario set, and the unique
+  # index on the run's tenant and run_id settles any delivery the lock does
+  # not serialize.
   class EvaluationReportImport
     class Error < StandardError; end
     # The payload is not a report the engine can store as sent; 422.
@@ -119,6 +122,21 @@ module ActionAgent
       new(payload, account, admit).call
     end
 
+    # The digest a run records for the payload it was stored from: the
+    # SHA-256 of the payload's JSON with every object's keys sorted.
+    def self.digest(payload)
+      Digest::SHA256.hexdigest(JSON.generate(canonical(payload)))
+    end
+
+    def self.canonical(value)
+      case value
+      when Hash then value.keys.sort.to_h { |key| [ key, canonical(value[key]) ] }
+      when Array then value.map { |child| canonical(child) }
+      else value
+      end
+    end
+    private_class_method :canonical
+
     # Why this install cannot store reports, or nil when it can: an install
     # with no evaluation tables (generated with --traces-only), or one whose
     # evaluation runs lack a column a later migration adds.
@@ -142,7 +160,7 @@ module ActionAgent
 
     def call
       validate!
-      digest = Digest::SHA256.hexdigest(JSON.generate(canonical(@payload)))
+      digest = self.class.digest(@payload)
       existing = stored_run
       return [ identical!(existing, digest), true ] if existing
 
@@ -240,14 +258,27 @@ module ActionAgent
       @account ? @account.id.to_s : ""
     end
 
+    # The run this run_id already names for the tenant: one stored from an
+    # earlier delivery, or one this install exported (a dashboard run's
+    # exported run_id), found the way the export endpoint finds it.
     def stored_run
-      EvaluationRun.find_by(external_tenant: tenant_key, external_run_id: @payload["run_id"])
+      EvaluationReportExport.find(@payload["run_id"], account: @account)
     end
 
+    # The stored run, when the payload is the report it was stored from or
+    # the run's own export (EvaluationReportExport), which is how an
+    # exported run posted back to its install is told from a different
+    # report under the same run_id.
     def identical!(run, digest)
-      raise Conflict, "run_id already exists with a different report" unless run.external_report_digest == digest
+      return run if run.external_report_digest == digest || exported_digest(run) == digest
 
-      run
+      raise Conflict, "run_id already exists with a different report"
+    end
+
+    def exported_digest(run)
+      EvaluationReportExport.new(run).digest
+    rescue EvaluationReportExport::NotExportable
+      nil
     end
 
     def admit!
@@ -568,12 +599,17 @@ module ActionAgent
     # results as the application reported them — no cost is estimated here,
     # so the summaries stored stay the application's own figures; the API
     # adds the estimates when it serves the run (EvaluationRun#model_summaries).
+    #
+    # The comparison is worked out here from the stored results too, rather
+    # than taken from the payload, like the summaries.
     def summarized_scores(run)
       rebuilt = run.to_report(estimate: false)
+      comparison = rebuilt.comparison if rebuilt.respond_to?(:comparison)
       rebuilt.criterion_scores.merge(
         "_models" => rebuilt.summary_by_model,
-        "_recommendations" => rebuilt.recommendations
-      ).merge(recorded_scores)
+        "_recommendations" => rebuilt.recommendations,
+        "_comparison" => comparison
+      ).compact.merge(recorded_scores)
     end
 
     # --- validation ------------------------------------------------------------
@@ -807,14 +843,6 @@ module ActionAgent
       when Hash then value.to_h { |key, child| [ without_nul(key), without_nul(child) ] }
       when Array then value.map { |child| without_nul(child) }
       when String then value.delete("\u0000")
-      else value
-      end
-    end
-
-    def canonical(value)
-      case value
-      when Hash then value.keys.sort.to_h { |key| [ key, canonical(value[key]) ] }
-      when Array then value.map { |child| canonical(child) }
       else value
       end
     end

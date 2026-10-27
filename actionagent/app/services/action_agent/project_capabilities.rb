@@ -17,7 +17,8 @@ module ActionAgent
   #   github_connection  the owner connected GitHub
   #   model_credentials  credentials for the model the project's agent
   #                      runs on (not blocking)
-  #   browser            browser sessions (not blocking; not available yet)
+  #   browser            a browser for the project's sandbox, started and
+  #                      watched from the project page (not blocking)
   #   code_runners       Claude Code or Codex sessions (not blocking)
   class ProjectCapabilities
     Item = Struct.new(:key, :label, :ok, :blocking, :detail, :fix, keyword_init: true)
@@ -46,7 +47,7 @@ module ActionAgent
         backend: backend_name,
         github: github,
         default_model: default_model,
-        browser: { available: false },
+        browser: { available: browser_modes.any?, modes: browser_modes },
         code_runners: code_runners,
         local_boot: orchestrator&.local? || false
       }
@@ -160,9 +161,26 @@ module ActionAgent
         fix: model[:configured] ? nil : "Add an Anthropic, OpenAI or OpenRouter key in Settings → Provider API Keys")
     end
 
+    # The project's own agent works through the app's tools, not the
+    # browser; the browser is for a person to watch or drive the app, and for
+    # the explorer.
     def browser_item
-      Item.new(key: "browser", label: "Browser sessions", ok: false, blocking: false,
-        detail: "Not available yet: a project's agent works through the app's tools", fix: nil)
+      modes = browser_modes
+      if modes.any?
+        Item.new(key: "browser", label: "Browser sessions", ok: true, blocking: false,
+          detail: "Start, watch and take over the sandbox's browser from the project page (#{modes.join(", ")}); " \
+                  "the explorer drives it, and the project's agent works through the app's tools", fix: nil)
+      else
+        Item.new(key: "browser", label: "Browser sessions", ok: false, blocking: false,
+          detail: "The #{backend_name || "configured"} backend runs no browsers: the project's agent works through the app's tools",
+          fix: nil)
+      end
+    end
+
+    def browser_modes
+      @browser_modes ||= orchestrator ? orchestrator.browser_modes.map(&:to_s) : []
+    rescue StandardError, LoadError
+      @browser_modes = []
     end
 
     def code_runners

@@ -111,6 +111,9 @@ module ActionAgent
   # What ActionAgent.claude_code_auth may be set to.
   CLAUDE_CODE_AUTH_MODES = %i[api_key local_login sandbox_login].freeze
 
+  # What ActionAgent.codex_auth may be set to.
+  CODEX_AUTH_MODES = %i[api_key local_login].freeze
+
   # What ActionAgent.provider_key_scope may be set to.
   PROVIDER_KEY_SCOPES = %i[organization personal_override].freeze
 
@@ -134,6 +137,9 @@ module ActionAgent
   #                           they are handed to, or delete a project that has
   #                           them
   #   :take_over_browser      drive a run's browser by hand
+  #   :chat_code_session      send a message to a Claude Code or Codex
+  #                           conversation someone may have started (the
+  #                           subject is its first session)
   #   :manage_recordings      delete a session recording
   #   :replace_scenarios      replace or merge an evaluation's scenarios
   PERMISSION_ACTIONS = %i[
@@ -144,6 +150,7 @@ module ActionAgent
     answer_input_request
     manage_project_secrets
     take_over_browser
+    chat_code_session
     manage_recordings
     replace_scenarios
   ].freeze
@@ -589,9 +596,34 @@ module ActionAgent
     # @return [Integer]
     attr_accessor :claude_code_timeout
 
-    # Codex CLI sessions use the owner's OpenAI API key and workspace-write
-    # sandboxing. They share checkout lifecycle and cancellation with Claude.
+    # Codex CLI sessions run with workspace-write sandboxing, and share the
+    # checkout lifecycle and cancellation with Claude Code.
     attr_accessor :codex_command, :codex_timeout
+
+    # How Codex sessions authenticate.
+    #
+    # :api_key (the default) runs them on the OpenAI API key the owner
+    # connected in Settings -> Integrations, handed to the session as
+    # CODEX_API_KEY with a Codex home of the sandbox's own. Usage is billed
+    # to that key's project.
+    #
+    # :local_login runs `codex` on whatever login this machine's user set up
+    # with `codex login` (a ChatGPT plan, or a key given to the CLI), which
+    # Codex keeps under ~/.codex. The dashboard never reads, copies or
+    # stores it; it only asks `codex login status` whether there is one.
+    # That login is the dashboard user's own, so this works with the :local
+    # sandbox backend only, and other backends refuse Codex sessions.
+    # @return [Symbol] :api_key or :local_login
+    attr_reader :codex_auth
+
+    def codex_auth=(value)
+      mode = value.to_s.to_sym
+      unless CODEX_AUTH_MODES.include?(mode)
+        raise ArgumentError, "ActionAgent.codex_auth must be :api_key or :local_login, not #{value.inspect}"
+      end
+
+      @codex_auth = mode
+    end
 
     # How Claude Code sessions authenticate.
     #
@@ -685,6 +717,20 @@ module ActionAgent
     # @return [Proc, nil]
     attr_accessor :scenario_evaluation_adapter_resolver
 
+    # Whether a scenario evaluation runs as background jobs, one per
+    # scenario x model (EvaluationReplayJob) followed by one to score it
+    # (EvaluationJudgeJob), instead of as one job that replays the suite in
+    # order. The jobs run on the :agents queue, so a run is as parallel as
+    # the host's workers for that queue: a single-worker box stays
+    # sequential. The last result to be scored completes the run.
+    #
+    # A run that drives a sandbox's browser, and a run a host adapter
+    # (scenario_evaluation_adapter_resolver) replays, stay sequential: the
+    # browser is one page, and the adapter owns its own scheduling.
+    # Off unless set.
+    # @return [Boolean]
+    attr_accessor :scenario_evaluation_fan_out
+
     # How many answerable candidates an exploration's review pre-selects for
     # acceptance: an Integer, or a Proc called with (owner) that returns one.
     # A platform can cap a free plan's suite this way. Unset, or nil from the
@@ -704,6 +750,16 @@ module ActionAgent
     # session of its own; unset, the menu item is not shown.
     # @return [String, nil]
     attr_accessor :sign_out_path
+
+    # Items the host app adds to the header's user menu, above "Sign out":
+    # its workspace and member pages, its account settings, and for platform
+    # admins its admin pages. A Proc receives the signed-in user and the
+    # current owner and returns an Array of { label:, href: } Hashes (an
+    # Array is used as is), so the host decides per user what to show. The
+    # engine has no pages of its own to link here; unset, or when the Proc
+    # raises (logged), the menu holds "Sign out" alone.
+    # @return [Proc, Array<Hash>, nil]
+    attr_accessor :user_menu_links
 
     # Where a browser is sent when it asks for a dashboard page without a
     # valid session — the host app's sign-in page. Unset, an unauthenticated
@@ -1137,6 +1193,27 @@ module ActionAgent
 
     # The tenant +owner+ belongs to. Identity unless the host app says
     # otherwise, which is right for every single-tenant install.
+    # The host's user menu items for +user+ in +owner+'s dashboard, as
+    # [{ label:, href: }] with blank or malformed entries dropped. Empty when
+    # user_menu_links is unset or raises, which is logged, not raised: a
+    # broken menu seam must not take the dashboard down with it.
+    # @return [Array<Hash{Symbol => String}>]
+    def user_menu_links_for(user, owner)
+      links = user_menu_links
+      links = links.call(user, owner) if links.respond_to?(:call)
+      Array(links).filter_map do |link|
+        label = link[:label] || link["label"]
+        href = link[:href] || link["href"]
+        next if label.blank? || href.blank?
+        next unless href.to_s.match?(%r{\A(/|https?://)})
+
+        { label: label.to_s, href: href.to_s }
+      end
+    rescue StandardError => error
+      Rails.logger.warn("[ActionAgent] user_menu_links failed: #{error.class}: #{error.message}")
+      []
+    end
+
     def tenant_for(owner)
       return owner if tenant_resolver.nil?
 
@@ -1234,6 +1311,7 @@ module ActionAgent
       @claude_code_timeout = 1800
       @codex_command = "codex"
       @codex_timeout = 1800
+      @codex_auth = :api_key
       @claude_code_auth = :api_key
       @claude_code_hosted_login_enabled = false
       @claude_code_login_timeout = 300
@@ -1243,6 +1321,7 @@ module ActionAgent
       @capture_dashboard_sessions = true
 
       @scenario_evaluation_adapter_resolver = nil
+      @scenario_evaluation_fan_out = false
       @table_name_prefix = "active_agent_"
       @agent_polymorphic_name = nil
       @encrypt_credentials = true
@@ -1261,6 +1340,7 @@ module ActionAgent
       @usage_resolver = nil
       @upgrade_url = nil
       @sign_out_path = nil
+      @user_menu_links = nil
       @sign_in_path = nil
       @mcp_catalog = []
       @agent_actor_resolver = nil

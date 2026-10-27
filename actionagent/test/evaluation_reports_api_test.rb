@@ -295,6 +295,18 @@ class EvaluationReportsApiTest < ActionDispatch::IntegrationTest
     assert_equal [ "missing_capability" ], run.scores["_recommendations"].map { |entry| entry["fault"] }
   end
 
+  test "works out the comparison from the stored results rather than the report's own" do
+    payload = envelope
+    payload["report"]["comparison"] = { "ranking" => [], "conclusion" => "Every model is decisively best." }
+    publish(payload)
+
+    run = ActionAgent::EvaluationRun.find(json_response["id"])
+    comparison = run.scores["_comparison"]
+    assert_equal [ "gpt-5-mini", "openrouter/anthropic/claude-sonnet-5" ], comparison["ranking"]
+    assert_equal [ 100.0, 50.0 ], comparison["ranking"].map { |label| comparison.dig("models", label, "pass_rate") }
+    assert_not_equal "Every model is decisively best.", comparison["conclusion"]
+  end
+
   test "a delivery that loses the race to an identical one returns the stored run" do
     payload = envelope
     publish(payload)

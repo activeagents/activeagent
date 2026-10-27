@@ -17,6 +17,11 @@ import {
   secretsFormProblem,
   secretsPayload,
   withSecretRow,
+  PROJECT_TABS,
+  projectBrowserAction,
+  projectTabFromSearch,
+  projectTabSearch,
+  sandboxProjectPath,
 } from '../utils/projects.mjs';
 
 // The Projects views' rules, which mirror ActionAgent::ProjectSecret and the
@@ -159,4 +164,32 @@ test("the project's name follows each picked repository until the user types one
   name = projectNameAfterPick({ name, edited: false, fullName: 'acme/b' });
   assert.equal(name, 'acme/b', 're-picking renames a project the user did not name');
   assert.equal(projectNameAfterPick({ name: 'Storefront', edited: true, fullName: 'acme/c' }), 'Storefront');
+});
+
+test("a project's page opens the tab ?tab= names, and keeps the open tab in its address", () => {
+  assert.deepEqual(PROJECT_TABS, ['overview', 'explorations', 'environment', 'browser', 'sessions']);
+  assert.equal(projectTabFromSearch('?tab=sessions'), 'sessions');
+  assert.equal(projectTabFromSearch('?tab=browser'), 'browser');
+  assert.equal(projectTabFromSearch('?tab=nope'), 'overview');
+  assert.equal(projectTabFromSearch(''), 'overview');
+  assert.equal(projectTabSearch('', 'browser'), '?tab=browser');
+  assert.equal(projectTabSearch('?tab=browser&x=1', 'overview'), '?x=1');
+  assert.equal(projectTabSearch('?tab=browser', 'overview'), '');
+  assert.equal(projectTabSearch('?x=1', 'environment'), '?x=1&tab=environment');
+});
+
+test("a sandbox booted for a project links to its page, on its browser while that runs", () => {
+  assert.equal(sandboxProjectPath({ project: { id: 7, name: 'Shop' }, browser: { status: 'stopped' } }), '/projects/7');
+  assert.equal(sandboxProjectPath({ project: { id: 7, name: 'Shop' }, browser: { status: 'running' } }), '/projects/7?tab=browser');
+  assert.equal(sandboxProjectPath({ project: null }), null);
+  assert.equal(sandboxProjectPath(undefined), null);
+});
+
+test("the project page's header offers Watch live while the browser runs, Open browser otherwise", () => {
+  const ready = (status) => ({ sandbox_state: 'ready', sandbox: { session_id: 's', browser: { status } } });
+  assert.deepEqual(projectBrowserAction(ready('running'), ['headless']), { label: 'Watch live', watch: true });
+  assert.deepEqual(projectBrowserAction(ready('stopped'), ['headless']), { label: 'Open browser', watch: false });
+  assert.equal(projectBrowserAction(ready('running'), []), null, 'not where the backend runs no browsers');
+  assert.equal(projectBrowserAction({ ...ready('running'), sandbox_state: 'booting' }, ['headless']), null);
+  assert.equal(projectBrowserAction(null, ['headless']), null);
 });

@@ -60,6 +60,9 @@ bundle add openai
 # Requesty (uses OpenAI-compatible API)
 bundle add openai
 
+# Opper (uses OpenAI-compatible API)
+bundle add openai
+
 # DeepSeek (uses OpenAI-compatible API)
 bundle add openai
 
@@ -142,11 +145,6 @@ development:
     access_token: <%= Rails.application.credentials.dig(:anthropic, :access_token) %>
     model: "claude-sonnet-4.5"
 
-  atlas_cloud:
-    service: "AtlasCloud"
-    api_key: <%= ENV["ATLASCLOUD_API_KEY"] %>
-    model: "qwen/qwen3.8-max"
-
   ollama:
     service: "Ollama"
     model: "llama3.2"
@@ -195,7 +193,7 @@ a free low-volume trial.
 ## Features
 
 - **Agent-Oriented Programming**: Build AI applications using familiar Rails patterns
-- **Multiple Provider Support**: Works with OpenAI, Anthropic, Atlas Cloud, Ollama, DeepSeek, RubyLLM, and more
+- **Multiple Provider Support**: Works with OpenAI, Anthropic, Ollama, DeepSeek, RubyLLM, and more
 - **Action-Based Design**: Define agent capabilities through actions
 - **View Templates**: Use ERB templates for prompts (text, JSON, HTML)
 - **Streaming Support**: Real-time response streaming with ActionCable

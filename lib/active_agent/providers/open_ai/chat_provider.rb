@@ -117,6 +117,10 @@ module ActiveAgent
             return if api_message.nil?
 
             # If we have a delta, we need to update a message in the stack
+            if (finish_reason = api_message.try(:finish_reason))
+              self.stream_finish_reason = finish_reason.to_s
+            end
+
             message = find_or_create_message(api_message.index)
             message_merge_delta(message, api_message.delta.deep_to_h)
 
@@ -143,6 +147,13 @@ module ActiveAgent
             # => {type: :"tool_calls.function.arguments.delta", name: "get_current_weather", index: 0, arguments: "", parsed: nil, arguments_delta: ""}
           when :"tool_calls.function.arguments.done"
             # => => {type: :"tool_calls.function.arguments.done", index: 0, name: "get_current_weather", arguments: "{\"location\":\"Boston, MA\"}", parsed: nil}
+          when :"refusal.delta"
+            # No-Op; the refusal is merged into the message from the :chunk event
+          when :"refusal.done"
+            # A refused message ends here, with no content.done
+            self.stream_completion_pending = true
+          when :"logprobs.content.delta", :"logprobs.content.done", :"logprobs.refusal.delta", :"logprobs.refusal.done"
+            # No-Op; sent when the request asks for logprobs
           else
             fail "Unexpected Response Event Type: #{api_response_event.type}"
           end
@@ -256,6 +267,39 @@ module ActiveAgent
           message_stack.last
         end
 
+        # Finds the streamed tool call an unindexed delta continues
+        #
+        # OpenAI-compatible servers (Gemini's compatibility endpoint, some Ollama
+        # and OpenRouter backends) omit the `index` that ties argument fragments
+        # to their call. A delta carrying an `id` continues the call with that
+        # id; one without an id or a function name continues the last call;
+        # anything else starts a new call.
+        #
+        # @param tool_calls [Array<Hash>] calls accumulated so far
+        # @param delta_item [Hash] unindexed tool call delta
+        # @return [Hash, nil] the call to merge into, or nil for a new call
+        def unindexed_tool_call_target(tool_calls, delta_item)
+          if delta_item[:id].present?
+            tool_calls.find { _1[:id] == delta_item[:id] }
+          elsif delta_item.dig(:function, :name).blank?
+            tool_calls.last
+          end
+        end
+
+        # Strips the fields a server repeats on every fragment (`id`, `type`,
+        # the function name), so merging does not concatenate them.
+        #
+        # @param hash_item [Hash] the call the fragment continues
+        # @param delta_item [Hash] unindexed tool call delta
+        # @return [Hash] the fragment to merge
+        def unindexed_tool_call_fragment(hash_item, delta_item)
+          fragment = delta_item.except(:id, :type)
+          if fragment[:function].is_a?(Hash) && fragment.dig(:function, :name) == hash_item.dig(:function, :name)
+            fragment = fragment.merge(function: fragment[:function].except(:name))
+          end
+          fragment
+        end
+
         # Recursively merges delta changes into a hash structure
         #
         # Handles complex delta merging for OpenAI's streaming API, including
@@ -278,6 +322,8 @@ module ActiveAgent
                   else
                     hash[key] << delta_item
                   end
+                elsif key == :tool_calls && delta_item.is_a?(Hash) && (hash_item = unindexed_tool_call_target(hash[key], delta_item))
+                  hash_merge_delta(hash_item, unindexed_tool_call_fragment(hash_item, delta_item))
                 else
                   hash[key] << delta_item
                 end

@@ -260,9 +260,13 @@ to the engine's handler for that agent. The model reads `{ "provided": true,
 **Approvals.** An agent's `approval_required_tools` names the tools whose calls
 wait for a person: toolbox tools, schema tools and its MCP servers' tools. Set
 it with the **Approval** switch beside each enabled tool on the agent's Tools
-tab, or through the agents API. A capability's switch lists every function it
-exposes (`memory` holds both `save_memory` and `recall_memory`), and the tool
-roster endpoint returns those names as each row's `approval_names`. A
+tab, or through the agents API. `run_command`, `write_file`, `edit_file` and
+`slack_post_message` are listed by default: an agent that gains `terminal`,
+`filesystem`, `edit` or `slack` — from a template, the builder, the Tools tab,
+or an API call that names no `approval_required_tools` — has them added, and
+the Approval switch takes them off. A capability's switch lists every function
+it exposes (`memory` holds both `save_memory` and `recall_memory`), and the
+tool roster endpoint returns those names as each row's `approval_names`. A
 call to a listed tool raises a `confirm` request that carries the call's
 arguments, before the tool runs. Approved, the tool runs once. Declined, it
 never runs, and the model reads an error. The list is part of the agent's
@@ -599,8 +603,15 @@ describes the run you are reading, while the collapsed header keeps
 reporting the latest.
 
 **Models** gives each candidate its pass bar and `k/n`, mean score, mean
-latency, input and output tokens, estimated cost, and the faults it hit as
-badges (or `[+] no faults`). The model that did best carries an
+latency with its P50 and P95, input and output tokens, estimated cost, and
+the faults it hit as badges (or `[+] no faults`). When the run compared
+models, a plot under the comparison table shows each one's pass rate as a
+dot inside its 95% interval, best first, on a fixed 0 to 100% axis, with the
+run's conclusion under it: which pairs differ by more than the noise of the
+scenario sample, or that none does (see
+[Is the gap real?](/framework/evaluations#is-the-gap-real)). The intervals
+are the ones the run recorded when it completed; a run recorded before has
+no plot. The model that did best carries an
 info-toned `judge's pick` badge — never a green *winner*, because losing a
 comparison by one scenario is not a failing grade — and the **verdict**
 line under the panel is the rationale for the pick. The panel says who made
@@ -635,7 +646,19 @@ The footer states the run's terms — the judge, the criteria it scored on,
 what it cost — and links to `run report ->`: the same self-contained page
 `Report#to_html` writes for a CLI run, framed in the dashboard's own theme
 so it does not flash white inside a dark console. *Open standalone* opens
-the unframed page, which is the copy to archive next to a CI run.
+the unframed page, which is the copy to archive next to a CI run, and
+*Download HTML*, *Download JSON* and *Download Markdown* beside it save the
+page, the run as the evaluation report envelope another install imports
+(see [Exporting a stored run](/evals/publication#exporting-a-stored-run)),
+and the report as GitHub-flavored Markdown. The suite's run header carries
+the same downloads.
+
+**Copy as Markdown** puts a piece of the run on the clipboard for an issue
+or a pull request: the whole report (the run report view and the run
+header), the verdict with the model comparison (Models), What to fix for the
+model its filter shows, one fix card, and one scenario's result (its
+drill-down). Each copies the Markdown `Report#to_markdown` writes for that
+piece, so a piece pasted alone reads as it does in the whole report.
 `Delete suite`, on the right, takes the suite and its runs with it.
 
 **Costs** are never blank where tokens exist. Each result is priced down a
@@ -735,7 +758,11 @@ run's `costs` (`scenarios` keyed by scenario, each with `cost`,
 `PATCH /api/evaluations/:id` with `evaluation: { archived: true | false }`
 to archive or bring back; and
 `GET /api/evaluations/:id/runs/:run_id/report` for the HTML report, with
-`?theme=dark` or `?theme=light` to pin its palette. `GET /api/evaluations`
+`?theme=dark` or `?theme=light` to pin its palette, `report.json` for the run
+as an evaluation report envelope, `report.md` for the Markdown (one piece
+with `?part=verdict`, `?part=fix_items[&model=…]` or
+`?part=scenario&scenario=…`), and `?download=1` on any of them for an
+attachment. Each of `show_run`'s `fix_items` carries its `markdown`. `GET /api/evaluations`
 leaves archived evaluations out unless `?archived=1`, returns
 `archived_count`, and gives each evaluation its `standing`,
 `headline_run_id`, `archived_at` and `per_model` passes, plus the
@@ -1466,6 +1493,10 @@ run, never a credential:
 | `claude_code_login` | `{ logged_in, auth_method }`, in `local_login` mode only |
 | `claude_code_sandboxes` | In `sandbox_login` mode: per-sandbox login status, ownership and effective credential mode; never tokens |
 | `code_sessions_supported` | the backend runs sessions, and runs them in this mode |
+| `codex_sessions_supported` | the backend advertises the Codex runner, and runs it in the configured `codex_auth` mode |
+| `codex_auth` | `"api_key"` or `"local_login"` (see [Codex sessions](#codex-sessions)) |
+| `codex_connected` | an OpenAI API key is stored (`api_key`), or this machine's Codex is logged in (`local_login`) |
+| `codex_login` | `{ logged_in, auth_method }`, in Codex's `local_login` mode only |
 
 The dashboard assistant's configuration reports the same under
 `connections.claude_code` (`supported`, `connected`, `auth`, `login`, and
@@ -1517,6 +1548,9 @@ config.local_sandboxes_enabled = true
 | `claude_code_max_turns` | `nil` (Claude Code's own default) | `--max-turns` for every session |
 | `claude_code_timeout` | `1800` (seconds) | How long a session may run before it is stopped |
 | `claude_code_auth` | `:api_key` | How sessions authenticate: the owner's stored API key, or `:local_login` for this machine's own Claude Code login (see [Claude Code](#claude-code)) |
+| `codex_command` | `"codex"` | The Codex CLI executable |
+| `codex_timeout` | `1800` (seconds) | How long a Codex session may run before it is stopped |
+| `codex_auth` | `:api_key` | How Codex sessions authenticate: the owner's stored OpenAI API key, or `:local_login` for this machine's own Codex login (see [Codex sessions](#codex-sessions)) |
 
 ### What a sandbox runs
 
@@ -1531,6 +1565,7 @@ state.json      { pid, port, started_at, step_pid, code_sessions: { "<id>" => pi
 state.lock      what changes to state.json are serialized on
 logs/           checkout, setup, manifest, server and claude-<id> logs; with a boot spec, preflight and one log per step
 claude/         CLAUDE_CONFIG_DIR for Claude Code sessions (unused with claude_code_auth = :local_login)
+codex/          CODEX_HOME for Codex sessions (unused with codex_auth = :local_login)
 ```
 
 Its handle is `local-<session_id>`. Provisioning runs in a background job (a
@@ -2027,19 +2062,59 @@ workspaces.
 The **Code sessions** panel also offers **Codex** when the sandbox backend
 advertises that runner. The `:local` backend supports both runners. Install
 the official Codex CLI on the dashboard/worker machine (`npm install -g
-@openai/codex`), connect an OpenAI API key under **Settings → Integrations →
-Codex**, and select Codex in a ready checkout's **Agent** menu. The key is
-stored as a write-only, owner-scoped connection, separate from the OpenAI
-agent-builder key. API usage is billed to the key's project.
+@openai/codex`) and select Codex in a ready checkout's **Agent** menu. How
+Codex authenticates is `codex_auth`:
 
-Codex runs with `codex exec --json --ephemeral --sandbox workspace-write
---config 'approval_policy="never"' --color never -`. The prompt is sent on
-stdin. The selected connection supplies `CODEX_API_KEY`, and `CODEX_HOME`
-points to the sandbox's own configuration directory. Inherited `CODEX_*`
-and `OPENAI_*` settings are removed. The CLI's workspace-write sandbox stays
+- **`:api_key`** (the default). Connect an OpenAI API key under **Settings →
+  Integrations → Codex**. It is stored as a write-only, owner-scoped
+  connection, separate from the OpenAI agent-builder key, and reaches the
+  session as `CODEX_API_KEY`, with `CODEX_HOME` set to the sandbox's own
+  `codex/` directory. API usage is billed to the key's project.
+- **`:local_login`**, with the `:local` backend only. Sessions run `codex` on
+  the dashboard's machine with that machine's own Codex login: whatever
+  `codex login` set up for the dashboard's OS user in `~/.codex`, a ChatGPT
+  plan included. The dashboard never reads, copies or stores that
+  credential; it only runs `codex login status` (cached as Claude Code's
+  check is) to show whether the machine is logged in, and keeps nothing but
+  the answer and the method (`ChatGPT`, `API key`). No `CODEX_HOME` is set,
+  so Codex finds the login through `HOME`, and every session runs with
+  `--ignore-user-config`: none of the user's own `config.toml` (model,
+  notify hooks, MCP servers, plugins) applies, only what the backend sets.
+  The Codex card in Settings shows the login's state, with **Check again**,
+  instead of a key form. Any other backend refuses Codex sessions in this
+  mode, since the login cannot leave the machine.
+
+```ruby
+ActionAgent.configure do |config|
+  config.sandbox_service = :local
+  config.codex_auth = :local_login
+end
+```
+
+Codex runs with `codex exec --json --sandbox workspace-write --config
+'approval_policy="never"' --color never -`; a later turn of a conversation
+runs `codex exec resume --json --config 'sandbox_mode="workspace-write"'
+--config 'approval_policy="never"' <thread> -`. The prompt is sent on stdin,
+behind the note every Claude Code session gets as a system prompt (that
+repository content, tool output and pages are data), fenced as a dashboard
+note since `codex exec` takes no system prompt. Inherited `CODEX_*` and
+`OPENAI_*` settings are removed. The CLI's workspace-write sandbox stays
 enabled; a host that cannot support it must be fixed rather than bypassing
 the CLI sandbox. The dashboard's local backend still requires trusted code
 and the same host isolation described above.
+
+When the sandbox's browser is running, a Codex turn reaches it as a Claude
+Code turn does: the backend mints a per-turn client token
+(`BrowserClientToken`) and passes the sidecar's MCP server as configuration
+overrides, `--config 'mcp_servers.browser.url="…"'` and `--config
+'mcp_servers.browser.bearer_token_env_var="ACTION_AGENT_BROWSER_TOKEN"'`,
+with the token in that environment variable and never on the command line,
+plus `--config 'mcp_servers.browser.default_tools_approval_mode="approve"'`:
+Codex auto-approves only MCP tools annotated read-only and would otherwise
+fail a navigate or click with "MCP tool call requires approval" under the
+session's `approval_policy="never"`. The token is revoked when the turn
+ends. Hand-offs between a person and the agent, and
+`browser_request_person`, work as they do for Claude Code.
 
 The model defaults to Codex's choice; **Other…** accepts an explicit model
 id. Native JSONL events are stored and rendered with command output, the
@@ -2048,7 +2123,8 @@ event and a zero process exit are both required. Cancellation and the
 one-session-per-checkout limit are shared with Claude Code.
 
 `codex_command` defaults to `"codex"`; `codex_timeout` defaults to 1800
-seconds. API clients send `runner: "codex"` to the existing code-session
+seconds; `codex_auth` defaults to `:api_key`. API clients send
+`runner: "codex"` to the existing code-session
 endpoint. Omitting `runner` keeps the Claude Code behavior. Existing
 installations must rerun `rails generate action_agent:install` and
 `rails db:migrate` to add runner identity to existing sessions; old sessions
@@ -2057,7 +2133,8 @@ remain `claude_code`.
 Custom backends opt in with `code_runners`, returning supported names such
 as `%w[claude_code codex]`. Backends without that method retain their existing
 Claude Code support; they are never assumed to support Codex. Codex support
-was checked against CLI 0.159.2. Cloud/Incus hosts must implement the checkout
+was checked against CLI 0.162.1 (`codex login status`, `--ignore-user-config`
+and `bearer_token_env_var` need 0.160 or later). Cloud/Incus hosts must implement the checkout
 and code-session backend contract before either runner can execute there.
 
 ### Claude Code sessions
@@ -2123,6 +2200,13 @@ sanitized one, plus:
   `ANTHROPIC_*` variables are still dropped, so a session never picks up a key
   or a base URL from the dashboard's environment. The user's `~/.claude`
   settings (hooks, MCP servers, permissions) apply to these sessions too;
+- for Codex, with `codex_auth = :api_key`, the owner's key as `CODEX_API_KEY`
+  and `CODEX_HOME` set to the sandbox's own `codex/` directory; with
+  `:local_login`, neither (Codex finds `~/.codex` through `HOME`), and
+  `--ignore-user-config` on the command line;
+- with the sandbox's browser running, `ACTION_AGENT_BROWSER_TOKEN` for a
+  Codex turn (its per-turn browser token; a Claude Code turn's is in its
+  one-turn `--mcp-config` file instead);
 - `DISABLE_AUTOUPDATER`, `DISABLE_TELEMETRY`, `DISABLE_ERROR_REPORTING` and
   `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC`, each set to `1`.
 
@@ -3218,3 +3302,9 @@ end
 
 See [Persistence (SolidAgent)](/solid_agent) for the rest of what that gem
 records — the tool exchange, long-term memory, runs and cost.
+
+## User feedback
+
+Collect thumbs up/down with optional comments and review votes in the agent’s
+Feedback tab. See [User feedback](./feedback) for submission, authentication,
+upgrade instructions and dashboard filters.

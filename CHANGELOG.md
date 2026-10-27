@@ -7,7 +7,490 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.9.0] - 2026-10-07
+### Fixed
+
+- **Boot on Ruby 3.4 and 4.0 with bootsnap 1.24.6 or newer** (`actionagent`).
+  `ProviderKey#owner_record` unwrapped delegators with
+  `... while defined?(::Delegator) && ...`, which Prism miscompiles when the
+  source is compiled from a string ("argument stack underflow"); bootsnap
+  compiles files that way on those Rubies as its Ruby bug #22023 workaround,
+  so a host on bootsnap 1.26 (and local runs on Ruby 3.4.9 or 4.0.1) failed
+  to boot the engine. The `defined?` check now sits outside the loop, and a
+  test compiles every shipped Ruby file from a string.
+
+## [1.9.4] - 2026-10-25
+
+### Added
+
+- **Host links in the dashboard's user menu** (`actionagent`).
+  `ActionAgent.user_menu_links` takes an Array of `{ label:, href: }` or a
+  Proc receiving the signed-in user and the current owner, and the header's
+  avatar menu lists them above "Sign out". A hosted platform points them at
+  its workspace, members and account settings pages, and shows its admin
+  pages to the users who may use them; a self-hosted install leaves it unset
+  and sees the menu it had. Malformed entries are dropped and a raising Proc
+  is logged, so the menu seam cannot take the dashboard down.
+
+### Fixed
+
+- **Keep the trace console usable offline** (`actionagent`). The console
+  ships its own inline styles and uses native details and ordinary links
+  instead of CDN-hosted Tailwind, Turbo and Stimulus. Automatic refresh is
+  opt-in (30 or 60 seconds) and uses the browser's refresh mechanism;
+  expanding a trace no longer depends on JavaScript or a host asset pipeline.
+- **Discover and call generated agent previews** (`activeagent`). TestUnit
+  writes previews under `test/agents/previews`, with current URLs and query
+  parameters passed to the agent. Discovery checks for newly added files,
+  and the default image interceptor accepts generation objects.
+
+- **Restore Rails browser previews** (`activeagent`). `/rails/agents` lists
+  previews and renders their prompt requests without executing a provider.
+  Namespaced actions and Markdown downloads work, unknown actions return
+  404, and all endpoints enforce Rails' local-request restriction. Preview
+  directories participate in development reloading, including configured
+  paths and the legacy `test/docs/previews` directory. The dashboard gem is
+  not needed; the routes remain disabled outside development by default.
+
+- **Generate runnable agent tests** (`activeagent`). TestUnit agent tests
+  inherit from `ActiveSupport::TestCase` instead of the nonexistent
+  `ActiveAgent::TestCase`. Plain and namespaced agents, including agents
+  without actions, can load in a Rails host without calling a provider.
+
+### Changed
+
+- **One badge for every status and message role in the dashboard**
+  (`actionagent`). The agent cards' status pill and provider chip, the run
+  and sandbox session status pills (Agent Interactions, the sandbox runner)
+  and the message role pills in conversation streams all render through the
+  shared `Badge` (soft tint, strong mono text, radius 4) with one status
+  tone map (`statusTone`) and one role map (`roleBadge`), so an `active`
+  agent, a `complete` run and an `Assistant` turn look the same wherever
+  they appear and follow the dark theme, which the cards' Tailwind pills
+  did not. Two tones join the tokens for the system and developer roles.
+
+## [1.9.3] - 2026-10-21
+
+Releases `activeagent` and `actionagent` 1.9.3, with the matching browser
+sidecar: browser upload and code conversations (the sandbox browser's live
+view takes files from the person driving it, and a Claude Code or Codex
+session is a conversation with the sandbox's browser beside the chat and a
+hand-off either way, Codex on this machine's own login), evaluation run
+reports exported as JSON, HTML and Markdown with Copy as Markdown, an agent
+builder that offers only tools that work, a model leaderboard on the
+Evaluations page, complete trace window statistics, a judge pin that runs
+on its own provider, Opper as a provider and Parallel Search in the MCP
+catalog, and streaming fixes (unindexed tool call fragments, the finish
+reason of streamed and Responses generations, Anthropic cache-token usage).
+The framework, the dashboard engine and `@activeagents/browser-sidecar`
+move to 1.9.3 together.
+
+Upgrading: migration 028 adds the conversation columns to `code_sessions`.
+A host runs `bin/rails generate action_agent:install --skip` then
+`bin/rails db:migrate`, after 1.9.1's 027. Upgrade the sidecar with the
+engine: the file chooser relay and the per-turn browser tokens are in the
+1.9.3 sidecar. On a single-tenant install the new report export
+(`GET <mount>/api/evaluation_reports/:run_id`) answers 401 until
+`ActionAgent.ingest_api_key` is set. A `judge_model` pin written
+`anthropic/…` or `openai/…` now runs on that native provider; an install
+that reached such a model through OpenRouter pins `openrouter/anthropic/…`.
+
+### Added
+
+- **Export evaluation run reports as JSON, HTML and Markdown** (`activeagent`,
+  `actionagent`). `GET <mount>/api/evaluation_reports/:run_id`, with the
+  ingest key and scoped to the tenant like the POST (and refused on a
+  single-tenant install that set no key), returns a complete run
+  as the version-1 envelope the collector takes, so a run moves to another
+  install with one POST and posting it back is an identical retry (200);
+  `?format=html` returns the run's report page and `?format=md` its
+  Markdown, and `?download=1` an attachment of any of them.
+  An imported run exports under its published `run_id`, a dashboard run
+  under `dashboard-run-<id>-<created_at>`. `ActiveAgent::Evals::Publisher.envelope`
+  builds the envelope for both the publisher and the export. The dashboard's
+  run report adds `report.json` and `report.md` (one piece with
+  `?part=verdict|fix_items|scenario`), and `?download=1` saves any format
+  as `<evaluation>-run-<n>.<ext>`; the run report view and the suite's run
+  header get *Download HTML / JSON / Markdown*. New rake tasks:
+  `action_agent:evaluations:export RUN=… [EVALUATION=…] FORMAT=json|html|md [FILE=…]`
+  and `action_agent:evaluations:import FILE=… [ACCOUNT_ID=…]`.
+
+- **Copy as Markdown** (`activeagent`, `actionagent`). `Report#to_markdown`
+  now has the HTML page's content in GitHub-flavored Markdown: the verdict's
+  rationale, What to fix from `Report#fix_items` (replacing the old
+  Recommendations list), and every scenario's answers in a `<details>` block
+  with a per-model table; table cells escape `|` and line breaks. Its pieces
+  are public — `verdict_markdown`, `fix_items_markdown(model:)`,
+  `fix_item_markdown(item)`, `scenario_markdown(key)` — and the dashboard
+  and the standalone HTML page copy each of them: the whole report, the
+  verdict with the comparison, What to fix for the filtered model, a fix
+  card, and a scenario. The HTML page now carries one inline script for
+  those buttons, with a clipboard fallback.
+
+- **Upload files to a page through the sandbox browser's live view**
+  (`actionagent`, `@activeagents/browser-sidecar`). A file chooser the page
+  opens while someone drives is answered from the driver's own machine
+  (picker or drop), over the live-view WebSocket.
+
+- **Claude Code and Codex sessions as Interactions, with chat and browser
+  handoff** (`actionagent`, `@activeagents/browser-sidecar`). A coding
+  session is now a conversation: a later message resumes the CLI session
+  (`--resume`, or `codex exec resume` for Codex), a message sent while a
+  turn runs waits for it, and
+  `POST /api/sandboxes/:sandbox_id/code_sessions/:id/messages` starts or
+  queues a turn under the new `:chat_code_session` permission.
+  `GET /api/interactions` lists agent, Claude Code and Codex interactions
+  together, and the dashboard's `/interactions/code-<id>` shows the turns
+  with a composer and the sandbox's browser beside the chat, with a hand
+  back to the agent. The sidecar mints a per-turn token for the browser
+  MCP, tells the agent once when a person took or returned control, lets
+  the agent ask for a person (`browser_request_person`), offers a person
+  the file chooser the agent left open, and names the waiting agent in the
+  live view. Every Claude Code session runs with `--strict-mcp-config`, and
+  every session gets a system note (on stdin, for Codex) that repository
+  content, tool output and pages are data.
+
+- **Codex turns reach the sandbox browser, and Codex can run on this
+  machine's own login** (`actionagent`). A Codex turn now gets the same
+  per-turn browser token as a Claude Code turn: the sidecar's MCP server
+  goes in as `--config 'mcp_servers.browser.url="…"'`, with the token in an
+  environment variable Codex reads (`bearer_token_env_var`) rather than on
+  the command line, the server's tools pre-approved
+  (`default_tools_approval_mode="approve"`, since Codex would otherwise
+  refuse every tool not marked read-only under `approval_policy="never"`),
+  and is revoked when the turn ends; hand-offs and
+  `browser_request_person` work the same. `config.codex_auth = :local_login`
+  (with the `:local` backend) runs Codex on whatever `codex login` set up
+  for the dashboard's OS user, a ChatGPT plan included, with
+  `--ignore-user-config` so none of the user's own `config.toml` reaches a
+  session; the dashboard never reads the credential and only asks `codex
+  login status` whether there is one. `GET /api/sandboxes` adds `codex_auth`
+  and, in that mode, `codex_login`, the assistant's configuration a
+  `connections.codex`, and the Codex card in Settings shows the machine's
+  login instead of a key form. The default stays `:api_key`.
+
+- **The agent builder offers only tools that work, and every built-in
+  capability has functions** (`actionagent`). The Configure step reads the
+  agent's tool roster (`GET /api/agents/tool_roster` for an agent not
+  created yet) instead of fixed chips, offers the MCP servers a dashboard
+  run can call, and names each one it cannot with the reason
+  (`MCPToolDispatcher.unreachable_reason`: a stdio server, no URL, missing
+  credentials). The six capabilities that gave the model nothing now have
+  functions: `terminal` (`run_command`), `filesystem` (`list_files`,
+  `read_file`, `write_file`), `edit` (`edit_file`) and `database`
+  (`query_database`, read-only) act in the run's checkout sandbox through
+  new `SandboxOrchestrator` verbs (on the `:local` backend; others return
+  `UnsupportedBackendError` to the model); `translate` (`translate_text`)
+  generates on the run's own provider; `slack` lists, reads and posts with
+  a bot token connected in Settings -> Integrations -> Slack (a `slack`
+  connection `ProviderKey`). Instruction sets are composed into the
+  instructions a run executes under. `run_command`, `write_file`,
+  `edit_file` and `slack_post_message` wait for approval by default: an
+  agent that gains `terminal`, `filesystem`, `edit` or `slack` — from the
+  builder, a template, the Tools tab or the agents API — has them on its
+  `approval_required_tools` unless the save names its own list, and the
+  Tools tab's Approval switch takes them off. An agent that enabled one of
+  those capabilities before this release keeps its list as it is. A host's
+  `ActionAgent.mcp_catalog` headers now reach the MCP client (they were
+  dropped).
+
+- **Start an interaction with your own agent from Interactions and Run
+  Agents** (`actionagent`). Interactions has a "New interaction" picker and
+  Run Agents a "Your agents" list; both open the agent's runner on a fresh
+  conversation (`/agents/:id/run?new=1`). The runner lists the agent's tools
+  and MCP servers, and can run against a checkout sandbox (`sandbox_id`),
+  which the checkout tools need.
+
+- **A model leaderboard on the Evaluations page** (`actionagent`). The Pass
+  rate tile listed each model's passes on a line of its own, a dozen lines
+  for seven models; it now shows the overall rate, the leading model and a
+  "compare N models" toggle, which opens a leaderboard below the tiles: one
+  row per model with its pooled passes and rate, and one column per counted
+  evaluation (`—` where the model did not run). Models rank by the lower
+  bound of the Wilson score interval (95%), so a lucky 7/8 does not outrank
+  75/173.
+
+- **Opper as an OpenAI-compatible provider** (`activeagent`). `service:
+  "Opper"` generates and embeds through Opper's compatibility endpoint
+  (`https://api.opper.ai/v3/compat`), with the key from `OPPER_API_KEY`
+  when none is configured, as the Requesty provider does (#583).
+
+- **Parallel Search in the MCP catalog** (`actionagent`). An opt-in,
+  keyless `parallel` server (`web_search`, `web_fetch`) over HTTP; queries
+  and URLs go to parallel.ai. Every MCP HTTP request now sends
+  `User-Agent: ActionAgent/<version>` unless a header names another (#575).
+
+### Fixed
+
+- **Trace totals and timeline buckets cover the whole filtered window**
+  (`actionagent`). `GET /api/traces` adds `total_count`, `returned_count`,
+  `truncated`, a `summary` (requests, errors, average latency, throughput
+  per minute) and zero-filled `buckets` computed over every trace the
+  filters match, independently of the capped detail list, and the Traces
+  view reports truncation and averages recorded request durations instead
+  of time-bucket means (part of #384).
+
+- **A pinned evaluation judge runs on its own provider** (`actionagent`).
+  A `judge_model` pin selects the model's native provider, or the one its
+  qualifier names (`openrouter/anthropic/…`), instead of the first provider
+  with credentials; the qualifier is stripped before the request, the pin
+  wins over the credential resolver's default model, and a pinned route
+  with no credentials fails the run clearly when another provider is
+  configured. Native-to-gateway alias conversion stays out of scope (#431).
+  Upgrading: a pin written `anthropic/…` or `openai/…` now selects that
+  native provider, as candidate model names already did; an install that
+  reached such a model through OpenRouter pins `openrouter/anthropic/…`.
+
+- **Streamed tool calls without an `index` are no longer split into
+  fragments** (`activeagent`). OpenAI-compatible servers (Gemini's
+  compatibility endpoint, some Ollama and OpenRouter backends) stream tool
+  calls without the `index` that ties argument fragments to their call, and
+  the Chat provider turned every fragment into its own tool call with
+  partial arguments. A fragment now continues the call with the same `id`,
+  or the last call when it has no `id` and no function name.
+
+- **A streamed generation reports why it stopped** (`activeagent`).
+  `response.finish_reason` (and `stop_reason`), and the `finish_reason` of
+  the `prompt.active_agent` event, were `nil` for every streamed Chat and
+  Anthropic generation, since a stream has no response body to read it
+  from. The Chat provider now records the chunk's `finish_reason` and the
+  Anthropic provider the `message_delta`'s `stop_reason`, and the response
+  falls back to it.
+
+- **OpenAI Responses generations report why they stopped** (`activeagent`).
+  `response.finish_reason` (and `stop_reason`) was `nil` for every
+  Responses generation, streamed or not. It is now
+  `incomplete_details.reason` when the response was cut short
+  (`max_output_tokens`, `content_filter`), else the response's `status`
+  (`completed`).
+
+- **Anthropic usage with cache token fields no longer raises** (`activeagent`).
+  `Usage.from_provider_usage` recognised Anthropic's usage only by
+  `cache_creation` or `service_tier`; a payload carrying
+  `cache_read_input_tokens` or `cache_creation_input_tokens` without them
+  fell through to `Usage.new` and raised `UnknownAttributeError`. The cache
+  token fields now mark the payload as Anthropic's (#611).
+
+## [1.9.2] - 2026-10-20
+
+Releases `activeagent` and `actionagent` 1.9.2, with the matching browser
+sidecar: evaluations at scale (the scenario suite as a build page, model
+comparison with intervals and P95 latency, opt-in parallel scenario runs,
+the judge named after its model), provider streaming fixes (Anthropic
+citations, OpenAI Chat refusals and logprobs, Responses built-in tools),
+nested `has_many` schemas, and delegation contracts from `SchemaGenerator`
+classes.
+
+Upgrading: structured-output property names are now sent to the provider,
+and answered, as declared. A `response_format` schema with multiword
+property names (`first_name`) used to reach the provider camelized
+(`firstName`) while `required` stayed snake_case, which strict mode
+rejected; both are now as declared. `parsed_json` is unaffected; code that
+reads `message.content` itself, or matches on request payloads, sees
+`first_name` where it saw `firstName`. In a Rails app, `has_many` is
+available on every `ActiveModel::Model` class, since the railtie includes
+`SchemaGenerator` there, not only on classes that include it themselves.
+Scenario fan-out is off by default: `config.scenario_evaluation_fan_out =
+true` turns it on, and its jobs run on the `:agents` queue. No new
+migration; a host still on 1.9.0 needs 1.9.1's migration 027.
+
+### Added
+
+- **P50 and P95 latency per model in evaluation reports** (`activeagent`).
+  `Report#summary_by_model` adds `p50_duration_ms` and `p95_duration_ms`
+  beside `avg_duration_ms`, by nearest rank as the dashboard's Metrics view
+  computes them, and the Markdown and HTML reports show them next to the
+  mean, which hides the tail (#428).
+
+- **Cost per 1,000 scenario runs in the Markdown report** (`activeagent`).
+  The summary table gains `Cost / 1,000`, each model's mean cost per priced
+  replay on a common denominator, marked `~` when it is estimated or
+  covers only some replays (#428).
+
+- **`ActiveAgent::Evals::Comparison`: is the gap between models real?**
+  (`activeagent`). A 95% interval for each model's pass rate and for the
+  difference between every pair of models, from 5,000 seeded resamples of
+  whole scenarios (a paired bootstrap for the pairs, over the scenarios both
+  ran). A pair is decisive when its interval excludes zero, and
+  `#conclusion` says in one sentence which pairs are, or that the ranking
+  is not decisive evidence of superiority (#428).
+
+- **The model comparison in evaluation reports** (`activeagent`).
+  `Report#comparison` and `to_h["comparison"]` carry it for a report that
+  compares models, the Markdown report gains a Comparison section, and
+  `Report.new(comparison:)` renders one already recorded for the results
+  instead of resampling, as `verdict:` does (#428).
+
+- **A ranked interval plot in the HTML evaluation report** (`activeagent`).
+  Under the comparison table, each model's pass rate is a dot inside its
+  95% interval on a fixed 0 to 100% axis, best first, with the figures
+  beside it, the conclusion, and how the intervals were computed. Plain
+  CSS on the design tokens: no script, light and dark (#428).
+
+- **Each comparison run keeps its model comparison** (`actionagent`). A
+  scenario run that compares models records `Report#comparison` under
+  `scores["_comparison"]` when it completes; a published report's is
+  worked out from the stored results rather than taken from the payload;
+  and the run's report page renders the recorded intervals instead of
+  resampling on every view. A run recorded before gets one from its
+  results (#428).
+
+- **P50 and P95 latency in the dashboard's model comparison**
+  (`actionagent`). The comparison table gains a P50 / P95 column and each
+  model's scorecard a p50 / p95 figure, from the percentiles the run
+  recorded; a run recorded before shows neither (#428).
+
+- **The model comparison plotted in the dashboard** (`actionagent`). A
+  run that compared models shows, under its comparison table, each model's
+  pass rate inside its 95% interval, best first, with the run's
+  conclusion and how the intervals were computed, from the comparison the
+  run recorded (#428).
+
+- Parallel scenario evaluations in `actionagent`: with
+  `config.scenario_evaluation_fan_out = true`, a run enqueues one
+  `EvaluationReplayJob` per scenario × model, each stored replay is scored by
+  its own `EvaluationJudgeJob`, and the last result to be scored completes the
+  run with the scores a sequential run writes. Runs as wide as the host's
+  `:agents` queue. Off by default; browser and host-adapter runs stay
+  sequential (#422).
+- `ActiveAgent::Evals::Runner.new(refine_gate:)`, a callable asked before each
+  recommendation call so per-scenario runners share one run-wide judge limit.
+
+- **Nested arrays of objects in ActiveModel schemas** (`activeagent`).
+  `has_many :addresses, class_name: "Address"` on an ActiveModel class that
+  includes `ActiveAgent::SchemaGenerator` makes `to_json_schema` emit the
+  attribute as an array of `$ref`s to the item class's schema, which goes
+  under the root `$defs`. `strict:` and `additional_properties:` reach the
+  nested schema, a nested class's own definitions move up to the root, and
+  a class that nests itself raises `ArgumentError`. A length validation on
+  the array sets its item count (`min_items` / `max_items`) rather than a
+  string's length. `has_many` also declares the attribute with an
+  empty-array default, and is added only to a class without one, so
+  ActiveRecord's is untouched (#260).
+
+- **Evaluation runs record their judge** (`actionagent`), in
+  `scores["_judge"]`: the `EvaluationJudgeAgent` it runs as, its provider,
+  the model it asked for and where that setting came from (the evaluation,
+  the provider key, the host's config, or the provider's default), and the
+  models that answered, with call counts. The suite's Models panel shows
+  "judged by <model>" with an `auto` badge when no model is pinned, and
+  opens the judge's configuration, with a field that pins `judge_model` on
+  the evaluation through `PATCH /api/evaluations/:id` (#605).
+
+
+### Changed
+
+- **A scenario suite's page reads like a build page** (`actionagent`). The
+  page opened on a summary, every run, the costs, the models and every
+  scenario stacked down the page, so on a suite of 100 scenarios and 12 runs
+  the selected run's results started three screens down. It now opens on the
+  selected run: a run header with the run's passed count, models, agent and
+  judge spend, a to-fix count and a progress bar; beside it a rail of runs,
+  each with a pass bar per model, and a box of the run's scenarios that
+  scrolls on its own, one line per step (`[+]` passed, `[!]` failed, `[~]`
+  running, `[ ]` queued, `[?]` errored, `[-]` skipped) under a sticky header
+  and foldable group rows, with a step's detail opening in place. A toolbar
+  filters the steps to failed only, puts failed first, shows the tool cells
+  and follows the running step until the person scrolls. Models, what to fix
+  and the footer follow below; a failed run shows its error in the header
+  instead of models. Selecting a run keeps the page where it is, polling
+  backs off and stops in a hidden tab, and below 940px the rail becomes a
+  strip of the latest runs. The same suite is now 2,786px tall where it was
+  11,354px (#602).
+
+### Fixed
+
+- **`max_retries` sets the Anthropic `json_object` retries** (`activeagent`).
+  `AnthropicProvider` read the count from its constructor's arguments after
+  `BaseProvider` had already moved `max_retries` into the provider's options,
+  so an unparseable `json_object` answer was always retried twice, whatever
+  `max_retries` said, on Anthropic and on Bedrock, which inherits it. The
+  count now comes from the options: `max_retries: 0` sends the request once,
+  `max_retries: 5` up to six times, and the default is still two retries
+  (#531).
+- **A streamed Anthropic answer with citations no longer raises.** Claude
+  streams the citations of a text block as `citations_delta` deltas when it
+  cites a document or a web search result, and the Anthropic provider raised
+  `Unexpected delta type: citations_delta` on the first one. The delta is now
+  skipped like `input_json_delta`: the full block, citations included, arrives
+  at `content_block_stop`.
+- **A streamed OpenAI Chat refusal, or a stream with logprobs, no longer
+  raises.** The openai gem's chat stream emits `refusal.delta` and
+  `refusal.done` when the model refuses, and `logprobs.*` events when the
+  request sets `logprobs`, and the Chat provider failed on them with
+  `Unexpected Response Event Type`. They are now handled, and `refusal.done`
+  ends the generation, since a refused message never gets a `content.done`.
+- **A streamed Responses answer that used a built-in tool no longer raises.**
+  With `tools: [{ type: "web_search_preview" }]` (or file search, image
+  generation, code interpreter, remote MCP), the stream carries the tool's
+  call as an output item (`web_search_call`, ...), its progress events
+  (`response.web_search_call.searching`, ...), and
+  `response.output_text.annotation.added` for the citations, and the
+  Responses provider raised `Unexpected Item Type: web_search_call` on the
+  first of them. The tool calls are now kept like in a non-streamed response,
+  and their events are skipped.
+- **A streamed Responses answer cut short no longer raises.** When a response
+  hits `max_output_tokens`, the stream ends with `response.incomplete` instead
+  of `response.completed`, and the Responses provider raised `Unexpected
+  Response Chunk Type: response.incomplete`. It now ends the generation with
+  the text streamed so far, like `response.completed`.
+- **A streamed Responses refusal no longer raises.** The provider raised
+  `Unexpected Response Chunk Type: response.refusal.delta` when the model
+  refused; the refusal events are now skipped and the response completes.
+- **A streamed Responses generation reports its token usage.** The usage of a
+  streamed response is only on its final event, and the Responses provider
+  never read it, so `response.usage` was `nil`. It is now recorded from
+  `response.completed` or `response.incomplete`, as the Chat provider does
+  from its usage chunk.
+- **Delegation contracts built from a `SchemaGenerator` class**
+  (`activeagent`). `delegation ..., schema: TicketForm` and
+  `returns TicketForm` produced a contract with no properties, because
+  `to_json_schema` wraps the schema in `{ name:, schema:, strict: }` and
+  the contract read only a top-level `properties`. The wrapper is now
+  unwrapped, and `$defs` are kept so the `$ref`s that nested schemas use
+  still resolve. A contract built from a class is sent with the strict
+  setting the class declared: `Model.to_json_schema` is not strict unless
+  asked, and its `required` then names only the presence-validated
+  attributes, which OpenAI's strict mode refuses, so `returns Model` goes
+  out with `strict: false` and `returns Model.to_json_schema(strict: true)`
+  strict with every attribute required.
+
+- **Structured-output schema normalization preserves field names**
+  (`activeagent`). `prompt` converts JSON Schema keywords to camel case
+  without renaming properties or definitions, keeping multiword attributes
+  and `has_many` associations consistent with `required` and `$ref` in
+  strict schemas. Literal data in `default`, `const`, `enum` and `examples`
+  is preserved too (#260).
+
+  Property names now reach the provider as declared, so a `first_name`
+  attribute is sent as `first_name` rather than `firstName`, and the model
+  answers with that key. `parsed_json` underscores keys either way, so code
+  reading it is unaffected; code reading the raw `message.content`, or
+  matching on request payloads, sees snake_case where it saw camelCase.
+
+  A delegation's `returns` schema follows suit: its `required` entries are
+  no longer camelized, so a multiword required key such as `max_points`
+  matches its property in strict mode instead of being sent as
+  `maxPoints`.
+- **A judge with no `judge_model` is labelled with the model that
+  answered** (`actionagent`), not its provider ("judged by openrouter").
+  OpenRouter's default, `openrouter/auto`, routes each call, so a run judged
+  by more than one model is labelled "<provider> default" (#605).
+
+## [1.9.1] - 2026-10-16
+
+Releases `activeagent` and `actionagent` 1.9.1, with the matching browser
+sidecar version. Adds user feedback to the dashboard. Upgrade by running
+`bin/rails generate action_agent:install --skip` and `bin/rails db:migrate`
+before deploying the updated dashboard (migration 027).
+
+### Added
+
+- Interaction feedback in `actionagent`: submit thumbs up/down and optional
+  comments through the authenticated feedback API, then review and filter votes
+  in an agent’s Feedback tab. Includes response span attribution, retry-safe vote
+  updates, workspace scoping, an upgrade migration and user feedback docs (#591).
+
+## [1.9.0] - 2026-10-14
 
 Releases `activeagent` and `actionagent` 1.9.0 from one tag. A minor release.
 The dashboard gains **Projects**: a GitHub repository boots in a checkout
@@ -33,8 +516,12 @@ What-to-fix card copies a Markdown fix brief for a coding harness, or hands
 it to Claude Code in the project's checkout sandbox and verifies the change
 against the same scenarios; a user can sign Claude Code in to a sandbox with
 their own Claude subscription (`claude_code_auth = :sandbox_login`, opt-in);
-and Active Storage is one engine option (`config.active_storage`). Carries
-the 1.8.2 owner fix.
+and Active Storage is one engine option (`config.active_storage`). When a
+project's boot fails, Claude Code fixes the step in its checkout and the
+boot resumes; a project's browser opens from its own page; Catalogs become
+**Scenarios**, written, generated from a project's app, exported and
+imported in the dashboard; and destructive actions confirm in the
+dashboard's own dialog. Carries the 1.8.2 owner fix.
 
 Upgrading: run `bin/rails generate action_agent:install --skip` and
 `bin/rails db:migrate`. The generator adds the migrations an install lacks,
@@ -59,7 +546,7 @@ finished must handle. Session Replay is now **Sessions** in the sidebar.
   hands one set to the `Runner` as a `Suite` named `catalog/product/set`,
   `to_yaml` writes the canonical document and `digest` is its SHA-256. A
   `Scenario` now carries free-form `tags` and `params` from the document.
-- **Scenario catalogs on the dashboard** (`actionagent`). The Catalogs page and
+- **Scenario catalogs on the dashboard** (`actionagent`). The Scenarios page and
   `/api/scenario_catalogs` import a catalog from pasted YAML, an uploaded
   file or a connected repository at a ref (`.activeagents/evals/*.yml` by
   default), store it as `scenario_catalogs`, `scenario_products`,
@@ -79,6 +566,42 @@ finished must handle. Session Replay is now **Sessions** in the sidebar.
   The MCP facade gains `catalogs_list`, `catalogs_import` and
   `catalog_set_run`, and `action_agent:catalogs:import`, `:export` and
   `:run` rake tasks do the same from a shell.
+- **Manage scenarios in the dashboard** (`actionagent`). Catalogs are now
+  **Scenarios** in the sidebar, at `/scenarios`, with `/catalogs` redirecting;
+  the tables, the API and the YAML `catalog:` key are unchanged. A collection
+  can be started empty and its products, sets and scenarios added, edited and
+  deleted in place (prompt, notes as the rubric, expected tools, contains and
+  never-contains, tags, enabled, production-only), each change validated as an
+  import validates a document. The **Generate** tab picks a project, runs the
+  explorer in its sandbox's browser beside the live view, and accepts its
+  proposals (the same records as the project's Explorations) into a chosen
+  set. A collection, or any products, sets and scenarios checked, exports as
+  YAML to download or copy; an import (pasted, uploaded or from a repository)
+  previews by key what it creates, overwrites, removes or keeps before it
+  writes, and in the dashboard keeps what the document leaves out by default.
+- **Fix a failed project boot with Claude Code** (`actionagent`). When a
+  project's boot fails with its checkout kept, on a backend that runs Claude
+  Code and resumes boots, and the owner's Claude Code is connected,
+  `ActionAgent::ProjectBootFix` starts a Claude Code session in the checkout
+  with the failed step, the boot's error and the end of the step's log (the
+  project's secrets masked, the log fenced as data, not instructions), asking
+  for the smallest change. The session may run `bundle install`, `lock` and
+  `update`, `gem search`, `list` and `info`, `git status` and `diff`, and
+  `npm`/`yarn install` when a JavaScript step failed, and nothing else. When
+  it changes files the boot resumes from the failed step and the files join
+  the install pull request (the secret scan and the `.github/` exclusion
+  still apply); when it changes nothing the boot stays failed with Claude
+  Code's answer. Claude Code goes first and the setup assistant after it,
+  sharing "Start it when a boot fails" and the three automatic attempts.
+  `POST /api/projects/:id/setup/claude_code` starts one by hand, and the
+  project's Setup card follows the session live.
+- **A project's browser on its page** (`actionagent`). A **Browser** tab
+  beside Overview, Explorations and Environment (`?tab=browser`) starts,
+  watches, takes over and hands back the sandbox's browser; the header offers
+  **Watch live** while it runs. Settings → Integrations stays where every
+  runtime is managed: each sandbox links to its project, and the project
+  page links back as **Manage runtimes**. The New project checklist says
+  what the backend's browser can do instead of "not available yet".
 - **Copy fix prompt** (`actionagent`). Every What-to-fix card on an
   evaluation run has a *Copy fix prompt* button that puts a Markdown brief
   on the clipboard for a coding harness: the agent, evaluation and run by
@@ -693,6 +1216,24 @@ finished must handle. Session Replay is now **Sessions** in the sidebar.
 
 ### Changed
 
+- **Confirm destructive actions in the dashboard's own dialog**
+  (`actionagent`). Every `window.confirm` is gone: a `useConfirm()` dialog
+  (an `alertdialog` with a focus trap, Escape to cancel and focus starting on
+  Cancel) asks instead, and deleting a project, an agent, an evaluation or a
+  scenario collection asks for its name to be typed first.
+- **New project shows the repository first** (`actionagent`). The repository
+  picker heads the page and the capabilities checklist folds to one line,
+  opening itself when something blocks; each fix the checklist names links to
+  where it is made.
+- **The install pull request never publishes a local gem path**
+  (`actionagent`). A Gemfile or lockfile change that newly points a gem at a
+  path outside the repository is refused.
+- **Transcripts leave out hook, thinking and rate-limit events**
+  (`actionagent`). A code session's transcript shows what Claude Code did.
+- **Releases check the browser sidecar against npm** (release workflow).
+  `@activeagents/browser-sidecar` is staged through npm trusted publishing
+  (`npm stage publish`, approved by a maintainer with 2FA), and a release
+  fails when `browser-sidecar/` differs from the version already on npm.
 - **Keep the shared Playwright MCP browser out of multi-tenant installs**
   (`actionagent`). With `multi_tenant = true` the toolbox's `playwright_mcp`
   tools are neither offered nor called, and `PlaywrightMCPClient.instance`

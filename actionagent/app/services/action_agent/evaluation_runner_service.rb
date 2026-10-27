@@ -10,6 +10,8 @@ module ActionAgent
   # credentials and is skipped — never faked — when none are available.
   class EvaluationRunnerService
     PASS_THRESHOLD = 0.7
+    # The class name the judge runs as, which its traces and the run record.
+    JUDGE_AGENT_NAME = "EvaluationJudgeAgent"
 
     def self.call(evaluation)
       new(evaluation).call
@@ -30,6 +32,10 @@ module ActionAgent
 
     def call
       run = @evaluation.evaluation_runs.create!(status: :running)
+
+      # A pin whose provider has no credentials fails here, before any work.
+      # A rules-only run never asks the judge, so a stale pin does not stop it.
+      judge_provider if @evaluation.judge_model.present? && judge_needed?
 
       # judge_defined evaluations author their KPI criteria on first run.
       ensure_judge_defined_kpis! if @evaluation.judge_defined?
@@ -66,6 +72,7 @@ module ActionAgent
 
       scores["_cohorts"] = cohort_summaries(samples, per_sample_scores) if samples.any?
       scores["_judge_usage"] = judge_usage if judge_usage
+      scores["_judge"] = judge_descriptor if judge_usage
 
       run.update!(
         status: :complete,
@@ -80,18 +87,51 @@ module ActionAgent
       raise
     end
 
-    # Returns the provider the judge runs on: the first of Anthropic, OpenAI
-    # and OpenRouter the owner or the host's config has a key for, else Ollama
-    # when the owner configured a host; nil when none. The judge runs
-    # `judge_model` as that provider's own model id.
+    # Unpinned judges keep the configured default. A pinned model uses the
+    # existing ModelSpec syntax, so adding an unrelated key cannot reroute it.
     def judge_provider
-      @judge_provider ||=
-        %i[anthropic openai openrouter].find do |name|
-          owner_provider_options(name).any? || global_provider_token?(name)
-        end || (:ollama if owner_provider_options(:ollama).any?)
+      @judge_provider ||= begin
+        raw = @evaluation&.judge_model.presence
+        spec = raw && ActiveAgent::Evals::ModelSpec.parse(raw, default_provider: nil)
+        if spec&.provider.present?
+          provider = spec.provider.to_sym
+          if judge_provider_configured?(provider)
+            provider
+          elsif default_judge_provider
+            raise ArgumentError,
+              "No credentials for judge provider #{provider} (#{raw}); configure that provider or pin a provider-qualified gateway model ID"
+          end
+        else
+          default_judge_provider
+        end
+      end
     end
 
     private
+
+    # Whether a sample-based run asks the judge: to author KPIs, to score an
+    # llm_judge criterion, or for a comparison's verdict.
+    def judge_needed?
+      @evaluation.judge_defined? || @evaluation.llm_criteria.any? || @evaluation.compare_models.any?
+    end
+
+    def default_judge_provider
+      %i[anthropic openai openrouter ollama].find { |name| judge_provider_configured?(name) }
+    end
+
+    def judge_provider_configured?(name)
+      owner_provider_options(name).any? || (name != :ollama && global_provider_token?(name))
+    end
+
+    # A provider qualifier selects the route, not a prefix to send to the
+    # provider. Vendor prefixes inside an explicit gateway ID are retained.
+    def judge_pinned_model(provider = judge_provider)
+      raw = @evaluation&.judge_model.presence
+      return unless raw
+
+      spec = ActiveAgent::Evals::ModelSpec.parse(raw, default_provider: provider)
+      spec.provider.to_sym == provider ? spec.model : raw
+    end
 
     # Scores each sample-based criterion once per candidate model cohort and
     # asks the judge for a comparative verdict — "haiku vs qwen, judged".
@@ -136,6 +176,7 @@ module ActionAgent
         [ model, cohort_summary(samples, per_model_sample_scores[model] || {}) ]
       end
       scores["_judge_usage"] = judge_usage if judge_usage
+      scores["_judge"] = judge_descriptor if judge_usage
 
       run.update!(
         status: :complete,
@@ -236,7 +277,8 @@ module ActionAgent
     # first. Persisted as scores["_judge_usage"]:
     #
     #   { "calls", "input_tokens", "output_tokens", "cost", "model",
-    #     "by_kind" => { "score" => n, "recommend" => n, "verdict" => n, "define" => n } }
+    #     "by_kind" => { "score" => n, "recommend" => n, "verdict" => n, "define" => n },
+    #     "models" => { "<model that answered>" => n } }
     #
     # nil until the judge has been asked something, so a rules-only run
     # records no judge at all rather than a judge that cost nothing.
@@ -263,13 +305,42 @@ module ActionAgent
       model = (response.respond_to?(:model) && response.model.presence) || @evaluation.judge_model.presence
       cost = ModelPricing.estimate(model: model, provider: judge_provider, input_tokens: input_tokens, output_tokens: output_tokens)
 
-      @judge_usage ||= { "calls" => 0, "input_tokens" => 0, "output_tokens" => 0, "cost" => nil, "model" => nil, "by_kind" => {} }
+      @judge_usage ||= { "calls" => 0, "input_tokens" => 0, "output_tokens" => 0, "cost" => nil, "model" => nil, "by_kind" => {}, "models" => {} }
       @judge_usage["calls"] += 1
       @judge_usage["input_tokens"] += input_tokens
       @judge_usage["output_tokens"] += output_tokens
       @judge_usage["cost"] = (@judge_usage["cost"] || 0.0) + cost if cost
       @judge_usage["model"] ||= model
       @judge_usage["by_kind"][kind.to_s] = @judge_usage["by_kind"].fetch(kind.to_s, 0) + 1
+      (@judge_usage["models"] ||= {})[model] = @judge_usage["models"].fetch(model, 0) + 1 if model
+    end
+
+    # The judge as a run records it (scores["_judge"]): the agent class it
+    # runs as, its provider, the model it asks for and where that setting
+    # came from, and the models that answered. A judge with no model pinned
+    # runs on its provider's default, and OpenRouter's (openrouter/auto) is a
+    # router that can answer each call with a different model, so "answered"
+    # is what actually judged. nil when no provider has credentials.
+    def judge_descriptor
+      return nil unless judge_provider
+
+      {
+        "agent" => JUDGE_AGENT_NAME,
+        "provider" => judge_provider.to_s,
+        "model" => judge_requested_model,
+        "model_source" => judge_model_source,
+        "answered" => judge_usage&.dig("models").to_h
+      }
+    end
+
+    # How a run names its judge: the model it asked for, else the one model
+    # that answered, else the provider's default.
+    def judge_display_label
+      return nil unless judge_provider
+      return judge_requested_model if judge_requested_model
+
+      answered = judge_usage&.dig("models").to_h.keys
+      answered.one? ? answered.first : "#{judge_provider} default"
     end
 
     # Every token the judge was billed for reading. Anthropic reports the
@@ -602,6 +673,28 @@ module ActionAgent
       @owner_provider_options[name.to_s] ||= ProviderCredentials.resolve(owner: owner, actor: nil, provider: name).options
     end
 
+    # The model the judge asks for, in the order judge_class applies them:
+    # the evaluation's judge_model, the owner's provider key, the host's
+    # config/active_agent.yml. nil leaves the choice to the provider.
+    def judge_requested_model
+      judge_model_setting&.last
+    end
+
+    def judge_model_source
+      judge_model_setting&.first || "provider_default"
+    end
+
+    def judge_model_setting
+      return @judge_model_setting if defined?(@judge_model_setting)
+
+      config = ActiveAgent.configuration[judge_provider]
+      @judge_model_setting = {
+        "evaluation" => judge_pinned_model,
+        "provider_key" => owner_provider_options(judge_provider)[:model],
+        "config" => (config[:model] if config.respond_to?(:[]))
+      }.find { |_source, model| model.present? }&.then { |source, model| [ source, model.to_s ] }
+    end
+
     def owner
       @owner ||= @evaluation&.agent&.owner
     end
@@ -609,13 +702,12 @@ module ActionAgent
     def judge_class
       @judge_class ||= begin
         provider = judge_provider
-        model = @evaluation.judge_model.presence
-        options = {}
+        model = judge_pinned_model(provider)
+        options = owner_provider_options(provider).dup
         options[:model] = model if model
-        options.merge!(owner_provider_options(provider))
 
         Class.new(ActiveAgent::Base) do
-          define_singleton_method(:name) { "EvaluationJudgeAgent" }
+          define_singleton_method(:name) { JUDGE_AGENT_NAME }
           generate_with provider, **options
         end
       end

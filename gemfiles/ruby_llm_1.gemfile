@@ -2,3 +2,9 @@ eval_gemfile "rails8.gemfile"
 
 # Keep the 1.x adapter covered while the other jobs resolve RubyLLM 2.x.
 gem "ruby_llm", "~> 1.16"
+
+# ruby_llm 1.x depends on faraday-net_http directly, and every recent Faraday
+# requires faraday-net_http < 3.5, so once 3.5.0 shipped Bundler fell back to
+# Faraday 2.0.0, which registers no :net_http adapter. A floor keeps a
+# Faraday that can make requests.
+gem "faraday", ">= 2.7"

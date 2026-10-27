@@ -26,7 +26,12 @@ const SOURCE_LABELS = { explorer: 'explorer agent', external: 'submitted from ou
 //
 // The open, answerable candidates start selected, at most the host's
 // preselect_limit of them, until the reviewer changes the selection.
-export default function ExplorationReview({ explorationId, onLoaded }) {
+//
+// With `scenarioSet` ({ id, label }), as the Scenarios page's generator
+// passes it, accepted candidates become scenarios of that set of a scenario
+// collection instead of the evaluation's, and there is no Accept and run.
+// `requireScenarioSet` keeps Accept off until one is given.
+export default function ExplorationReview({ explorationId, onLoaded, scenarioSet = null, requireScenarioSet = false, onAccepted }) {
   const [detail, setDetail] = useState(null);
   const [error, setError] = useState(null);
   const [selected, setSelected] = useState([]);
@@ -101,14 +106,16 @@ export default function ExplorationReview({ explorationId, onLoaded }) {
   };
 
   const accept = async () => {
-    const { res, data } = await send(`/api/explorations/${explorationId}/accept`, 'POST', { candidate_ids: selected });
+    const body = { candidate_ids: selected, ...(scenarioSet ? { scenario_set_id: scenarioSet.id } : {}) };
+    const { res, data } = await send(`/api/explorations/${explorationId}/accept`, 'POST', body);
     if (!res.ok) {
       setProblems(data.problems || {});
       setError(apiErrorMessage(data, `Could not accept the candidates (HTTP ${res.status}).`));
       return null;
     }
     setProblems({});
-    setResult({ accepted: data.accepted, evaluation: data.evaluation });
+    setResult({ accepted: data.accepted, evaluation: scenarioSet ? null : data.evaluation, scenarioSet: data.scenario_set || null });
+    onAccepted?.(data);
     setTouched(false);
     setDetail(data);
     onLoadedRef.current?.(data);
@@ -185,7 +192,8 @@ export default function ExplorationReview({ explorationId, onLoaded }) {
       {result && (
         <Card padding={12} testId="exploration-accepted">
           <span style={{ fontSize: 13, color: 'var(--color-text-primary)' }}>
-            Added {result.accepted?.added?.length || 0} and updated {result.accepted?.updated?.length || 0} scenarios in {result.evaluation?.name}.
+            Added {result.accepted?.added?.length || 0} and updated {result.accepted?.updated?.length || 0} scenarios in{' '}
+            {result.scenarioSet ? `${result.scenarioSet.catalog?.name} / ${result.scenarioSet.name}` : result.evaluation?.name}.
           </span>{' '}
           {result.evaluation && (
             <Button size="sm" variant="ghost" onClick={() => navigateTo(`/evaluations/${result.evaluation.id}`)}>Open evaluation</Button>
@@ -248,13 +256,17 @@ export default function ExplorationReview({ explorationId, onLoaded }) {
             )}
           </div>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-            <Button variant="primary" onClick={accept} disabled={busy || selected.length === 0} testId="exploration-accept">
-              Accept {selected.length}
+            <Button variant="primary" onClick={accept} disabled={busy || selected.length === 0 || (requireScenarioSet && !scenarioSet)} testId="exploration-accept">
+              Accept {selected.length}{scenarioSet ? ` into ${scenarioSet.label}` : ''}
             </Button>
-            <Button onClick={acceptAndRun} disabled={busy || selected.length === 0} testId="exploration-accept-run">Accept and run</Button>
-            <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--color-text-secondary)' }} data-testid="exploration-run-estimate">
-              {runEstimateText(estimate, detail.runs_remaining)}
-            </span>
+            {!scenarioSet && !requireScenarioSet && (
+              <>
+                <Button onClick={acceptAndRun} disabled={busy || selected.length === 0} testId="exploration-accept-run">Accept and run</Button>
+                <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--color-text-secondary)' }} data-testid="exploration-run-estimate">
+                  {runEstimateText(estimate, detail.runs_remaining)}
+                </span>
+              </>
+            )}
           </div>
         </div>
       )}

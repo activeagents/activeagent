@@ -179,3 +179,40 @@ export function parseProjectPath(path = '') {
   const match = path.match(/^\/projects\/(\d+)/);
   return match ? { projectId: match[1] } : {};
 }
+
+// The tabs of a project's page. ?tab= opens one directly, so a link (from
+// Settings -> Integrations, say) can land on the project's browser.
+export const PROJECT_TABS = ['overview', 'explorations', 'environment', 'browser', 'sessions'];
+
+// The tab a project's page opens on for the query string `search`.
+export function projectTabFromSearch(search = '') {
+  const tab = new URLSearchParams(search).get('tab');
+  return PROJECT_TABS.includes(tab) ? tab : 'overview';
+}
+
+// The query string for `search` with `tab` open: none for the Overview, so
+// a project's plain address stays plain. Other parameters are kept.
+export function projectTabSearch(search = '', tab = 'overview') {
+  const query = new URLSearchParams(search);
+  if (tab === 'overview' || !PROJECT_TABS.includes(tab)) query.delete('tab');
+  else query.set('tab', tab);
+  const text = query.toString();
+  return text ? `?${text}` : '';
+}
+
+// A project's page for a sandbox the listing linked to it (its `project`):
+// the Browser tab while the sandbox's browser runs, else the Overview.
+export function sandboxProjectPath(sandbox) {
+  if (!sandbox?.project?.id) return null;
+  const path = projectPath(sandbox.project.id);
+  return sandbox.browser?.status === 'running' ? `${path}?tab=browser` : path;
+}
+
+// What the project page's header offers for the sandbox's browser: null
+// when the sandbox is not ready or the backend runs no browsers, otherwise
+// { label, watch }: Watch live (opens the Browser tab and starts watching)
+// while it runs, Open browser (just the tab) when it does not.
+export function projectBrowserAction(project, modes = []) {
+  if (project?.sandbox_state !== 'ready' || !project.sandbox?.session_id || modes.length === 0) return null;
+  return project.sandbox.browser?.status === 'running' ? { label: 'Watch live', watch: true } : { label: 'Open browser', watch: false };
+}

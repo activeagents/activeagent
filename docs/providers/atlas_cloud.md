@@ -36,7 +36,11 @@ Then select it from an agent:
 
 <<< @/../test/dummy/app/agents/providers/atlas_cloud_agent.rb#agent{ruby}
 
-The provider defaults to `https://api.atlascloud.ai/v1`. You can override `base_url` in the provider configuration when routing through a compatible proxy.
+The provider defaults to `https://api.atlascloud.ai/v1`. You can override `base_url` in the provider configuration (for example `base_url: "https://proxy.example.com/v1"`) when routing through a compatible proxy.
+
+## Chat Only
+
+The provider supports chat completions only. Atlas Cloud does not serve an embeddings endpoint (`/v1/embeddings` returns 404), so `embed` is not available through this provider.
 
 ## Model Selection
 
