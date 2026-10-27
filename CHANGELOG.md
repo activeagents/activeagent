@@ -19,6 +19,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   its readiness answer, and `#progress` sends nothing to a collector that does
   not (`#supports_progress?`), since an older one would store the partial
   report as complete.
+- **Imported evaluation runs keep their dates** (`actionagent`). The
+  collector dates a run by its report's `metadata.finished`, which an export
+  carries, so an exported run imported into another install keeps its place
+  in the run history instead of reading as just run. A report naming no
+  finish time is dated on arrival, and a malformed one is refused.
 
 ### Fixed
 

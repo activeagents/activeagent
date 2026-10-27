@@ -335,6 +335,13 @@ and POSTed back to this one as an identical retry (200 with
   `dashboard-run-<id>-<created_at as YYYYMMDDhhmmss UTC>`. The receipt of a
   posted-back export names it, and another install stores the run under it.
 
+An export names when the run finished in its report's `metadata.finished`, and
+an import dates the run it stores by that time (its creation and completion),
+so a run moved to another install keeps its place in the run history. A report
+that names no finish time is dated when it is stored, and a finish time later
+than that is read as that time. A `finished` that is not an ISO 8601 time is
+refused with 422.
+
 The export's identities are the run's: an imported run's `source` and
 `suite`, a dashboard run's agent service (else the host application's name)
 and evaluation name, and the agent's class name (else its name). The report

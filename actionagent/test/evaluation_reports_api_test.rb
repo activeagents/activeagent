@@ -899,6 +899,39 @@ class EvaluationReportsApiTest < ActionDispatch::IntegrationTest
     assert_equal [ "progress" ], json_response["capabilities"]
   end
 
+  def finished_at(payload, finished)
+    payload.merge("report" => payload["report"].merge("metadata" => payload["report"]["metadata"].merge("finished" => finished)))
+  end
+
+  test "dates an imported run by the time its report says it finished, which its export carries on" do
+    finished = 3.days.ago.utc.change(usec: 0)
+
+    publish(finished_at(envelope, finished.iso8601))
+
+    assert_response :created
+    run = ActionAgent::EvaluationRun.find(json_response["id"])
+    assert_equal [ finished, finished ], [ run.created_at, run.completed_at ]
+    exported = JSON.parse(ActionAgent::EvaluationReportExport.new(run).to_json)
+    assert_equal finished, Time.iso8601(exported.dig("report", "metadata", "finished"))
+  end
+
+  test "dates an imported run now when its report names no finish time, or one later than now" do
+    freeze_time do
+      publish(envelope)
+      assert_equal Time.current, ActionAgent::EvaluationRun.find(json_response["id"]).completed_at
+
+      publish(finished_at(envelope, 1.day.from_now.utc.iso8601))
+      run = ActionAgent::EvaluationRun.find(json_response["id"])
+      assert_equal [ Time.current, Time.current ], [ run.created_at, run.completed_at ]
+    end
+  end
+
+  test "refuses a finish time that is not an ISO 8601 time" do
+    [ "yesterday", 1_700_000_000, "2026-13-45T99:00:00Z" ].each do |finished|
+      assert_rejected finished_at(envelope, finished), "report.metadata.finished must be an ISO 8601 time"
+    end
+  end
+
   test "ActiveAgent::Evals::Publisher shows a run in progress, then completes it under the same run_id" do
     endpoint = "http://localhost#{ENDPOINT}"
     app = ->(env) { Rails.application.call(env.except("rack.session", "rack.session.options")) }

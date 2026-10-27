@@ -326,16 +326,6 @@ module ActionAgent
       raise Denied, denial if denial.present?
     end
 
-    def import(digest)
-      agent = find_or_create_agent
-      evaluation = find_or_initialize_evaluation(agent)
-      scenarios = upsert_scenarios(evaluation)
-      run = evaluation.evaluation_runs.create!(
-        run_attributes(agent, digest).merge(external_tenant: tenant_key, external_run_id: @payload["run_id"])
-      )
-      store_results(run, scenarios, agent)
-    end
-
     # Replaces a running run's results with the delivery's.
     def progress(run, digest)
       agent = find_or_create_agent
@@ -348,6 +338,19 @@ module ActionAgent
       store_results(run, scenarios, agent)
     end
 
+    # A new run is dated by the time its report says it finished, when it
+    # names one (see #finished_at), so a run exported from one install and
+    # imported into another keeps its place in the run history.
+    def import(digest)
+      agent = find_or_create_agent
+      evaluation = find_or_initialize_evaluation(agent)
+      scenarios = upsert_scenarios(evaluation)
+      run = evaluation.evaluation_runs.create!(
+        run_attributes(agent, digest).merge(external_tenant: tenant_key, external_run_id: @payload["run_id"], created_at: finished_at)
+      )
+      store_results(run, scenarios, agent)
+    end
+
     def run_attributes(agent, digest)
       {
         external_report_digest: digest,
@@ -357,8 +360,19 @@ module ActionAgent
         scores: recorded_scores,
         samples_evaluated: results.size,
         samples_passed: results.count { |result| result["status"] == "passed" },
-        completed_at: running_delivery? ? nil : Time.current
+        completed_at: running_delivery? ? nil : finished_at
       }
+    end
+
+    # The report's `metadata.finished`, which EvaluationRun#to_report records
+    # as the run's completion time, or now when the report names none. A
+    # time later than now is read as now.
+    def finished_at
+      @finished_at ||= begin
+        now = Time.current
+        reported = metadata["finished"] && Time.iso8601(metadata["finished"])
+        reported && reported < now ? reported : now
+      end
     end
 
     def store_results(run, scenarios, agent)
@@ -697,6 +711,7 @@ module ActionAgent
         raise Invalid, "suite and scope name an evaluation longer than #{MAX_EVALUATION_NAME} characters"
       end
 
+      validate_finished!
       judge_trace_ids!(metadata["judge_trace_ids"])
       string!(report["judge"], "report.judge", 200)
       validate_release!
@@ -797,6 +812,21 @@ module ActionAgent
       string!(judge["instruction_change"], "result.diagnosis.judge.instruction_change", MAX_TEXT)
       optional_object!(judge["suggested_tool"], "result.diagnosis.judge.suggested_tool")
       string!(judge.dig("suggested_tool", "name"), "result.diagnosis.judge.suggested_tool.name", 200)
+    end
+
+    def validate_finished!
+      finished = metadata["finished"]
+      return if finished.nil?
+      return if finished.is_a?(String) && finished.length <= 40 && iso8601?(finished)
+
+      raise Invalid, "report.metadata.finished must be an ISO 8601 time"
+    end
+
+    def iso8601?(value)
+      Time.iso8601(value)
+      true
+    rescue ArgumentError
+      false
     end
 
     # The release the report says it evaluated: a digest the dashboard can
