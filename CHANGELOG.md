@@ -15,10 +15,10 @@ move to 1.9.5 together.
 
 Upgrading: `rails generate action_agent:install` and `rails db:migrate` add
 the GitHub App webhook deliveries table (below). The CLI needs `actionagent`
-1.9.5 on the dashboard
-for `catalogs export`, `catalogs import --preview`, `agents versions` and
-`traces export` (the facade's new tools), and 1.9.3 for `evals report` (the
-report export); an older dashboard answers those commands with exit code 5.
+1.9.5 on the dashboard for `catalogs export`, `catalogs import --preview`,
+`agents versions` and `traces export` (the facade's new tools), and 1.9.3
+for `evals report` (the report export); an older dashboard answers those
+commands with exit code 5.
 
 ### Added
 
