@@ -192,6 +192,12 @@ ActionAgent::Engine.routes.draw do
       end
     end
 
+    # The caller's own remote MCP servers, enabled on agents as
+    # "custom:<id>". Header values are write-only; test runs tools/list.
+    resources :mcp_server_configs, only: [ :index, :create, :update, :destroy ] do
+      post :test, on: :member
+    end
+
     resources :instance_tiers, only: [ :index, :show ] do
       collection do
         get :recommend

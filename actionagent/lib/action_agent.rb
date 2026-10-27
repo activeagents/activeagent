@@ -877,6 +877,22 @@ module ActionAgent
     # @return [Array<Hash>]
     attr_accessor :mcp_catalog
 
+    # Whether a dashboard user's own MCP server (MCPServerConfig, added on the
+    # MCP Services page) may point at a loopback, private, link-local or
+    # otherwise non-public address. Off by default: those servers are reached
+    # from the dashboard's own network, so a URL such as
+    # http://169.254.169.254/ or http://10.0.0.5/admin would let any user make
+    # the dashboard call an address only it can reach. MCPHostGuard refuses
+    # such a URL when it is saved, and refuses a host name that resolves to
+    # one when it is called. Turn it on for local development, where the
+    # server under test runs on localhost, or for a single-user install whose
+    # user already has that network access.
+    #
+    # Host registrations (+mcp_catalog+) and checkout sandbox runtimes are the
+    # host app's own configuration and are not affected.
+    # @return [Boolean]
+    attr_accessor :allow_private_mcp_hosts
+
     # Host-declared ActiveAgent::SchemaTools subclasses whose generated tools
     # are offered alongside AgentToolbox's built-ins: each generated tool is
     # individually selectable in the agent editor, dispatched by name at
@@ -1343,6 +1359,7 @@ module ActionAgent
       @user_menu_links = nil
       @sign_in_path = nil
       @mcp_catalog = []
+      @allow_private_mcp_hosts = false
       @agent_actor_resolver = nil
       @schema_tools = nil
       @schema_tools_path = "app/agent_tools"
