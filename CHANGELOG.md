@@ -9,6 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Your own MCP servers** (`actionagent`). A dashboard user adds a remote
+  MCP server by URL on the MCP Services page (*Your MCP servers*), with
+  optional request headers, tests it (`tools/list`, recording the tools it
+  serves) and enables it on agents from the Tools tab, where it is listed
+  beside the catalog as `custom:<id>`. Agent runs and scenario evaluation runs
+  call its tools, and evaluation fix items attribute them to it. Each server
+  belongs to an owner like a provider key (`MCPServerConfig`, install
+  migration 029), and every lookup, including a run's, is scoped to that
+  owner. Header values are encrypted at rest, never returned to the browser
+  (names with masked values; a blank value on update keeps the stored one),
+  and scrubbed from recorded output. Writes and tests ask for
+  `:manage_credentials`. A URL that reaches a loopback, private or
+  link-local address is refused when saved and when called (`MCPHostGuard`),
+  unless the host sets `ActionAgent.allow_private_mcp_hosts`, e.g. for local
+  development. API: `/api/mcp_server_configs` with a `test` member action.
 - **Evaluation runs published while they run** (`activeagent`, `actionagent`).
   `ActiveAgent::Evals::Publisher#progress` sends the results so far as a
   `"status": "running"` envelope, and the collector stores them as a running
