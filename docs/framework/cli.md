@@ -14,9 +14,9 @@ activeagent status
 activeagent evals list
 ```
 
-It needs `actionagent` 1.9.4 or later on the dashboard, with the facade's
+It needs `actionagent` 1.9.5 or later on the dashboard, with the facade's
 dashboard tools on (the default): `catalogs export`, `catalogs import
---preview`, `agents versions` and `traces export` use tools 1.9.4 added, and
+--preview`, `agents versions` and `traces export` use tools 1.9.5 added, and
 `evals report` the export 1.9.3 added. An older dashboard, or one that set
 `ActionAgent.mcp_dashboard_tools = false`, answers the commands that need
 them with exit code 5.

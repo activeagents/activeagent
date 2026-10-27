@@ -11,15 +11,32 @@ The `activeagent` command line: the gem's third surface beside the dashboard
 and its API, working with a dashboard over HTTP from a terminal or a CI job,
 and the facade tools it needed. A run, a scenario catalog and a trace each
 move between installs as one file. The framework and the dashboard engine
-move to 1.9.4 together.
+move to 1.9.5 together.
 
-Upgrading: no migration. The CLI needs `actionagent` 1.9.4 on the dashboard
+Upgrading: `rails generate action_agent:install` and `rails db:migrate` add
+the GitHub App webhook deliveries table (below). The CLI needs `actionagent`
+1.9.5 on the dashboard
 for `catalogs export`, `catalogs import --preview`, `agents versions` and
 `traces export` (the facade's new tools), and 1.9.3 for `evals report` (the
 report export); an older dashboard answers those commands with exit code 5.
 
 ### Added
 
+- **Evaluation runs published while they run** (`activeagent`, `actionagent`).
+  `ActiveAgent::Evals::Publisher#progress` sends the results so far as a
+  `"status": "running"` envelope, and the collector stores them as a running
+  run that the Evaluations page follows live; each later delivery under the
+  run_id replaces the results until `#call` completes the run. Only the first
+  delivery is admitted and counted. A progress delivery after completion
+  changes nothing. The collector lists `"progress"` in the `capabilities` of
+  its readiness answer, and `#progress` sends nothing to a collector that does
+  not (`#supports_progress?`), since an older one would store the partial
+  report as complete.
+- **Imported evaluation runs keep their dates** (`actionagent`). The
+  collector dates a run by its report's `metadata.finished`, which an export
+  carries, so an exported run imported into another install keeps its place
+  in the run history instead of reading as just run. A report naming no
+  finish time is dated on arrival, and a malformed one is refused.
 - **`activeagent` command line** (`activeagent`, `actionagent`; refs #619).
   The gem ships an `activeagent` executable (stdlib `OptionParser` and
   `Net::HTTP`, no new dependencies) that works with a dashboard over HTTP:
@@ -53,6 +70,55 @@ report export); an older dashboard answers those commands with exit code 5.
   summary (`GET /api/evaluations`, the facade's `evaluations_get`,
   `evaluations_run` and `evaluation_runs_get`) now carries `run_id`, the
   handle `GET <mount>/api/evaluation_reports/:run_id` takes.
+
+### Fixed
+
+- **Boot on Ruby 3.4 and 4.0 with bootsnap 1.24.6 or newer** (`actionagent`).
+  `ProviderKey#owner_record` unwrapped delegators with
+  `... while defined?(::Delegator) && ...`, which Prism miscompiles when the
+  source is compiled from a string ("argument stack underflow"); bootsnap
+  compiles files that way on those Rubies as its Ruby bug #22023 workaround,
+  so a host on bootsnap 1.26 (and local runs on Ruby 3.4.9 or 4.0.1) failed
+  to boot the engine. The `defined?` check now sits outside the loop, and a
+  test compiles every shipped Ruby file from a string.
+
+## [1.9.4] - 2026-10-25
+
+### Added
+
+- **Host links in the dashboard's user menu** (`actionagent`).
+  `ActionAgent.user_menu_links` takes an Array of `{ label:, href: }` or a
+  Proc receiving the signed-in user and the current owner, and the header's
+  avatar menu lists them above "Sign out". A hosted platform points them at
+  its workspace, members and account settings pages, and shows its admin
+  pages to the users who may use them; a self-hosted install leaves it unset
+  and sees the menu it had. Malformed entries are dropped and a raising Proc
+  is logged, so the menu seam cannot take the dashboard down.
+
+### Fixed
+
+- **Keep the trace console usable offline** (`actionagent`). The console
+  ships its own inline styles and uses native details and ordinary links
+  instead of CDN-hosted Tailwind, Turbo and Stimulus. Automatic refresh is
+  opt-in (30 or 60 seconds) and uses the browser's refresh mechanism;
+  expanding a trace no longer depends on JavaScript or a host asset pipeline.
+- **Discover and call generated agent previews** (`activeagent`). TestUnit
+  writes previews under `test/agents/previews`, with current URLs and query
+  parameters passed to the agent. Discovery checks for newly added files,
+  and the default image interceptor accepts generation objects.
+
+- **Restore Rails browser previews** (`activeagent`). `/rails/agents` lists
+  previews and renders their prompt requests without executing a provider.
+  Namespaced actions and Markdown downloads work, unknown actions return
+  404, and all endpoints enforce Rails' local-request restriction. Preview
+  directories participate in development reloading, including configured
+  paths and the legacy `test/docs/previews` directory. The dashboard gem is
+  not needed; the routes remain disabled outside development by default.
+
+- **Generate runnable agent tests** (`activeagent`). TestUnit agent tests
+  inherit from `ActiveSupport::TestCase` instead of the nonexistent
+  `ActiveAgent::TestCase`. Plain and namespaced agents, including agents
+  without actions, can load in a Rails host without calling a provider.
 
 ### Changed
 

@@ -1,0 +1,8 @@
+<dl class="summary" aria-label="Last 24 hours">
+  <div><dt>Total Traces</dt><dd><%= number_with_delimiter(@metrics[:total_traces]) %></dd></div>
+  <div><dt>Total Tokens</dt><dd><%= number_to_human(@metrics[:total_tokens], precision: 2) %></dd></div>
+  <div><dt>Avg Duration</dt><dd><%= @metrics[:avg_duration_ms] >= 1000 ? "#{(@metrics[:avg_duration_ms] / 1000.0).round(2)}s" : "#{@metrics[:avg_duration_ms].round(0)}ms" %></dd></div>
+  <div><dt>Error Rate</dt><dd class="<%= 'error' if @metrics[:error_rate] > 5 %>"><%= @metrics[:error_rate] %>%</dd></div>
+  <div><dt>Active Agents</dt><dd><%= @metrics[:unique_agents] %></dd></div>
+</dl>
+<p class="muted">Last 24h</p>

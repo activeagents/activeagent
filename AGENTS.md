@@ -128,7 +128,7 @@ Creates (the view directory drops the `_agent` suffix, the agent file keeps it):
 - `app/views/agents/agent_name/action1.md.erb`
 - `app/views/agents/agent_name/action2.md.erb`
 - `test/agents/agent_name_agent_test.rb` and
-  `test/docs/previews/agent_name_agent_preview.rb`
+  `test/agents/previews/agent_name_agent_preview.rb`
 
 ### Adding a Tool to an Agent
 

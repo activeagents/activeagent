@@ -14,6 +14,7 @@ import ModelComparisonTable from './ModelComparisonTable';
 import SpendStrip from './SpendStrip';
 import CriteriaFooter from './CriteriaFooter';
 import CopyFixPromptButton, { dashboardUrl } from './CopyFixPromptButton';
+import CopyLinkButton from './CopyLinkButton';
 import { samplingFixPromptMarkdown } from '../../../utils/fixPrompt.mjs';
 
 // One run of a sampling evaluation, opened from its runs list: what it cost
@@ -204,6 +205,12 @@ export default function EvaluationRunDetail({
               {`#${runNumber(candidate, index, runs, runCount)}`}
             </Chip>
           ))}
+          <CopyLinkButton
+            evaluationId={evaluation.id}
+            runId={run.id}
+            testId="run-copy-link"
+            title="Copy a link that opens this run, for a teammate in your organization"
+          />
           <Button variant="primary" disabled={running} onClick={onRun} testId="run-again-button">{running ? 'Running…' : 'Run again'}</Button>
         </div>
       </div>

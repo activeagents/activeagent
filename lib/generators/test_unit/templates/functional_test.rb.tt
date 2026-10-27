@@ -1,7 +1,7 @@
 require "test_helper"
 
 <% module_namespacing do -%>
-class <%= class_name %>AgentTest < ActiveAgent::TestCase
+class <%= class_name %>AgentTest < ActiveSupport::TestCase
 <% actions.each_with_index do |action, index| -%>
 <% if index != 0 -%>
 

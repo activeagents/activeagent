@@ -10,11 +10,14 @@ module ActionAgent
     # stored by EvaluationReportImport. Responds:
     #
     #   201 — stored; the receipt the publisher checks
-    #   200 — an identical retry; the receipt names the stored run. Never
-    #         refused by the quota or the rate limit.
+    #   200 — a delivery under a run_id already stored: an identical retry,
+    #         or progress on a running run (EvaluationReportImport); the
+    #         receipt names the stored run and its status. Never refused by
+    #         the quota or the rate limit.
     #   409 — this run_id already holds a different report
     #   422 — not a valid version-1 report, or an evaluation name the agent
-    #         already holds for another suite or scope
+    #         already holds for another suite or scope. The body's
+    #         `capabilities` lists EvaluationReportImport::CAPABILITIES.
     #   403 — storing it needs an operator first: a cap on observed agents,
     #         evaluations or scenarios, or no owner for the tenant
     #   429 — a new report over the host's quota (kind :evaluation_report) or
@@ -58,14 +61,15 @@ module ActionAgent
         body = request.body.read(EvaluationReportImport::MAX_BYTES + 1).to_s
         return report_too_large if body.bytesize > EvaluationReportImport::MAX_BYTES
 
-        run, duplicate = EvaluationReportImport.call(account: @account, payload: JSON.parse(body), admit: -> { admission_denial })
-        ActionAgent.record_usage(@account, :evaluation_report) unless duplicate
+        run, duplicate, progressed = EvaluationReportImport.call(account: @account, payload: JSON.parse(body), admit: -> { admission_denial })
+        stored = !duplicate && !progressed
+        ActionAgent.record_usage(@account, :evaluation_report) if stored
 
-        render json: receipt(run, duplicate), status: duplicate ? :ok : :created
+        render json: receipt(run, duplicate), status: stored ? :created : :ok
       rescue JSON::ParserError
         render json: { error: "Invalid JSON" }, status: :bad_request
       rescue EvaluationReportImport::Invalid, ActiveRecord::RecordInvalid => e
-        render json: { error: e.message }, status: :unprocessable_entity
+        render json: { error: e.message, capabilities: EvaluationReportImport::CAPABILITIES }, status: :unprocessable_entity
       rescue EvaluationReportImport::Conflict => e
         render json: { error: e.message }, status: :conflict
       rescue EvaluationReportImport::Refused => e

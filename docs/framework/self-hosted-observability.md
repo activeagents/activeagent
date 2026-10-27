@@ -370,9 +370,8 @@ call the concern through a method the engine does not define, such as
 - **CDN assets.** The React dashboard's CSS and JS are served from the
   `actionagent` gem, which adds its own `app/assets/builds` to your asset
   paths, so it works on CSP-strict and air-gapped networks. The server-rendered
-  console at `<mount>/console/traces` still loads Tailwind, Turbo and
-  Stimulus from public CDNs and renders unstyled without them — set
-  `config.layout` to a layout of your own that bundles them locally.
+  console at `<mount>/console/traces` loads nothing external — see
+  [Trace console without JavaScript](#trace-console-without-javascript).
 - **Time-series charts** on the console's metrics page light up when the
   optional [groupdate](https://github.com/ankane/groupdate) gem is
   installed. The React metrics page buckets by hour with the same portable
@@ -468,3 +467,17 @@ ActionAgent.sandbox_service = "cloud_run"
 
 Whichever backend runs, schedule `bin/rails action_agent:sandbox:reap` so
 expired sandboxes are stopped.
+
+## Trace console without JavaScript
+
+Open `<mount>/console/traces` for the server-rendered trace console, or
+`<mount>/console/traces/metrics` for the last 24 hours of agent statistics.
+The console includes its styles in the HTML. It needs no CDN, JavaScript,
+asset pipeline, or frontend build. Expand a trace with its summary or use
+**Open trace** for a standalone detail page.
+
+Refresh is manual by default so an open trace stays open. **Auto-refresh**
+reloads the current page every 30 seconds; `?refresh=60` uses 60 seconds.
+**Stop refreshing** removes that setting. A refresh reloads the whole page
+and closes expanded details. The host's dashboard authentication and tenant
+scoping apply to these pages as well.
