@@ -27,6 +27,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Projects accept GitHub App installations** (`actionagent`). A dashboard
+  that runs only the GitHub App could link an installation but not create a
+  project ("GitHub is not connected"). The New Project checklist now counts a
+  usable installation as connected, `GET /api/projects/repositories` lists
+  the installations' repositories together with the OAuth connection's, and
+  the preflight, secret discovery and creation reach a repository through the
+  installation first, as its checkout does, with a token minted for reading
+  that one repository. Picking a repository the installation has not
+  selected selects it there. A removed or suspended installation answers
+  `installation_unavailable`.
+- **Report a missing Members permission when linking an organization's
+  GitHub App installation** (`actionagent`). GitHub answers the membership
+  check with 403 while the App lacks the organization permission Members
+  (read); the callback now reports `members_permission` instead of
+  `not_admin`. The dashboard guide documents the permission, and that the
+  dashboard's callback URL must be the App's first.
+
 - **Boot on Ruby 3.4 and 4.0 with bootsnap 1.24.6 or newer** (`actionagent`).
   `ProviderKey#owner_record` unwrapped delegators with
   `... while defined?(::Delegator) && ...`, which Prism miscompiles when the

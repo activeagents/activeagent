@@ -134,6 +134,7 @@ ActionAgent::Engine.routes.draw do
     resources :projects, only: [ :index, :show, :create, :update, :destroy ] do
       collection do
         get :capabilities
+        get :repositories
         get :preflight
         get :discover_secrets
       end

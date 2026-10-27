@@ -1060,7 +1060,9 @@ repositories in one of three ways, and an install can offer both:
 
 In both, the owner then chooses which repositories the workspace may use, and
 the selection only keeps repositories GitHub itself lists. When a repository
-is selected both ways, its checkouts go through the installation.
+is selected both ways, its checkouts go through the installation. Either one
+is enough for [projects](#projects): a dashboard that runs only the GitHub
+App creates them from its installations' repositories.
 
 ### A GitHub App
 
@@ -1078,12 +1080,23 @@ To register it by hand, create a [GitHub App](https://github.com/settings/apps/n
 with:
 
 - callback URL `<mount>/api/github_installations/callback` (for example
-  `https://example.com/activeagents/api/github_installations/callback`)
+  `https://example.com/activeagents/api/github_installations/callback`). If
+  the App lists several callback URLs (a host app that also signs people in
+  with it, say), this one must be the **first**: with user authorization
+  requested during installation, GitHub disables the Setup URL and returns
+  from an install, and from **Redirect on update**, to the first callback
+  URL only, so with another one first nobody comes back to the dashboard
 - **Request user authorization (OAuth) during installation** turned on
 - **Redirect on update** turned on, so GitHub also returns after an
   installation that already exists is reconfigured
 - repository permissions Contents (read and write), Pull requests (read and
-  write) and Metadata (read), and the organization permission Members (read)
+  write) and Metadata (read), and the organization permission Members (read).
+  Linking an organization's installation reads the authorizing user's role
+  through `GET /user/memberships/orgs/:org`, which GitHub refuses with a
+  `403` while the App lacks Members (read). The dashboard then reports
+  `?github_app=members_permission`, not `not_admin`: add the permission on
+  the App's settings page, accept it on the installation, and link again.
+  The manifest from **Create GitHub App** asks for all four
 - no webhook, and no Workflows, Administration or Secrets permission
 
 Then configure it, and restart the dashboard:
@@ -1126,8 +1139,14 @@ of the organization approves it on GitHub, that owner links it from Settings.
 installed on GitHub. To link it again, choose **Install the GitHub App**,
 pick the account the App is installed on, and save its configuration on
 GitHub, which returns to the dashboard when the App has **Redirect on
-update** turned on. If GitHub does not return, uninstall the App from that
-account on GitHub and install it again from Settings.
+update** turned on. GitHub disables that page's **Save** while nothing
+changed, so for an installation whose repositories are already right, link it
+without the round trip: while signed in to the dashboard, open
+`<mount>/api/github_installations/callback?installation_id=<id>&setup_action=update`
+(the id is the last segment of the installation's settings URL on GitHub),
+which goes through the App's user authorization and the same checks. If
+GitHub does not return either way, uninstall the App from that account on
+GitHub and install it again from Settings.
 
 When GitHub refuses a token because the installation was removed or
 suspended, the dashboard marks the installation, and starting a sandbox from
@@ -2491,7 +2510,7 @@ fixes it. Creating a project is refused while a blocking item fails.
 | `boot_spec` | yes | the backend's `create_sandbox` takes [`boot_config:`](#boot-specs), which is how a project's bootstrap and secrets reach it |
 | `execution` | yes | agent execution is enabled |
 | `github` | yes | a GitHub App or OAuth app is configured. The item names the exact callback URL to register |
-| `github_connection` | yes | the owner connected GitHub |
+| `github_connection` | yes | the owner has a GitHub App installation GitHub still serves (while an App is configured), or an OAuth connection |
 | `model_credentials` | no | a provider has credentials for the project's agent |
 | `browser` | no | browser sessions, not available yet |
 | `code_runners` | no | the backend runs Claude Code or Codex sessions |
@@ -2509,18 +2528,34 @@ cannot provision are warnings. A repository the connection has not selected
 is looked up by name, which also reaches repositories past the listing's
 500-repository cap.
 
+The repository is reached through the owner's GitHub sources in the order
+its sandbox is checked out through them: the GitHub App installations that
+GitHub still serves, in the order they were linked, then the OAuth
+connection. A repository one of them selected is read through the first that
+did; any other is looked up by name through each in turn. Through an
+installation, the preflight and secret discovery each mint a token limited
+to reading that one repository's contents, and keep it for the request only.
+`GET /api/projects/repositories` is the New Project picker's list: every
+repository the sources reach, each with `selected` and `source` (`app` or
+`oauth`), the installations' first. An installation lists the repositories it
+reaches beyond its selection only to a caller with `:manage_github`. An
+installation GitHub reports removed or suspended answers `422` with
+`code: "installation_unavailable"` and is marked, as a checkout marks it.
+
 The files are read at the commit the ref names (`ref`, or the default
 branch), and the report is kept in `Rails.cache` for that commit: checking
 the repository again, or creating the project, costs one GitHub call until
 the ref moves. A ref that names no commit is `unsupported`.
 
-Reading a repository the connection has not selected, whether to check it,
-to discover its secrets or to create a project from it, needs `:manage_github`
-(see [Permissions](#permissions)). The connection's token can be one
-member's, reaching that member's own repositories, so only the selection is
-open to every member. The `403` comes before GitHub is asked, so it does not
-tell whether the repository exists. Creating a project from such a repository
-selects it. Before a project is created, `ActionAgent.quota_checker` is asked
+Reading a repository no source has selected, whether to check it, to
+discover its secrets or to create a project from it, needs `:manage_github`
+(see [Permissions](#permissions)), asked about each source it is looked up
+through. The connection's token can be one member's, reaching that member's
+own repositories, and an installation can reach repositories a member cannot
+see on GitHub, so only the selections are open to every member. The `403`
+comes before GitHub is asked, so it does not tell whether the repository
+exists. Creating a project from such a repository selects it on the source it
+was found through. Before a project is created, `ActionAgent.quota_checker` is asked
 about `:project`, and a denial answers `402`.
 
 ### Secrets
@@ -3081,7 +3116,7 @@ end
 | Action | Asked by |
 |---|---|
 | `:manage_credentials` | storing, testing and deleting an organization provider credential (`POST /api/provider_keys`, `POST /api/provider_keys/test`, `DELETE /api/provider_keys/:provider`), and storing or testing a member's personal Ollama host; a member's other personal keys need no permission |
-| `:manage_github` | connecting GitHub, choosing its repositories, and disconnecting it (`GET /api/github_connection/connect` and `/callback`, `PATCH` and `DELETE /api/github_connection`); installing and linking the GitHub App, listing and choosing an installation's repositories, and unlinking it (`GET /api/github_installations/install` and `/callback`, `GET /api/github_installations/:id/repositories`, `PATCH` and `DELETE /api/github_installations/:id`); creating the App from a manifest (`POST /api/github_app_manifest`, `GET /api/github_app_manifest/callback`) |
+| `:manage_github` | connecting GitHub, choosing its repositories, and disconnecting it (`GET /api/github_connection/connect` and `/callback`, `PATCH` and `DELETE /api/github_connection`); installing and linking the GitHub App, listing and choosing an installation's repositories, and unlinking it (`GET /api/github_installations/install` and `/callback`, `GET /api/github_installations/:id/repositories`, `PATCH` and `DELETE /api/github_installations/:id`); creating the App from a manifest (`POST /api/github_app_manifest`, `GET /api/github_app_manifest/callback`); reading a repository no GitHub source has selected for a project, and listing an installation's unselected repositories in the New Project picker (`GET /api/projects/preflight`, `/discover_secrets` and `/repositories`, `POST /api/projects`) |
 | `:manage_api_keys` | creating and revoking dashboard API keys (`POST /api/api_keys`, `DELETE /api/api_keys/:id`) |
 | `:publish_pull_request` | opening and updating a pull request from a sandbox (`POST /api/sandboxes/:id/pull_request`) or a project's install pull request (`POST /api/projects/:id/install_pull_request`), asked again when the publish runs |
 | `:answer_input_request` | answering or declining a paused run's request for input (`POST /api/input_requests/:id/answer` and `/decline`, and the MCP `input_requests_answer` tool) |
