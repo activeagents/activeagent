@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Evaluation runs published while they run** (`activeagent`, `actionagent`).
+  `ActiveAgent::Evals::Publisher#progress` sends the results so far as a
+  `"status": "running"` envelope, and the collector stores them as a running
+  run that the Evaluations page follows live; each later delivery under the
+  run_id replaces the results until `#call` completes the run. Only the first
+  delivery is admitted and counted. A progress delivery after completion
+  changes nothing. The collector lists `"progress"` in the `capabilities` of
+  its readiness answer, and `#progress` sends nothing to a collector that does
+  not (`#supports_progress?`), since an older one would store the partial
+  report as complete.
+- **Imported evaluation runs keep their dates** (`actionagent`). The
+  collector dates a run by its report's `metadata.finished`, which an export
+  carries, so an exported run imported into another install keeps its place
+  in the run history instead of reading as just run. A report naming no
+  finish time is dated on arrival, and a malformed one is refused.
+
 ### Fixed
 
 - **Boot on Ruby 3.4 and 4.0 with bootsnap 1.24.6 or newer** (`actionagent`).

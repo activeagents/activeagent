@@ -116,6 +116,49 @@ store is migrated, and nothing more.
 `Publisher#endpoint` returns the collector URL as a string, for a message that
 names where a report goes.
 
+## Showing a run while it is in progress
+
+`Publisher#progress` sends the results a run has so far. The collector stores
+them as a **running** run under the run_id, and the dashboard follows it on the
+Evaluations page as it does a run it executes itself. Each later `progress`
+call replaces the results the previous one sent, and `call` with the finished
+report under the same run_id completes the run:
+
+```ruby
+identities = { run_id: SecureRandom.uuid, source: "support-app", agent_name: "SupportBot", suite: "orders" }
+live = publisher.supports_progress?
+landed = []
+
+report = ActiveAgent::Evals::Runner.new(
+  scenarios: scenarios, models: models, replay: replay, judge: judge,
+  on_result: lambda do |result|
+    landed << result
+    next unless live
+
+    partial = ActiveAgent::Evals::Report.new(results: landed.dup, models: models, metadata: { "run_id" => identities[:run_id] })
+    publisher.progress(report: partial, **identities)
+  end
+).call
+publisher.call(report: report, **identities)
+```
+
+`progress` sends the envelope with `"status": "running"`; a complete report's
+envelope carries no status. Its receipt's `status` is `running`, or `complete`
+when a progress delivery lands after the run finished, which changes nothing.
+Only the run's first delivery counts against the account's quota and rate
+limit, so progress is never refused for either once the run is stored. Throttle
+it anyway: each call uploads every result so far.
+
+A collector that predates progress would store a running envelope as a complete
+run and then refuse the finished report with 409. So `progress` sends a report
+only to a collector whose readiness answer lists `"progress"` in its
+`capabilities` (see [Checking the collector](#checking-the-collector-before-a-run)),
+and otherwise raises `Publisher::Error` without sending anything.
+`supports_progress?` asks once, with the probe `verify!` sends, unless
+`verify!` already has.
+
+A run abandoned before its final `call` stays running on the dashboard.
+
 ## Errors and retries
 
 Every failure to deliver a report raises `Publisher::Error`. Arguments the
@@ -232,7 +275,8 @@ application's agent.
 
 `Publisher#verify!` relies on the 422 row: it posts `{}`, and a compatible collector
 answers 422 with an error naming `version` — after authenticating the key, and without
-storing, counting or rate-limiting anything. A collector that stores the empty object, or
+storing, counting or rate-limiting anything. The engine's collector adds
+`"capabilities": ["progress"]` to that answer, which is what `Publisher#progress` checks for. A collector that stores the empty object, or
 refuses it without naming `version`, does not support the publisher's readiness check.
 
 A valid report has:
@@ -290,6 +334,13 @@ and POSTed back to this one as an identical retry (200 with
 - for a run the dashboard executed, which has none, the stable
   `dashboard-run-<id>-<created_at as YYYYMMDDhhmmss UTC>`. The receipt of a
   posted-back export names it, and another install stores the run under it.
+
+An export names when the run finished in its report's `metadata.finished`, and
+an import dates the run it stores by that time (its creation and completion),
+so a run moved to another install keeps its place in the run history. A report
+that names no finish time is dated when it is stored, and a finish time later
+than that is read as that time. A `finished` that is not an ISO 8601 time is
+refused with 422.
 
 The export's identities are the run's: an imported run's `source` and
 `suite`, a dashboard run's agent service (else the host application's name)

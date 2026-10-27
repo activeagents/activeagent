@@ -799,6 +799,156 @@ class EvaluationReportsApiTest < ActionDispatch::IntegrationTest
 
   # --- publishing ----------------------------------------------------------------
 
+  # The envelope ActiveAgent::Evals::Publisher#progress sends: +payload+ with
+  # only its first +count+ results, marked running.
+  def progress(payload, count)
+    report = payload["report"].merge("results" => payload["report"]["results"].first(count))
+    payload.merge("status" => "running", "report" => report)
+  end
+
+  test "a running delivery stores a running run, and each later one replaces its results until the complete one finishes it" do
+    payload = envelope
+
+    publish(progress(payload, 2))
+    assert_response :created
+    run = ActionAgent::EvaluationRun.find(json_response["id"])
+    assert_equal [ "running", false ], json_response.values_at("status", "duplicate")
+    assert run.running?
+    assert_nil run.completed_at, "a running run has not finished"
+    assert_equal 2, run.scenario_results.count
+
+    publish(progress(payload, 3))
+    assert_response :ok
+    assert_equal [ run.id, "running", false ], json_response.values_at("id", "status", "duplicate")
+    assert_equal [ 3, 3 ], [ run.reload.samples_evaluated, run.scenario_results.count ], "the later delivery's results replace the earlier ones"
+
+    publish(payload)
+    assert_response :ok
+    assert_equal [ run.id, "complete" ], json_response.values_at("id", "status")
+    run.reload
+    assert run.complete?
+    assert run.completed_at
+    assert_equal [ 4, 3 ], [ run.samples_evaluated, run.samples_passed ]
+    assert_equal 1, ActionAgent::EvaluationRun.count
+  end
+
+  test "lists a running import as the evaluation's latest run, which the Evaluations page follows while it is in progress" do
+    publish(progress(envelope, 1))
+    evaluation_id = json_response["evaluation_id"]
+
+    get "/activeagents/api/evaluations"
+
+    listed = JSON.parse(response.body)["evaluations"].find { |evaluation| evaluation["id"] == evaluation_id }
+    assert_equal "running", listed.dig("latest_run", "status")
+  end
+
+  test "admits and counts only a run's first delivery, so progress never meets the quota" do
+    recorded = []
+    ActionAgent.usage_recorder = ->(owner, kind) { recorded << [ owner, kind ] }
+    payload = envelope
+
+    publish(progress(payload, 1))
+    ActionAgent.quota_checker = ->(_owner, kind) { { message: "Report allowance used up" } if kind == :evaluation_report }
+    publish(progress(payload, 2))
+    assert_response :ok
+    publish(payload)
+    assert_response :ok
+
+    assert_equal [ [ nil, :evaluation_report ] ], recorded
+  end
+
+  test "a running delivery that lands after the run completed changes nothing" do
+    payload = envelope
+    publish(payload)
+    run = ActionAgent::EvaluationRun.find(json_response["id"])
+
+    publish(progress(payload, 1))
+
+    assert_response :ok
+    assert_equal [ run.id, "complete", true ], json_response.values_at("id", "status", "duplicate")
+    assert_equal 4, run.reload.scenario_results.count
+  end
+
+  test "an identical running delivery is a retry" do
+    running = progress(envelope, 2)
+    publish(running)
+    publish(running)
+
+    assert_response :ok
+    assert_equal true, json_response["duplicate"]
+  end
+
+  test "refuses progress under a run_id that names another suite" do
+    payload = envelope(run_id: "run-progress")
+    publish(progress(payload, 1))
+
+    publish(progress(payload.merge("suite" => "refunds"), 2))
+
+    assert_response :conflict
+    assert_equal 1, ActionAgent::EvaluationRun.find_by(external_run_id: "run-progress").scenario_results.count
+  end
+
+  test "refuses an envelope status other than running or complete" do
+    assert_rejected envelope.merge("status" => "failed"), "status must be one of running, complete"
+  end
+
+  test "names its capabilities when it refuses a payload that is not a version-1 report" do
+    publish({})
+
+    assert_response :unprocessable_entity
+    assert_equal [ "progress" ], json_response["capabilities"]
+  end
+
+  def finished_at(payload, finished)
+    payload.merge("report" => payload["report"].merge("metadata" => payload["report"]["metadata"].merge("finished" => finished)))
+  end
+
+  test "dates an imported run by the time its report says it finished, which its export carries on" do
+    finished = 3.days.ago.utc.change(usec: 0)
+
+    publish(finished_at(envelope, finished.iso8601))
+
+    assert_response :created
+    run = ActionAgent::EvaluationRun.find(json_response["id"])
+    assert_equal [ finished, finished ], [ run.created_at, run.completed_at ]
+    exported = JSON.parse(ActionAgent::EvaluationReportExport.new(run).to_json)
+    assert_equal finished, Time.iso8601(exported.dig("report", "metadata", "finished"))
+  end
+
+  test "dates an imported run now when its report names no finish time, or one later than now" do
+    freeze_time do
+      publish(envelope)
+      assert_equal Time.current, ActionAgent::EvaluationRun.find(json_response["id"]).completed_at
+
+      publish(finished_at(envelope, 1.day.from_now.utc.iso8601))
+      run = ActionAgent::EvaluationRun.find(json_response["id"])
+      assert_equal [ Time.current, Time.current ], [ run.created_at, run.completed_at ]
+    end
+  end
+
+  test "refuses a finish time that is not an ISO 8601 time" do
+    [ "yesterday", 1_700_000_000, "2026-13-45T99:00:00Z" ].each do |finished|
+      assert_rejected finished_at(envelope, finished), "report.metadata.finished must be an ISO 8601 time"
+    end
+  end
+
+  test "ActiveAgent::Evals::Publisher shows a run in progress, then completes it under the same run_id" do
+    endpoint = "http://localhost#{ENDPOINT}"
+    app = ->(env) { Rails.application.call(env.except("rack.session", "rack.session.options")) }
+    stub_request(:post, endpoint).to_rack(app)
+    publisher = Evals::Publisher.new(endpoint: endpoint, api_key: "install-key")
+    ActionAgent.ingest_api_key = "install-key"
+    finished = report(run_id: "run-live").to_h
+    identities = { run_id: "run-live", source: "support-app", agent_name: "SupportBot", suite: "orders" }
+
+    started = publisher.progress(report: finished.merge("results" => finished["results"].first(1)), **identities)
+    completed = publisher.call(report: finished, **identities)
+
+    assert_equal [ "running", false ], started.values_at("status", "duplicate")
+    assert_equal [ started["id"], "complete" ], completed.values_at("id", "status")
+    assert_equal 4, ActionAgent::EvaluationRun.find(completed["id"]).scenario_results.count
+  end
+
   test "ActiveAgent::Evals::Publisher delivers a report the collector stores, and a retry is idempotent" do
     ActionAgent.ingest_api_key = "install-key"
     endpoint = "http://localhost#{ENDPOINT}"
