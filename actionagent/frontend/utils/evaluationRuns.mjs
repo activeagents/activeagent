@@ -335,6 +335,48 @@ export const runDelta = (run, older, { olderNumber = older?.number, comparable =
   return { text: `${diff > 0 ? '+' : ''}${diff} passed vs ${label}`, tone: diff > 0 ? 'success' : 'error' };
 };
 
+// How each of a run's results moved against the same scenario on the same
+// model in an earlier run. Both arguments are groupResultsByKey's shape,
+// `{ [scenario key]: { [column label]: result } }`. A change is one of:
+//   - improved:  failed before, passes now
+//   - regressed: passed before, fails now
+//   - errored:   settled before, errored now — the replay never reached the
+//                model, so it says nothing about the agent either way
+// A result still pending on either side, a scenario or model the earlier run
+// did not cover, and a result that errored before are not changes.
+// Returns `{ byKey: { [key]: { [label]: { kind, was } } }, improved,
+// regressed, errored }`, `was` being the earlier result.
+export const resultChanges = (resultsByKey = {}, previousByKey = {}, columns = []) => {
+  const byKey = {};
+  const counts = { improved: 0, regressed: 0, errored: 0 };
+  const settled = (result) => !!result && result.status !== 'pending';
+  Object.entries(resultsByKey || {}).forEach(([key, cells]) => {
+    columns.forEach((label) => {
+      const now = cells?.[label];
+      const was = previousByKey?.[key]?.[label];
+      if (!settled(now) || !settled(was) || was.status === 'errored') return;
+      let kind = null;
+      if (now.status === 'errored') kind = 'errored';
+      else if (now.status === 'passed' && was.status !== 'passed') kind = 'improved';
+      else if (now.status !== 'passed' && was.status === 'passed') kind = 'regressed';
+      if (!kind) return;
+      byKey[key] = { ...byKey[key], [label]: { kind, was } };
+      counts[kind] += 1;
+    });
+  });
+  return { byKey, ...counts };
+};
+
+// resultChanges' counts as the tail of the `changed` chip: ` · ▲6 ▼5 ○4`,
+// leaving out a kind that did not happen, and '' when nothing changed.
+export const changesText = ({ improved = 0, regressed = 0, errored = 0 } = {}) => {
+  const parts = [];
+  if (improved) parts.push(`▲${improved}`);
+  if (regressed) parts.push(`▼${regressed}`);
+  if (errored) parts.push(`○${errored}`);
+  return parts.length ? ` · ${parts.join(' ')}` : '';
+};
+
 // Whether `run` scored the same version of the agent as `older`, read from
 // the versions the API pins each run to: `same`, `new` (a different
 // version, so movement also measures the change), or `unrecorded` when
@@ -1070,9 +1112,10 @@ export const STRIP_LIST_HEIGHT = 320;
 // A rail row draws up to this many per-model bars; more fold into one.
 export const RAIL_BARS_MAX = 3;
 
-// How many runs' fetched results the panel keeps: the selected run, the
-// latest and the previously selected one.
-export const DETAILS_KEPT = 3;
+// How many runs' fetched results the panel keeps: the selected run, the run
+// before it (what its changes are read against), the latest and the
+// previously selected one.
+export const DETAILS_KEPT = 4;
 
 // Under this box width a steps row drops the scenario key into its title so
 // the prompt keeps its room.
