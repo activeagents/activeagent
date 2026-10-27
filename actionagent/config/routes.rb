@@ -318,6 +318,11 @@ ActionAgent::Engine.routes.draw do
       end
     end
 
+    # The GitHub App's webhook deliveries. Authenticated by GitHub's
+    # signature (github_app_webhook_secret), not a session; the App's
+    # Webhook URL is <mount>/api/github_app/webhooks.
+    post "github_app/webhooks", to: "github_app_webhooks#create", as: :github_app_webhooks
+
     # Creating the GitHub App from a manifest on a self-hosted dashboard.
     resource :github_app_manifest, only: [ :create ] do
       get :callback
