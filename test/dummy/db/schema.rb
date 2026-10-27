@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 28) do
+ActiveRecord::Schema[8.0].define(version: 29) do
   create_table "active_agent_agent_contexts", force: :cascade do |t|
     t.string "action_name", null: false
     t.string "agent_name", null: false
@@ -417,6 +417,16 @@ ActiveRecord::Schema[8.0].define(version: 28) do
     t.index [ "account_id" ], name: "index_active_agent_github_installations_on_account"
     t.index [ "installation_id" ], name: "index_active_agent_github_installations_on_installation", unique: true
     t.index [ "user_id" ], name: "index_active_agent_github_installations_on_user"
+  end
+
+  create_table "active_agent_github_webhook_deliveries", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.string "delivery_id", limit: 64, null: false
+    t.string "event", limit: 64, null: false
+    t.string "event_action", limit: 64
+    t.bigint "installation_id"
+    t.index [ "created_at" ], name: "index_active_agent_webhook_deliveries_on_created_at"
+    t.index [ "delivery_id" ], name: "index_active_agent_webhook_deliveries_on_delivery", unique: true
   end
 
   create_table "active_agent_input_requests", force: :cascade do |t|
