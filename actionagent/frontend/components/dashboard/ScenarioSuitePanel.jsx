@@ -65,12 +65,14 @@ const storage = () => (typeof localStorage !== 'undefined' ? localStorage : null
 const hidden = () => typeof document !== 'undefined' && document.visibilityState === 'hidden';
 
 // `initialRunId` is the run a deep link (/evaluations/:id/runs/:run_id)
-// asks for; `onRunSelected` reports the run a click in the list picked, so
+// asks for, and `initialResultId` the scenario result one asks for
+// (…/runs/:run_id/results/:result_id), whose row opens once the run's
+// results land; `onRunSelected` reports the run a click in the list picked, so
 // the page can put it in the URL. `modelProviders` are the providers the
 // models field suggests models from: those runs have credentials for,
 // undefined until known and null when the evaluations list did not say.
 export default function ScenarioSuitePanel({
-  evaluation, modelProviders, onChanged, onDelete, deleting = false, initialRunId = null, onRunSelected,
+  evaluation, modelProviders, onChanged, onDelete, deleting = false, initialRunId = null, initialResultId = null, onRunSelected,
 }) {
   const evaluationId = evaluation.id;
   const agentName = evaluation.agent?.name || 'Agent';
@@ -749,6 +751,21 @@ export default function ScenarioSuitePanel({
     });
   }, [matrixScenarios]);
 
+  // A link to one scenario result opens its row, once per link: when the
+  // linked run is the one shown, its results have landed and the catalog
+  // is loaded (so the row's group is known and unfolded). Declared after
+  // the per-run reset above, so it lands after it in the same commit.
+  const openedLink = useRef(null);
+  useEffect(() => {
+    if (!initialResultId || !loaded || !run || run.id !== initialRunId || !Array.isArray(run.results)) return;
+    const target = `${run.id}:${initialResultId}`;
+    if (openedLink.current === target) return;
+    const linked = run.results.find((result) => result?.id === initialResultId);
+    if (!linked?.scenario_key) return;
+    openedLink.current = target;
+    openScenario(linked.scenario_key);
+  }, [initialResultId, initialRunId, loaded, run, openScenario]);
+
   const jumpToFix = () => {
     fixRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     fixRef.current?.focus({ preventScroll: true });
@@ -819,6 +836,8 @@ export default function ScenarioSuitePanel({
           onRerun={(s) => startRun({ keys: [s.key] })}
           onToggleEnabled={toggleScenario}
           markdownUrl={markdownUrl}
+          evaluationId={evaluationId}
+          linkedResultId={run && run.id === initialRunId ? initialResultId : null}
         />
       )}
     />
@@ -941,6 +960,7 @@ export default function ScenarioSuitePanel({
           sandboxLabel={runSandboxLabel(run)}
           reportPath={reportPath}
           rerun={rerun}
+          evaluationId={evaluationId}
           onSelectLatest={showLatest}
           onWatchLatest={showLatest}
           onJumpToFix={jumpToFix}

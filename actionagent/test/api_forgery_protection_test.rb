@@ -1,11 +1,14 @@
 # frozen_string_literal: true
 
 require "test_helper"
+require_relative "support/dashboard_write_headers"
 
 # The dashboard API authenticates with the host's session cookie, so it keeps
 # forgery protection on (#461). Endpoints authenticated by a bearer token have
 # no cookie to ride on and stay exempt.
 class ApiForgeryProtectionTest < ActionDispatch::IntegrationTest
+  include DashboardWriteHeaders
+
   def setup
     ActionAgent::Agent.delete_all
     ActionAgent::ApiKey.delete_all
@@ -31,11 +34,8 @@ class ApiForgeryProtectionTest < ActionDispatch::IntegrationTest
     assert_equal 0, ActionAgent::Agent.count
   end
 
-  test "the same write succeeds with the page's CSRF token" do
-    get "/activeagents"
-    token = Nokogiri::HTML(response.body).at_css('meta[name="csrf-token"]')["content"]
-
-    post "/activeagents/api/agents", params: AGENT, headers: { "X-CSRF-Token" => token }, as: :json
+  test "the same write succeeds from the dashboard page" do
+    post "/activeagents/api/agents", params: AGENT, headers: dashboard_write_headers, as: :json
 
     assert_response :created
     assert_equal 1, ActionAgent::Agent.count
