@@ -365,6 +365,15 @@ ActionAgent::Engine.routes.draw do
   # data. See SessionPlayerController.
   get "session_player", to: "session_player#show", as: :session_player
 
+  # Shareable evaluation links: an evaluation, one of its runs, or one
+  # scenario result of a run. The React app reads these paths like any other
+  # client-side route; they are matched here first so the page itself is
+  # checked against the caller's scope, and a link to an evaluation outside
+  # it answers 404 whether or not the evaluation exists.
+  get "evaluations/:evaluation_id(/runs/:run_id(/results/:result_id))", to: "dashboard#evaluation",
+    as: :evaluation_link, format: false,
+    constraints: { evaluation_id: /\d+/, run_id: /\d+/, result_id: /\d+/ }
+
   # Everything else under the mount is a client-side route: render the
   # dashboard and let the browser resolve it. Anchored last so it can only
   # ever catch what the routes above did not, and refuses /api paths so a
