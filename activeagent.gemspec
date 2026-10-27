@@ -38,7 +38,7 @@ Gem::Specification.new do |spec|
 
   spec.add_development_dependency "jbuilder", "~> 2.14"
 
-  spec.add_development_dependency "anthropic", "~> 1.12"
+  spec.add_development_dependency "anthropic", "~> 2.3"
   spec.add_development_dependency "aws-sdk-bedrockruntime"
   # The MCP client used by MCPBridge, only for tests: the bridge is opt-in and
   # loads the gem lazily, so it stays optional for users.
