@@ -651,7 +651,9 @@ the unframed page, which is the copy to archive next to a CI run, and
 page, the run as the evaluation report envelope another install imports
 (see [Exporting a stored run](/evals/publication#exporting-a-stored-run)),
 and the report as GitHub-flavored Markdown. The suite's run header carries
-the same downloads.
+the same downloads, and `activeagent evals report RUN --format html|json|md`
+writes the same three from a terminal, by the run's `run_id` (see
+[Command Line](/framework/cli#reports)).
 
 **Copy as Markdown** puts a piece of the run on the clipboard for an issue
 or a pull request: the whole report (the run report view and the run
@@ -767,8 +769,10 @@ leaves archived evaluations out unless `?archived=1`, returns
 `archived_count`, and gives each evaluation its `standing`,
 `headline_run_id`, `archived_at` and `per_model` passes, plus the
 `headline_run` in full when a newer run is pending or failed; every run
-carries its `agent_version` (`id`, `number`, `release_digest`, `revision`,
-`release`) and `version_state` (`current`, `earlier` or `unrecorded`).
+carries its `run_id` (the handle `GET <mount>/api/evaluation_reports/:run_id`
+and the CLI's `evals report` take), its `agent_version` (`id`, `number`,
+`release_digest`, `revision`, `release`) and `version_state` (`current`,
+`earlier` or `unrecorded`).
 
 ## Scenario catalogs
 
@@ -879,9 +883,11 @@ answering `202` with the set, its evaluation and the pending run. A set
 whose product names no agent answers `422` with `code: "no_target"`.
 
 The same operations are MCP tools for a coding harness (`catalogs_list`,
-`catalogs_import`, `catalog_set_run`, see
-[the MCP facade](#evaluations-and-telemetry-from-your-coding-harness)) and
-rake tasks for a deploy or a cron:
+`catalogs_import`, `catalogs_preview`, `catalogs_export`, `catalog_set_run`,
+see [the MCP facade](#evaluations-and-telemetry-from-your-coding-harness)),
+commands of the [`activeagent` CLI](/framework/cli#scenario-catalogs)
+(`catalogs list`, `catalogs import [--preview]`, `catalogs export`, over
+HTTP with a dashboard API key) and rake tasks for a deploy or a cron:
 
 ```bash
 bin/rails action_agent:catalogs:import FILE=.activeagents/evals/support_desk.yml   # ACCOUNT_ID= or USER_ID= for the owner
@@ -948,11 +954,15 @@ calls.
 | `evaluation_runs_compare` | Two runs of one evaluation, result by result: fixed, regressed, still failing, added, removed. Defaults to the latest run against the one before it |
 | `traces_search` | Summary rows of traces, newest first, filtered by `agent` (class name or dashboard slug), `status` (`error` or `ok`), `service`, `since_minutes`, `min_tokens` and `min_duration_ms`; at most 100 |
 | `traces_get` | One trace by id, OpenTelemetry trace id or its first 8 characters: spans, tool calls with their arguments and results, tokens, estimated cost and failed spans |
+| `traces_export` | The same trace whole, as the payload `POST <mount>/api/traces` ingests (`{ traces: [trace], sdk }`), its spans untruncated and the owner's credentials masked, so it can be sent to another dashboard with that dashboard's ingest key |
 | `input_requests_list` | The pending [input requests](#input-requests) of the key's runs, newest first, in the API's shape; `run_id` filters to one run |
 | `input_requests_answer` | Answers a `text` or `choice` request as the key's caller, under the same permission check as the API. A `confirm` or `secret` request is refused with an error that points to the dashboard |
 | `catalogs_list` | The owner's [scenario catalogs](#scenario-catalogs): each with its products, sets, scenario count, digest and whether its document is in Active Storage |
-| `catalogs_import` | Imports a catalog `document` (YAML) under the key's owner, resolving each product's `agent` by name among the owner's agents. Re-importing the same key updates products, sets and scenarios in place. Needs the `replace_scenarios` permission |
+| `catalogs_import` | Imports a catalog `document` (YAML, or the JSON `catalogs_export` writes) under the key's owner, resolving each product's `agent` by name among the owner's agents. Re-importing the same key updates products, sets and scenarios in place; `mode` is `replace` (the default: the document is the catalog) or `merge` (what the document leaves out is kept). Needs the `replace_scenarios` permission |
+| `catalogs_preview` | What `catalogs_import` of the `document` would change, with the same `name` and `mode`, writing nothing: whether the catalog record would be created, updated or left as it is, counts of products, sets and scenarios created, updated, removed or kept, and the first 500 changes by path |
+| `catalogs_export` | A catalog's canonical document from its records (`catalog` key), as YAML or `format: json`: the whole catalog, or one `product` or one `set` of it, as a document of the catalog's key that a merge import reads back. What the Catalogs page's Export YAML downloads |
 | `catalog_set_run` | Runs one set (`catalog`, `product`, `set` keys) as an evaluation named `catalog/product/set`, against the product's agent, an `agent` (slug or id) or a `project_id` whose sandbox is already running; `models`, `keys`, `browser` and `sandbox_id` narrow the run as `evaluations_run` does. Gated like `evaluations_run` |
+| `agents_versions` | An agent's versions (`agent`, slug or id), newest first, as `GET /api/agents/:id/versions` lists them: each with its number, its diff from the version before, who made it, whether it is the current version and whether it was cut from the agent's code on deploy; `limit` at most 50 |
 
 A typical loop: `evaluations_run`, poll `evaluation_runs_get` until the run is
 `complete`, read the fix items and a failing result's trace with

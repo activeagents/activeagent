@@ -388,6 +388,16 @@ bin/rails action_agent:evaluations:import FILE=tmp/run.json
 # => Stored: run ci-2026-10-21 as run #41 of evaluation #7 (orders (eu)), complete
 ```
 
+From any machine with the gem, the [`activeagent` CLI](/framework/cli#reports)
+does the same over HTTP with the ingest key, and `evals runs` shows each
+run's `run_id`:
+
+```bash
+activeagent evals report ci-2026-10-21 --format json -o run.json
+activeagent evals import run.json --profile other-install
+activeagent evals report ci-2026-10-21 --format md | gh pr comment 123 --body-file -
+```
+
 ### Metering
 
 A host that meters its install answers the new `:evaluation_report` kind from

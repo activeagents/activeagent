@@ -747,7 +747,11 @@ two copies of a catalog can be compared without diffing them. The mounted
 dashboard stores catalogs in its own tables, writes the canonical document
 to Active Storage and runs one set at a time as an evaluation of the
 product's agent; see
-[Scenario catalogs](/framework/dashboard#scenario-catalogs).
+[Scenario catalogs](/framework/dashboard#scenario-catalogs). The
+`activeagent` command line imports a catalog into that dashboard, previews
+what an import would change, and writes the stored records back out as the
+canonical YAML or as JSON (`catalogs import|export`; see
+[Command Line](/framework/cli#scenario-catalogs)).
 
 ## Running a host application's agent from the mounted dashboard
 
@@ -820,6 +824,9 @@ schema migration. Existing result and report URLs continue to work:
   `model=` or `scenario=`, for one piece), `report.json` as the
   [evaluation report envelope](/evals/publication#exporting-a-stored-run), and
   `?download=1` downloads any of them as `<evaluation>-run-<n>.html|md|json`.
+- From a terminal, `activeagent evals report RUN --format json|html|md`
+  writes the same three for a run's `run_id`, and `activeagent evals import`
+  posts the JSON to another install (see [Command Line](/framework/cli#reports)).
 - `<mount>/evaluations/:id/runs/:run_id/report` opens it within the dashboard.
 - `<mount>/evaluations/:id` opens an evaluation on its run history, and
   `<mount>/evaluations/:id/runs/:run_id` one of its runs — a page of its own
@@ -828,7 +835,10 @@ schema migration. Existing result and report URLs continue to work:
   one outside the first index page. Add `&run=:run_id` to open its saved report.
 
 Every serialized run carries `number` (its position in the evaluation's
-history, oldest first) and `usage`, which keeps the agent's spend apart from
+history, oldest first), `run_id` (the handle
+`GET <mount>/api/evaluation_reports/:run_id` and `activeagent evals report`
+take: a published run's own, a dashboard run's
+`dashboard-run-<id>-<created_at>`) and `usage`, which keeps the agent's spend apart from
 the judge's: `replays` (or `samples`, for a sampling run), `cost`,
 `per_interaction`, tokens and timing on the agent's side — what the
 interactions cost to serve — and `judge` (`calls`, tokens, `cost`, `model`,
