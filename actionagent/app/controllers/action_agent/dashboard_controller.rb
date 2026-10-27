@@ -24,7 +24,33 @@ module ActionAgent
       render "action_agent/dashboard/index", locals: { props: props }
     end
 
+    # A shareable link to an evaluation, one of its runs, or one scenario
+    # result of that run (/evaluations/:id/runs/:run_id/results/:result_id).
+    # The page is the dashboard either way; what the link names is checked
+    # against the caller's agents, the scope the evaluations API reads, so a
+    # member of the owning account opens it and anyone else gets a 404 —
+    # the same answer a link to nothing gets, so it says nothing about what
+    # another account has. The dashboard still renders, and its own request
+    # for the evaluation reports it unavailable. A telemetry-only install,
+    # with no evaluations table, has nothing to link to either.
+    def evaluation
+      linked_evaluation_records
+      index
+    rescue ActiveRecord::RecordNotFound, ActiveRecord::StatementInvalid
+      render "action_agent/dashboard/index", locals: { props: props }, status: :not_found
+    end
+
     private
+
+    # Raises RecordNotFound unless the evaluation is the caller's, the run
+    # is one of its runs and the result one of that run's results.
+    def linked_evaluation_records
+      evaluation = Evaluation.joins(:agent).where(agent: owner_agents).find(params[:evaluation_id])
+      return unless params[:run_id]
+
+      run = evaluation.evaluation_runs.find(params[:run_id])
+      run.scenario_results.find(params[:result_id]) if params[:result_id]
+    end
 
     def props
       {
