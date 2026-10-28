@@ -28,7 +28,7 @@ import ReplayLink from './replay/ReplayLink';
 import {
   Chevron,
   META_COLUMN,
-  MetaStrip,
+  MetaCells,
   ObjectCard,
   PreviewLines,
   SegmentedControl,
@@ -462,8 +462,8 @@ export default function InteractionsView({ agentId = null, embedded = false }) {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-start justify-between">
+      {/* Header: title over the controls on a phone, beside them from md. */}
+      <div className="flex flex-col max-lg:gap-3 lg:flex-row lg:items-start lg:justify-between">
         {!embedded && (
           <div>
             <h1 className="text-2xl font-bold" style={{ color: colors.textPrimary }}>Interactions</h1>
@@ -472,7 +472,7 @@ export default function InteractionsView({ agentId = null, embedded = false }) {
             </p>
           </div>
         )}
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3 lg:flex-shrink-0 lg:justify-end">
           <div
             className="flex items-center rounded-lg p-1"
             style={{ background: darkMode ? 'rgba(255,255,255,0.06)' : '#f3f4f6' }}
@@ -561,7 +561,7 @@ export default function InteractionsView({ agentId = null, embedded = false }) {
           views read as one system. */}
       {sessions.length > 0 && (
         <div className="rounded-xl border p-4" style={{ backgroundColor: colors.cardBg, borderColor: colors.cardBorder }}>
-          <div className="flex items-center justify-between mb-3">
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
             <h3 className="text-sm font-semibold" style={{ color: colors.textPrimary }}>
               Interactions over time
             </h3>
@@ -625,7 +625,8 @@ export default function InteractionsView({ agentId = null, embedded = false }) {
             </ResponsiveContainer>
           </div>
 
-          <div className="flex items-center gap-8 pt-3 mt-3 border-t" style={{ borderColor: colors.cardBorder }}>
+          {/* Two by two on a phone, one row from md. */}
+          <div className="grid grid-cols-2 gap-3 md:flex md:items-center md:gap-8 pt-3 mt-3 border-t" style={{ borderColor: colors.cardBorder }}>
             {[
               { label: 'Interactions', value: summary.interactions.toLocaleString() },
               { label: 'Agents', value: summary.agents.toLocaleString() },
@@ -661,11 +662,11 @@ export default function InteractionsView({ agentId = null, embedded = false }) {
             {/* Agent header — Assistant.respond and Assistant.title are different
                 agents (different instructions, tools, cost), so their streams
                 are grouped rather than interleaved. */}
-            <div className="flex items-baseline justify-between">
+            <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
               <h2 className="text-sm font-semibold" style={{ color: colors.textPrimary }}>
                 {group.title}
               </h2>
-              <span className="text-xs" style={{ color: colors.textMuted }}>
+              <span className="text-xs whitespace-nowrap" style={{ color: colors.textMuted }}>
                 {group.sessions.length} {group.sessions.length === 1 ? 'interaction' : 'interactions'}
                 {group.tokens > 0 && ` · ${formatNumber(group.tokens)} tokens`}
               </span>
@@ -689,7 +690,7 @@ export default function InteractionsView({ agentId = null, embedded = false }) {
                   onClick={() => toggleSession(session.id)}
                   style={isExpanded ? { background: colors.hoverBg } : undefined}
                 >
-                  <div className="flex items-center gap-3 min-w-0">
+                  <div className="flex items-center gap-3 min-w-0 max-lg:flex-wrap max-lg:gap-y-1">
                     {isCodeInteraction(session) ? (
                       <span
                         className="px-2 py-1 text-xs font-medium rounded flex-shrink-0"
@@ -724,9 +725,10 @@ export default function InteractionsView({ agentId = null, embedded = false }) {
                     )}
                   </div>
                   {/* The same columns a trace row keeps, held whether or
-                      not this interaction filled them. */}
-                  <div className="flex items-center gap-4 flex-shrink-0">
-                    <MetaStrip
+                      not this interaction filled them; below md they fold
+                      into a wrapping line, as a trace card's do. */}
+                  <div className="flex items-center gap-4 flex-shrink-0 max-lg:w-full max-lg:min-w-0">
+                    <MetaCells
                       darkMode={darkMode}
                       cells={[
                         {

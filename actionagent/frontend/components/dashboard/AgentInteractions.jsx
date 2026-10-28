@@ -33,6 +33,11 @@ export default function AgentInteractions({ agent, onBack }) {
   const [filterSource, setFilterSource] = useState(''); // '' | 'dashboard' | 'reported'
   const [sort, setSort] = useState('recent'); // see AgentExecutions::SORTS
   const conversationRef = useRef(null);
+  // Below md the two columns show one at a time: the report or the selected
+  // run ('detail'), or the run list ('list'). Opening a run or a session
+  // returns to the detail; the breadcrumb bar's "Runs" button opens the
+  // list. From md up both columns render whatever this says.
+  const [mobilePane, setMobilePane] = useState('detail');
 
   const basePath = dashboardPath(`/agents/${agent.id}/interactions`);
 
@@ -149,6 +154,7 @@ export default function AgentInteractions({ agent, onBack }) {
       setSelectedMessages(data.messages || []);
       setDetailMode('run');
       setSelectedSession(null);
+      setMobilePane('detail');
       if (updateUrl) pushPath(`${basePath}/runs/${runId}`);
     } catch (error) {
       console.error('Failed to load run details:', error);
@@ -179,6 +185,7 @@ export default function AgentInteractions({ agent, onBack }) {
   // Drill into one session (or back to the sessions list with null)
   const selectSession = (session) => {
     setDetailMode('all');
+    setMobilePane('detail');
     if (session) {
       setSelectedSession({ id: session.id, name: session.display_name });
       pushPath(`${basePath}/sessions/${session.id}`);
@@ -286,8 +293,11 @@ export default function AgentInteractions({ agent, onBack }) {
 
   return (
     <div className="flex h-full">
-      {/* Conversation List */}
-      <div className="w-80 border-r border-gray-200 flex flex-col bg-white">
+      {/* Conversation List — the whole width on a phone, when shown. */}
+      <div
+        className={`${mobilePane === 'list' ? 'flex' : 'hidden'} lg:flex w-full lg:w-80 lg:border-r border-gray-200 flex-col bg-white`}
+        data-testid="agent-runs-pane"
+      >
         {/* Header */}
         <div className="p-4 border-b border-gray-200">
           <div className="flex items-center space-x-3 mb-4">
@@ -299,10 +309,19 @@ export default function AgentInteractions({ agent, onBack }) {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
             </button>
-            <div>
+            <div className="min-w-0">
               <h2 className="font-semibold text-gray-900">Agent Interactions</h2>
-              <p className="text-sm text-gray-500">{agent.name}</p>
+              <p className="text-sm text-gray-500 truncate">{agent.name}</p>
             </div>
+            {/* Back to the report or the open run (phones only). */}
+            <button
+              type="button"
+              onClick={() => setMobilePane('detail')}
+              className="lg:hidden ml-auto px-2 py-1 text-xs rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors whitespace-nowrap"
+              data-testid="agent-runs-show-detail"
+            >
+              {selectedRun && detailMode === 'run' ? `Run #${selectedRun.id} →` : 'Report →'}
+            </button>
           </div>
 
           {/* Shared dashboard time window */}
@@ -464,11 +483,23 @@ export default function AgentInteractions({ agent, onBack }) {
       </div>
 
       {/* Conversation Detail */}
-      <div className="flex-1 flex flex-col bg-gray-50">
+      <div
+        className={`${mobilePane === 'detail' ? 'flex' : 'hidden'} lg:flex flex-1 min-w-0 flex-col bg-gray-50`}
+        data-testid="agent-runs-detail"
+      >
         {/* Breadcrumbs — each level links back up, mirroring the URL
             (/interactions, /interactions/runs/:id, /interactions/sessions,
-            /interactions/sessions/:id). */}
-        <div className="px-4 py-2 bg-white border-b border-gray-100 flex items-center gap-1.5 text-xs text-gray-500">
+            /interactions/sessions/:id). On a phone the bar also opens the
+            run list, which is otherwise the hidden column. */}
+        <div className="px-4 py-2 bg-white border-b border-gray-100 flex items-center gap-1.5 text-xs text-gray-500 flex-wrap">
+          <button
+            type="button"
+            onClick={() => setMobilePane('list')}
+            className="lg:hidden mr-1 px-2 py-1 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors whitespace-nowrap"
+            data-testid="agent-runs-show-list"
+          >
+            ≡ Runs
+          </button>
           <button onClick={onBack} className="hover:text-gray-900 hover:underline transition-colors">
             {agent.name}
           </button>
@@ -502,7 +533,7 @@ export default function AgentInteractions({ agent, onBack }) {
 
         {/* Mode toggle: one run's stream, or every session for this agent —
             both rendered by the same shared interactions components. */}
-        <div className="p-3 bg-white border-b border-gray-200 flex items-center justify-between">
+        <div className="p-3 bg-white border-b border-gray-200 flex items-center justify-between gap-2 flex-wrap">
           <div className="flex bg-gray-100 rounded-lg p-1">
             <button
               onClick={() => switchMode('run')}
@@ -589,7 +620,7 @@ export default function AgentInteractions({ agent, onBack }) {
             </div>
 
             {/* Run interaction stream — same design as the Interactions view */}
-            <div ref={conversationRef} className="flex-1 overflow-auto p-6">
+            <div ref={conversationRef} className="flex-1 overflow-auto p-4 md:p-6">
               <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
                 {selectedMessages.length > 0 ? (
                   <InteractionStream messages={selectedMessages} darkMode={false} />
@@ -617,7 +648,7 @@ export default function AgentInteractions({ agent, onBack }) {
 
             {/* Run Stats */}
             <div className="p-4 bg-white border-t border-gray-200">
-              <div className="flex items-center justify-center space-x-8 text-sm text-gray-500">
+              <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-1 text-sm text-gray-500">
                 <span>Duration: {formatDuration(selectedRun.duration_ms)}</span>
                 {selectedRun.total_tokens && <span>Tokens: {selectedRun.total_tokens}</span>}
                 {selectedRun.input_tokens && selectedRun.output_tokens && (
@@ -649,7 +680,7 @@ export default function AgentInteractions({ agent, onBack }) {
               );
             }
             return (
-              <div className="flex-1 overflow-auto p-6 space-y-5">
+              <div className="flex-1 overflow-auto p-4 md:p-6 space-y-5">
                 <div className="flex items-center gap-3">
                   <AgentAvatar size={40} />
                   <div>
@@ -701,7 +732,7 @@ export default function AgentInteractions({ agent, onBack }) {
                       {sessions.map(session => (
                         <div
                           key={session.id}
-                          className="px-4 py-3 hover:bg-gray-50 cursor-pointer flex items-center justify-between gap-3"
+                          className="px-4 py-3 hover:bg-gray-50 cursor-pointer flex flex-wrap items-center justify-between gap-3"
                           onClick={() => selectSession(session)}
                           title="Open this session's interaction stream"
                         >
@@ -714,7 +745,7 @@ export default function AgentInteractions({ agent, onBack }) {
                               </span>
                             )}
                           </div>
-                          <div className="flex items-center gap-3 text-xs text-gray-400 flex-shrink-0">
+                          <div className="flex flex-wrap items-center gap-3 text-xs text-gray-400 flex-shrink-0">
                             <span>{session.message_count} messages</span>
                             <span>{(session.tokens?.total || 0).toLocaleString()} tokens</span>
                             <span>{formatDate(session.last_activity_at)}</span>
