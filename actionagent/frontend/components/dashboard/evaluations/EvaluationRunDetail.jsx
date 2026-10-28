@@ -235,7 +235,7 @@ export default function EvaluationRunDetail({
         {models.length > 1 && (
           <ModelComparisonTable rows={modelComparisonRows(run, { columns: models })} unit="interaction" judgedBy={verdict?.judge || null} judgeEstimated={spend?.judge?.estimated ?? true} />
         )}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 12 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(260px, 100%), 1fr))', gap: 12 }}>
           {columns.map((model) => {
             const card = modelScorecard(run, model);
             const cohort = cohortFor(model);
@@ -378,7 +378,7 @@ export default function EvaluationRunDetail({
           <span style={mono()}>{items.length ? plural(items.length, 'item') : 'nothing'}</span>
         </div>
         {items.length ? (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(320px, 100%), 1fr))', gap: 12 }}>
             {items.map((item) => <FixCard key={item.kind} item={item} evaluation={evaluation} run={run} number={number} />)}
           </div>
         ) : (
