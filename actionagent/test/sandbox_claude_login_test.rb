@@ -23,7 +23,9 @@ class SandboxClaudeLoginTest < ActiveSupport::TestCase
       case ARGV
       when ["auth", "login"]
         STDOUT.sync = true
-        puts "https://claude.ai/oauth/authorize?client_id=fixture&state=synthetic"
+        # As Claude Code 2.1 prints it: an OSC 8 hyperlink whose text repeats the URL.
+        url = "https://claude.com/cai/oauth/authorize?client_id=fixture&state=synthetic"
+        puts "\e]8;;#{url}\a#{url}\e]8;;\a"
         code = STDIN.gets.to_s.strip
         puts "echoed #{code} sk-ant-oat01-syntheticNeverPublish"
         exit 1 unless code == "single-use-fixture-code"
@@ -48,7 +50,8 @@ class SandboxClaudeLoginTest < ActiveSupport::TestCase
   test "a PTY login accepts one code without persisting output and verifies effective subscription authentication" do
     assert_equal "starting", @backend.start_claude_login(@sandbox)[:status]
     login = wait_for("awaiting_code")
-    assert_match %r{\Ahttps://claude.ai/oauth/authorize}, login[:authorize_url]
+    assert_equal "https://claude.com/cai/oauth/authorize?client_id=fixture&state=synthetic", login[:authorize_url],
+      "the URL is read once, without the hyperlink's terminator or its repeated text"
     @backend.submit_claude_login_code(@sandbox, "single-use-fixture-code")
     assert_raises(ActionAgent::LocalSandboxBackend::Error) { @backend.submit_claude_login_code(@sandbox, "single-use-fixture-code") }
     assert wait_for("connected")[:logged_in]

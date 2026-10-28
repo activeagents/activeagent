@@ -108,7 +108,7 @@ module ActionAgent
       data = JSON.parse(File.read(path, 8192))
       status = data["status"].to_s
       result = { status: %w[starting awaiting_code submitted completed failed expired cancelled].include?(status) ? status : "failed" }
-      if status == "awaiting_code" && data["authorize_url"].to_s.match?(%r{\Ahttps://(?:claude\.ai|platform\.claude\.com)/oauth/authorize\?[^\s]+\z})
+      if status == "awaiting_code" && data["authorize_url"].to_s.match?(%r{\Ahttps://(?:claude\.ai|claude\.com|platform\.claude\.com)/(?:cai/)?oauth/authorize\?[^\s]+\z})
         result[:authorize_url] = data["authorize_url"]
       end
       result
