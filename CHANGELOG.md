@@ -85,6 +85,14 @@ commands with exit code 5.
   `create_active_agent_github_webhook_deliveries`; run
   `rails generate action_agent:install` and `rails db:migrate` to add it.
 
+### Changed
+
+- **Agents and evaluations lead the sidebar** (`actionagent`). The first
+  group is Ask ActiveAgents, Agents, New Agent, Run Agents, Evaluations and
+  Scenarios; Observability keeps Traces, Interactions, Sessions and Metrics;
+  a new Build group holds Projects, Tools and MCP Services; Workspace is
+  unchanged. Every path and view is the same, only the order and grouping.
+
 ### Fixed
 
 - **Projects accept GitHub App installations** (`actionagent`). A dashboard
