@@ -104,7 +104,7 @@ export function Button({ variant = 'secondary', size = 'md', onClick, disabled, 
 // that holds both groups owns the rule, so the two groups share one baseline.
 function TabGroup({ tabs, active, onChange, colors }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center' }}>
+    <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
       {tabs.map(tab => {
         const isActive = active === tab.id;
         return (
@@ -235,8 +235,9 @@ export default function AgentEditor({ agent, meta, onSave, onDelete, onRun, onDu
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-      {/* Header — back, glyph, identity, then the two page-level actions. */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+      {/* Header — back, glyph, identity, then the two page-level actions,
+          which drop to their own line (right-aligned) below md. */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', flexWrap: 'wrap' }}>
         <button
           type="button"
           onClick={onBack}
@@ -274,7 +275,7 @@ export default function AgentEditor({ agent, meta, onSave, onDelete, onRun, onDu
           </p>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+        <div className="max-md:w-full max-md:justify-end" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
           {onDuplicate && (
             <Button variant="secondary" colors={colors} onClick={onDuplicate}>Duplicate</Button>
           )}
@@ -282,14 +283,19 @@ export default function AgentEditor({ agent, meta, onSave, onDelete, onRun, onDu
         </div>
       </div>
 
-      {/* Both groups drive one tab state; the row owns the baseline rule. */}
+      {/* Both groups drive one tab state; the row owns the baseline rule.
+          The strip scrolls sideways rather than wrapping; on a phone it
+          bleeds into the page gutter so the scroll runs edge to edge. */}
       <div
+        className="max-md:-mx-4 max-md:px-4"
+        data-testid="agent-tabs"
         style={{
           display: 'flex',
           alignItems: 'center',
           gap: '20px',
           borderBottom: `1px solid ${colors.cardBorder}`,
-          overflowX: 'auto'
+          overflowX: 'auto',
+          scrollbarWidth: 'none'
         }}
       >
         <TabGroup tabs={CONFIG_TABS} active={activeTab} onChange={setActiveTab} colors={colors} />
@@ -434,7 +440,7 @@ const microLabel = (colors) => ({
 function ConfigTab({ formData, updateField, providerModels, colors, darkMode, onDelete }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+      <div className="max-md:grid-cols-1!" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
         <div>
           <label style={labelStyle(colors)}>Agent Name</label>
           <input
@@ -471,7 +477,7 @@ function ConfigTab({ formData, updateField, providerModels, colors, darkMode, on
         />
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+      <div className="max-md:grid-cols-1!" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
         <div>
           <label style={labelStyle(colors)}>Provider</label>
           <select
@@ -500,7 +506,7 @@ function ConfigTab({ formData, updateField, providerModels, colors, darkMode, on
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+      <div className="max-md:grid-cols-1!" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
         <div>
           <label style={labelStyle(colors)}>
             Temperature{' '}

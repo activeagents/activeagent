@@ -88,10 +88,12 @@ export default function AgentList({
   return (
     <div className="space-y-6">
       {/* Header Actions */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div className="flex-1 flex items-center space-x-4">
+      {/* Toolbar: search over the filters on a phone (the search takes the
+          row, the three selects wrap under it), one row from md. */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div className="flex-1 flex flex-wrap items-center gap-4 min-w-0">
           {/* Search */}
-          <div className="relative flex-1 max-w-md">
+          <div className="relative flex-1 max-w-md max-md:basis-full">
             <input
               type="text"
               placeholder="Search agents..."
@@ -139,7 +141,7 @@ export default function AgentList({
           </select>
         </div>
 
-        <div className="flex items-center space-x-3">
+        <div className="flex flex-wrap items-center gap-3 md:flex-shrink-0">
           <button
             onClick={onRefresh}
             disabled={isLoading}
@@ -272,7 +274,7 @@ export default function AgentList({
               : 'Try adjusting your search or filters'}
           </p>
           {agents.length === 0 && (
-            <div className="flex items-center justify-center space-x-4">
+            <div className="flex flex-wrap items-center justify-center gap-4">
               <button
                 onClick={onBrowseTemplates}
                 className="inline-flex items-center space-x-2 px-6 py-3 border-2 border-red-500 text-red-600 rounded-lg hover:bg-red-50 transition-colors"
