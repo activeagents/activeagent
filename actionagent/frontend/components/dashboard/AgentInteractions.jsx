@@ -7,6 +7,7 @@ import InteractionStream from './InteractionStream';
 import InteractionsView from './InteractionsView';
 import { dashboardPath, dashboardRelativePath } from '../../utils/dashboardPath';
 import ReplayLink from './replay/ReplayLink';
+import { PHONE_STAT_LABEL, PHONE_STAT_VALUE } from './TelemetryObject';
 
 export default function AgentInteractions({ agent, onBack }) {
   const { timeWindow } = useTimeWindow();
@@ -533,7 +534,7 @@ export default function AgentInteractions({ agent, onBack }) {
 
         {/* Mode toggle: one run's stream, or every session for this agent —
             both rendered by the same shared interactions components. */}
-        <div className="p-3 bg-white border-b border-gray-200 flex items-center justify-between gap-2 flex-wrap">
+        <div className="p-3 max-md:px-4 max-md:py-2 bg-white border-b border-gray-200 flex items-center justify-between gap-2 flex-wrap">
           <div className="flex bg-gray-100 rounded-lg p-1">
             <button
               onClick={() => switchMode('run')}
@@ -578,20 +579,20 @@ export default function AgentInteractions({ agent, onBack }) {
                   </div>
                   <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                     <div className="bg-gray-50 rounded-lg p-3">
-                      <p className="text-xs text-gray-500">Runs</p>
-                      <p className="text-lg font-bold text-gray-900">{totals.runs}</p>
+                      <p className={`text-xs text-gray-500 ${PHONE_STAT_LABEL}`}>Runs</p>
+                      <p className={`text-lg ${PHONE_STAT_VALUE} font-bold text-gray-900`}>{totals.runs}</p>
                     </div>
                     <div className="bg-gray-50 rounded-lg p-3">
-                      <p className="text-xs text-gray-500">Success</p>
-                      <p className="text-lg font-bold text-gray-900">{totals.runs ? Math.round((totals.completed / totals.runs) * 100) : 0}%</p>
+                      <p className={`text-xs text-gray-500 ${PHONE_STAT_LABEL}`}>Success</p>
+                      <p className={`text-lg ${PHONE_STAT_VALUE} font-bold text-gray-900`}>{totals.runs ? Math.round((totals.completed / totals.runs) * 100) : 0}%</p>
                     </div>
                     <div className="bg-gray-50 rounded-lg p-3">
-                      <p className="text-xs text-gray-500">Avg Duration</p>
-                      <p className="text-lg font-bold text-gray-900">{formatDuration(Math.round(totals.avgDuration))}</p>
+                      <p className={`text-xs text-gray-500 ${PHONE_STAT_LABEL}`}>Avg Duration</p>
+                      <p className={`text-lg ${PHONE_STAT_VALUE} font-bold text-gray-900`}>{formatDuration(Math.round(totals.avgDuration))}</p>
                     </div>
                     <div className="bg-gray-50 rounded-lg p-3">
-                      <p className="text-xs text-gray-500">Tokens</p>
-                      <p className="text-lg font-bold text-gray-900">{totals.tokens.toLocaleString()}</p>
+                      <p className={`text-xs text-gray-500 ${PHONE_STAT_LABEL}`}>Tokens</p>
+                      <p className={`text-lg ${PHONE_STAT_VALUE} font-bold text-gray-900`}>{totals.tokens.toLocaleString()}</p>
                     </div>
                   </div>
                 </div>
@@ -684,7 +685,7 @@ export default function AgentInteractions({ agent, onBack }) {
                 <div className="flex items-center gap-3">
                   <AgentAvatar size={40} />
                   <div>
-                    <h3 className="font-semibold text-gray-900">Agent Report</h3>
+                    <h3 className="font-semibold text-gray-900 max-md:text-sm">Agent Report</h3>
                     <p className="text-xs text-gray-500">Recent activity for {agent.name} — select a run for its full interaction</p>
                   </div>
                 </div>
@@ -692,20 +693,20 @@ export default function AgentInteractions({ agent, onBack }) {
                 {/* Overview stats */}
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                   <div className="bg-white rounded-xl border border-gray-200 p-3">
-                    <p className="text-xs text-gray-500">Runs</p>
-                    <p className="text-xl font-bold text-gray-900">{totals.runs}</p>
+                    <p className={`text-xs text-gray-500 ${PHONE_STAT_LABEL}`}>Runs</p>
+                    <p className={`text-xl ${PHONE_STAT_VALUE} font-bold text-gray-900`}>{totals.runs}</p>
                   </div>
                   <div className="bg-white rounded-xl border border-gray-200 p-3">
-                    <p className="text-xs text-gray-500">Success</p>
-                    <p className="text-xl font-bold text-gray-900">{totals.runs ? Math.round((totals.completed / totals.runs) * 100) : 0}%</p>
+                    <p className={`text-xs text-gray-500 ${PHONE_STAT_LABEL}`}>Success</p>
+                    <p className={`text-xl ${PHONE_STAT_VALUE} font-bold text-gray-900`}>{totals.runs ? Math.round((totals.completed / totals.runs) * 100) : 0}%</p>
                   </div>
                   <div className="bg-white rounded-xl border border-gray-200 p-3">
-                    <p className="text-xs text-gray-500">Avg Duration</p>
-                    <p className="text-xl font-bold text-gray-900">{formatDuration(Math.round(totals.avgDuration))}</p>
+                    <p className={`text-xs text-gray-500 ${PHONE_STAT_LABEL}`}>Avg Duration</p>
+                    <p className={`text-xl ${PHONE_STAT_VALUE} font-bold text-gray-900`}>{formatDuration(Math.round(totals.avgDuration))}</p>
                   </div>
                   <div className="bg-white rounded-xl border border-gray-200 p-3">
-                    <p className="text-xs text-gray-500">Tokens</p>
-                    <p className="text-xl font-bold text-gray-900">{totals.tokens.toLocaleString()}</p>
+                    <p className={`text-xs text-gray-500 ${PHONE_STAT_LABEL}`}>Tokens</p>
+                    <p className={`text-xl ${PHONE_STAT_VALUE} font-bold text-gray-900`}>{totals.tokens.toLocaleString()}</p>
                   </div>
                 </div>
 
@@ -723,8 +724,8 @@ export default function AgentInteractions({ agent, onBack }) {
                     drill-down into /interactions/sessions/:id. */}
                 {sessions.length > 0 && (
                   <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                    <div className="px-4 py-3 border-b border-gray-100">
-                      <span className="text-xs uppercase tracking-wide text-gray-400">
+                    <div className="px-4 py-3 border-b border-gray-100 max-md:px-3 max-md:py-2 max-md:bg-gray-50">
+                      <span className="text-xs uppercase tracking-wide text-gray-400 max-md:font-mono max-md:text-[11px] max-md:font-semibold max-md:tracking-[0.05em] max-md:text-gray-500">
                         Sessions — grouped interaction streams
                       </span>
                     </div>
@@ -761,8 +762,8 @@ export default function AgentInteractions({ agent, onBack }) {
                     combination this agent has run under, for comparing the
                     effect of config changes side by side. */}
                 <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                  <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
-                    <span className="text-xs uppercase tracking-wide text-gray-400">
+                  <div className="px-4 py-3 border-b border-gray-100 max-md:px-3 max-md:py-2 max-md:bg-gray-50 flex items-center justify-between max-md:flex-wrap max-md:gap-2">
+                    <span className="text-xs uppercase tracking-wide text-gray-400 max-md:font-mono max-md:text-[11px] max-md:font-semibold max-md:tracking-[0.05em] max-md:text-gray-500">
                       Interactions by instructions × model
                     </span>
                     <select

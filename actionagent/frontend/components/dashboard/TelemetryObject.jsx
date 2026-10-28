@@ -383,3 +383,11 @@ export function useDisclosureSet(initial = {}) {
   const isOpen = useCallback((key) => !!open[key], [open]);
   return [isOpen, toggle, setOpen];
 }
+
+// Below md every headline number reads the same across views: the number at
+// text-lg, its label as the mono small caps MicroLabel draws (11px, semibold,
+// uppercase). Views that already use that treatment (evaluations) need
+// nothing; the rest add these next to their own desktop classes, which keep
+// applying from md up.
+export const PHONE_STAT_VALUE = 'max-md:text-lg';
+export const PHONE_STAT_LABEL = 'max-md:font-mono max-md:text-[11px] max-md:font-semibold max-md:uppercase max-md:tracking-[0.05em]';

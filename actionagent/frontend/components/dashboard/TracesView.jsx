@@ -12,6 +12,7 @@ import { formatDuration, getSpanIcon } from './SpanWaterfall';
 import { dashboardPath } from '../../utils/dashboardPath';
 import { tracesQuery } from '../../utils/tracesQuery.mjs';
 import { traceWindowData } from '../../utils/traceWindow.mjs';
+import { PHONE_STAT_LABEL } from './TelemetryObject';
 
 // Deterministic color assignment for agent classes
 const AGENT_PALETTE = ['#6366f1', '#10b981', '#f59e0b', '#ec4899', '#3b82f6', '#8b5cf6', '#14b8a6', '#f97316'];
@@ -705,28 +706,28 @@ export default function TracesView({ agentId = null, embedded = false }) {
             {/* Summary Stats */}
             <div style={{ display: 'flex', gap: '24px', rowGap: '8px', flexWrap: 'wrap', marginTop: '12px', paddingTop: '12px', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
               <div>
-                <div style={{ fontSize: '20px', fontWeight: '700', color: 'white' }}>
+                <div className="max-md:text-lg!" style={{ fontSize: '20px', fontWeight: '700', color: 'white' }}>
                   {summaryStats.requests}
                 </div>
-                <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)' }}>Total Requests</div>
+                <div className={PHONE_STAT_LABEL} style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)' }}>Total Requests</div>
               </div>
               <div>
-                <div style={{ fontSize: '20px', fontWeight: '700', color: '#ef4444' }}>
+                <div className="max-md:text-lg!" style={{ fontSize: '20px', fontWeight: '700', color: '#ef4444' }}>
                   {summaryStats.errors}
                 </div>
-                <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)' }}>Errors</div>
+                <div className={PHONE_STAT_LABEL} style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)' }}>Errors</div>
               </div>
               <div>
-                <div style={{ fontSize: '20px', fontWeight: '700', color: '#10b981' }}>
+                <div className="max-md:text-lg!" style={{ fontSize: '20px', fontWeight: '700', color: '#10b981' }}>
                   {summaryStats.avgLatency}ms
                 </div>
-                <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)' }}>Avg Latency</div>
+                <div className={PHONE_STAT_LABEL} style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)' }}>Avg Latency</div>
               </div>
               <div>
-                <div style={{ fontSize: '20px', fontWeight: '700', color: '#f59e0b' }}>
+                <div className="max-md:text-lg!" style={{ fontSize: '20px', fontWeight: '700', color: '#f59e0b' }}>
                   {summaryStats.throughput}/min
                 </div>
-                <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)' }}>Throughput</div>
+                <div className={PHONE_STAT_LABEL} style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)' }}>Throughput</div>
               </div>
             </div>
           </div>
@@ -1054,19 +1055,19 @@ export default function TracesView({ agentId = null, embedded = false }) {
         <div className="flex flex-wrap gap-x-6 gap-y-2 mt-3 pt-3 border-t border-gray-100">
           <div>
             <div className="text-lg font-bold text-gray-900">{summaryStats.requests}</div>
-            <div className="text-xs text-gray-500">Total Requests</div>
+            <div className={`text-xs text-gray-500 ${PHONE_STAT_LABEL}`}>Total Requests</div>
           </div>
           <div>
             <div className="text-lg font-bold text-red-500">{summaryStats.errors}</div>
-            <div className="text-xs text-gray-500">Errors</div>
+            <div className={`text-xs text-gray-500 ${PHONE_STAT_LABEL}`}>Errors</div>
           </div>
           <div>
             <div className="text-lg font-bold text-green-600">{summaryStats.avgLatency}ms</div>
-            <div className="text-xs text-gray-500">Avg Latency</div>
+            <div className={`text-xs text-gray-500 ${PHONE_STAT_LABEL}`}>Avg Latency</div>
           </div>
           <div>
             <div className="text-lg font-bold text-amber-500">{summaryStats.throughput}/min</div>
-            <div className="text-xs text-gray-500">Throughput</div>
+            <div className={`text-xs text-gray-500 ${PHONE_STAT_LABEL}`}>Throughput</div>
           </div>
         </div>
       </div>
@@ -1157,7 +1158,7 @@ export default function TracesView({ agentId = null, embedded = false }) {
                     <div className="text-gray-600">{Math.round(stat.minDuration)}ms / {Math.round(stat.maxDuration)}ms</div>
                   </div>
                   <div>
-                    <div className="text-xs text-gray-500">Errors</div>
+                    <div className={`text-xs text-gray-500 ${PHONE_STAT_LABEL}`}>Errors</div>
                     <div className={stat.errors > 0 ? 'text-red-600' : 'text-green-600'}>
                       {stat.errors} ({((stat.errors / stat.count) * 100).toFixed(0)}%)
                     </div>

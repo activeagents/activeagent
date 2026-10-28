@@ -34,6 +34,7 @@ import {
   SegmentedControl,
   telemetryColors,
   useDisclosureSet,
+  PHONE_STAT_LABEL,
 } from './TelemetryObject';
 
 // Context pressure for one interaction: the biggest generation's real token
@@ -635,7 +636,7 @@ export default function InteractionsView({ agentId = null, embedded = false }) {
             ].map((tile) => (
               <div key={tile.label}>
                 <div className="text-lg font-bold" style={{ color: colors.textPrimary }}>{tile.value}</div>
-                <div className="text-xs" style={{ color: colors.textSecondary }}>{tile.label}</div>
+                <div className={`text-xs ${PHONE_STAT_LABEL}`} style={{ color: colors.textSecondary }}>{tile.label}</div>
               </div>
             ))}
           </div>
