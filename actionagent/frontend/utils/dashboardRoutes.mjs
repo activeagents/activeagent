@@ -133,7 +133,8 @@ export const DASHBOARD_NAV = [
       { view: 'list', label: 'Agents', icon: 'agents', badge: 'agentCount' },
       { view: 'builder', label: 'New Agent', icon: 'newAgent' },
       { view: 'sandbox', label: 'Run Agents', icon: 'demo' },
-      { view: 'projects', label: 'Projects', glyph: '</>' },
+      { view: 'evaluations', label: 'Evaluations', icon: 'evaluations' },
+      { view: 'scenarios', label: 'Scenarios', icon: 'evaluations' },
     ],
   },
   {
@@ -149,12 +150,18 @@ export const DASHBOARD_NAV = [
         badgeTone: 'attention',
         badgeTitle: 'requests waiting for an answer',
       },
+      { view: 'sessions', label: 'Sessions', icon: 'replay', also: ['replay'] },
+      { view: 'metrics', label: 'Metrics', icon: 'metrics' },
+    ],
+  },
+  {
+    // What agents run with: checkouts, tools and MCP servers.
+    id: 'build',
+    label: 'Build',
+    items: [
+      { view: 'projects', label: 'Projects', glyph: '</>' },
       { view: 'tools', label: 'Tools', icon: 'tools' },
       { view: 'mcp', label: 'MCP Services', icon: 'mcp' },
-      { view: 'metrics', label: 'Metrics', icon: 'metrics' },
-      { view: 'evaluations', label: 'Evaluations', icon: 'evaluations' },
-      { view: 'scenarios', label: 'Scenarios', icon: 'evaluations' },
-      { view: 'sessions', label: 'Sessions', icon: 'replay', also: ['replay'] },
     ],
   },
   {

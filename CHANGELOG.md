@@ -21,6 +21,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   that sit beside the fixed sidebar switch below 1024px instead, since at
   768px the content column is phone-sized. From 1024px up the layout is as
   it was. Layout only: no route, path, view or Ruby change.
+- **Agents and evaluations lead the sidebar** (`actionagent`). The first
+  group is Ask ActiveAgents, Agents, New Agent, Run Agents, Evaluations and
+  Scenarios; Observability keeps Traces, Interactions, Sessions and Metrics;
+  a new Build group holds Projects, Tools and MCP Services; Workspace is
+  unchanged. Every path and view is the same, only the order and grouping.
 
 ## [1.9.5] - 2026-10-28
 
