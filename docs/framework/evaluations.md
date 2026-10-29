@@ -542,7 +542,7 @@ lease runs out; a duplicate whose first delivery finishes in time finds the
 result scored. A worker that finishes after another reclaimed its lease
 cannot overwrite that worker's result. A provider call that outlasts the
 lease may still be repeated, so set provider timeouts below that interval.
-The lease columns come from migration 029, installed with
+The lease columns come from migration 030, installed with
 `bin/rails generate action_agent:install --skip` and `bin/rails db:migrate`;
 until it runs, the judge job claims a result by its timestamp alone, which
 turns away a stale duplicate but not one delivered after the claim.

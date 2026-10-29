@@ -348,7 +348,7 @@ module ActionAgent
     # The lease excludes fresh readers as well, without holding a database
     # lock across a provider call. A redelivery can reclaim an expired lease.
     #
-    # Without the lease columns (migration 029 not yet run) the claim is the
+    # Without the lease columns (migration 030 not yet run) the claim is the
     # timestamp comparison alone, as before the lease.
     def claim_result!(row)
       now = Time.current
@@ -391,7 +391,7 @@ module ActionAgent
         .update_all(attributes.merge(scoring_token: nil, scoring_expires_at: nil, updated_at: Time.current))
     end
 
-    # Whether migration 029's lease columns are installed. A host that
+    # Whether migration 030's lease columns are installed. A host that
     # upgraded the gem without running the generator keeps scoring with the
     # timestamp claim instead of failing every judge job on a missing column.
     def scoring_leases?

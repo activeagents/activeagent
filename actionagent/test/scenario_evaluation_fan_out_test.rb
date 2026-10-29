@@ -627,7 +627,7 @@ class ActionAgentScenarioEvaluationFanOutTest < ActiveSupport::TestCase
     assert_equal "complete", run.reload.status
   end
 
-  # A host that upgraded the gem but has not run migration 029 yet.
+  # A host that upgraded the gem but has not run migration 030 yet.
   def without_scoring_lease_columns
     klass = ActionAgent::EvaluationScenarioResult
     columns = klass.column_names - %w[scoring_token scoring_expires_at]
