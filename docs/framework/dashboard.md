@@ -2031,7 +2031,7 @@ the one above. `#to_h` is plain JSON, so a backend that boots somewhere else
 
 | Endpoint | Returns |
 |---|---|
-| `GET /api/sandboxes/:session_id/boot` | `{ boot, resumable, logs }`. `boot` is the backend's `boot_status`: each step with its `status` (`pending`, `running`, `succeeded`, `failed` or `skipped`), times and a scrubbed `detail`. It is null for a backend that reports no steps. `resumable` says whether `POST …/resume_boot` would be accepted, and `logs` whether step logs can be read |
+| `GET /api/sandboxes/:session_id/boot` | `{ boot, resumable, logs }`. `boot` is the backend's `boot_status`: each step with its `status` (`pending`, `running`, `succeeded`, `failed` or `skipped`), times and a scrubbed `detail`. It is null for a backend that reports no steps, and null with `backend_error: { backend, message }` when the backend could not report the boot at all (no sandbox host configured, the host unreachable, a container that has not written its state yet). `resumable` says whether `POST …/resume_boot` would be accepted, and `logs` whether step logs can be read |
 | `GET /api/sandboxes/:session_id/boot_log?step=NAME&offset=N&limit=N` | One page of that step's log as `{ step, offset, next_offset, size, eof, text }`, 64 KB by default and 1 MB at most. Read on from `next_offset` until `eof`. A page ends at a line break, and its text is scrubbed of the checkout token and the Claude Code credential |
 | `POST /api/sandboxes/:session_id/resume_boot` | See [Keeping a failed boot](#keeping-a-failed-boot) |
 
@@ -2694,7 +2694,11 @@ request with `confirm: true` boots it, and later boots do not ask again.
 
 `GET /api/projects/:id/boot` returns the project, its boot's steps with their
 status and elapsed time, and the scrubbed tail of the step that failed or is
-running. `GET /api/projects/:id/boot_log` pages through one step's log. The
+running. When the backend cannot report the boot (no sandbox host configured,
+the host unreachable, a container that has not written its state yet) it
+answers 200 all the same, with `boot` null and `backend_error` naming the
+backend and the scrubbed reason, so the page says so and keeps following
+the boot. `GET /api/projects/:id/boot_log` pages through one step's log. The
 project page follows the sandbox's `{ type, id, status }` broadcasts (see
 [Live updates](#live-updates)) and polls every 2 seconds while the sandbox
 boots. A project's own changes are announced on `project_<id>`.

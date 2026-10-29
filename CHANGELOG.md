@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **A sandbox backend that cannot report a boot no longer breaks the project
+  page** (`actionagent`; #650). `GET /api/projects/:id/boot` answered 500
+  whenever the backend raised while reading the boot (no sandbox host
+  configured, the host unreachable, a container that had not written its
+  state yet), so the project page showed "Could not load the project" under
+  "sandbox booting" and stopped following the boot. It now answers 200 with
+  `boot` null and `backend_error` naming the backend and the scrubbed
+  reason; the page says no sandbox backend answered, with that reason,
+  beside the boot's own failure when it failed. `GET
+  /api/sandboxes/:session_id/boot` answers the same way.
+
 ## [1.9.5] - 2026-10-28
 
 The `activeagent` command line: the gem's third surface beside the dashboard

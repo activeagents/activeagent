@@ -272,6 +272,24 @@ test('boot progress says when there is nothing to show yet', () => {
   assert.match(render('ProjectBootProgress', { boot: null, sandboxState: 'none' }), /No boot to show yet/);
 });
 
+test('boot progress names the backend that could not report the boot, instead of waiting on it', () => {
+  const html = render('ProjectBootProgress', {
+    boot: null, sandboxState: 'booting',
+    backendError: { backend: 'incus', message: 'The Rails Incus adapter requires an HTTPS endpoint; set INCUS_HOST' },
+  });
+  assert.match(html, /No sandbox backend answered\./);
+  assert.doesNotMatch(html, /Waiting for the sandbox/);
+  assert.match(html, /data-testid="boot-backend-error"[^>]*>The incus sandbox backend could not report this boot: The Rails Incus adapter requires an HTTPS endpoint; set INCUS_HOST</);
+
+  // A boot that failed for that same reason shows it once, in the error box.
+  const failed = render('ProjectBootProgress', {
+    boot: null, sandboxState: 'failed', error: 'Incus is not configured',
+    backendError: { backend: 'incus', message: 'Incus is not configured' },
+  });
+  assert.match(failed, /data-testid="boot-backend-error"[^>]*>The incus sandbox backend could not report this boot\.</);
+  assert.match(failed, /data-testid="boot-error"[^>]*>Incus is not configured</);
+});
+
 // --- preflight and list -----------------------------------------------------
 
 test('the preflight result names the support level, the versions and the warnings', () => {
