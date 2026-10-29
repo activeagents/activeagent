@@ -574,7 +574,27 @@ const isFormField = (el) => ['INPUT', 'TEXTAREA', 'SELECT'].includes(el?.tagName
 // (or one whose replay never landed) reads "—". `compact` is the steps
 // level's one line — glyph, score and fault — with the tool calls, the cost
 // and the time in its title.
-function ResultCell({ result, expects, pending, compact = false }) {
+// A result's movement against the run before, as a mark beside its score.
+const CHANGE_MARK = {
+  improved: { text: '▲', color: 'var(--color-success)', verb: 'now passes' },
+  regressed: { text: '▼', color: 'var(--color-error)', verb: 'now fails' },
+  errored: { text: '○', color: 'var(--color-warning-text)', verb: 'errored this time' },
+};
+
+function ChangeMark({ change, comparedNumber }) {
+  const mark = change && CHANGE_MARK[change.kind];
+  if (!mark) return null;
+  const was = change.was;
+  const before = `${was.status === 'passed' ? 'passed' : was.status} ${fmtScore(was.score)}`;
+  const title = `${mark.verb} · ${before} in run #${comparedNumber ?? '?'}`;
+  return (
+    <span data-testid="scenario-cell-change" data-change={change.kind} title={title} aria-label={title} style={{ fontWeight: 700, color: mark.color, flexShrink: 0 }}>
+      {mark.text}
+    </span>
+  );
+}
+
+function ResultCell({ result, expects, pending, compact = false, change = null, comparedNumber = null }) {
   if (!result) {
     return <span style={{ ...mono(12), fontWeight: 600 }}>{pending ? '…' : '—'}</span>;
   }
@@ -591,6 +611,7 @@ function ResultCell({ result, expects, pending, compact = false }) {
         <span style={{ display: 'flex', alignItems: 'baseline', gap: 6, minWidth: 0, fontFamily: MONO, fontSize: 12, whiteSpace: 'nowrap' }}>
           <span style={{ fontWeight: 700, color, flexShrink: 0 }}>{pass ? '[+]' : '[!]'}</span>
           <span style={{ fontWeight: 600, color, flexShrink: 0 }}>{fmtScore(result.score)}</span>
+          <ChangeMark change={change} comparedNumber={comparedNumber} />
           {fault && <span style={{ fontSize: 11, color: 'var(--color-error-text)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>{fault}</span>}
         </span>
         <MetricsLine metrics={resultMetrics(result)} />
@@ -602,6 +623,7 @@ function ResultCell({ result, expects, pending, compact = false }) {
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, flexWrap: 'wrap', fontFamily: MONO, fontSize: 12 }}>
         <span style={{ fontWeight: 700, color }}>{pass ? '[+]' : '[!]'}</span>
         <span style={{ fontWeight: 600, color }}>{fmtScore(result.score)}</span>
+        <ChangeMark change={change} comparedNumber={comparedNumber} />
         {result.fault && <span style={{ fontSize: 11, color: 'var(--color-error-text)' }}>{faultName(result.fault)}</span>}
       </div>
       <CallLine calls={calls} empty="no tools called" />
@@ -655,11 +677,19 @@ export const STEP_MARK = {
 const sameCost = (a, b) => a === b
   || (!!a && !!b && a.cost === b.cost && a.judgeCost === b.judgeCost && a.total === b.total && a.estimated === b.estimated);
 const sameTokens = (a, b) => a === b || (!!a && !!b && a.input === b.input && a.output === b.output);
+const sameChanges = (a, b) => {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  const labels = Object.keys(a);
+  return labels.length === Object.keys(b).length
+    && labels.every((label) => a[label].kind === b[label]?.kind && a[label].was === b[label]?.was);
+};
 
 // Every prop by identity — the catalog row (scenarioRowsForRun's cache), its
 // results (groupResultsByKey) and the columns (the panel's ref) keep theirs
 // while nothing about them changed — except the cost, the tokens and the
-// time, which are rebuilt each render and compared by value. The two
+// time, which are rebuilt each render and compared by value, as are the
+// scenario's changes against the run before. The two
 // callbacks are the matrix's stable ones, so they are not compared.
 const rowPropsEqual = (prev, next) =>
   prev.scenario === next.scenario && prev.results === next.results && prev.columns === next.columns
@@ -667,7 +697,7 @@ const rowPropsEqual = (prev, next) =>
   && prev.detail === next.detail && prev.showKey === next.showKey && prev.grid === next.grid
   && prev.inSelection === next.inSelection && prev.running === next.running && prev.loading === next.loading
   && prev.tabIndex === next.tabIndex && sameCost(prev.costEntry, next.costEntry) && sameTokens(prev.tokens, next.tokens)
-  && prev.timeMs === next.timeMs;
+  && prev.timeMs === next.timeMs && sameChanges(prev.changes, next.changes) && prev.comparedNumber === next.comparedNumber;
 
 // One step of the box: a scenario's row at the given detail level. Memoised
 // on rowPropsEqual, so a poll that lands two results re-renders two rows.
@@ -677,7 +707,7 @@ const rowPropsEqual = (prev, next) =>
 // `onFocus(key, event)` tells the box which row holds focus.
 const ScenarioRow = React.memo(function ScenarioRow({
   scenario, results, columns, step, current, open, detail, showKey, grid, inSelection, running, loading, costEntry, tokens = null, timeMs, tabIndex,
-  onToggle, onFocus,
+  changes = null, comparedNumber = null, onToggle, onFocus,
 }) {
   const key = scenario.key;
   const steps = detail === 'steps';
@@ -756,6 +786,8 @@ const ScenarioRow = React.memo(function ScenarioRow({
           expects={expects}
           pending={(running || loading) && inSelection}
           compact={steps}
+          change={changes?.[label] ?? null}
+          comparedNumber={comparedNumber}
         />
       ))}
       <CostBlock entry={costEntry} compact={steps} testId="scenario-row-cost" tokens={tokens} />
@@ -772,6 +804,8 @@ const ScenarioRow = React.memo(function ScenarioRow({
 //
 // `rows` are the scenarios to show, in the order to show them, already
 // filtered; each carries `.key`, `.prompt`, `.group`, `.expectations`.
+// `changesByKey` is resultChanges' `byKey` against run #`comparedNumber`,
+// marked beside each moved cell's score.
 // `stepsByKey` is every scenario's step (the panel computes it over the
 // whole suite, so the cursor cannot hide behind a filter); `currentKey` is
 // the step the build is on. `detail` is 'steps' (one line a scenario) or
@@ -783,7 +817,8 @@ const ScenarioRow = React.memo(function ScenarioRow({
 // the box keeps the cursor a third of the way down and holds it there when
 // the layout under it moves. `boxRef` receives the scrolling element.
 export function ScenarioMatrix({
-  rows = EMPTY_LIST, columns = EMPTY_LIST, run = null, resultsByKey = EMPTY_MAP, runKeys = EMPTY_SET, running = false, loading = false,
+  rows = EMPTY_LIST, columns = EMPTY_LIST, run = null, resultsByKey = EMPTY_MAP, changesByKey = EMPTY_MAP, comparedNumber = null,
+  runKeys = EMPTY_SET, running = false, loading = false,
   stepsByKey = null, currentKey = null, bars = EMPTY_LIST, detail = 'steps', showKey = true, collapsedGroups = EMPTY_SET, onToggleGroup,
   openKey = null, onToggleRow, following = false, onStopFollowing, emptyLabel, maxHeight = null, renderDetail, boxRef = null,
   testId = 'scenario-matrix',
@@ -1141,6 +1176,8 @@ export function ScenarioMatrix({
                       costEntry={costByKey.get(scenario.key) ?? null}
                       tokens={tokensByKey.get(scenario.key) ?? null}
                       timeMs={scenarioTime(resultsByKey[scenario.key], columns)}
+                      changes={changesByKey[scenario.key] ?? null}
+                      comparedNumber={comparedNumber}
                       tabIndex={tabStop === scenario.key ? 0 : -1}
                       onToggle={toggleRow}
                       onFocus={focusNav}

@@ -6,7 +6,7 @@ import { scenarioRowsForRun } from '../../utils/evaluationHistory.mjs';
 import {
   DETAILS_KEPT, KEY_COLUMN_MIN_WIDTH, PANEL_GUTTER, RAIL_BREAKPOINT, RAIL_GAP, RAIL_WIDTH, RUNS_SHOWN, STEPS_HEIGHT,
   currentStepKey, groupResultsByKey, groupsOutsideRun, keepDetails, keepSandboxChoice, orderScenarioRows, pollIntervalFor,
-  readDetailChoice, reconcileResults, rerunFailedKeys, runDelta, runRequestBody, runRequestSelection, runSandboxLabel,
+  changesText, readDetailChoice, reconcileResults, rerunFailedKeys, resultChanges, runDelta, runRequestBody, runRequestSelection, runSandboxLabel,
   runSandboxOptions, runSelectionLabel, runSpend, runnableKeys, scenarioStep, writeDetailChoice,
 } from '../../utils/evaluationRuns.mjs';
 import { buildModelOptions, parseModelList } from '../../utils/modelOptions.mjs';
@@ -48,6 +48,7 @@ const stripResults = (run) => {
 };
 
 const NO_RERUN = { keys: [], dropped: [] };
+const NO_CHANGES = { byKey: {}, improved: 0, regressed: 0, errored: 0 };
 
 const inputStyle = {
   padding: '6px 10px', borderRadius: 8, fontSize: 12, fontFamily: MONO,
@@ -120,6 +121,7 @@ export default function ScenarioSuitePanel({
   const [editError, setEditError] = useState(null);
   const [groupFilter, setGroupFilter] = useState(null);
   const [failedOnly, setFailedOnly] = useState(false);
+  const [changedOnly, setChangedOnly] = useState(false);
   const [openKey, setOpenKey] = useState(null);
   // Whether the box keeps the running run's cursor in view; off once the
   // person scrolls, clicks or focuses into the box, on again for a new run.
@@ -315,6 +317,15 @@ export default function ScenarioSuitePanel({
     || runs.find((r) => r.id === selectedRunId)
     || (linkedRun?.id === selectedRunId ? linkedRun : null);
   const latestRun = runs[0] || null;
+  // The latest complete run listed after `runId` that replayed at least one
+  // of its models: the one its changes are read against. A run that failed
+  // or was abandoned mid-way is passed over.
+  const runBefore = (runId) => {
+    const index = runs.findIndex((r) => r.id === runId);
+    if (index < 0) return null;
+    const models = new Set(modelColumns(runs[index], [], evaluation));
+    return runs.slice(index + 1).find((r) => r.status === 'complete' && modelColumns(r, [], evaluation).some((m) => models.has(m))) || null;
+  };
 
   // A run replays every scenario through the provider, so it finishes in the
   // background; poll the run being viewed (or the latest, when that is the
@@ -417,7 +428,7 @@ export default function ScenarioSuitePanel({
   // The details worth keeping once `runId` is shown: it, the latest run and
   // the run shown before it — DETAILS_KEPT in all; the rest are fetched
   // again on return, reading as loading meanwhile.
-  const keptAround = (runId) => [runId, latestRun?.id, selectedRunId].slice(0, DETAILS_KEPT);
+  const keptAround = (runId) => [runId, runBefore(runId)?.id, latestRun?.id, selectedRunId].slice(0, DETAILS_KEPT);
 
   const selectRun = (runId) => {
     setSelectedRunId(runId);
@@ -502,6 +513,23 @@ export default function ScenarioSuitePanel({
     resultsByKeyRef.current = resultsByKey;
   });
   const runKeys = useMemo(() => new Set(runScenarioKeys(run, scenarios)), [run, scenarios]);
+
+  // Which results passed or failed differently from the run before, once
+  // its results are fetched. A run still going is read against it as its
+  // results land.
+  const comparedRun = run && run.status !== 'failed' ? runBefore(run.id) : null;
+  const comparedResults = comparedRun ? details[comparedRun.id]?.results : null;
+  useEffect(() => {
+    if (comparedRun && !comparedResults) fetchRunDetail(comparedRun.id);
+  }, [comparedRun, comparedResults, fetchRunDetail]);
+  const comparedByKey = useMemo(
+    () => (comparedResults ? groupResultsByKey(comparedResults, (result) => labelForResult(comparedRun, result)) : null),
+    [comparedResults, comparedRun],
+  );
+  const changes = useMemo(
+    () => (comparedByKey && !detailLoading ? resultChanges(resultsByKey, comparedByKey, columns) : NO_CHANGES),
+    [comparedByKey, detailLoading, resultsByKey, columns],
+  );
   const running = inProgress(run);
   const scenarioCount = runScenarioCount(run, columns, scenarios);
   const totals = runTotals(run, results, columns, scenarios);
@@ -553,10 +581,11 @@ export default function ScenarioSuitePanel({
   const visibleRows = useMemo(() => orderScenarioRows(
     matrixScenarios
       .filter((s) => !groupFilter || (s.group || '') === groupFilter)
-      .filter((s) => !failedOnly || failedOn(s)),
+      .filter((s) => !failedOnly || failedOn(s))
+      .filter((s) => !changedOnly || changes.byKey[s.key]),
     stepOf,
     orderable ? order : 'suite',
-  ), [matrixScenarios, groupFilter, failedOnly, failedOn, stepOf, orderable, order]);
+  ), [matrixScenarios, groupFilter, failedOnly, failedOn, changedOnly, changes, stepOf, orderable, order]);
 
   const groupCount = new Set(matrixScenarios.filter(inRun).map((s) => s.group).filter(Boolean)).size;
   const settledCount = results.filter(isSettled).length;
@@ -609,6 +638,7 @@ export default function ScenarioSuitePanel({
     runs, runCount, evaluation, agentName, selectedId: run?.id ?? null, previousRun: evaluation.previous_run, barsFor, deltaFor,
   }), [runs, runCount, evaluation, agentName, run?.id, barsFor, deltaFor]);
   const headerRow = rows.find((row) => row.run.id === run?.id) || null;
+  const comparedNumber = rows.find((row) => row.run.id === comparedRun?.id)?.number ?? null;
   // A run outside the page (the linked one) carries its own number from
   // show_run; its movement is unknown.
   const runNumber = headerRow?.number ?? (Number.isFinite(run?.number) ? run.number : null);
@@ -646,7 +676,7 @@ export default function ScenarioSuitePanel({
 
   const suiteEmpty = matrixScenarios.length === 0;
 
-  const emptyLabel = failedOnly ? '[+] nothing failed in this group' : '[ ] no scenarios';
+  const emptyLabel = changedOnly ? '[ ] nothing changed in this group' : failedOnly ? '[+] nothing failed in this group' : '[ ] no scenarios';
 
   // --- the box's state --------------------------------------------------
 
@@ -733,6 +763,7 @@ export default function ScenarioSuitePanel({
     const group = matrixScenarios.find((s) => s.key === key)?.group || '';
     setGroupFilter(null);
     setFailedOnly(false);
+    setChangedOnly(false);
     setCollapsedGroups((prev) => {
       if (!prev.has(group)) return prev;
       const next = new Set(prev);
@@ -807,6 +838,8 @@ export default function ScenarioSuitePanel({
       columns={run ? columns : []}
       run={run}
       resultsByKey={resultsByKey}
+      changesByKey={changes.byKey}
+      comparedNumber={comparedNumber}
       runKeys={runKeys}
       running={running}
       loading={detailLoading}
@@ -1005,6 +1038,19 @@ export default function ScenarioSuitePanel({
             >
               {`${failedOnly ? '[x]' : '[ ]'} failed only${!detailLoading && failedScenarioCount ? ` · ${failedScenarioCount}` : ''}`}
             </Chip>
+            {comparedByKey && (
+              <Chip
+                square
+                mono
+                selected={changedOnly}
+                onClick={() => setChangedOnly(!changedOnly)}
+                style={{ background: 'transparent' }}
+                title={`Show only scenarios that passed or failed differently from run #${comparedNumber}: ▲ now passes, ▼ now fails, ○ errored this time`}
+                testId="suite-changed-only"
+              >
+                {`${changedOnly ? '[x]' : '[ ]'} changed vs #${comparedNumber}${changesText(changes)}`}
+              </Chip>
+            )}
             {run && run.status !== 'failed' && (
               orderable ? (
                 <Chip

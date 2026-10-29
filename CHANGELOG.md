@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **What changed since the last run** (`actionagent`). A scenario suite's
+  step box marks each result that moved against the latest earlier complete
+  run sharing one of its models: ▲ where a failure now passes, ▼ where a pass
+  now fails, ○ where the replay errored this time. The cell's tooltip names
+  the earlier result and run, and a `changed vs #N` chip counts each kind and
+  filters the box to the scenarios that moved.
+
 ### Changed
 
 - **The dashboard works on a phone** (`actionagent`; closes #653). Below
