@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **The dashboard works on a phone** (`actionagent`; closes #653). Below
+  768px the sidebar is a drawer behind a menu button in the header, and the
+  interactions, agents, evaluations and traces views lay out for the width:
+  headers, controls, chart legends and stat tiles wrap or stack; the
+  fixed-width meta strips fold into their cards; the agent interactions page
+  shows one pane at a time, with a switch between the runs and the open run;
+  the new-interaction picker is a bottom sheet; the agent editor's tab strip
+  and the runs × scenarios matrix scroll inside their boxes, the matrix with
+  a sticky first column; and nothing scrolls the page sideways. The folds
+  that sit beside the fixed sidebar switch below 1024px instead, since at
+  768px the content column is phone-sized. From 1024px up the layout is as
+  it was. Layout only: no route, path, view or Ruby change.
 - **Agents and evaluations lead the sidebar** (`actionagent`). The first
   group is Ask ActiveAgents, Agents, New Agent, Run Agents, Evaluations and
   Scenarios; Observability keeps Traces, Interactions, Sessions and Metrics;

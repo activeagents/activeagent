@@ -1,7 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useTheme } from '../../contexts/ThemeContext';
 
-export default function Header({ user, account }) {
+// onOpenNav opens the sidebar drawer below md (see Sidebar); the button that
+// calls it, and the workspace name beside it, render only there.
+export default function Header({ user, account, onOpenNav }) {
   const { darkMode, toggleDarkMode } = useTheme();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const menuRef = useRef(null);
@@ -59,19 +61,35 @@ export default function Header({ user, account }) {
 
   return (
     <header
-      className="h-16 border-b flex items-center justify-between px-6"
+      className="h-16 border-b flex items-center justify-between gap-3 px-4 md:px-6"
       style={{
         backgroundColor: darkMode ? '#1a1a1a' : '#ffffff',
         borderColor: darkMode ? '#2a2a2a' : '#e5e7eb'
       }}
     >
-      {/* Left side - can be used for breadcrumbs or search later */}
-      <div className="flex items-center space-x-4">
-        {/* Placeholder for future search or breadcrumbs */}
+      {/* Left side: on a phone, the menu button and the workspace name open
+          the drawer, where the workspace switcher lives. From md up this is
+          empty (room for breadcrumbs or search later). */}
+      <div className="flex items-center space-x-4 min-w-0">
+        <button
+          type="button"
+          onClick={onOpenNav}
+          className="md:hidden flex items-center gap-2 min-w-0 p-2 -ml-2 rounded-lg transition-colors"
+          style={{ color: darkMode ? '#d1d5db' : '#374151' }}
+          aria-label="Open navigation"
+          data-testid="open-nav"
+        >
+          <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+          <span className={`font-semibold truncate ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+            {account?.name || 'My Workspace'}
+          </span>
+        </button>
       </div>
 
       {/* Right side - User controls */}
-      <div className="flex items-center space-x-4">
+      <div className="flex items-center space-x-4 flex-shrink-0">
         {/* Dark mode toggle */}
         <button
           onClick={toggleDarkMode}
@@ -94,7 +112,7 @@ export default function Header({ user, account }) {
         </button>
 
         {/* Status indicator */}
-        <div className={`flex items-center space-x-2 text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+        <div className={`hidden sm:flex items-center space-x-2 text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
           <span className="w-2 h-2 bg-green-400 rounded-full"></span>
           <span>Connected</span>
         </div>

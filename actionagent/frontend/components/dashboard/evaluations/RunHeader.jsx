@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { Badge, Card, GLYPH, MonoLink, PassBar, SegmentedBar, MONO, TONE, toneFor } from '../primitives';
-import { META_COLUMN, MetaStrip } from '../TelemetryObject';
+import { META_COLUMN, MetaCells } from '../TelemetryObject';
 import { dashboardPath, navigateTo } from '../../../utils/dashboardPath';
 import { splitModelLabel, timeAgo } from '../../../utils/format';
 import { fmtPasses } from '../../../utils/evalFormat.mjs';
@@ -257,8 +257,8 @@ export default function RunHeader({
               title="Copy the whole report as GitHub-flavored Markdown" style={{ padding: '0 4px', fontFamily: MONO, fontSize: 11 }} />
           </span>
         )}
-        <span style={{ marginLeft: 'auto' }}>
-          <MetaStrip darkMode={darkMode} cells={cells} />
+        <span className="flex min-w-0 max-w-full" style={{ marginLeft: 'auto' }}>
+          <MetaCells darkMode={darkMode} cells={cells} />
         </span>
       </div>
 
