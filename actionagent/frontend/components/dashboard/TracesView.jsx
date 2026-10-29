@@ -487,7 +487,7 @@ export default function TracesView({ agentId = null, embedded = false }) {
   const renderToolsBreakdown = (dark) => {
     const colors = telemetryColors(dark);
     return (
-      <div style={{ padding: dark ? '0 24px 24px' : 0 }}>
+      <div className={dark ? 'px-6 pb-6 max-md:px-4' : undefined}>
         {toolStats.length === 0 ? (
           <div className="text-center py-8 text-sm" style={{ color: colors.textSecondary }}>
             No tool calls in this window
@@ -499,7 +499,7 @@ export default function TracesView({ agentId = null, embedded = false }) {
                 utilities appear nowhere else. Naming one, even in a comment,
                 would add it to the build. The min width scrolls the table on
                 narrow screens instead of crushing its columns. */}
-            <div style={{ minWidth: 520 }}>
+            <div style={{ minWidth: 560 }}>
               <div className="flex items-center gap-4 px-4 py-2 text-xs font-medium border-b" style={{ color: colors.textSecondary, borderColor: colors.cardBorder }}>
                 <div className="flex-1">Tool</div>
                 <div className="w-20 text-right">Calls</div>
