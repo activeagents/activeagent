@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.9.5] - 2026-10-28
 
 The `activeagent` command line: the gem's third surface beside the dashboard
 and its API, working with a dashboard over HTTP from a terminal or a CI job,
@@ -95,6 +95,13 @@ commands with exit code 5.
 
 ### Fixed
 
+- **Sandbox sign-in recognises Claude Code 2.1's authorization page**
+  (`actionagent`). "Sign in with your Claude subscription" on a local sandbox
+  stayed at "Preparing Claude's authorization page": the CLI now sends
+  sign-ins to `claude.com/cai/oauth/authorize` and prints the link as a
+  terminal hyperlink whose text repeats the URL, which the flow neither
+  accepted nor cut at the hyperlink's end. Both are read now, and
+  `claude.ai` and `platform.claude.com` still are.
 - **Projects accept GitHub App installations** (`actionagent`). A dashboard
   that runs only the GitHub App could link an installation but not create a
   project ("GitHub is not connected"). The New Project checklist now counts a

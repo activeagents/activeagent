@@ -76,7 +76,7 @@ begin
       buffer << chunk.force_encoding("UTF-8").scrub
       buffer = buffer[-32_768..] || buffer
       clean = buffer.gsub(/\e\[[0-9;?]*[A-Za-z]/, "")
-      url = clean[%r{https://(?:claude\.ai|platform\.claude\.com)/oauth/authorize\?[^\s\e]+}]
+      url = clean[%r{https://(?:claude\.ai|claude\.com|platform\.claude\.com)/(?:cai/)?oauth/authorize\?[^\s\e\a]+}]
       if url && URI.parse(url).query.to_s.include?("client_id=")
         write_status.call("awaiting_code", url)
       end
