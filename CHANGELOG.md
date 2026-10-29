@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **The dashboard follows the system appearance** (`actionagent`). Settings
+  → Appearance offers System, Light and Dark; System (the default when
+  nothing was chosen) follows the OS light/dark setting and changes with it
+  while the page is open. Light and Dark are fixed, as the old toggle's
+  choices were, and a choice that toggle saved still holds. The header's
+  sun/moon button flips to the opposite of what shows and saves it as a
+  fixed choice; pick System on the settings page to follow the OS again.
 - **What changed since the last run** (`actionagent`). A scenario suite's
   step box marks each result that moved against the latest earlier complete
   run sharing one of its models: ▲ where a failure now passes, ▼ where a pass
@@ -38,6 +45,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The agent interactions page follows the dark theme** (`actionagent`). It
+  was written in Tailwind's grey scale (white panes, grey text) and stayed
+  light under the dark theme at every width, with its run stream rendered
+  light too. Its surfaces, borders and text now use the dashboard's tokens,
+  as `aa-*` utilities in `dashboard.css` that take Tailwind's variants; its
+  source and run/sessions toggles are the shared segmented control; and the
+  stream renders in the theme that shows.
 - **A sandbox backend that cannot report a boot no longer breaks the project
   page** (`actionagent`; #650). `GET /api/projects/:id/boot` answered 500
   whenever the backend raised while reading the boot (no sandbox host

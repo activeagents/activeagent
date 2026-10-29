@@ -138,6 +138,7 @@ export function Chip({ selected = false, onClick, children, square = false, mono
 }
 
 // Bordered buttons, radius 8, 13px/500; the selected one carries the accent.
+// An option's `title`, when given, is the button's tooltip.
 export function SegmentedControl({ options, value, onChange, style }) {
   return (
     <div style={{ display: 'flex', gap: 4, ...style }} role="group">
@@ -149,6 +150,7 @@ export function SegmentedControl({ options, value, onChange, style }) {
             type="button"
             onClick={() => onChange(option.value)}
             aria-pressed={active}
+            title={option.title}
             style={{
               padding: '6px 12px', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 500,
               background: 'var(--color-card)',

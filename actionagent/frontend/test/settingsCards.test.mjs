@@ -75,6 +75,23 @@ function listedRepositories(html) {
     .map(([, checked, name]) => [name, Boolean(checked)]);
 }
 
+// The Appearance card is on the profile tab; the query string is read on
+// each render, so the test points it there and back.
+function renderProfile(props) {
+  const search = window.location.search;
+  window.location.search = '?tab=profile';
+  try { return render('SettingsView', props); } finally { window.location.search = search; }
+}
+
+test('the appearance card offers System, Light and Dark and marks the saved choice', () => {
+  const html = renderProfile({ user: { name: 'Ada', email: 'ada@example.com' }, account: { name: 'Acme' } });
+  const buttons = [...html.matchAll(/<button type="button" aria-pressed="(true|false)"[^>]*>(System|Light|Dark)<\/button>/g)]
+    .map(([, pressed, label]) => [label, pressed === 'true']);
+  assert.deepEqual(buttons, [['System', false], ['Light', true], ['Dark', false]], 'the storage stub answers light');
+  assert.match(html, /data-testid="theme-description">Light across the dashboard</);
+  assert.doesNotMatch(html, /Use dark theme across the dashboard/);
+});
+
 test('the repo picker lists every repository with a filter field', () => {
   const html = render('RepoPicker', pickerProps());
   assert.match(html, /placeholder="Filter repositories"/);

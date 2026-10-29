@@ -90,7 +90,8 @@ export default function Header({ user, account, onOpenNav }) {
 
       {/* Right side - User controls */}
       <div className="flex items-center space-x-4 flex-shrink-0">
-        {/* Dark mode toggle */}
+        {/* One-click flip to the opposite of what shows, saved as a fixed
+            choice; Settings → Appearance has System, Light and Dark. */}
         <button
           onClick={toggleDarkMode}
           className="p-2 rounded-lg transition-colors"
