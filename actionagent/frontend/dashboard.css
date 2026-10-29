@@ -10,3 +10,19 @@
 @source "./index.jsx";
 
 .aa-fix-dialog::backdrop { background: rgb(0 0 0 / 50%); backdrop-filter: blur(3px); }
+
+/* The theme's tokens as utilities, for views written in Tailwind's grey
+   scale: bg-white and text-gray-* stay light under .theme-dark, these follow
+   it, and they take the variants (hover:, max-md:) any utility does. */
+@utility aa-bg-card { background-color: var(--color-card); }
+@utility aa-bg-background { background-color: var(--color-background); }
+@utility aa-bg-muted { background-color: var(--color-muted); }
+@utility aa-bg-hover { background-color: var(--color-hover); }
+@utility aa-bg-accent-tint { background-color: var(--color-accent-ui-tint); }
+@utility aa-border { border-color: var(--color-border); }
+@utility aa-border-light { border-color: var(--color-border-light); }
+@utility aa-divide-light { & > :not(:last-child) { border-color: var(--color-border-light); } }
+@utility aa-text-primary { color: var(--color-text-primary); }
+@utility aa-text-secondary { color: var(--color-text-secondary); }
+@utility aa-text-muted { color: var(--color-text-muted); }
+@utility aa-text-cell { color: var(--color-text-cell); }

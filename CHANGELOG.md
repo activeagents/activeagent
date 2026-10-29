@@ -37,6 +37,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   a new Build group holds Projects, Tools and MCP Services; Workspace is
   unchanged. Every path and view is the same, only the order and grouping.
 
+### Fixed
+
+- **The agent interactions page follows the dark theme** (`actionagent`). It
+  was written in Tailwind's grey scale (white panes, grey text) and stayed
+  light under the dark theme at every width, with its run stream rendered
+  light too. Its surfaces, borders and text now use the dashboard's tokens,
+  as `aa-*` utilities in `dashboard.css` that take Tailwind's variants; its
+  source and run/sessions toggles are the shared segmented control; and the
+  stream renders in the theme that shows.
+
 ## [1.9.5] - 2026-10-28
 
 The `activeagent` command line: the gem's third surface beside the dashboard
