@@ -52,7 +52,7 @@ async function readJson(res) {
 // without the cable.
 export default function ProjectDetail({ projectId, onBack, onDeleted }) {
   const [project, setProject] = useState(null);
-  const [boot, setBoot] = useState(null); // { boot, log_tail, error, confirmation }
+  const [boot, setBoot] = useState(null); // { boot, log_tail, error, backend_error, confirmation, browser_modes }
   const [secrets, setSecrets] = useState([]);
   const [tab, setTabState] = useState(() => projectTabFromSearch(window.location.search));
   // Set by the header's Watch live, so the Browser tab starts watching.
@@ -338,8 +338,8 @@ export default function ProjectDetail({ projectId, onBack, onDeleted }) {
 
       {tab === 'overview' && (
         <>
-          <ProjectBootProgress boot={boot?.boot} logTail={boot?.log_tail} error={boot?.error} sandboxState={project.sandbox_state}
-            waiting={project.pending_input_requests} />
+          <ProjectBootProgress boot={boot?.boot} logTail={boot?.log_tail} error={boot?.error} backendError={boot?.backend_error}
+            sandboxState={project.sandbox_state} waiting={project.pending_input_requests} />
 
           <ProjectInputRequests
             projectId={projectId}

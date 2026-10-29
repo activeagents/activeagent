@@ -211,18 +211,19 @@ module ActionAgent
       # GET /api/sandboxes/:session_id/boot
       # How a checkout's boot went, step by step (see
       # SandboxOrchestrator#boot_status). `boot` is null when the backend
-      # reports no steps, or holds nothing for the sandbox.
+      # reports no steps, or holds nothing for the sandbox; when the backend
+      # cannot report it at all, `backend_error` names the backend and the
+      # reason (see #boot_report).
       def boot
         orchestrator = SandboxOrchestrator.new
-        status = @sandbox.app_runtime? && orchestrator.supports?(:boot_status) ? orchestrator.boot_status(@sandbox) : nil
-        # A project's checkout booted with its secrets, which the backend may
-        # not know to mask.
-        status = SecretScrubber.scrub(status, @sandbox.project_scrub_values) if status
-        render json: {
+        status, backend_error = boot_report(orchestrator)
+        payload = {
           boot: status,
           resumable: !!(status&.dig(:kept) && @sandbox.failed? && !@sandbox.past_expiry? && orchestrator.supports?(:resume_boot)),
           logs: @sandbox.app_runtime? && orchestrator.supports?(:boot_log)
         }
+        payload[:backend_error] = backend_error if backend_error
+        render json: payload
       end
 
       # GET /api/sandboxes/:session_id/boot_log?step=NAME&offset=N&limit=N
@@ -297,6 +298,30 @@ module ActionAgent
       end
 
       private
+
+      # The most of a backend's error the boot status carries (see #boot_report).
+      BACKEND_ERROR_BYTES = 1_000
+
+      # The backend's account of the sandbox's boot, scrubbed of its
+      # project's secrets (a project's checkout booted with them, which the
+      # backend may not know to mask): [status, nil]. When the backend cannot
+      # give one (no host configured, the host unreachable, a container that
+      # has not written its state yet), [nil, error], where error names the
+      # backend and the scrubbed reason, so the page reports it instead of
+      # failing on a 500 (#650; Api::ProjectsController#boot_report is the
+      # same for a project).
+      def boot_report(orchestrator)
+        return [ nil, nil ] unless @sandbox.app_runtime? && orchestrator.supports?(:boot_status)
+
+        status = orchestrator.boot_status(@sandbox)
+        status = SecretScrubber.scrub(status, @sandbox.project_scrub_values) if status
+        [ status, nil ]
+      rescue StandardError => e
+        Rails.logger.warn("[ActionAgent] the #{orchestrator.backend_name} sandbox backend could not report the boot of " \
+          "sandbox #{@sandbox.session_id}: #{e.class}: #{e.message}")
+        [ nil, { backend: orchestrator.backend_name,
+                 message: SecretScrubber.scrub(e.message.to_s, @sandbox.project_scrub_values).truncate(BACKEND_ERROR_BYTES) } ]
+      end
 
       def set_sandbox
         @sandbox = account_scoped(owned(SandboxSession)).find_by!(session_id: params[:id])
