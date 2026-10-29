@@ -239,19 +239,21 @@ const EXPECTED_NAV = [
     ['list', 'Agents', { icon: 'agents', badge: 'agentCount' }],
     ['builder', 'New Agent', { icon: 'newAgent' }],
     ['sandbox', 'Run Agents', { icon: 'demo' }],
-    ['projects', 'Projects', { glyph: '</>' }],
+    ['evaluations', 'Evaluations', { icon: 'evaluations' }],
+    ['scenarios', 'Scenarios', { icon: 'evaluations' }],
   ]],
   ['observability', 'Observability', [
     ['traces', 'Traces', { icon: 'traces' }],
     ['interactions', 'Interactions', {
       icon: 'interactions', badge: 'pendingInputCount', badgeTone: 'attention', badgeTitle: 'requests waiting for an answer',
     }],
+    ['sessions', 'Sessions', { icon: 'replay', also: ['replay'] }],
+    ['metrics', 'Metrics', { icon: 'metrics' }],
+  ]],
+  ['build', 'Build', [
+    ['projects', 'Projects', { glyph: '</>' }],
     ['tools', 'Tools', { icon: 'tools' }],
     ['mcp', 'MCP Services', { icon: 'mcp' }],
-    ['metrics', 'Metrics', { icon: 'metrics' }],
-    ['evaluations', 'Evaluations', { icon: 'evaluations' }],
-    ['scenarios', 'Scenarios', { icon: 'evaluations' }],
-    ['sessions', 'Sessions', { icon: 'replay', also: ['replay'] }],
   ]],
   ['workspace', 'Workspace', [
     ['organization', 'Organization', { glyph: '🏢' }],
@@ -267,7 +269,7 @@ const expectedNav = (assistantEnabled) => EXPECTED_NAV.map(([id, label, items]) 
     .map(([view, itemLabel, extra]) => ({ view, label: itemLabel, ...extra })),
 }));
 
-test('the sidebar lists its views in three sections', () => {
+test('the sidebar lists its views in four sections, agents and evaluations first', () => {
   assert.deepEqual(dashboardNavSections(ON), expectedNav(true));
 });
 
