@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Upgrading
 
-Dashboard installs need migration 030, `add_catalog_scenario_metadata`:
+Dashboard installs need migration 031, `add_catalog_scenario_metadata`:
 run `bin/rails generate action_agent:install --skip` and `bin/rails db:migrate`.
 Until it runs, catalog imports keep working but still drop scenario extensions.
 Previously discarded scenario extensions require re-importing the original
