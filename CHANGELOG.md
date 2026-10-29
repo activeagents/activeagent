@@ -16,6 +16,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   choices were, and a choice that toggle saved still holds. The header's
   sun/moon button flips to the opposite of what shows and saves it as a
   fixed choice; pick System on the settings page to follow the OS again.
+- **What changed since the last run** (`actionagent`). A scenario suite's
+  step box marks each result that moved against the latest earlier complete
+  run sharing one of its models: ▲ where a failure now passes, ▼ where a pass
+  now fails, ○ where the replay errored this time. The cell's tooltip names
+  the earlier result and run, and a `changed vs #N` chip counts each kind and
+  filters the box to the scenarios that moved.
 
 ### Changed
 
@@ -46,6 +52,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   as `aa-*` utilities in `dashboard.css` that take Tailwind's variants; its
   source and run/sessions toggles are the shared segmented control; and the
   stream renders in the theme that shows.
+- **A sandbox backend that cannot report a boot no longer breaks the project
+  page** (`actionagent`; #650). `GET /api/projects/:id/boot` answered 500
+  whenever the backend raised while reading the boot (no sandbox host
+  configured, the host unreachable, a container that had not written its
+  state yet), so the project page showed "Could not load the project" under
+  "sandbox booting" and stopped following the boot. It now answers 200 with
+  `boot` null and `backend_error` naming the backend and the scrubbed
+  reason; the page says no sandbox backend answered, with that reason,
+  beside the boot's own failure when it failed. `GET
+  /api/sandboxes/:session_id/boot` answers the same way.
 
 ## [1.9.5] - 2026-10-28
 
