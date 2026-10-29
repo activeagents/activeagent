@@ -17,6 +17,8 @@ module ActionAgent
       LOG_TAIL_BYTES = 8 * 1024
       LOG_PAGE_BYTES = 64 * 1024
       LOG_MAX_PAGE_BYTES = 1024 * 1024
+      # The most of a backend's error the boot status carries (see #boot_report).
+      BACKEND_ERROR_BYTES = 1_000
       UPDATABLE = %i[name default_ref start_url].freeze
 
       before_action :require_owner!
@@ -214,18 +216,20 @@ module ActionAgent
       # The current sandbox's boot, step by step (see
       # SandboxOrchestrator#boot_status), with the scrubbed tail of the step
       # that failed or is running, and the modes its browser can start in
-      # (none when the backend runs no browsers).
+      # (none when the backend runs no browsers). When the backend cannot
+      # report the boot, `boot` is null and `backend_error` names the backend
+      # and the reason (see #boot_report).
       def boot_status
         sandbox = @project.current_sandbox_session
         orchestrator = SandboxOrchestrator.new
-        status = sandbox && orchestrator.supports?(:boot_status) ? orchestrator.boot_status(sandbox) : nil
-        status = SecretScrubber.scrub(status.deep_symbolize_keys, @project.scrub_values) if status.is_a?(Hash)
+        status, log_tail, backend_error = boot_report(orchestrator, sandbox)
 
         render json: {
           project: @project.summary,
           boot: status,
-          log_tail: status && log_tail(orchestrator, sandbox, status),
+          log_tail: log_tail,
           error: sandbox&.failed? ? SecretScrubber.scrub(sandbox.error_summary, @project.scrub_values) : nil,
+          backend_error: backend_error,
           logs: sandbox.present? && orchestrator.supports?(:boot_log),
           confirmation: @project.local_boot_confirmation(orchestrator),
           browser_modes: browser_modes(orchestrator)
@@ -533,6 +537,27 @@ module ActionAgent
         orchestrator.browser_modes.map(&:to_s)
       rescue StandardError, LoadError
         []
+      end
+
+      # The backend's account of the sandbox's boot, scrubbed, with the tail
+      # of the step's log that goes with it: [status, log_tail, nil]. When the
+      # backend cannot give one (no host configured, the host unreachable, a
+      # container that has not written its state yet), [nil, nil, error],
+      # where error names the backend and the scrubbed reason. The page then
+      # shows the boot as unknown for that reason and keeps following it,
+      # instead of failing to load the project (#650). The sandbox's own
+      # failure, if it failed, is reported beside it as `error`.
+      def boot_report(orchestrator, sandbox)
+        return [ nil, nil, nil ] unless sandbox && orchestrator.supports?(:boot_status)
+
+        status = orchestrator.boot_status(sandbox)
+        status = SecretScrubber.scrub(status.deep_symbolize_keys, @project.scrub_values) if status.is_a?(Hash)
+        [ status, status && log_tail(orchestrator, sandbox, status), nil ]
+      rescue StandardError => e
+        Rails.logger.warn("[ActionAgent] the #{orchestrator.backend_name} sandbox backend could not report the boot of " \
+          "sandbox #{sandbox.session_id}: #{e.class}: #{e.message}")
+        [ nil, nil, { backend: orchestrator.backend_name,
+                      message: SecretScrubber.scrub(e.message.to_s, @project.scrub_values).truncate(BACKEND_ERROR_BYTES) } ]
       end
 
       # The last LOG_TAIL_BYTES of the step that failed, else of the one

@@ -8,7 +8,7 @@ import {
   runsMeta, scenarioStep, scenarioTime, scenarioTokens, selectionModelLabels, selectionOf, stepsMinWidth, sumTokens, toolsMinWidth,
   withModelBreakdown,
 } from '../../utils/evaluationRuns.mjs';
-import { useIsoLayoutEffect } from '../../hooks/useMeasuredWidth';
+import useMeasuredWidth, { useIsoLayoutEffect } from '../../hooks/useMeasuredWidth';
 import ModelScorecard from './evaluations/ModelScorecard';
 import ModelComparisonTable from './evaluations/ModelComparisonTable';
 import ComparisonIntervals from './evaluations/ComparisonIntervals';
@@ -451,7 +451,7 @@ export function ModelsPanel({ run, columns, results = [], scenarioCount = 0, jud
       {/* Whether the gap between them is real, from the run's recorded comparison. */}
       {columns.length > 1 && <ComparisonIntervals plot={comparisonPlot(run)} />}
       {columns.length > 0 && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 12 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(260px, 100%), 1fr))', gap: 12 }}>
           {columns.map((label) => {
             const { short, provider } = describeModel(run, label);
             const stats = summaries[label];
@@ -520,6 +520,35 @@ const gridFor = (level, n) => (level === 'tools'
   : ['minmax(200px, 1.6fr)', ...Array(n).fill('minmax(130px, 1fr)'), '80px', '48px'].join(' '));
 
 const GRID_GAP = { tools: 10, steps: 8 };
+
+// Below lg (phones, and tablets beside the fixed sidebar) the box is
+// narrower than its columns, so its first column — the step glyph, the key,
+// the prompt — stays put while the model columns
+// scroll under it. The cell paints the row's own background (opaque, on the
+// surface colour) so what scrolls beneath does not show through; an open row
+// and a group row carry their tints on top. The cell stretches to the row's
+// full height and its negative margins run the background out over the row's
+// padding and the column gap — a one-line cell in a two-line row would
+// otherwise let the model cells peek out above and below it. The vertical
+// margins match each row kind's padding; the right ones match GRID_GAP.
+// From lg up these do nothing.
+const STICKY_BASE = 'max-lg:sticky max-lg:left-0 max-lg:z-[1] max-lg:self-stretch max-lg:-ml-3 max-lg:pl-3';
+const STICKY_GAP = { steps: 'max-lg:-mr-2 max-lg:pr-2', tools: 'max-lg:-mr-2.5 max-lg:pr-2.5' };
+const STICKY_BG = {
+  row: 'max-lg:bg-[var(--color-surface)]',
+  open: 'max-lg:bg-[var(--color-surface)] max-lg:[background-image:linear-gradient(var(--color-muted),var(--color-muted))]',
+  group: 'max-lg:bg-[var(--color-background)]',
+};
+// Row padding is 6px at the steps level and 10px at the tools level; the
+// header's is 8px and a group row's 7px.
+const stickyFirst = (detail, kind) => {
+  const pad = kind === 'header' ? 'max-lg:-my-2 max-lg:py-2 max-lg:content-end'
+    : kind === 'group' ? 'max-lg:-my-[7px] max-lg:py-[7px]'
+      : detail === 'steps' ? 'max-lg:-my-1.5 max-lg:py-1.5 max-lg:items-center!'
+        : 'max-lg:-my-2.5 max-lg:py-2.5';
+  const bg = kind === 'group' ? STICKY_BG.group : kind === 'row' ? STICKY_BG.row : STICKY_BG.open;
+  return `${STICKY_BASE} ${STICKY_GAP[detail] || STICKY_GAP.steps} ${pad} ${bg}`;
+};
 
 const EMPTY_LIST = [];
 const EMPTY_MAP = {};
@@ -716,7 +745,7 @@ const ScenarioRow = React.memo(function ScenarioRow({
       }}
     >
       {steps ? (
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, minWidth: 0 }}>
+        <div className={stickyFirst(detail, open ? 'open' : 'row')} style={{ display: 'flex', alignItems: 'baseline', gap: 8, minWidth: 0 }}>
           {glyph}
           {showKey && (
             <span style={{ ...mono(11), minWidth: 0, maxWidth: '40%', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{keyText}</span>
@@ -733,7 +762,7 @@ const ScenarioRow = React.memo(function ScenarioRow({
         </div>
       ) : (
         <>
-          <div style={{ minWidth: 0 }}>
+          <div className={stickyFirst(detail, open ? 'open' : 'row')} style={{ minWidth: 0 }}>
             <div style={{ ...mono(11), marginBottom: 2, display: 'flex', gap: 6 }}>
               {glyph}
               <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>{keyText}</span>
@@ -845,6 +874,11 @@ export function ScenarioMatrix({
 
   const scrollRef = useRef(null);
   const headerRef = useRef(null);
+  // The scrollport's width. When the columns are wider than it (a phone,
+  // or a many-model run), an open drill-down is sized to it and stuck to
+  // its left edge, so it reads in full without scrolling sideways to it.
+  const boxWidth = useMeasuredWidth(scrollRef);
+  const detailStyle = boxWidth > 0 && boxWidth < minWidth ? { position: 'sticky', left: 0, width: boxWidth } : undefined;
   const [headerHeight, setHeaderHeight] = useState(50);
   const [detailHeight, setDetailHeight] = useState(0);
   const headerHeightRef = useRef(headerHeight);
@@ -1018,7 +1052,9 @@ export function ScenarioMatrix({
             backgroundColor: 'var(--color-surface)', backgroundImage: 'linear-gradient(var(--color-muted), var(--color-muted))',
           }}
         >
-          <MicroLabel size={10} color="var(--color-text-muted)">{steps ? 'Step' : 'Scenario'}</MicroLabel>
+          <span className={stickyFirst(steps ? 'steps' : 'tools', 'header')} style={{ minWidth: 0 }}>
+            <MicroLabel size={10} color="var(--color-text-muted)">{steps ? 'Step' : 'Scenario'}</MicroLabel>
+          </span>
           {!steps && <MicroLabel size={10} color="var(--color-text-muted)">Expects</MicroLabel>}
           {columns.map((label) => {
             const { short, provider } = describeModel(run, label);
@@ -1099,7 +1135,7 @@ export function ScenarioMatrix({
                     position: 'sticky', top: headerHeight, zIndex: 1,
                   }}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                  <div className={stickyFirst(steps ? 'steps' : 'tools', 'group')} style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
                     <Glyph kind="chevron" open={!collapsed} />
                     <span data-testid="scenario-group-step" title={mark.title} style={{ ...mono(11, mark.color), fontWeight: 700, flexShrink: 0 }}>{mark.text}</span>
                     <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--color-text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{name || 'ungrouped'}</span>
@@ -1146,7 +1182,7 @@ export function ScenarioMatrix({
                       onToggle={toggleRow}
                       onFocus={focusNav}
                     />
-                    {open && <div ref={attachDetail}>{renderDetail?.(scenario)}</div>}
+                    {open && <div ref={attachDetail} style={detailStyle}>{renderDetail?.(scenario)}</div>}
                   </div>
                 );
               })}
@@ -1327,7 +1363,7 @@ export function ScenarioDetail({
       ) : !covered ? (
         <div style={mono(11)}>Not part of this run — use “re-run scenario” to replay it.</div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 12 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(300px, 100%), 1fr))', gap: 12 }}>
           {columns.map((label) => (
             <ResultCard
               key={label}
@@ -1422,7 +1458,7 @@ export function FixList({
           {`[+] nothing to fix for ${splitModelLabel(selected).short}`}
         </Empty>
       )}
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 12 }}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(320px, 100%), 1fr))', gap: 12 }}>
       {visible.map((item, index) => {
         const info = item.kind === 'instruction';
         const tone = info ? 'info' : 'error';

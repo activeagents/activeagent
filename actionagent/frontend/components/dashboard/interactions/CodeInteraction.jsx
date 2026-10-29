@@ -330,7 +330,13 @@ export default function CodeInteraction({ rootId, onBack = null }) {
             ))}
           </ol>
 
-          <form onSubmit={send} className={`space-y-2 p-4 border-t shrink-0 ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+          {/* Pinned to the panel's foot where the panels fill the window;
+              below lg, where they stack at natural height and the window
+              scrolls, it sticks to the bottom of the screen instead. */}
+          <form
+            onSubmit={send}
+            className={`space-y-2 p-4 border-t shrink-0 max-lg:sticky max-lg:bottom-0 max-lg:rounded-b-lg ${darkMode ? 'border-gray-700 bg-gray-900' : 'border-gray-200 bg-white'}`}
+          >
             <label htmlFor={`code-interaction-${rootId}-message`} className={`text-xs font-medium ${strong}`}>
               Message {runnerLabel(conversation)}
             </label>
