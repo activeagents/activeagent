@@ -278,6 +278,57 @@ class EvalsPublisherTest < Minitest::Test
     assert_instance_of Errno::ECONNREFUSED, error.cause
   end
 
+  def probe(capabilities)
+    stub_request(:post, ENDPOINT).with(body: "{}").to_return(status: 422, body: { error: "version must be 1", capabilities: capabilities }.compact.to_json)
+  end
+
+  def test_progress_sends_a_running_envelope_once_the_collector_lists_progress
+    probe(%w[progress])
+    bodies = []
+    stub_request(:post, ENDPOINT).with { |req| req.body != "{}" && bodies << JSON.parse(req.body) }
+      .to_return(status: 201, body: receipt.merge(status: "running").to_json)
+      .then.to_return(status: 200, body: receipt.merge(status: "complete").to_json)
+    publishing = publisher
+
+    assert_equal "running", publishing.progress(**arguments)["status"]
+    assert_equal "complete", publishing.progress(**arguments)["status"], "a progress delivery that lands after the run completed"
+    assert_equal Publisher.envelope(**arguments, status: "running"), bodies.first
+    assert_requested :post, ENDPOINT, body: "{}", times: 1
+  end
+
+  def test_progress_sends_nothing_to_a_collector_that_does_not_list_progress
+    [ nil, [], "progress" ].each do |capabilities|
+      WebMock.reset!
+      probe(capabilities)
+      error = assert_raises(Publisher::Error, capabilities.inspect) { publisher.progress(**arguments) }
+
+      assert_includes error.message, "does not accept progress"
+      refute error.retryable?
+      assert_requested :post, ENDPOINT, times: 1
+    end
+  end
+
+  def test_progress_refuses_a_receipt_for_another_status
+    probe(%w[progress])
+    stub_request(:post, ENDPOINT).with { |req| req.body != "{}" }.to_return(status: 201, body: receipt.merge(status: "failed").to_json)
+
+    error = assert_raises(Publisher::Error) { publisher.progress(**arguments) }
+    assert_includes error.message, "invalid progress receipt"
+    assert error.retryable?
+  end
+
+  def test_call_refuses_a_running_receipt
+    stub_request(:post, ENDPOINT).to_return(status: 201, body: receipt.merge(status: "running").to_json)
+
+    error = assert_raises(Publisher::Error) { publisher.call(**arguments) }
+    assert_includes error.message, "invalid completion receipt"
+  end
+
+  def test_a_complete_envelope_carries_no_status
+    refute Publisher.envelope(**arguments).key?("status")
+    assert_equal "running", Publisher.envelope(**arguments, status: "running")["status"]
+  end
+
   def test_endpoint_is_the_collector_url
     assert_equal ENDPOINT, publisher.endpoint
   end

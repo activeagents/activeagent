@@ -108,6 +108,11 @@ capture writes through the trace model and issues no HTTP at all, so that
 path is a label, not a request; apps posting from elsewhere set `endpoint:`
 to the full URL, as shown below, and `resolved_endpoint` returns that.)
 
+A stored trace moves between installs the way a run does: the `activeagent`
+command line's `traces export TRACE` writes it as the payload this route
+ingests, and `traces import FILE` posts it to another dashboard with that
+dashboard's ingest key (see [Command Line](/framework/cli#traces)).
+
 ```ruby
 # A path on your main app:
 mount ActionAgent::Engine => "/activeagents"
@@ -236,10 +241,12 @@ Any complete run comes back out the same way:
 `GET <mount>/api/evaluation_reports/:run_id`, with the same key, returns the
 envelope that endpoint takes, so a run moves to another install with one
 POST, and posting it back here is an identical retry (200); `?format=html`
-and `?format=md` return its report page or Markdown instead. From the command
-line, `bin/rails action_agent:evaluations:export` and
-`action_agent:evaluations:import` do the same (see
-[Exporting a stored run](/evals/publication#exporting-a-stored-run)).
+and `?format=md` return its report page or Markdown instead. Inside the host
+app, `bin/rails action_agent:evaluations:export` and
+`action_agent:evaluations:import` do the same, and from any machine with the
+gem, `activeagent evals report` and `activeagent evals import` (see
+[Exporting a stored run](/evals/publication#exporting-a-stored-run) and
+[Command Line](/framework/cli#reports)).
 
 ## RubyLLM applications
 
@@ -363,9 +370,8 @@ call the concern through a method the engine does not define, such as
 - **CDN assets.** The React dashboard's CSS and JS are served from the
   `actionagent` gem, which adds its own `app/assets/builds` to your asset
   paths, so it works on CSP-strict and air-gapped networks. The server-rendered
-  console at `<mount>/console/traces` still loads Tailwind, Turbo and
-  Stimulus from public CDNs and renders unstyled without them — set
-  `config.layout` to a layout of your own that bundles them locally.
+  console at `<mount>/console/traces` loads nothing external — see
+  [Trace console without JavaScript](#trace-console-without-javascript).
 - **Time-series charts** on the console's metrics page light up when the
   optional [groupdate](https://github.com/ankane/groupdate) gem is
   installed. The React metrics page buckets by hour with the same portable
@@ -461,3 +467,17 @@ ActionAgent.sandbox_service = "cloud_run"
 
 Whichever backend runs, schedule `bin/rails action_agent:sandbox:reap` so
 expired sandboxes are stopped.
+
+## Trace console without JavaScript
+
+Open `<mount>/console/traces` for the server-rendered trace console, or
+`<mount>/console/traces/metrics` for the last 24 hours of agent statistics.
+The console includes its styles in the HTML. It needs no CDN, JavaScript,
+asset pipeline, or frontend build. Expand a trace with its summary or use
+**Open trace** for a standalone detail page.
+
+Refresh is manual by default so an open trace stays open. **Auto-refresh**
+reloads the current page every 30 seconds; `?refresh=60` uses 60 seconds.
+**Stop refreshing** removes that setting. A refresh reloads the whole page
+and closes expanded details. The host's dashboard authentication and tenant
+scoping apply to these pages as well.

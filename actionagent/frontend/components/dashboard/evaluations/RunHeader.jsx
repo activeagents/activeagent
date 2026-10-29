@@ -8,6 +8,7 @@ import { fmtPasses } from '../../../utils/evalFormat.mjs';
 import { fmtClock, fmtDuration, plural, runElapsedMs } from '../../../utils/evaluationRuns.mjs';
 import { DELTA_TONE, RunBadge, VERSION_TONE, VersionChip } from './RunsList';
 import CopyMarkdownButton from './CopyMarkdownButton';
+import CopyLinkButton from './CopyLinkButton';
 import { reportExports } from '../../../utils/reportExport.mjs';
 import { AgentCostCell, JudgeCostCell, StatCell } from './SpendStrip';
 
@@ -86,7 +87,7 @@ export default function RunHeader({
   agentName = 'agent', scenarioCount = 0, groupCount = 0, columns = [], judgedBy = 'rules', bars = [],
   delta = null, version = null, totals = NO_TOTALS, settledCount = 0, settledFailed = 0, expectedResults = 0,
   running = false, loading = false, spend = null, fixSummary = NO_FIXES, selectionLabel = null, sandboxLabel = null,
-  reportPath = null, rerun = NO_RERUN,
+  reportPath = null, rerun = NO_RERUN, evaluationId = null,
   onSelectLatest, onWatchLatest, onJumpToFix, onRerunFailed, onRunAgain,
 }) {
   const { darkMode } = useTheme();
@@ -233,6 +234,14 @@ export default function RunHeader({
             run again
           </MonoLink>
         )}
+        <CopyLinkButton
+          evaluationId={evaluationId}
+          runId={run.id}
+          label="copy link"
+          testId="suite-run-copy-link"
+          title="Copy a link that opens this run, for a teammate in your organization"
+          style={{ padding: '0 4px', fontFamily: MONO, fontSize: 11 }}
+        />
         {reportPath && (
           <MonoLink href={hrefFor(reportPath)} onClick={() => navigateTo(reportPath)} title="The run rendered as a report page" testId="suite-run-report">
             run report

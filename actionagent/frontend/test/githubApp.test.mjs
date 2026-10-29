@@ -86,11 +86,12 @@ test('a requested install tells the requester an organization owner links it', (
 test('every outcome the callbacks report has a message', () => {
   const outcomes = [
     'linked', 'pending', 'denied', 'invalid_state', 'missing_code', 'missing_installation', 'not_found', 'not_admin',
-    'taken', 'not_configured', 'forbidden', 'manifest_error', 'manifest_unavailable', 'error',
+    'members_permission', 'taken', 'not_configured', 'forbidden', 'manifest_error', 'manifest_unavailable', 'error',
   ];
   outcomes.forEach((outcome) => assert.ok(GITHUB_APP_CALLBACK_MESSAGES[outcome]?.text, outcome));
   assert.equal(GITHUB_APP_CALLBACK_MESSAGES.linked.tone, 'success');
   assert.equal(GITHUB_APP_CALLBACK_MESSAGES.not_admin.tone, 'error');
+  assert.match(GITHUB_APP_CALLBACK_MESSAGES.members_permission.text, /Members \(read\)/);
 });
 
 test('organization logins follow GitHub\'s rule', () => {

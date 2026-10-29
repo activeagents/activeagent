@@ -17,8 +17,17 @@ module ActionAgent
   #   evaluation — that agent's evaluation for the `suite` and the report's
   #                scope (SCOPE_KEYS in its metadata), named for both
   #   scenarios  — one per reported scenario key, updated to the reported prompt
-  #   run        — one complete EvaluationRun per tenant and run_id, with one
+  #   run        — one EvaluationRun per tenant and run_id, with one
   #                EvaluationScenarioResult per scenario and model
+  #
+  # An envelope's `status` is "complete" when absent. A "running" envelope
+  # stores the results so far as a running run, and each later delivery under
+  # its run_id replaces them, until a "complete" one finishes the run:
+  #   running  — "running" or "complete" replaces the stored results
+  #   complete — "complete" is an identical retry or a Conflict, as for any
+  #              stored run; "running" changes nothing, so a progress
+  #              delivery that lands after the final one is harmless
+  # Only the first delivery under a run_id is admitted and counted.
   #
   # The run's per-model summary, criterion scores and recommendations are
   # computed from the stored results, not taken from the report. The judge's
@@ -85,6 +94,11 @@ module ActionAgent
     MAX_JUDGE_KINDS = 10
     SCOPE_PATTERN = %r{\A[\w .:/@-]{1,100}\z}
     STATUSES = %w[passed failed errored].freeze
+    # The envelope statuses a delivery may name.
+    RUN_STATUSES = %w[running complete].freeze
+    # What this collector accepts beyond a version-1 report, sent with its
+    # refusal of a payload that is not one so a publisher can ask before a run.
+    CAPABILITIES = %w[progress].freeze
     # Report metadata that tells one evaluation of a suite from another, in the
     # order it is written into the evaluation's name.
     SCOPE_KEYS = %w[scope environment role].freeze
@@ -102,20 +116,22 @@ module ActionAgent
     # The evaluation_runs columns an import writes that later migrations added.
     REQUIRED_RUN_COLUMNS = %w[external_tenant external_run_id external_report_digest agent_version_id].freeze
 
-    # Returns `[run, duplicate]`: the stored EvaluationRun, and whether an
-    # earlier identical delivery had already stored it. `account` is the
-    # tenant, or nil on a single-tenant install.
+    # Returns `[run, duplicate, progressed]`: the stored EvaluationRun, whether
+    # an earlier delivery had already stored this report, and whether this
+    # delivery replaced the results of a running run. `account` is the tenant,
+    # or nil on a single-tenant install.
     #
-    # `admit` is asked only for a report that would be stored, never for an
-    # identical retry. It returns nil to allow the report, or a denial, which
-    # is raised as Denied.
+    # `admit` is asked only for a run_id the tenant holds no run under. It
+    # returns nil to allow the report, or a denial, which is raised as Denied.
     #
     # The envelope's identities are validated as sent. NUL characters, which
     # PostgreSQL cannot store, are removed from every string inside `report`.
     #
     # Raises Invalid for a payload that is not a valid version-1 report, or an
     # evaluation name the agent already holds for another suite or scope;
-    # Conflict for different content under a stored run_id; Refused (and
+    # Conflict for different content under a complete run_id, or a delivery
+    # under a running run_id that the dashboard executed or that names another
+    # agent, suite or scope; Refused (and
     # LimitExceeded) when storing needs an operator to act first; Denied; and
     # Busy.
     def self.call(payload:, account: nil, admit: nil)
@@ -162,24 +178,25 @@ module ActionAgent
       validate!
       digest = self.class.digest(@payload)
       existing = stored_run
-      return [ identical!(existing, digest), true ] if existing
+      return settled(existing, digest) if settles?(existing, digest)
 
       attempts = 0
       begin
         OwnerLock.new(EvaluationRun.connection, owner_lock_key).synchronize do
           EvaluationRun.transaction(requires_new: true) do
             existing = stored_run
-            next [ identical!(existing, digest), true ] if existing
+            next settled(existing, digest) if settles?(existing, digest)
+            next [ progress(existing, digest), false, true ] if existing
 
             admit!
-            [ import(digest), false ]
+            [ import(digest), false, false ]
           end
         end
       rescue ActiveRecord::RecordNotUnique
         # A concurrent delivery committed this run, or an agent, evaluation or
         # scenario this import was creating, first. Reading again sees it.
         existing = stored_run
-        return [ identical!(existing, digest), true ] if existing
+        return settled(existing, digest) if settles?(existing, digest)
 
         attempts += 1
         retry if attempts < 2
@@ -265,6 +282,29 @@ module ActionAgent
       EvaluationReportExport.find(@payload["run_id"], account: @account)
     end
 
+    def running_delivery?
+      @payload["status"] == "running"
+    end
+
+    # Whether a delivery under a stored run's run_id leaves its results as
+    # they are. Only a running run this collector imported takes new ones.
+    def settles?(run, digest)
+      return false unless run
+      return true unless run.running? && run.imported?
+
+      run.external_report_digest == digest
+    end
+
+    # Returns `[run, true, false]` for a delivery that leaves the stored run as
+    # it is. Raises Conflict for a run the dashboard is executing, and for a
+    # different "complete" report under a run that has finished.
+    def settled(run, digest)
+      raise Conflict, "run_id names a run the dashboard is executing" if run.running? && !run.imported?
+      return [ run, true, false ] if running_delivery? || run.running?
+
+      [ identical!(run, digest), true, false ]
+    end
+
     # The stored run, when the payload is the report it was stored from or
     # the run's own export (EvaluationReportExport), which is how an
     # exported run posted back to its install is told from a different
@@ -286,26 +326,60 @@ module ActionAgent
       raise Denied, denial if denial.present?
     end
 
+    # Replaces a running run's results with the delivery's.
+    def progress(run, digest)
+      agent = find_or_create_agent
+      evaluation = find_or_initialize_evaluation(agent)
+      raise Conflict, "run_id already exists for another agent, suite or scope" unless evaluation.id == run.evaluation_id
+
+      scenarios = upsert_scenarios(evaluation)
+      run.scenario_results.destroy_all
+      run.update!(run_attributes(agent, digest))
+      store_results(run, scenarios, agent)
+    end
+
+    # A new run is dated by the time its report says it finished, when it
+    # names one (see #finished_at), so a run exported from one install and
+    # imported into another keeps its place in the run history.
     def import(digest)
       agent = find_or_create_agent
       evaluation = find_or_initialize_evaluation(agent)
       scenarios = upsert_scenarios(evaluation)
       run = evaluation.evaluation_runs.create!(
-        external_tenant: tenant_key,
-        external_run_id: @payload["run_id"],
+        run_attributes(agent, digest).merge(external_tenant: tenant_key, external_run_id: @payload["run_id"], created_at: finished_at)
+      )
+      store_results(run, scenarios, agent)
+    end
+
+    def run_attributes(agent, digest)
+      {
         external_report_digest: digest,
         agent_version: reported_release_version(agent),
-        status: :complete,
+        status: running_delivery? ? :running : :complete,
         selection: selection,
         scores: recorded_scores,
         samples_evaluated: results.size,
         samples_passed: results.count { |result| result["status"] == "passed" },
-        completed_at: Time.current
-      )
+        completed_at: running_delivery? ? nil : finished_at
+      }
+    end
+
+    # The report's `metadata.finished`, which EvaluationRun#to_report records
+    # as the run's completion time, or now when the report names none. A
+    # time later than now is read as now.
+    def finished_at
+      @finished_at ||= begin
+        now = Time.current
+        reported = metadata["finished"] && Time.iso8601(metadata["finished"])
+        reported && reported < now ? reported : now
+      end
+    end
+
+    def store_results(run, scenarios, agent)
       results.each { |result| persist(run, scenarios.fetch(result["scenario_key"]), result) }
       run.update!(scores: summarized_scores(run))
-      evaluation.touch
-      agent.update_columns(last_observed_at: run.completed_at, updated_at: Time.current)
+      run.evaluation.touch
+      agent.update_columns(last_observed_at: Time.current, updated_at: Time.current)
       run
     end
 
@@ -621,6 +695,9 @@ module ActionAgent
       object!(@payload, "payload")
       validate_json!(@payload)
       raise Invalid, "version must be 1" unless @payload["version"] == 1
+      unless @payload["status"].nil? || RUN_STATUSES.include?(@payload["status"])
+        raise Invalid, "status must be one of #{RUN_STATUSES.join(', ')}"
+      end
 
       %w[run_id source suite].each { |key| identifier!(@payload[key], key) }
       unless @payload["agent_name"].is_a?(String) && AGENT_NAME_PATTERN.match?(@payload["agent_name"]) && @payload["agent_name"].strip.length >= 2
@@ -634,6 +711,7 @@ module ActionAgent
         raise Invalid, "suite and scope name an evaluation longer than #{MAX_EVALUATION_NAME} characters"
       end
 
+      validate_finished!
       judge_trace_ids!(metadata["judge_trace_ids"])
       string!(report["judge"], "report.judge", 200)
       validate_release!
@@ -734,6 +812,21 @@ module ActionAgent
       string!(judge["instruction_change"], "result.diagnosis.judge.instruction_change", MAX_TEXT)
       optional_object!(judge["suggested_tool"], "result.diagnosis.judge.suggested_tool")
       string!(judge.dig("suggested_tool", "name"), "result.diagnosis.judge.suggested_tool.name", 200)
+    end
+
+    def validate_finished!
+      finished = metadata["finished"]
+      return if finished.nil?
+      return if finished.is_a?(String) && finished.length <= 40 && iso8601?(finished)
+
+      raise Invalid, "report.metadata.finished must be an ISO 8601 time"
+    end
+
+    def iso8601?(value)
+      Time.iso8601(value)
+      true
+    rescue ArgumentError
+      false
     end
 
     # The release the report says it evaluated: a digest the dashboard can

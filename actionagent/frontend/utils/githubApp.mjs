@@ -11,6 +11,7 @@ export const GITHUB_APP_CALLBACK_MESSAGES = {
   missing_installation: { tone: 'error', text: 'GitHub did not say which installation to link. Try installing again.' },
   not_found: { tone: 'error', text: 'Your GitHub account cannot reach that installation, so it was not linked.' },
   not_admin: { tone: 'error', text: 'Only the account the App is installed on, or an admin of its organization, can link an installation.' },
+  members_permission: { tone: 'error', text: 'GitHub would not show your role in the organization, so the installation was not linked. Give the GitHub App the organization permission Members (read), accept the new permission on the installation, and link it again. If the organization uses SAML single sign-on, authorize the App for it too.' },
   taken: { tone: 'error', text: 'That installation is already linked to another workspace.' },
   not_configured: { tone: 'error', text: 'No GitHub App is configured on this dashboard.' },
   forbidden: { tone: 'error', text: 'You do not have permission to change the GitHub App.' },

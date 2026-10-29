@@ -1,8 +1,11 @@
 # frozen_string_literal: true
 
 require "test_helper"
+require_relative "support/dashboard_write_headers"
 
 class DashboardAssistantApiTest < ActionDispatch::IntegrationTest
+  include DashboardWriteHeaders
+
   def setup
     @original_credentials = ActionAgent.provider_credentials_resolver
     @original_config = ActiveAgent.configuration
@@ -195,7 +198,7 @@ class DashboardAssistantApiTest < ActionDispatch::IntegrationTest
     assert_equal false, dashboard_props.dig("meta", "assistantEnabled")
   end
 
-  test "assistant POST requires a real dashboard CSRF token when protection is enabled" do
+  test "assistant POST is accepted only from the dashboard page when protection is enabled" do
     original = ActionController::Base.allow_forgery_protection
     ActionController::Base.allow_forgery_protection = true
     # A cross-site POST with no token is rejected by both forgery protection
@@ -206,9 +209,7 @@ class DashboardAssistantApiTest < ActionDispatch::IntegrationTest
     post "/activeagents/api/dashboard_assistant", params: input, headers: { "Sec-Fetch-Site" => "cross-site" }, as: :json
     assert_response :unprocessable_entity
     assert_equal "invalid_csrf_token", response.parsed_body["code"]
-    get "/activeagents"
-    token = Nokogiri::HTML(response.body).at_css('meta[name="csrf-token"]')["content"]
-    post "/activeagents/api/dashboard_assistant", params: input.except(:allow_provider_processing), headers: { "X-CSRF-Token" => token }, as: :json
+    post "/activeagents/api/dashboard_assistant", params: input.except(:allow_provider_processing), headers: dashboard_write_headers, as: :json
     assert_response :unprocessable_entity
     assert_equal "processing_consent_required", response.parsed_body["code"]
   ensure

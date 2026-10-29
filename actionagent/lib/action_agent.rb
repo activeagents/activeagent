@@ -751,6 +751,16 @@ module ActionAgent
     # @return [String, nil]
     attr_accessor :sign_out_path
 
+    # Items the host app adds to the header's user menu, above "Sign out":
+    # its workspace and member pages, its account settings, and for platform
+    # admins its admin pages. A Proc receives the signed-in user and the
+    # current owner and returns an Array of { label:, href: } Hashes (an
+    # Array is used as is), so the host decides per user what to show. The
+    # engine has no pages of its own to link here; unset, or when the Proc
+    # raises (logged), the menu holds "Sign out" alone.
+    # @return [Proc, Array<Hash>, nil]
+    attr_accessor :user_menu_links
+
     # Where a browser is sent when it asks for a dashboard page without a
     # valid session — the host app's sign-in page. Unset, an unauthenticated
     # page request gets a minimal session-expired page instead of a bare
@@ -857,6 +867,16 @@ module ActionAgent
     attr_writer :github_app_id, :github_app_private_key, :github_app_slug,
       :github_app_client_id, :github_app_client_secret
 
+    # The secret GitHub signs the App's webhook deliveries with, which
+    # POST <mount>/api/github_app/webhooks verifies. Falls back to
+    # GITHUB_APP_WEBHOOK_SECRET. Not one of the settings
+    # github_app_configured? needs: without it the endpoint answers 404 and
+    # the dashboard learns of installation changes only when a token mint is
+    # refused. Set the App's Webhook URL to <mount>/api/github_app/webhooks
+    # and subscribe it to Installation and Installation repositories.
+    # @return [String, nil]
+    attr_writer :github_app_webhook_secret
+
     # MCP servers the host app itself serves or connects, appended to the
     # built-in catalog (MCPCatalog) so the MCP Services view lists them and
     # telemetry traffic attributes to them. Each entry is a hash shaped like
@@ -959,6 +979,10 @@ module ActionAgent
 
     def github_app_client_secret
       @github_app_client_secret.presence || ENV["GITHUB_APP_CLIENT_SECRET"].presence
+    end
+
+    def github_app_webhook_secret
+      @github_app_webhook_secret.presence || ENV["GITHUB_APP_WEBHOOK_SECRET"].presence
     end
 
     # Whether the GitHub App installation flow can run on this install: every
@@ -1183,6 +1207,27 @@ module ActionAgent
 
     # The tenant +owner+ belongs to. Identity unless the host app says
     # otherwise, which is right for every single-tenant install.
+    # The host's user menu items for +user+ in +owner+'s dashboard, as
+    # [{ label:, href: }] with blank or malformed entries dropped. Empty when
+    # user_menu_links is unset or raises, which is logged, not raised: a
+    # broken menu seam must not take the dashboard down with it.
+    # @return [Array<Hash{Symbol => String}>]
+    def user_menu_links_for(user, owner)
+      links = user_menu_links
+      links = links.call(user, owner) if links.respond_to?(:call)
+      Array(links).filter_map do |link|
+        label = link[:label] || link["label"]
+        href = link[:href] || link["href"]
+        next if label.blank? || href.blank?
+        next unless href.to_s.match?(%r{\A(/|https?://)})
+
+        { label: label.to_s, href: href.to_s }
+      end
+    rescue StandardError => error
+      Rails.logger.warn("[ActionAgent] user_menu_links failed: #{error.class}: #{error.message}")
+      []
+    end
+
     def tenant_for(owner)
       return owner if tenant_resolver.nil?
 
@@ -1303,12 +1348,14 @@ module ActionAgent
       @github_app_slug = nil
       @github_app_client_id = nil
       @github_app_client_secret = nil
+      @github_app_webhook_secret = nil
       @trace_retention = nil
       @trace_owner_resolver = nil
       @usage_recorder = nil
       @usage_resolver = nil
       @upgrade_url = nil
       @sign_out_path = nil
+      @user_menu_links = nil
       @sign_in_path = nil
       @mcp_catalog = []
       @agent_actor_resolver = nil

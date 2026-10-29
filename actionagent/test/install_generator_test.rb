@@ -439,6 +439,29 @@ class ActionAgentInstallGeneratorTest < Rails::Generators::TestCase
     connection&.drop_table("#{prefix}draft_pull_requests", if_exists: true)
   end
 
+  # Under a probe prefix, so the result can be compared with the dummy's own
+  # table.
+  test "the webhook deliveries migration builds the table the dummy schema has, with a unique delivery id" do
+    run_generator [ "--skip-routes" ]
+    assert_migration "db/migrate/create_active_agent_github_webhook_deliveries.rb"
+    connection = ActiveRecord::Base.connection
+    prefix = "wh_probe_"
+    ActionAgent.table_name_prefix = prefix
+
+    run_migration("create_active_agent_github_webhook_deliveries", :CreateActiveAgentGithubWebhookDeliveries)
+
+    shape = ->(table) { connection.columns(table).to_h { |column| [ column.name, [ column.sql_type, column.null, column.default ] ] } }
+    assert_equal shape.call("active_agent_github_webhook_deliveries"), shape.call("#{prefix}github_webhook_deliveries")
+    assert connection.index_exists?("#{prefix}github_webhook_deliveries", :delivery_id, unique: true)
+    assert connection.index_exists?("#{prefix}github_webhook_deliveries", :created_at)
+
+    run_migration("create_active_agent_github_webhook_deliveries", :CreateActiveAgentGithubWebhookDeliveries, :down)
+    assert_not connection.table_exists?("#{prefix}github_webhook_deliveries")
+  ensure
+    ActionAgent.table_name_prefix = "active_agent_"
+    connection&.drop_table("#{prefix}github_webhook_deliveries", if_exists: true)
+  end
+
   test "a missing numbered template directory emits nothing" do
     ActionAgent::InstallGenerator.numbered_migrations_path = File.join(destination_root, "no-such-directory")
 

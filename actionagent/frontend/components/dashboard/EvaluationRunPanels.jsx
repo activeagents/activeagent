@@ -15,6 +15,7 @@ import ComparisonIntervals from './evaluations/ComparisonIntervals';
 import JudgeChip from './evaluations/JudgeChip';
 import CopyFixPromptButton, { dashboardUrl } from './evaluations/CopyFixPromptButton';
 import CopyMarkdownButton from './evaluations/CopyMarkdownButton';
+import CopyLinkButton from './evaluations/CopyLinkButton';
 import { markdownPartUrl } from '../../utils/reportExport.mjs';
 import ImplementFixButton from './evaluations/ImplementFixButton';
 import ReplayLink from './replay/ReplayLink';
@@ -1140,13 +1141,23 @@ function resultMeta(result) {
   return parts.join(' · ');
 }
 
-function ResultCard({ label, run, result, expects, running }) {
+// `evaluationId` lets a settled result offer a link to itself; `linked`
+// marks the result a shared link named.
+function ResultCard({ label, run, result, expects, running, evaluationId = null, linked = false }) {
   const { short } = describeModel(run, label);
   const header = (
     <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 600, color: 'var(--color-text-primary)' }} title={label}>{short}</span>
   );
   const shell = (children, extra) => (
-    <div data-testid="scenario-result-detail" style={{ background: 'var(--color-card)', border: '1px solid var(--color-border-light)', borderRadius: 10, overflow: 'hidden', minWidth: 0 }}>
+    <div
+      data-testid="scenario-result-detail"
+      data-result-id={result?.id ?? undefined}
+      data-linked={linked ? 'true' : undefined}
+      style={{
+        background: 'var(--color-card)', border: `1px solid ${linked ? 'var(--color-info)' : 'var(--color-border-light)'}`, borderRadius: 10, overflow: 'hidden', minWidth: 0,
+        boxShadow: linked ? '0 0 0 1px var(--color-info)' : undefined,
+      }}
+    >
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderBottom: '1px solid var(--color-border-light)', flexWrap: 'wrap' }}>
         {header}
         {extra}
@@ -1214,6 +1225,15 @@ function ResultCard({ label, run, result, expects, running }) {
       {result.agent_run_id && (
         <ReplayLink kind="scenario_result" id={result.id} title="Replay this scenario's run" testId="scenario-result-replay" style={meta ? undefined : { marginLeft: 'auto' }} />
       )}
+      <CopyLinkButton
+        evaluationId={evaluationId}
+        runId={run?.id}
+        resultId={result.id}
+        label="copy link"
+        testId="scenario-result-copy-link"
+        title="Copy a link that opens this result, for a teammate in your organization"
+        style={{ padding: '0 4px', fontFamily: MONO, fontSize: 11, ...(meta || result.agent_run_id ? {} : { marginLeft: 'auto' }) }}
+      />
     </>
   );
 }
@@ -1221,7 +1241,10 @@ function ResultCard({ label, run, result, expects, running }) {
 // `inRun` says whether the selected run covers this scenario: a scenario the
 // run skipped offers a replay instead of empty result cards, and a suite with
 // no run at all says so rather than blaming a run that never happened.
-export function ScenarioDetail({ scenario, run, columns, resultsByKey, running, inRun = true, onRerun, onToggleEnabled, canMutate = true, markdownUrl = null }) {
+export function ScenarioDetail({
+  scenario, run, columns, resultsByKey, running, inRun = true, onRerun, onToggleEnabled, canMutate = true, markdownUrl = null,
+  evaluationId = null, linkedResultId = null,
+}) {
   const expects = expectList(scenario, 'tools');
   const results = resultsByKey[scenario.key] || {};
   const anyResult = columns.some((label) => results[label]);
@@ -1269,7 +1292,16 @@ export function ScenarioDetail({ scenario, run, columns, resultsByKey, running, 
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 12 }}>
           {columns.map((label) => (
-            <ResultCard key={label} label={label} run={run} result={results[label]} expects={expects} running={running} />
+            <ResultCard
+              key={label}
+              label={label}
+              run={run}
+              result={results[label]}
+              expects={expects}
+              running={running}
+              evaluationId={evaluationId}
+              linked={linkedResultId != null && results[label]?.id === linkedResultId}
+            />
           ))}
         </div>
       )}

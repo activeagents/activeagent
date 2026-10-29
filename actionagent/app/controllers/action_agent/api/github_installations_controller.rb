@@ -151,6 +151,12 @@ module ActionAgent
         record.assign_from_github(installation)
         record.save!
         "linked"
+      # GitHub would not say whether the user administers the organization,
+      # which is not the same as saying they do not.
+      rescue GithubClient::MembershipForbidden => e
+        Rails.logger.warn("[ActionAgent] GitHub App installation #{installation_id} was not linked: #{e.message}. " \
+          "Grant the GitHub App the organization permission Members (read).")
+        "members_permission"
       # Another owner linked the same installation between the lookup and
       # the save.
       rescue ActiveRecord::RecordNotUnique
@@ -163,7 +169,9 @@ module ActionAgent
       end
 
       # Whether +github_user+ administers +account+: is that user account, or
-      # an active admin of that organization.
+      # an active admin of that organization. The organization check needs
+      # the App's organization permission Members (read): without it GitHub
+      # answers 403, and GithubClient::MembershipForbidden is raised.
       def administers?(github, github_user, account)
         account = {} unless account.is_a?(Hash)
 

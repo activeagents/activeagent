@@ -17,6 +17,159 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   sun/moon button flips to the opposite of what shows and saves it as a
   fixed choice; pick System on the settings page to follow the OS again.
 
+## [1.9.5] - 2026-10-28
+
+The `activeagent` command line: the gem's third surface beside the dashboard
+and its API, working with a dashboard over HTTP from a terminal or a CI job,
+and the facade tools it needed. A run, a scenario catalog and a trace each
+move between installs as one file. The framework and the dashboard engine
+move to 1.9.5 together.
+
+Upgrading: `rails generate action_agent:install` and `rails db:migrate` add
+the GitHub App webhook deliveries table (below). The CLI needs `actionagent`
+1.9.5 on the dashboard for `catalogs export`, `catalogs import --preview`,
+`agents versions` and `traces export` (the facade's new tools), and 1.9.3
+for `evals report` (the report export); an older dashboard answers those
+commands with exit code 5.
+
+### Added
+
+- **Evaluation runs published while they run** (`activeagent`, `actionagent`).
+  `ActiveAgent::Evals::Publisher#progress` sends the results so far as a
+  `"status": "running"` envelope, and the collector stores them as a running
+  run that the Evaluations page follows live; each later delivery under the
+  run_id replaces the results until `#call` completes the run. Only the first
+  delivery is admitted and counted. A progress delivery after completion
+  changes nothing. The collector lists `"progress"` in the `capabilities` of
+  its readiness answer, and `#progress` sends nothing to a collector that does
+  not (`#supports_progress?`), since an older one would store the partial
+  report as complete.
+- **Imported evaluation runs keep their dates** (`actionagent`). The
+  collector dates a run by its report's `metadata.finished`, which an export
+  carries, so an exported run imported into another install keeps its place
+  in the run history instead of reading as just run. A report naming no
+  finish time is dated on arrival, and a malformed one is refused.
+- **`activeagent` command line** (`activeagent`, `actionagent`; refs #619).
+  The gem ships an `activeagent` executable (stdlib `OptionParser` and
+  `Net::HTTP`, no new dependencies) that works with a dashboard over HTTP:
+  `login`/`logout` (named profiles in `~/.config/activeagent/credentials.yml`,
+  `0600`; `ACTIVEAGENT_URL`, `ACTIVEAGENT_API_KEY` and
+  `ACTIVEAGENT_INGEST_KEY` override them for CI), `status`,
+  `evals list|runs|run|report|import`, `catalogs list|import|export`
+  (`import --preview` shows what a document would change, `--mode merge`
+  keeps what it leaves out), `agents list|versions` and
+  `traces list|get|export|import`, with `--json` output and distinct exit
+  codes. `evals run --min-pass-rate 0.8` waits for the run and exits 4
+  below the threshold, for CI gating. Reads and runs go through the MCP
+  facade's dashboard tools with a dashboard API key; the imports and
+  `evals report` use the endpoints the framework's own reporters post to,
+  with the ingest key. A run, a catalog and a trace each move between
+  installs as one file: `evals report RUN --format json` writes the
+  version-1 envelope `evals import` posts (`--format html|md` the report
+  page or its Markdown, for a pull request comment), `catalogs export KEY`
+  the canonical document (YAML, or `--format json`) that `catalogs import`
+  reads, and `traces export TRACE` the payload `traces import` sends to
+  trace ingest. See `docs/framework/cli.md`.
+
+- **Four more dashboard tools on the MCP facade** (`actionagent`), the
+  API-key routes the CLI needed: `catalogs_export` (a catalog's canonical
+  document as YAML or JSON, whole or one product or set), `catalogs_preview`
+  (what `catalogs_import` would change, writing nothing), `agents_versions`
+  (an agent's versions with their diffs, as `GET /api/agents/:id/versions`)
+  and `traces_export` (one trace, whole and untruncated, as the payload
+  `POST <mount>/api/traces` takes, so a trace moves between installs).
+  `catalogs_import` takes `mode: replace|merge` as the API does. Every run
+  summary (`GET /api/evaluations`, the facade's `evaluations_get`,
+  `evaluations_run` and `evaluation_runs_get`) now carries `run_id`, the
+  handle `GET <mount>/api/evaluation_reports/:run_id` takes.
+
+- **GitHub App webhooks** (`actionagent`). `POST <mount>/api/github_app/webhooks`
+  receives the App's deliveries, verified with `X-Hub-Signature-256` under
+  `ActionAgent.github_app_webhook_secret` (falling back to
+  `GITHUB_APP_WEBHOOK_SECRET`; unset, the endpoint answers 404), and applies
+  them in `ActionAgent::GithubWebhookJob`: an uninstall marks the linked
+  installation removed, suspend and unsuspend set and clear `suspended_at`,
+  accepted permissions are recorded, a repository removed from the
+  installation leaves the owner's selection, and a revoked App authorization
+  deletes the user's stored connection when connections authorize through the
+  App. Each `X-GitHub-Delivery` is recorded for seven days, so a redelivery
+  is a no-op. Ships a new migration,
+  `create_active_agent_github_webhook_deliveries`; run
+  `rails generate action_agent:install` and `rails db:migrate` to add it.
+
+### Fixed
+
+- **Sandbox sign-in recognises Claude Code 2.1's authorization page**
+  (`actionagent`). "Sign in with your Claude subscription" on a local sandbox
+  stayed at "Preparing Claude's authorization page": the CLI now sends
+  sign-ins to `claude.com/cai/oauth/authorize` and prints the link as a
+  terminal hyperlink whose text repeats the URL, which the flow neither
+  accepted nor cut at the hyperlink's end. Both are read now, and
+  `claude.ai` and `platform.claude.com` still are.
+- **Projects accept GitHub App installations** (`actionagent`). A dashboard
+  that runs only the GitHub App could link an installation but not create a
+  project ("GitHub is not connected"). The New Project checklist now counts a
+  usable installation as connected, `GET /api/projects/repositories` lists
+  the installations' repositories together with the OAuth connection's, and
+  the preflight, secret discovery and creation reach a repository through the
+  installation first, as its checkout does, with a token minted for reading
+  that one repository. Picking a repository the installation has not
+  selected selects it there. A removed or suspended installation answers
+  `installation_unavailable`.
+- **Report a missing Members permission when linking an organization's
+  GitHub App installation** (`actionagent`). GitHub answers the membership
+  check with 403 while the App lacks the organization permission Members
+  (read); the callback now reports `members_permission` instead of
+  `not_admin`. The dashboard guide documents the permission, and that the
+  dashboard's callback URL must be the App's first.
+
+- **Boot on Ruby 3.4 and 4.0 with bootsnap 1.24.6 or newer** (`actionagent`).
+  `ProviderKey#owner_record` unwrapped delegators with
+  `... while defined?(::Delegator) && ...`, which Prism miscompiles when the
+  source is compiled from a string ("argument stack underflow"); bootsnap
+  compiles files that way on those Rubies as its Ruby bug #22023 workaround,
+  so a host on bootsnap 1.26 (and local runs on Ruby 3.4.9 or 4.0.1) failed
+  to boot the engine. The `defined?` check now sits outside the loop, and a
+  test compiles every shipped Ruby file from a string.
+
+## [1.9.4] - 2026-10-25
+
+### Added
+
+- **Host links in the dashboard's user menu** (`actionagent`).
+  `ActionAgent.user_menu_links` takes an Array of `{ label:, href: }` or a
+  Proc receiving the signed-in user and the current owner, and the header's
+  avatar menu lists them above "Sign out". A hosted platform points them at
+  its workspace, members and account settings pages, and shows its admin
+  pages to the users who may use them; a self-hosted install leaves it unset
+  and sees the menu it had. Malformed entries are dropped and a raising Proc
+  is logged, so the menu seam cannot take the dashboard down.
+
+### Fixed
+
+- **Keep the trace console usable offline** (`actionagent`). The console
+  ships its own inline styles and uses native details and ordinary links
+  instead of CDN-hosted Tailwind, Turbo and Stimulus. Automatic refresh is
+  opt-in (30 or 60 seconds) and uses the browser's refresh mechanism;
+  expanding a trace no longer depends on JavaScript or a host asset pipeline.
+- **Discover and call generated agent previews** (`activeagent`). TestUnit
+  writes previews under `test/agents/previews`, with current URLs and query
+  parameters passed to the agent. Discovery checks for newly added files,
+  and the default image interceptor accepts generation objects.
+
+- **Restore Rails browser previews** (`activeagent`). `/rails/agents` lists
+  previews and renders their prompt requests without executing a provider.
+  Namespaced actions and Markdown downloads work, unknown actions return
+  404, and all endpoints enforce Rails' local-request restriction. Preview
+  directories participate in development reloading, including configured
+  paths and the legacy `test/docs/previews` directory. The dashboard gem is
+  not needed; the routes remain disabled outside development by default.
+
+- **Generate runnable agent tests** (`activeagent`). TestUnit agent tests
+  inherit from `ActiveSupport::TestCase` instead of the nonexistent
+  `ActiveAgent::TestCase`. Plain and namespaced agents, including agents
+  without actions, can load in a Rails host without calling a provider.
+
 ### Changed
 
 - **One badge for every status and message role in the dashboard**
