@@ -572,7 +572,7 @@ export default function EvaluationsView({ embedded = false, agentId = null }) {
       )}
 
       {/* Stats */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 16 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(190px, 100%), 1fr))', gap: 16 }}>
         <StatCard label="Evaluations" value={shownEvaluations.length} sub={evaluationsSub} testId="stat-evaluations" />
         <StatCard label="Samples scored" value={samplesScored} sub={scoredSub} testId="stat-samples-scored" />
         <StatCard
@@ -679,7 +679,7 @@ export default function EvaluationsView({ embedded = false, agentId = null }) {
                 <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--color-text-primary)' }}>{evaluation.name}</span>
                 {/* What the evaluation is set up to cover; a run's own row says what it scored. */}
                 <span style={monoStyle(11)}>{`@${evaluation.agent?.name || 'agent'} · ${runLabel(evaluation)}`}</span>
-                <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
+                <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 12, rowGap: 6, flexShrink: 0, flexWrap: 'wrap', maxWidth: '100%' }}>
                   <span style={monoStyle(11)}>{timeAgo(run?.completed_at || run?.created_at || evaluation.created_at)}</span>
                   {fixCount > 0 && <span style={monoStyle(11, 'var(--color-error)')}>{`${fixCount} to fix`}</span>}
                   {standingBadge && <Badge tone={standingBadge.tone} size={10} style={{ padding: '1px 6px' }} title={standingBadge.title} testId="evaluation-standing">{standingBadge.text}</Badge>}

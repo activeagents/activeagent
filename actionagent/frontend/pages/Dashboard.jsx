@@ -71,6 +71,16 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
   const [visit, setVisit] = useState(0);
   // The session a /replay URL opens (see sessionReplayPath).
   const [replaySession, setReplaySession] = useState(null);
+  // Below md the sidebar is a drawer behind the header's menu button; it
+  // closes on navigation, on its backdrop and on Escape. Above md the flag
+  // has no effect: the sidebar is always in the flow.
+  const [navOpen, setNavOpen] = useState(false);
+  useEffect(() => {
+    if (!navOpen) return undefined;
+    const onKey = (event) => { if (event.key === 'Escape') setNavOpen(false); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [navOpen]);
 
   // Parse the URL into a view. Runs on mount and on popstate, so browser
   // back/forward and in-app pushState navigation (e.g. a Traces agent card
@@ -272,6 +282,7 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
 
   const navigateTo = (view, agent = null) => {
     if (!isDashboardViewEnabled(view, features)) return;
+    setNavOpen(false);
     setVisit((count) => count + 1);
     if (view === 'builder') setBuilderDraft(null);
     if (agent?.id && AGENT_DETAIL_VIEWS.includes(view) && agent.instructions === undefined) {
@@ -464,6 +475,8 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
         user={user}
         gemVersion={meta.activeagentVersion}
         features={features}
+        open={navOpen}
+        onClose={() => setNavOpen(false)}
       />
 
       {/* min-w-0: a flex item defaults to min-width:auto, so a view whose
@@ -474,12 +487,13 @@ function DashboardContent({ user, initialAgents = [], meta = {}, account = null,
         <Header
           user={user}
           account={account}
+          onOpenNav={() => setNavOpen(true)}
         />
 
         {/* The window scrolls, not main, so main clips instead of becoming a
             scroll container: one that never scrolls would pin sticky panes
             (a conversation's browser) in place. */}
-        <main className="flex-1 p-6 overflow-x-clip">
+        <main className="flex-1 p-4 md:p-6 overflow-x-clip">
           {renderContent()}
         </main>
       </div>

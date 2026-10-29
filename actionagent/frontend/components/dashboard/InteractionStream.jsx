@@ -161,6 +161,9 @@ const SpanMessagePill = ({ message, darkMode }) => {
   return (
     <span
       title={`${Math.round(message.span_duration_ms)}ms · starts at ${Math.round(message.span_start_ms || 0)}ms of ${Math.round(total)}ms`}
+      // Hidden on a phone: 96px of pill beside a 72px badge left the message
+      // itself a few words wide. The waterfall is still in the trace.
+      className="hidden sm:inline-block"
       style={{
         position: 'relative',
         width: '96px',
@@ -169,7 +172,6 @@ const SpanMessagePill = ({ message, darkMode }) => {
         background: darkMode ? 'rgba(255,255,255,0.08)' : '#f3f4f6',
         flexShrink: 0,
         marginTop: '8px',
-        display: 'inline-block',
       }}
     >
       <span
