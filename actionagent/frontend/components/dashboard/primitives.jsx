@@ -198,9 +198,9 @@ export function Card({ children, padding = 20, style, className, testId, ...rest
 // Stat tile: mono uppercase label · 32px mono/700 value · 13px secondary sub-line.
 export function StatCard({ label, value, sub, valueColor, valueSize = 32, testId }) {
   return (
-    <Card testId={testId}>
+    <Card testId={testId} className="max-md:p-4!">
       <MicroLabel size={11} spacing="0.05em">{label}</MicroLabel>
-      <div style={{ marginTop: 8, fontFamily: MONO, fontSize: valueSize, fontWeight: 700, lineHeight: 1.1, color: valueColor || 'var(--color-text-primary)' }}>{value}</div>
+      <div className="max-md:text-[24px]!" style={{ marginTop: 8, fontFamily: MONO, fontSize: valueSize, fontWeight: 700, lineHeight: 1.1, color: valueColor || 'var(--color-text-primary)' }}>{value}</div>
       {sub != null && <div style={{ marginTop: 8, fontSize: 13, color: 'var(--color-text-secondary)' }}>{sub}</div>}
     </Card>
   );

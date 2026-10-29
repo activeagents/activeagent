@@ -7,7 +7,11 @@ import { dashboardNavSections } from '../../utils/dashboardRoutes.mjs';
 // features: what the server enabled on this dashboard (dashboardFeatures);
 // a view it turned off has no nav item. pendingInputCount: the requests for
 // input waiting for an answer, undefined when none are.
-export default function Sidebar({ currentView, onNavigate, agentCount, pendingInputCount, account, user, gemVersion, features = {} }) {
+//
+// Below md the sidebar is a drawer: fixed to the left edge, slid off-screen
+// until `open`, with a backdrop that `onClose`s it. From md up the same
+// element sits in the page flow at its usual 256px, whatever `open` says.
+export default function Sidebar({ currentView, onNavigate, agentCount, pendingInputCount, account, user, gemVersion, features = {}, open = false, onClose }) {
   const { darkMode } = useTheme();
   const [showAccountMenu, setShowAccountMenu] = useState(false);
   const menuRef = useRef(null);
@@ -111,8 +115,22 @@ export default function Sidebar({ currentView, onNavigate, agentCount, pendingIn
   );
 
   return (
+    <>
+      {/* The drawer's backdrop: phones only, and only while it is open. */}
+      {open && (
+        <div
+          className="fixed inset-0 z-40 bg-black/40 md:hidden"
+          data-testid="sidebar-backdrop"
+          aria-hidden="true"
+          onClick={onClose}
+        />
+      )}
     <aside
-      className="w-64 border-r flex flex-col"
+      data-testid="sidebar"
+      data-open={open ? 'true' : 'false'}
+      className={`w-64 border-r flex flex-col max-md:fixed max-md:inset-y-0 max-md:left-0 max-md:z-50 max-md:overflow-y-auto max-md:transition-[transform,visibility] max-md:duration-200 max-md:ease-out ${
+        open ? 'max-md:translate-x-0 max-md:shadow-xl' : 'max-md:-translate-x-full max-md:invisible'
+      }`}
       style={{
         backgroundColor: darkMode ? '#1a1a1a' : '#ffffff',
         borderColor: darkMode ? '#2a2a2a' : '#e5e7eb'
@@ -124,6 +142,19 @@ export default function Sidebar({ currentView, onNavigate, agentCount, pendingIn
         style={{ borderColor: darkMode ? '#2a2a2a' : '#e5e7eb' }}
         ref={menuRef}
       >
+        {/* Closes the drawer; from md up the sidebar never closes. */}
+        <button
+          type="button"
+          onClick={onClose}
+          className="md:hidden mr-1 p-2 -ml-2 rounded-lg flex-shrink-0"
+          style={{ color: darkMode ? '#9ca3af' : '#6b7280' }}
+          aria-label="Close navigation"
+          data-testid="sidebar-close"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
         <button
           onClick={() => setShowAccountMenu(!showAccountMenu)}
           className="w-full flex items-center justify-between px-2 py-2 rounded-lg transition-colors"
@@ -281,5 +312,6 @@ export default function Sidebar({ currentView, onNavigate, agentCount, pendingIn
         </div>
       </div>
     </aside>
+    </>
   );
 }
