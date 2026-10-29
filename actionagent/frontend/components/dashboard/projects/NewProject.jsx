@@ -74,7 +74,8 @@ export default function NewProject({ onCreated, onCancel }) {
 
   const loadRepositories = useCallback(async () => {
     setRepositories(null);
-    const res = await fetch('/api/github_connection/repositories');
+    // The GitHub App installations' repositories and the OAuth connection's.
+    const res = await fetch('/api/projects/repositories');
     const data = await res.json().catch(() => ({}));
     if (data.reconnect_required) {
       setReconnectRequired(true);

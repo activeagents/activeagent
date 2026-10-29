@@ -105,6 +105,7 @@ export default defineConfig({
           { text: 'Browser Sessions', link: '/framework/browser-sessions' },
           { text: 'Evaluations', link: '/framework/evaluations' },
           { text: 'Self-Hosted Dashboard', link: '/framework/self-hosted-observability' },
+          { text: 'Command Line', link: '/framework/cli' },
           { text: 'Dashboard for RubyLLM Apps', link: '/framework/ruby_llm_dashboard' },
           { text: 'Retries', link: '/framework/retries' },
           { text: 'Asking the User', link: '/framework/input_requests' },

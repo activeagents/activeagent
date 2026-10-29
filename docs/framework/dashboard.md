@@ -651,7 +651,9 @@ the unframed page, which is the copy to archive next to a CI run, and
 page, the run as the evaluation report envelope another install imports
 (see [Exporting a stored run](/evals/publication#exporting-a-stored-run)),
 and the report as GitHub-flavored Markdown. The suite's run header carries
-the same downloads.
+the same downloads, and `activeagent evals report RUN --format html|json|md`
+writes the same three from a terminal, by the run's `run_id` (see
+[Command Line](/framework/cli#reports)).
 
 **Copy as Markdown** puts a piece of the run on the clipboard for an issue
 or a pull request: the whole report (the run report view and the run
@@ -767,8 +769,10 @@ leaves archived evaluations out unless `?archived=1`, returns
 `archived_count`, and gives each evaluation its `standing`,
 `headline_run_id`, `archived_at` and `per_model` passes, plus the
 `headline_run` in full when a newer run is pending or failed; every run
-carries its `agent_version` (`id`, `number`, `release_digest`, `revision`,
-`release`) and `version_state` (`current`, `earlier` or `unrecorded`).
+carries its `run_id` (the handle `GET <mount>/api/evaluation_reports/:run_id`
+and the CLI's `evals report` take), its `agent_version` (`id`, `number`,
+`release_digest`, `revision`, `release`) and `version_state` (`current`,
+`earlier` or `unrecorded`).
 
 ## Scenario catalogs
 
@@ -879,9 +883,11 @@ answering `202` with the set, its evaluation and the pending run. A set
 whose product names no agent answers `422` with `code: "no_target"`.
 
 The same operations are MCP tools for a coding harness (`catalogs_list`,
-`catalogs_import`, `catalog_set_run`, see
-[the MCP facade](#evaluations-and-telemetry-from-your-coding-harness)) and
-rake tasks for a deploy or a cron:
+`catalogs_import`, `catalogs_preview`, `catalogs_export`, `catalog_set_run`,
+see [the MCP facade](#evaluations-and-telemetry-from-your-coding-harness)),
+commands of the [`activeagent` CLI](/framework/cli#scenario-catalogs)
+(`catalogs list`, `catalogs import [--preview]`, `catalogs export`, over
+HTTP with a dashboard API key) and rake tasks for a deploy or a cron:
 
 ```bash
 bin/rails action_agent:catalogs:import FILE=.activeagents/evals/support_desk.yml   # ACCOUNT_ID= or USER_ID= for the owner
@@ -948,11 +954,15 @@ calls.
 | `evaluation_runs_compare` | Two runs of one evaluation, result by result: fixed, regressed, still failing, added, removed. Defaults to the latest run against the one before it |
 | `traces_search` | Summary rows of traces, newest first, filtered by `agent` (class name or dashboard slug), `status` (`error` or `ok`), `service`, `since_minutes`, `min_tokens` and `min_duration_ms`; at most 100 |
 | `traces_get` | One trace by id, OpenTelemetry trace id or its first 8 characters: spans, tool calls with their arguments and results, tokens, estimated cost and failed spans |
+| `traces_export` | The same trace whole, as the payload `POST <mount>/api/traces` ingests (`{ traces: [trace], sdk }`), its spans untruncated and the owner's credentials masked, so it can be sent to another dashboard with that dashboard's ingest key |
 | `input_requests_list` | The pending [input requests](#input-requests) of the key's runs, newest first, in the API's shape; `run_id` filters to one run |
 | `input_requests_answer` | Answers a `text` or `choice` request as the key's caller, under the same permission check as the API. A `confirm` or `secret` request is refused with an error that points to the dashboard |
 | `catalogs_list` | The owner's [scenario catalogs](#scenario-catalogs): each with its products, sets, scenario count, digest and whether its document is in Active Storage |
-| `catalogs_import` | Imports a catalog `document` (YAML) under the key's owner, resolving each product's `agent` by name among the owner's agents. Re-importing the same key updates products, sets and scenarios in place. Needs the `replace_scenarios` permission |
+| `catalogs_import` | Imports a catalog `document` (YAML, or the JSON `catalogs_export` writes) under the key's owner, resolving each product's `agent` by name among the owner's agents. Re-importing the same key updates products, sets and scenarios in place; `mode` is `replace` (the default: the document is the catalog) or `merge` (what the document leaves out is kept). Needs the `replace_scenarios` permission |
+| `catalogs_preview` | What `catalogs_import` of the `document` would change, with the same `name` and `mode`, writing nothing: whether the catalog record would be created, updated or left as it is, counts of products, sets and scenarios created, updated, removed or kept, and the first 500 changes by path |
+| `catalogs_export` | A catalog's canonical document from its records (`catalog` key), as YAML or `format: json`: the whole catalog, or one `product` or one `set` of it, as a document of the catalog's key that a merge import reads back. What the Catalogs page's Export YAML downloads |
 | `catalog_set_run` | Runs one set (`catalog`, `product`, `set` keys) as an evaluation named `catalog/product/set`, against the product's agent, an `agent` (slug or id) or a `project_id` whose sandbox is already running; `models`, `keys`, `browser` and `sandbox_id` narrow the run as `evaluations_run` does. Gated like `evaluations_run` |
+| `agents_versions` | An agent's versions (`agent`, slug or id), newest first, as `GET /api/agents/:id/versions` lists them: each with its number, its diff from the version before, who made it, whether it is the current version and whether it was cut from the agent's code on deploy; `limit` at most 50 |
 
 A typical loop: `evaluations_run`, poll `evaluation_runs_get` until the run is
 `complete`, read the fix items and a failing result's trace with
@@ -1060,7 +1070,9 @@ repositories in one of three ways, and an install can offer both:
 
 In both, the owner then chooses which repositories the workspace may use, and
 the selection only keeps repositories GitHub itself lists. When a repository
-is selected both ways, its checkouts go through the installation.
+is selected both ways, its checkouts go through the installation. Either one
+is enough for [projects](#projects): a dashboard that runs only the GitHub
+App creates them from its installations' repositories.
 
 ### A GitHub App
 
@@ -1078,13 +1090,25 @@ To register it by hand, create a [GitHub App](https://github.com/settings/apps/n
 with:
 
 - callback URL `<mount>/api/github_installations/callback` (for example
-  `https://example.com/activeagents/api/github_installations/callback`)
+  `https://example.com/activeagents/api/github_installations/callback`). If
+  the App lists several callback URLs (a host app that also signs people in
+  with it, say), this one must be the **first**: with user authorization
+  requested during installation, GitHub disables the Setup URL and returns
+  from an install, and from **Redirect on update**, to the first callback
+  URL only, so with another one first nobody comes back to the dashboard
 - **Request user authorization (OAuth) during installation** turned on
 - **Redirect on update** turned on, so GitHub also returns after an
   installation that already exists is reconfigured
 - repository permissions Contents (read and write), Pull requests (read and
-  write) and Metadata (read), and the organization permission Members (read)
-- no webhook, and no Workflows, Administration or Secrets permission
+  write) and Metadata (read), and the organization permission Members (read).
+  Linking an organization's installation reads the authorizing user's role
+  through `GET /user/memberships/orgs/:org`, which GitHub refuses with a
+  `403` while the App lacks Members (read). The dashboard then reports
+  `?github_app=members_permission`, not `not_admin`: add the permission on
+  the App's settings page, accept it on the installation, and link again.
+  The manifest from **Create GitHub App** asks for all four
+- no Workflows, Administration or Secrets permission
+- optionally, a webhook (see [GitHub App webhooks](#github-app-webhooks))
 
 Then configure it, and restart the dashboard:
 
@@ -1126,8 +1150,14 @@ of the organization approves it on GitHub, that owner links it from Settings.
 installed on GitHub. To link it again, choose **Install the GitHub App**,
 pick the account the App is installed on, and save its configuration on
 GitHub, which returns to the dashboard when the App has **Redirect on
-update** turned on. If GitHub does not return, uninstall the App from that
-account on GitHub and install it again from Settings.
+update** turned on. GitHub disables that page's **Save** while nothing
+changed, so for an installation whose repositories are already right, link it
+without the round trip: while signed in to the dashboard, open
+`<mount>/api/github_installations/callback?installation_id=<id>&setup_action=update`
+(the id is the last segment of the installation's settings URL on GitHub),
+which goes through the App's user authorization and the same checks. If
+GitHub does not return either way, uninstall the App from that account on
+GitHub and install it again from Settings.
 
 When GitHub refuses a token because the installation was removed or
 suspended, the dashboard marks the installation, and starting a sandbox from
@@ -1136,6 +1166,44 @@ GitHub once more, and the mark clears as soon as GitHub mints a token for it,
 as it does again once a suspended installation is unsuspended. An App
 uninstalled from an account comes back as a new installation when it is
 installed again; unlink the old one.
+
+#### GitHub App webhooks
+
+Without a webhook, the dashboard learns that an installation was removed or
+suspended only when GitHub next refuses a token. With one, it learns when it
+happens. On the App's settings page on GitHub, set the **Webhook URL** to
+`<mount>/api/github_app/webhooks` (for example
+`https://example.com/activeagents/api/github_app/webhooks`), give it a
+**Webhook secret**, check **Active**, and subscribe it to the
+**Installation** and **Installation repositories** events (GitHub also
+sends the App's authorization revocations). Then configure the secret:
+
+```ruby
+ActionAgent.configure do |config|
+  config.github_app_webhook_secret = Rails.application.credentials.dig(:github_app, :webhook_secret)
+end
+```
+
+Unset, it falls back to `GITHUB_APP_WEBHOOK_SECRET`, and with neither the
+endpoint answers 404. A delivery is accepted only when its
+`X-Hub-Signature-256` is the HMAC-SHA256 of its body under that secret (a
+401 otherwise). The endpoint answers 202 straight away and applies the
+delivery in `ActionAgent::GithubWebhookJob`, so the host app needs a running
+Active Job backend:
+
+| Event | Action | Effect |
+|-------|--------|--------|
+| `installation` | `deleted` | the installation is marked removed |
+| `installation` | `suspend` / `unsuspend` | it is marked suspended, and the mark is cleared |
+| `installation` | `new_permissions_accepted` | its permissions are recorded |
+| `installation_repositories` | `removed` | the removed repositories leave the owner's selection |
+| `installation_repositories` | `added` | nothing to store: the repository picker lists them the next time it opens |
+| `github_app_authorization` | `revoked` | the user's stored OAuth connection is deleted, when `github_client_id` is the App's client id (a connection made through a separate OAuth App is not this grant) |
+
+A delivery about an installation no owner linked changes nothing, and other
+events are answered 202 and ignored. Each `X-GitHub-Delivery` is recorded
+(in `github_webhook_deliveries`, for seven days) before its job is enqueued,
+so a redelivery of the same delivery is a no-op.
 
 ### An OAuth connection
 
@@ -2491,7 +2559,7 @@ fixes it. Creating a project is refused while a blocking item fails.
 | `boot_spec` | yes | the backend's `create_sandbox` takes [`boot_config:`](#boot-specs), which is how a project's bootstrap and secrets reach it |
 | `execution` | yes | agent execution is enabled |
 | `github` | yes | a GitHub App or OAuth app is configured. The item names the exact callback URL to register |
-| `github_connection` | yes | the owner connected GitHub |
+| `github_connection` | yes | the owner has a GitHub App installation GitHub still serves (while an App is configured), or an OAuth connection |
 | `model_credentials` | no | a provider has credentials for the project's agent |
 | `browser` | no | browser sessions, not available yet |
 | `code_runners` | no | the backend runs Claude Code or Codex sessions |
@@ -2509,18 +2577,34 @@ cannot provision are warnings. A repository the connection has not selected
 is looked up by name, which also reaches repositories past the listing's
 500-repository cap.
 
+The repository is reached through the owner's GitHub sources in the order
+its sandbox is checked out through them: the GitHub App installations that
+GitHub still serves, in the order they were linked, then the OAuth
+connection. A repository one of them selected is read through the first that
+did; any other is looked up by name through each in turn. Through an
+installation, the preflight and secret discovery each mint a token limited
+to reading that one repository's contents, and keep it for the request only.
+`GET /api/projects/repositories` is the New Project picker's list: every
+repository the sources reach, each with `selected` and `source` (`app` or
+`oauth`), the installations' first. An installation lists the repositories it
+reaches beyond its selection only to a caller with `:manage_github`. An
+installation GitHub reports removed or suspended answers `422` with
+`code: "installation_unavailable"` and is marked, as a checkout marks it.
+
 The files are read at the commit the ref names (`ref`, or the default
 branch), and the report is kept in `Rails.cache` for that commit: checking
 the repository again, or creating the project, costs one GitHub call until
 the ref moves. A ref that names no commit is `unsupported`.
 
-Reading a repository the connection has not selected, whether to check it,
-to discover its secrets or to create a project from it, needs `:manage_github`
-(see [Permissions](#permissions)). The connection's token can be one
-member's, reaching that member's own repositories, so only the selection is
-open to every member. The `403` comes before GitHub is asked, so it does not
-tell whether the repository exists. Creating a project from such a repository
-selects it. Before a project is created, `ActionAgent.quota_checker` is asked
+Reading a repository no source has selected, whether to check it, to
+discover its secrets or to create a project from it, needs `:manage_github`
+(see [Permissions](#permissions)), asked about each source it is looked up
+through. The connection's token can be one member's, reaching that member's
+own repositories, and an installation can reach repositories a member cannot
+see on GitHub, so only the selections are open to every member. The `403`
+comes before GitHub is asked, so it does not tell whether the repository
+exists. Creating a project from such a repository selects it on the source it
+was found through. Before a project is created, `ActionAgent.quota_checker` is asked
 about `:project`, and a denial answers `402`.
 
 ### Secrets
@@ -3081,7 +3165,7 @@ end
 | Action | Asked by |
 |---|---|
 | `:manage_credentials` | storing, testing and deleting an organization provider credential (`POST /api/provider_keys`, `POST /api/provider_keys/test`, `DELETE /api/provider_keys/:provider`), and storing or testing a member's personal Ollama host; a member's other personal keys need no permission |
-| `:manage_github` | connecting GitHub, choosing its repositories, and disconnecting it (`GET /api/github_connection/connect` and `/callback`, `PATCH` and `DELETE /api/github_connection`); installing and linking the GitHub App, listing and choosing an installation's repositories, and unlinking it (`GET /api/github_installations/install` and `/callback`, `GET /api/github_installations/:id/repositories`, `PATCH` and `DELETE /api/github_installations/:id`); creating the App from a manifest (`POST /api/github_app_manifest`, `GET /api/github_app_manifest/callback`) |
+| `:manage_github` | connecting GitHub, choosing its repositories, and disconnecting it (`GET /api/github_connection/connect` and `/callback`, `PATCH` and `DELETE /api/github_connection`); installing and linking the GitHub App, listing and choosing an installation's repositories, and unlinking it (`GET /api/github_installations/install` and `/callback`, `GET /api/github_installations/:id/repositories`, `PATCH` and `DELETE /api/github_installations/:id`); creating the App from a manifest (`POST /api/github_app_manifest`, `GET /api/github_app_manifest/callback`); reading a repository no GitHub source has selected for a project, and listing an installation's unselected repositories in the New Project picker (`GET /api/projects/preflight`, `/discover_secrets` and `/repositories`, `POST /api/projects`) |
 | `:manage_api_keys` | creating and revoking dashboard API keys (`POST /api/api_keys`, `DELETE /api/api_keys/:id`) |
 | `:publish_pull_request` | opening and updating a pull request from a sandbox (`POST /api/sandboxes/:id/pull_request`) or a project's install pull request (`POST /api/projects/:id/install_pull_request`), asked again when the publish runs |
 | `:answer_input_request` | answering or declining a paused run's request for input (`POST /api/input_requests/:id/answer` and `/decline`, and the MCP `input_requests_answer` tool) |

@@ -17,7 +17,8 @@ const STATE_MESSAGES = {
 // A filterable list of repositories, chosen by full name.
 //
 // repositories: [{ id, full_name, private }], as GET
-//   /api/github_connection/repositories lists them.
+//   /api/github_connection/repositories lists them (or, for a project's
+//   repository, GET /api/projects/repositories).
 // filter / onFilterChange: the filter text, held by the caller so it
 //   survives the picker closing and reopening.
 //

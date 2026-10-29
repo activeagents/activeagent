@@ -1,0 +1,23 @@
+# frozen_string_literal: true
+
+# The GitHub App webhook deliveries the dashboard accepted, kept briefly so a
+# redelivery of the same X-GitHub-Delivery is a no-op (see
+# ActionAgent::GithubWebhookDelivery). Nothing here is a credential or a
+# payload.
+class CreateActiveAgentGithubWebhookDeliveries < ActiveRecord::Migration[7.2]
+  def change
+    prefix = ActionAgent.table_name_prefix
+
+    create_table "#{prefix}github_webhook_deliveries" do |t|
+      # GitHub's X-GitHub-Delivery, a GUID. Unique: a second insert of the
+      # same delivery is how a redelivery is recognized.
+      t.string :delivery_id, null: false, limit: 64
+      t.string :event, null: false, limit: 64
+      t.string :event_action, limit: 64
+      t.bigint :installation_id
+      t.datetime :created_at, null: false
+      t.index :delivery_id, unique: true, name: "index_#{prefix}webhook_deliveries_on_delivery"
+      t.index :created_at, name: "index_#{prefix}webhook_deliveries_on_created_at"
+    end
+  end
+end

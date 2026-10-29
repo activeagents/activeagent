@@ -38,6 +38,27 @@ module ActionAgent
       GithubClient.new(access_token)
     end
 
+    # Every repository the token reaches, whether selected or not. The same
+    # three methods are on GithubInstallation, so a project reaches a
+    # repository through either.
+    def reachable_repositories
+      client.repositories
+    end
+
+    # The repository +full_name+ names, as the token reaches it, or nil.
+    def find_repository(full_name)
+      client.repository(full_name)
+    end
+
+    # A client that reads +repo+'s files: the connection's own token.
+    def contents_client(_repo)
+      client
+    end
+
+    def checkout_source
+      "oauth"
+    end
+
     # The checkout a sandbox backend clones: repository, ref, and an
     # authenticated HTTPS clone URL. Carries the token — hand it to a backend,
     # never to a response.

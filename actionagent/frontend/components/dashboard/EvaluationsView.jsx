@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { dashboardPath, dashboardRelativePath, pushDashboardPath } from '../../utils/dashboardPath';
 import { evaluationLink, includeLinkedEvaluation } from '../../utils/evaluationHistory.mjs';
+import { evaluationLinkFromPath, evaluationLinkPath } from '../../utils/evaluationLinks.mjs';
 import { useTheme } from '../../contexts/ThemeContext';
 import ScenarioSuitePanel from './ScenarioSuitePanel';
 import EvaluationForm from './evaluations/EvaluationForm';
 import EvaluationRunDetail from './evaluations/EvaluationRunDetail';
 import CriteriaFooter from './evaluations/CriteriaFooter';
 import CopyMarkdownButton from './evaluations/CopyMarkdownButton';
+import CopyLinkButton from './evaluations/CopyLinkButton';
 import ModelLeaderboard from './evaluations/ModelLeaderboard';
 import RunsList, { RunBadge, runsSummary } from './evaluations/RunsList';
 import { fmtRate } from './evaluations/SpendStrip';
@@ -43,12 +45,9 @@ const reportRefFromPath = () => {
   return query?.runId ? query : null;
 };
 
-// … or one evaluation, open, and optionally one of its runs.
-const runRefFromPath = () => {
-  const match = dashboardRelativePath().match(/^\/evaluations\/(\d+)(?:\/runs\/(\d+))?\/?$/);
-  if (!match) return null;
-  return { evaluationId: Number(match[1]), runId: match[2] ? Number(match[2]) : null };
-};
+// … or one evaluation, open, optionally one of its runs, and optionally one
+// scenario result of that run (see utils/evaluationLinks.mjs).
+const runRefFromPath = () => evaluationLinkFromPath(dashboardRelativePath());
 
 // Which evaluation the URL names, as a string id: `?evaluation=` (the older
 // deep link) or the path. Either may point outside the first index page.
@@ -253,6 +252,21 @@ export default function EvaluationsView({ embedded = false, agentId = null }) {
     });
   }, [openIds, openRun, evaluations, histories, loadHistory]);
 
+  // A link to one evaluation scrolls its card into view once the list has
+  // landed; a link to a run's result is scrolled to by the suite's panel,
+  // which opens the result's row.
+  const scrolledTo = useRef(null);
+  useEffect(() => {
+    if (embedded || isLoading || !linkedEvaluationId || scrolledTo.current === linkedEvaluationId) return;
+    if (runRefFromPath()?.resultId) return;
+    const card = typeof document !== 'undefined'
+      ? document.querySelector(`[data-evaluation-id="${CSS.escape(String(linkedEvaluationId))}"]`)
+      : null;
+    if (!card) return;
+    scrolledTo.current = linkedEvaluationId;
+    card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [embedded, isLoading, linkedEvaluationId, evaluations]);
+
   const setPath = (path) => {
     if (!embedded && dashboardRelativePath() !== path) pushDashboardPath(path);
   };
@@ -272,7 +286,7 @@ export default function EvaluationsView({ embedded = false, agentId = null }) {
   const openRunDetail = (evaluation, run) => {
     setOpenIds((current) => new Set([...(current || []), evaluation.id]));
     setOpenRun({ evaluationId: evaluation.id, runId: run.id });
-    setPath(`/evaluations/${evaluation.id}/runs/${run.id}`);
+    setPath(evaluationLinkPath({ evaluationId: evaluation.id, runId: run.id }));
   };
 
   const closeRunDetail = (evaluationId) => {
@@ -643,6 +657,7 @@ export default function EvaluationsView({ embedded = false, agentId = null }) {
               data-kind={suite ? 'suite' : 'sampling'}
               data-open={open ? 'true' : 'false'}
               data-standing={standing}
+              data-evaluation-id={evaluation.id}
               style={{ overflow: 'hidden', opacity: archived ? 0.75 : 1 }}
             >
               <div
@@ -670,6 +685,13 @@ export default function EvaluationsView({ embedded = false, agentId = null }) {
                   {standingBadge && <Badge tone={standingBadge.tone} size={10} style={{ padding: '1px 6px' }} title={standingBadge.title} testId="evaluation-standing">{standingBadge.text}</Badge>}
                   {newer && <RunBadge run={newer} testId="evaluation-newer-run-badge" />}
                   <RunBadge run={headline || run} testId={suite ? 'suite-pass-badge' : 'evaluation-pass-badge'} />
+                  <CopyLinkButton
+                    evaluationId={evaluation.id}
+                    label="copy link"
+                    testId="evaluation-copy-link"
+                    title="Copy a link that opens this evaluation, for a teammate in your organization"
+                    style={{ padding: '0 4px', fontFamily: MONO, fontSize: 11 }}
+                  />
                   <button
                     type="button"
                     onClick={(event) => { event.stopPropagation(); handleArchive(evaluation, !archived); }}
@@ -693,7 +715,8 @@ export default function EvaluationsView({ embedded = false, agentId = null }) {
                       onDelete={() => handleDelete(evaluation)}
                       deleting={deletingId === evaluation.id}
                       initialRunId={openRun?.evaluationId === evaluation.id ? openRun.runId : null}
-                      onRunSelected={(runId) => setPath(`/evaluations/${evaluation.id}/runs/${runId}`)}
+                      initialResultId={openRun?.evaluationId === evaluation.id ? openRun.resultId : null}
+                      onRunSelected={(runId) => setPath(evaluationLinkPath({ evaluationId: evaluation.id, runId }))}
                     />
                   ) : (
                     <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }} data-testid="sampling-evaluation-panel">
