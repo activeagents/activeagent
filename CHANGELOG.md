@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- **Agents and evaluations lead the sidebar** (`actionagent`). The first
+  group is Ask ActiveAgents, Agents, New Agent, Run Agents, Evaluations and
+  Scenarios; Observability keeps Traces, Interactions, Sessions and Metrics;
+  a new Build group holds Projects, Tools and MCP Services; Workspace is
+  unchanged. Every path and view is the same, only the order and grouping.
+
 ## [1.9.5] - 2026-10-28
 
 The `activeagent` command line: the gem's third surface beside the dashboard
@@ -84,14 +94,6 @@ commands with exit code 5.
   is a no-op. Ships a new migration,
   `create_active_agent_github_webhook_deliveries`; run
   `rails generate action_agent:install` and `rails db:migrate` to add it.
-
-### Changed
-
-- **Agents and evaluations lead the sidebar** (`actionagent`). The first
-  group is Ask ActiveAgents, Agents, New Agent, Run Agents, Evaluations and
-  Scenarios; Observability keeps Traces, Interactions, Sessions and Metrics;
-  a new Build group holds Projects, Tools and MCP Services; Workspace is
-  unchanged. Every path and view is the same, only the order and grouping.
 
 ### Fixed
 
