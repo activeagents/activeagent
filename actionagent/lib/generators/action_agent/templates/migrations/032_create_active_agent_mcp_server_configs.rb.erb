@@ -8,7 +8,7 @@
 # Table names follow ActionAgent.table_name_prefix, and JSON columns are
 # jsonb on PostgreSQL and json elsewhere, the same way as
 # create_active_agent_dashboard_tables.
-class CreateActiveAgentMcpServerConfigs < ActiveRecord::Migration<%= migration_version %>
+class CreateActiveAgentMCPServerConfigs < ActiveRecord::Migration<%= migration_version %>
   def change
     prefix = ActionAgent.table_name_prefix
 
