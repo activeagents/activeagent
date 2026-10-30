@@ -17,7 +17,8 @@ namespace :test do
     require "rails/test_unit/runner"
 
     paths = Array(ENV["TEST"]).map(&:to_s).reject(&:empty?).presence || [ "test/evals" ]
-    missing = paths.reject { |path| File.exist?(path) }
+    # A path, a path:line or a glob, as `rails test` takes them.
+    missing = paths.reject { |path| File.exist?(path.sub(/:\d+\z/, "")) || Dir.glob(path).any? }
     abort "No evals found: #{missing.join(", ")} does not exist. Evals are tests under test/evals." if missing.any?
 
     ENV[ActiveAgent::Evals::TestHelper::ENV_KEY] = "1"

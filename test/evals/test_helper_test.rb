@@ -163,12 +163,40 @@ class EvalsTestHelperTest < ActiveSupport::TestCase
     end
   end
 
-  test "the railtie's rake file defines test:evals" do
+  def evals_rake_application
     require "rake"
     Rake::TaskManager.record_task_metadata = true
-    app = Rake::Application.new
-    Rake.with_application(app) { load File.expand_path("../../lib/tasks/active_agent/evals.rake", __dir__) }
+    Rake::Application.new.tap do |app|
+      Rake.with_application(app) { load File.expand_path("../../lib/tasks/active_agent/evals.rake", __dir__) }
+    end
+  end
 
-    assert_match(%r{test/evals}, app["test:evals"].comment)
+  test "the railtie's rake file defines test:evals" do
+    assert_match(%r{test/evals}, evals_rake_application["test:evals"].comment)
+  end
+
+  test "test:evals switches EVALS on and hands TEST, a path, a path:line or a glob, to the rails test runner" do
+    require "rails/test_unit/runner"
+    runner = Rails::TestUnit::Runner
+    runner_method = runner.respond_to?(:run_from_rake) ? :run_from_rake : :rake_run
+
+    [ __FILE__, "#{__FILE__}:12", "#{__dir__}/*_helper_test.rb" ].each do |test|
+      handed = nil
+      with_env("EVALS" => nil, "TEST" => test) do
+        runner.stub(runner_method, ->(*args) { handed = [ args.last, ENV["EVALS"] ] }) do
+          evals_rake_application["test:evals"].invoke
+        end
+      end
+
+      assert_equal [ [ test ], "1" ], handed, "TEST=#{test}"
+    end
+  end
+
+  test "test:evals refuses a TEST path that does not exist" do
+    with_env("TEST" => "test/evals/nope_test.rb") do
+      _out, err = capture_io { assert_raises(SystemExit) { evals_rake_application["test:evals"].invoke } }
+
+      assert_match(%r{No evals found: test/evals/nope_test\.rb}, err)
+    end
   end
 end
