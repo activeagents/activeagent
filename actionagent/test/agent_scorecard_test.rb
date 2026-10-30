@@ -21,6 +21,16 @@ class ActionAgentAgentScorecardTest < ActiveSupport::TestCase
                                          scores: { "present" => { "score" => 0.5, "passed" => passed, "total" => total } } }.merge(attributes))
   end
 
+  test "estimated spend prices a run under the provider it recorded" do
+    agent = ActionAgent::Agent.create!(name: "Cloud", provider: "ollama", model: "gpt-oss:120b", instructions: "Help.")
+    agent.agent_runs.create!(trace_id: SecureRandom.uuid, status: :complete, input_tokens: 1_000_000, output_tokens: 0,
+                             output_metadata: { "model" => "gpt-oss:120b", "provider" => "ollama" })
+
+    stats = ActionAgent::AgentScorecard.for_agents([ agent ])[agent.id]
+
+    assert_in_delta 0.15, stats[:cost], 0.0001, "Ollama Cloud's rate for the model, not the default guess"
+  end
+
   test "the tile pools current and unrecorded headline runs and leaves out stale and archived evaluations" do
     agent = ActionAgent::Agent.create!(name: "Support", provider: "openai", model: "gpt-4o-mini", instructions: "Help.")
     stale = evaluation(agent, "Old suite")

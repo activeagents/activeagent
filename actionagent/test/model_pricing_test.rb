@@ -28,7 +28,12 @@ class ActionAgentModelPricingTest < ActiveSupport::TestCase
       [ "openai/gpt-5.5", "openrouter" ] => Info.new("openai/gpt-5.5", "openrouter", Tokens.new(5.0, 30.0)),
       [ "claude-sonnet-5", nil ] => Info.new("claude-sonnet-5", "anthropic", Tokens.new(2.0, 10.0)),
       [ "claude-sonnet-4-5", "anthropic" ] => Info.new("claude-sonnet-4-5", "anthropic", Tokens.new(3.0, 15.0)),
-      [ "gpt-4o-mini", nil ] => Info.new("gpt-4o-mini", "openai", Tokens.new(0.15, 0.6))
+      [ "gpt-4o-mini", nil ] => Info.new("gpt-4o-mini", "openai", Tokens.new(0.15, 0.6)),
+      # Ollama Cloud lists DeepSeek's model at its own price.
+      [ "gpt-oss:120b", "ollama_cloud" ] => Info.new("gpt-oss:120b", "ollama_cloud", Tokens.new(0.15, 0.6)),
+      [ "deepseek-v4-flash", "ollama_cloud" ] => Info.new("deepseek-v4-flash", "ollama_cloud", Tokens.new(0.22, 0.66)),
+      [ "deepseek-v4-flash", "deepseek" ] => Info.new("deepseek-v4-flash", "deepseek", Tokens.new(0.15, 0.6)),
+      [ "deepseek-v4-flash", nil ] => Info.new("deepseek-v4-flash", "deepseek", Tokens.new(0.15, 0.6))
     }.freeze
 
     def self.lookups = (@lookups ||= [])
@@ -111,5 +116,45 @@ class ActionAgentModelPricingTest < ActiveSupport::TestCase
   test "normalize keys one row for every spelling of a model" do
     assert_equal "claude-sonnet-4-5", Pricing.normalize("openrouter/anthropic/claude-sonnet-4.5-20250929")
     assert_equal "gpt-4o-mini", Pricing.normalize("gpt-4o-mini-2024-07-18")
+    assert_equal "gpt-oss:120b", Pricing.normalize("gpt-oss:120b-cloud")
+    assert_equal "glm-4-6", Pricing.normalize("glm-4.6:cloud")
+  end
+
+  test "an Ollama model is priced from the cloud's listing by the name the cloud uses, whichever route served it" do
+    with_registry do
+      assert_equal({ input: 0.15, output: 0.6, source: "catalog" }, Pricing.rate_detail("gpt-oss:120b", provider: "Ollama"))
+      assert_equal [ "gpt-oss:120b", "ollama_cloud" ], Registry.lookups.first, "a trace's Ollama tag reads as the cloud's listing"
+      assert_equal 0.15, Pricing.rate_detail("gpt-oss:120b-cloud")[:input], "a local server's spelling names the cloud's model"
+      assert_equal 0.22, Pricing.rate_detail("deepseek-v4-flash", provider: "ollama")[:input], "Ollama's price for the model, not the vendor's"
+      assert_equal 0.15, Pricing.rate_detail("deepseek-v4-flash")[:input], "the vendor's own listing answers without a provider"
+    end
+  end
+
+  test "a provider is read as the registry names it, from a trace's tag or a run's key" do
+    assert_equal "openai", Pricing.provider_slug("OpenAI::Chat")
+    assert_equal "openai", Pricing.provider_slug("OpenAI::Responses")
+    assert_equal "openrouter", Pricing.provider_slug("open_router")
+    assert_equal "ollama", Pricing.provider_slug("Ollama")
+    assert_equal "ollama_cloud", Pricing.provider_slug("ollama-cloud")
+    assert_nil Pricing.provider_slug(nil)
+    assert_nil Pricing.provider_slug(" ")
+
+    with_registry do
+      Pricing.rate_detail("gpt-5.5", provider: "OpenAI::Chat")
+      assert_equal [ "gpt-5.5", "openai" ], Registry.lookups.first
+    end
+  end
+
+  test "without the registry Ollama Cloud's bundled price list prices an Ollama model, and nothing else" do
+    without_ruby_llm do
+      assert_equal({ input: 0.15, output: 0.6, source: "catalog" }, Pricing.rate_detail("gpt-oss:120b", provider: "ollama"))
+      assert_equal({ input: 0.15, output: 0.6, source: "catalog" }, Pricing.rate_detail("gpt-oss:120b-cloud"))
+      assert_equal({ input: 1.4, output: 4.4, source: "catalog" }, Pricing.rate_detail("glm-5.3:latest", provider: "Ollama"))
+      assert_equal({ input: 0.22, output: 0.66, source: "catalog" }, Pricing.rate_detail("deepseek-v4-flash", provider: "ollama_cloud"))
+      assert_equal({ input: 0.2, output: 0.6, source: "pattern" }, Pricing.rate_detail("qwen3:8b", provider: "ollama"),
+                   "a model the cloud does not list keeps its family rate")
+      assert_equal "default", Pricing.rate_detail("gpt-oss:120b")[:source], "a bare name under no provider is not taken for Ollama's"
+      assert_in_delta 0.75, Pricing.estimate(model: "gpt-oss:120b", provider: "Ollama", input_tokens: 1_000_000, output_tokens: 1_000_000), 1e-9
+    end
   end
 end

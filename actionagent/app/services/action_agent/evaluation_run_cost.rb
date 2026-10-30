@@ -542,14 +542,14 @@ module ActionAgent
         return {} if scope.nil?
 
         table = ActionAgent.trace_model.table_name
-        rows = ActionAgent.trace_model.pluck_with_llm_model(
+        rows = ActionAgent.trace_model.pluck_with_llm_model_and_provider(
           scope.where(trace_id: ids),
           Arel.sql("#{table}.trace_id"), Arel.sql("#{table}.total_input_tokens"), Arel.sql("#{table}.total_output_tokens"),
           Arel.sql("#{table}.agent_action")
         )
-        rows.to_h do |model, trace_id, input, output, action|
+        rows.to_h do |model, provider, trace_id, input, output, action|
           [ trace_id.to_s, Trace.new(trace_id: trace_id.to_s, input_tokens: input.to_i, output_tokens: output.to_i,
-                                     model: model, provider: provider_of(model), action: action) ]
+                                     model: model, provider: provider.presence || provider_of(model), action: action) ]
         end
       rescue StandardError => e
         Rails.logger.warn("[ActionAgent] evaluation run #{@run.id} trace pricing failed: #{e.class}: #{e.message}")
@@ -565,8 +565,9 @@ module ActionAgent
 
       private
 
-      # A gateway's model names carry the vendor; the model's own name does
-      # not say which provider served it, which ModelPricing works around.
+      # For a trace whose llm span recorded no provider: a gateway's model
+      # names carry the vendor; the model's own name does not say which
+      # provider served it, which ModelPricing works around.
       def provider_of(model)
         head, rest = model.to_s.split("/", 2)
         rest.present? && ModelPricing::GATEWAY_PREFIXES.include?(head.downcase) ? head.downcase : nil

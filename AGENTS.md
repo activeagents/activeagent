@@ -322,8 +322,14 @@ is the signal: piping it through `tail` hides it.
 
 ### Ollama
 - Uses OpenAI-compatible API (requires `openai` gem)
-- Default endpoint: `http://localhost:11434`
-- No API key required
+- Default endpoint: `http://localhost:11434`, or `OLLAMA_HOST`; `cloud: true`
+  is Ollama Cloud (`https://ollama.com/v1`), which needs `OLLAMA_API_KEY`
+- No API key required locally; a local server signed in to the cloud names
+  a cloud model `gpt-oss:120b-cloud` (`Ollama::Cloud` holds the naming rules,
+  `Ollama::Catalog` lists and describes a host's models)
+- The dashboard prices a model run under Ollama from Ollama Cloud's
+  listing (`ModelPricing`: RubyLLM's `ollama_cloud` registry provider, or
+  the bundled `OLLAMA_CLOUD_RATES`)
 
 ### OpenRouter
 - Uses OpenAI-compatible API

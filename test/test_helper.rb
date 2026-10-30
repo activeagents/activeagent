@@ -202,6 +202,7 @@ VCR.configure do |config|
   config.filter_env("ACCESS_TOKEN",     "OPEN_ROUTER_ACCESS_TOKEN")
   config.filter_env("ACCESS_TOKEN",     "ANTHROPIC_ACCESS_TOKEN")
   config.filter_env("GITHUB_MCP_TOKEN", "GITHUB_MCP_TOKEN")
+  config.filter_env("OLLAMA_API_KEY",   "OLLAMA_API_KEY")
 
   # Azure OpenAI credentials
   config.filter_env("AZURE_API_KEY",    "AZURE_OPENAI_API_KEY")

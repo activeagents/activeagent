@@ -5,6 +5,62 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.7] - 2026-10-30
+
+Ollama Cloud. The Ollama provider reaches ollama.com as readily as a local
+server, lists and describes the models a host serves, and the dashboard
+prices a model run on Ollama Cloud at the cloud's own rate on traces,
+metrics and evaluations, whichever way the model was spelled. Every cost
+figure on a trace is now worked out under the provider that served it.
+
+Upgrading: no migration and nothing to run; `bundle update activeagent
+actionagent`. A trace recorded under Ollama that priced at the default
+rate before prices at Ollama Cloud's listed rate now, and a finished
+evaluation run's cached figures are worked out again, since the pricing
+tables changed.
+
+### Added
+
+- **Ollama Cloud** (`activeagent`). `generate_with :ollama, cloud: true,
+  model: "gpt-oss:120b"` sends requests to `https://ollama.com/v1` with the
+  key from `OLLAMA_API_KEY` (or `api_key:`), and a request to the cloud
+  without a key fails before it is sent, naming what to set. The host can
+  also be given as `host:` or through `OLLAMA_HOST`, read the way the
+  `ollama` command reads it: a bare origin is completed to its `/v1`
+  endpoint, and a scheme-less `host[:port]` is http on 11434. A local server
+  signed in to the cloud needs none of this — `model: "gpt-oss:120b-cloud"`
+  works as before — and the provider knows that spelling names the cloud's
+  model (`ActiveAgent::Providers::Ollama::Cloud`).
+- **Ollama model lookup** (`activeagent`). `provider.models` lists the
+  models the configured host serves and `provider.model_info(name)`
+  describes one — its details, capabilities, context length, and whether
+  the cloud serves it — from the host's own API (`/api/tags`, `/api/show`),
+  local server or Ollama Cloud alike; a host with only the OpenAI-compatible
+  API is listed through `/v1/models` (`ActiveAgent::Providers::Ollama::Catalog`).
+- **Ollama Cloud rates on traces and evaluations** (`actionagent`). A model
+  run under Ollama is priced from Ollama Cloud's listing by the name the
+  cloud uses: RubyLLM's registry carries it under its `ollama_cloud`
+  provider, and an install without RubyLLM has the same rows bundled
+  (`ModelPricing::OLLAMA_CLOUD_RATES`), each a `catalog` rate rather than a
+  guess at the family's. `gpt-oss:120b-cloud` through a local server and
+  `gpt-oss:120b` through the cloud price alike, and `deepseek-v4-flash`
+  under Ollama is Ollama's price, not DeepSeek's.
+- **The model lookup says which host is the cloud** (`actionagent`).
+  `POST /api/provider_keys/test` and `GET /api/provider_models?provider=ollama`
+  carry `cloud` and, per listed model a price list names, `rates`
+  (`{ input, output, source }` in $ per million tokens); Settings → Provider
+  API Keys shows both with the connection test.
+
+### Changed
+
+- **Every trace cost is priced under its provider** (`actionagent`). The
+  trace list, Metrics, the agent scorecard, the interactions list and an
+  evaluation result priced from its trace all hand `ModelPricing` the
+  provider the llm span recorded, so `gpt-5.5` through OpenRouter is
+  OpenRouter's rate, and a trace's `OpenAI::Chat` tag reads as `openai`
+  (`ModelPricing.provider_slug`). `TelemetryTrace.pluck_with_llm_model_and_provider`
+  plucks the provider beside the model for a caller that prices tokens.
+
 ## [1.9.6] - 2026-10-29
 
 The dashboard on a phone, and the small finished pieces: the sidebar as a

@@ -1,10 +1,10 @@
 ---
 title: Ollama Provider
-description: Local LLM inference using Ollama platform. Run Llama 3, Mistral, and Gemma locally without external APIs. Perfect for privacy-sensitive applications and development.
+description: Local LLM inference using Ollama, and the large open models Ollama serves from its cloud. Run Llama 3, Mistral, and Gemma locally without external APIs, or gpt-oss, Kimi and GLM through Ollama Cloud with one option and an API key.
 ---
 # {{ $frontmatter.title }}
 
-The Ollama provider enables local LLM inference using the Ollama platform. Run models like Llama 3, Mistral, and Gemma locally without sending data to external APIs, perfect for privacy-sensitive applications and development.
+The Ollama provider enables local LLM inference using the Ollama platform. Run models like Llama 3, Mistral, and Gemma locally without sending data to external APIs, perfect for privacy-sensitive applications and development. The same provider reaches [Ollama Cloud](#ollama-cloud) — the large open models Ollama serves from ollama.com, metered per token — and lists and describes the models any Ollama host serves.
 
 ## Configuration
 
@@ -30,12 +30,44 @@ Set up Ollama in `config/active_agent.yml`:
 
 ### Environment Variables
 
-No API keys required. Optionally configure connection settings:
+A local server needs no API key. The provider reads the same variables the `ollama` command does:
 
 ```bash
-OLLAMA_HOST=http://localhost:11434
-OLLAMA_MODEL=llama3
+OLLAMA_HOST=http://localhost:11434   # the server; a bare origin is completed to its /v1 endpoint
+OLLAMA_API_KEY=...                   # Ollama Cloud, or a remote server behind an authenticating proxy
 ```
+
+`OLLAMA_HOST` is read the way `ollama` reads it: a scheme-less `host[:port]` is http on port 11434, `https://ollama.com` is the cloud, and an explicit path (`https://ai.example.com/ollama/v1`, a reverse proxy) is kept. A `host:` given to `generate_with` or in `config/active_agent.yml` wins over the variable. `OLLAMA_ACCESS_TOKEN` is read as `OLLAMA_API_KEY` is.
+
+## Ollama Cloud
+
+[Ollama Cloud](https://ollama.com/cloud) serves open models too large for most machines — `gpt-oss:120b`, `kimi-k3`, `glm-5.3`, `deepseek-v4-flash`, `qwen3.5:397b` and more — behind the same OpenAI-compatible API as a local server, metered per token. There are two ways to reach it, and the provider handles both.
+
+**Directly**, with `cloud: true` and an API key (created at [ollama.com/settings/keys](https://ollama.com/settings/keys)), the model named as the cloud lists it:
+
+<<< @/../test/dummy/app/agents/providers/ollama_cloud_agent.rb#agent{ruby:line-numbers}
+
+The key comes from `OLLAMA_API_KEY` or `api_key:`; a request to the cloud without one fails before it is sent, with `ActiveAgent::Providers::Errors::AuthenticationFailed` naming what to set. `cloud: true` sends requests to `https://ollama.com/v1` unless a `host:` is given, so a proxy in front of the cloud keeps its address.
+
+<<< @/../test/docs/providers/ollama_examples_test.rb#ollama_cloud_example{ruby:line-numbers}
+
+In `config/active_agent.yml`:
+
+<<< @/../test/dummy/config/active_agent.yml#ollama_cloud_anchor{yaml:line-numbers}
+
+**Through a local server** signed in to the cloud (`ollama signin`), nothing changes: the host is the local one, no key is needed, and the model carries the local server's cloud marker — `generate_with :ollama, model: "gpt-oss:120b-cloud"`. The provider knows that `gpt-oss:120b-cloud` and `glm-4.6:cloud` name the cloud's `gpt-oss:120b` and `glm-4.6` (`ActiveAgent::Providers::Ollama::Cloud.canonical_model`), which is how the dashboard prices them alike.
+
+### Looking Up Models
+
+`ActiveAgent::Providers::Ollama::Catalog` reads the models a host serves from the host's own API — `GET /api/tags` to list them, `POST /api/show` to describe one — for a local server and for Ollama Cloud alike. A listing says which models the cloud serves (listed by the cloud, or relayed to it by a signed-in local server); a description adds the capabilities and the context length.
+
+<<< @/../test/docs/providers/ollama_examples_test.rb#ollama_model_lookup{ruby:line-numbers}
+
+An agent's provider offers the same two reads for its own host: `provider.models` and `provider.model_info(name)`. A host with only the OpenAI-compatible API (a proxy in front of Ollama) is listed through `GET /v1/models`, which names models and nothing else. Failures are typed — `Catalog::ConnectionError`, `Catalog::AuthenticationError` for a refused key, `Catalog::NotFoundError` for a model the host does not serve — and the dashboard's Settings → Provider API Keys runs the same lookup as its connection test.
+
+### Pricing on Traces and Evaluations
+
+Ollama Cloud is metered per token, and the [dashboard](/framework/dashboard#scenario-evaluations) prices a model run under Ollama from the cloud's listing by the name the cloud uses: `gpt-oss:120b-cloud` through a local server and `gpt-oss:120b` through the cloud cost the same, and `deepseek-v4-flash` under Ollama is Ollama's price, not DeepSeek's. The rates come from RubyLLM's model registry (its `ollama_cloud` provider) when the host app loads RubyLLM, and from the same rows bundled in the dashboard otherwise, so a cloud model shows a `catalog` rate on traces, metrics and evaluation runs rather than a fallback guess. A model the cloud does not list — a local `qwen3:8b` — is priced as before. The connection test and the model pickers' `GET /api/provider_models?provider=ollama` carry each listed model's rate.
 
 ## Installing Ollama
 
@@ -115,7 +147,9 @@ ollama rm llama3
 
 ### System Configuration
 
-- **`host`** - Ollama server URL (default: `http://localhost:11434`)
+- **`host`** - Ollama server URL (default: `http://localhost:11434`, or `OLLAMA_HOST`); a bare origin is completed to its `/v1` endpoint
+- **`cloud`** - `true` sends requests to [Ollama Cloud](#ollama-cloud) and expects an API key
+- **`api_key`** - Bearer token for Ollama Cloud or a remote server (default: `OLLAMA_API_KEY`)
 - **`keep_alive`** - Keep model loaded in memory (e.g., "5m", "1h")
 - **`timeout`** - Request timeout in seconds
 
@@ -222,6 +256,7 @@ Ollama-specific error handling for connection failures and missing models. For c
 
 ## Related Documentation
 
+- [Dashboard](/framework/dashboard) - Traces, metrics and evaluation costs, priced per model and provider
 - [Streaming](/agents/streaming) - Real-time response streaming patterns
 - [Embeddings Framework](/actions/embeddings) - Complete guide to embeddings
 - [Configuration](/framework/configuration) - Global provider setup
@@ -231,4 +266,5 @@ Ollama-specific error handling for connection failures and missing models. For c
 - [Error Handling](/agents/error_handling) - Error handling strategies
 - [Ollama Documentation](https://ollama.ai/docs) - Official Ollama docs
 - [Ollama Model Library](https://ollama.ai/library) - Available models
+- [Ollama Cloud](https://ollama.com/cloud) - The cloud's models and per-token pricing
 

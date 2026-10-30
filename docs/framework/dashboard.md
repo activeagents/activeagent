@@ -580,7 +580,14 @@ whatever credentials it chooses, which these fields do not describe.
 The catalogs come from `GET /api/provider_models`. When the host app loads
 RubyLLM, it appends the chat models that take and return text from
 RubyLLM's model registry for the provider (its bundled catalog, or the
-host's own model table) after the live or curated list.
+host's own model table) after the live or curated list. For Ollama the
+response also says whether the owner's host is Ollama Cloud (`cloud`, null
+when no host answered) and carries `rates`: for each listed model a price
+list names, `{ input, output, source }` in $ per million tokens — the
+cloud's models, and a local server's copy of a cloud model, which is priced
+at the same list rate. `POST /api/provider_keys/test` reports the same two
+fields, and Settings → Provider API Keys shows them with the connection
+test.
 
 A run is queued (`EvaluationRunJob`) and its results land as each replay
 finishes. Each replay runs as the evaluation's owner when agents are owned
@@ -675,7 +682,16 @@ one carries the legend once, *~ estimated from tokens × model rates*, and
 the figure's tooltip shows the working. Rates come from RubyLLM's model
 registry under the provider the model ran on (`ActionAgent::ModelPricing`:
 `gpt-5.5` through OpenRouter is OpenRouter's entry), else from the static
-tables; a figure at a pattern or default rate says `(fallback rate)`. The
+tables; a figure at a pattern or default rate says `(fallback rate)`. A
+model run under Ollama is priced from Ollama Cloud's listing by the name
+the cloud uses — `gpt-oss:120b-cloud` through a local server is the cloud's
+`gpt-oss:120b`, and `deepseek-v4-flash` under Ollama is Ollama's price, not
+DeepSeek's — from the registry's `ollama_cloud` provider, or from the same
+rows bundled in the engine (`ModelPricing::OLLAMA_CLOUD_RATES`) when RubyLLM
+is not installed, so a cloud model prices as a listing rather than a guess
+at its family's rate. A trace is priced under the provider its llm span
+recorded, wherever its cost shows: the trace list, Metrics, the agent
+scorecard and the interactions list. The
 judge's spend is kept apart — from the engine's meter, from what the
 application reported, or from the judge traces priced on their input and
 output tokens (never their thinking tokens, which the output count already

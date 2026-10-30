@@ -1,11 +1,16 @@
 # frozen_string_literal: true
 
 require "test_helper"
+require_relative "support/ruby_llm_constant"
 
 # Settings -> Provider API Keys for a host-based provider (Ollama): the host
 # is normalized, an optional API key is stored beside it for remote servers,
 # and "Test connection" probes a submitted or stored host without saving.
+# A probe says whether the host is Ollama Cloud and prices the models a
+# price list names.
 class ProviderHostSettingsTest < ActionDispatch::IntegrationTest
+  include RubyLLMConstant
+
   def setup
     ActionAgent::ProviderKey.delete_all
   end
@@ -143,5 +148,63 @@ class ProviderHostSettingsTest < ActionDispatch::IntegrationTest
     body = JSON.parse(response.body)
     assert_equal "live", body["source"], body.inspect
     assert_equal %w[qwen3:4b], body["models"]
+    assert_equal false, body["cloud"]
+    assert_equal({}, body["rates"], "a model only a pattern prices has no rate")
+  end
+
+  test "the probe says whether the host is Ollama Cloud and prices the models a list names" do
+    stub_request(:get, "https://ollama.com/v1/models")
+      .with(headers: { "Authorization" => "Bearer sk-cloud" })
+      .to_return(models_response("kimi-k3", "gpt-oss:120b", "preview-model:latest"))
+
+    without_ruby_llm do
+      post "/activeagents/api/provider_keys/test",
+        params: { provider: "ollama", credential: "https://ollama.com", api_key: "sk-cloud" }, as: :json
+    end
+
+    assert_response :success
+    body = JSON.parse(response.body)
+    assert body["ok"], body.inspect
+    assert_equal true, body["cloud"]
+    assert_equal %w[gpt-oss:120b kimi-k3 preview-model:latest], body["models"]
+    assert_equal({ "gpt-oss:120b" => { "input" => 0.15, "output" => 0.6, "source" => "catalog" },
+                   "kimi-k3" => { "input" => 3.0, "output" => 15.0, "source" => "catalog" } }, body["rates"])
+
+    assert ActionAgent::OllamaHostProbe.cloud_host?("https://ollama.com/v1")
+    assert_not ActionAgent::OllamaHostProbe.cloud_host?("http://mini.local:11434/v1")
+  end
+
+  test "a local server is not the cloud, and its copy of a cloud model is priced at the cloud's rate" do
+    stub_request(:get, "http://mini.local:11434/v1/models").to_return(models_response("qwen3:4b", "gpt-oss:20b"))
+
+    without_ruby_llm do
+      post "/activeagents/api/provider_keys/test", params: { provider: "ollama", credential: "http://mini.local:11434" }, as: :json
+    end
+
+    body = JSON.parse(response.body)
+    assert_equal false, body["cloud"]
+    assert_equal({ "gpt-oss:20b" => { "input" => 0.07, "output" => 0.3, "source" => "catalog" } }, body["rates"])
+
+    post "/activeagents/api/provider_keys/test", params: { provider: "ollama" }, as: :json
+    body = JSON.parse(response.body)
+    assert_equal [ false, nil, {} ], body.values_at("ok", "cloud", "rates"), "an unanswered probe has the same shape"
+  end
+
+  test "the builder's Ollama list says whether the host is the cloud and carries the rates" do
+    ActionAgent::ProviderKey.create!(provider: "ollama", credential: "https://ollama.com", api_key: "sk-cloud")
+    stub_request(:get, "https://ollama.com/v1/models")
+      .with(headers: { "Authorization" => "Bearer sk-cloud" })
+      .to_return(models_response("gpt-oss:120b"))
+
+    without_ruby_llm { get "/activeagents/api/provider_models", params: { provider: "ollama" } }
+
+    assert_response :success
+    body = JSON.parse(response.body)
+    assert_equal "live", body["source"]
+    assert_equal true, body["cloud"]
+    assert_equal({ "gpt-oss:120b" => { "input" => 0.15, "output" => 0.6, "source" => "catalog" } }, body["rates"])
+
+    without_ruby_llm { get "/activeagents/api/provider_models", params: { provider: "openai" } }
+    assert_not JSON.parse(response.body).key?("cloud")
   end
 end

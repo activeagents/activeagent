@@ -407,7 +407,7 @@ module ActionAgent
     end
 
     def cost_for(row)
-      ModelPricing.estimate(model: row.model, input_tokens: row.input_tokens, output_tokens: row.output_tokens) || 0.0
+      ModelPricing.estimate(model: row.model, provider: row.provider, input_tokens: row.input_tokens, output_tokens: row.output_tokens) || 0.0
     end
 
     def percent_change(before, after)

@@ -1,6 +1,6 @@
 {
   "name": "@activeagents/browser-sidecar",
-  "version": "1.9.6",
+  "version": "1.9.7",
   "description": "One sandbox's browser for the Active Agent dashboard: Chromium driven over Playwright MCP, recorded with rrweb.",
   "license": "MIT",
   "type": "module",

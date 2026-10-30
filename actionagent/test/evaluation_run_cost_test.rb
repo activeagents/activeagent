@@ -100,9 +100,10 @@ class ActionAgentEvaluationRunCostTest < ActiveSupport::TestCase
     { "span_id" => "l1", "parent_span_id" => "r1", "type" => "llm", "attributes" => { "llm.model" => model, "llm.provider" => provider } }
   end
 
-  def trace(trace_id, input:, output:, thinking: 0, model: "gpt-4o-mini", action: nil, model_class: ActionAgent::TelemetryTrace, account_id: nil)
+  def trace(trace_id, input:, output:, thinking: 0, model: "gpt-4o-mini", provider: "openai", action: nil,
+            model_class: ActionAgent::TelemetryTrace, account_id: nil)
     attributes = { trace_id: trace_id, total_input_tokens: input, total_output_tokens: output, total_thinking_tokens: thinking,
-                   agent_action: action, spans: [ llm_span(model) ], timestamp: Time.current, status: "OK" }
+                   agent_action: action, spans: [ llm_span(model, provider: provider) ], timestamp: Time.current, status: "OK" }
     attributes[:account_id] = account_id if account_id
     model_class.create!(attributes)
   end
@@ -154,6 +155,19 @@ class ActionAgentEvaluationRunCostTest < ActiveSupport::TestCase
       assert_in_delta Pricing.estimate(model: "gpt-4o", input_tokens: 1_000, output_tokens: 200), entry["cost"], 1e-9
       assert_equal [ "trace", 1_000, 200 ], entry["cost_rate"].values_at("basis", "input_tokens", "output_tokens")
       assert_equal 2.5, entry["cost_rate"]["input"], "the trace's own model sets the rate"
+    end
+  end
+
+  test "a trace is priced under the provider its llm span recorded: an Ollama Cloud trace at the cloud's rate" do
+    without_ruby_llm do
+      run = imported_run(suite)
+      trace("t-cloud", input: 1_000_000, output: 0, model: "gpt-oss:120b", provider: "Ollama")
+      traced = result(run, "s1", cost: nil, input_tokens: nil, output_tokens: nil,
+                      diagnosis: { "_replay_metadata" => { "trace_id" => "t-cloud" } })
+
+      entry = run.cost_breakdown.result(traced)
+      assert_in_delta 0.15, entry["cost"], 1e-9
+      assert_equal [ 0.15, 0.6, "catalog", "trace" ], entry["cost_rate"].values_at("input", "output", "source", "basis")
     end
   end
 

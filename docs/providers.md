@@ -47,11 +47,11 @@ Claude Sonnet 4.5, Haiku 4.5, and Opus 4.1 models. Extended thinking mode for de
 **Choose when:** You need exceptional reasoning, prefer Claude's outputs, or require very long context windows. Strong at coding and analysis.
 
 ### [Ollama](/providers/ollama)
-**Best for:** Local inference, privacy-sensitive data, development without API costs
+**Best for:** Local inference, privacy-sensitive data, development without API costs, and open models at scale through Ollama Cloud
 
-Run Llama 3, Mistral, Gemma, CodeLlama, and other open models locally. No API keys required. Full control over data.
+Run Llama 3, Mistral, Gemma, CodeLlama, and other open models locally with no API key, or reach the large open models Ollama serves from its cloud (`gpt-oss:120b`, `kimi-k3`, `glm-5.3`, …) with `cloud: true` and an API key, metered per token. The same provider lists and describes the models a host serves.
 
-**Choose when:** Data cannot leave your infrastructure, you're developing offline, or you want to avoid API costs. Requires local setup.
+**Choose when:** Data cannot leave your infrastructure, you're developing offline, or you want to avoid API costs. Ollama Cloud when a model is too large for your machine. Local use requires local setup.
 
 ### [OpenAI](/providers/open_ai)
 **Best for:** Production applications, advanced reasoning, vision tasks
