@@ -476,6 +476,13 @@ The console includes its styles in the HTML. It needs no CDN, JavaScript,
 asset pipeline, or frontend build. Expand a trace with its summary or use
 **Open trace** for a standalone detail page.
 
+The list shows the newest 50 matching traces by default. Set `?limit=100`
+to change the number of rows; integer limits are clamped to 1–1000, and
+blank or invalid limits use the default. Agent, service, status and date
+filters apply before the limit. This is a bounded recent list with no
+pagination. The summary tiles and metrics page cover the last 24 hours,
+independently of the list limit.
+
 Refresh is manual by default so an open trace stays open. **Auto-refresh**
 reloads the current page every 30 seconds; `?refresh=60` uses 60 seconds.
 **Stop refreshing** removes that setting. A refresh reloads the whole page
