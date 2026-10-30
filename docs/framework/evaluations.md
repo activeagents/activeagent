@@ -804,7 +804,7 @@ another model, and a block for an agent run some other way:
 
 ```ruby
 run_eval SupportAgent.with(question: "...").help, model: "gpt-5-mini"
-run_eval { RubyLLM.chat.ask("...") }     # returns a PromptResponse, a Replay, a Hash or a String
+run_eval { RubyLLM.chat.ask("...").content }     # the block returns a PromptResponse, a Replay, a Hash or a String
 ```
 
 A model is an option on the agent instance. A provider is a subclass of the
@@ -812,7 +812,9 @@ agent configured with `generate_with provider, model:`, named as its parent
 so its templates still resolve; the parent's `instructions:` option is
 carried, and the rest of its options follow `generate_with`'s rule for a
 subclass. Nothing wraps an agent the block runs itself, so its tool calls
-are whatever the block reports. A run that raises comes back as an errored
+are whatever the block reports: a String is the answer alone, and a `Replay`
+built from the conversation, as `ActiveAgent::Evals::RubyLLM.replay(chat.messages)`
+does for a [RubyLLM host](#rubyllm-hosts), carries them. A run that raises comes back as an errored
 replay (`replay.error`), as under `Runner`; `raise_errors: true` re-raises
 for the backtrace. Tool calls are captured where the telemetry tool spans
 are, on the agent's `tools_function`; a tool served by an MCP server is
