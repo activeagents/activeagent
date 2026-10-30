@@ -120,6 +120,8 @@ class EvalsTestHelperTest < ActiveSupport::TestCase
     # Under the plain mock provider nothing calls a tool, so the order
     # scenarios fail and the one without expectations passes.
     assert report.results.find { |result| result.scenario.key == "help_cancel" }.passed?
+    # 1 of 3 is the report's 33.3%, which read as a percentage would fall short of a third.
+    assert_pass_rate report, at_least: 1 / 3.0
 
     message = failure_message { assert_pass_rate report, at_least: 0.5 }
     assert_match(/mock\/mock-fast: 1\/3 .* passed, below 50%; failing: order_lookup \(\w+\), live_volume \(\w+\)/, message)

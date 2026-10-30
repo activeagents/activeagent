@@ -172,7 +172,13 @@ module ActiveAgent
       # Passes when every model's pass rate reached `at_least` (0.0..1.0).
       def assert_pass_rate(report, message = nil, at_least:)
         at_least = at_least.to_f
-        short = report.summary_by_model.select { |_label, stats| stats["pass_rate"].to_f / 100.0 < at_least }
+        # The fraction itself, not the report's rounded percentage: 1 of 3 meets
+        # `at_least: 1 / 3.0`, which 33.3% would not. A model with no scenarios
+        # falls short.
+        short = report.summary_by_model.select do |_label, stats|
+          scenarios = stats["scenarios"].to_i
+          scenarios.zero? || stats["passed"].to_f / scenarios < at_least
+        end
         assert short.empty?, message || pass_rate_failure_message(report, short, at_least)
       end
 
