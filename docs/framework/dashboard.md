@@ -984,7 +984,7 @@ The page uses these endpoints, each scoped to the caller's owner:
 | `POST <mount>/api/mcp_server_configs/:id/test` | Runs `tools/list` and records the outcome; answers 200 with `ok: false` and the error when the server does not answer |
 | `DELETE <mount>/api/mcp_server_configs/:id` | Deletes one |
 
-The table comes with install migration 029
+The table comes with install migration 032
 (`create_active_agent_mcp_server_configs`). An existing install picks it up by
 running `bin/rails generate action_agent:install` again, which adds only the
 migrations it does not have yet, then `bin/rails db:migrate`.
