@@ -57,6 +57,10 @@ actionagent`.
 
 ### Fixed
 
+- **Load evaluation catalogs without Rails** (`activeagent`). The standalone
+  `active_agent/evals` entry point loads the ActiveSupport array extension
+  used to construct, parse and load catalogs, without loading the framework.
+
 - **The agent interactions page follows the dark theme** (`actionagent`). It
   was written in Tailwind's grey scale (white panes, grey text) and stayed
   light under the dark theme at every width, with its run stream rendered
