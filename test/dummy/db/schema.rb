@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 29) do
+ActiveRecord::Schema[8.0].define(version: 30) do
   create_table "active_agent_agent_contexts", force: :cascade do |t|
     t.string "action_name", null: false
     t.string "agent_name", null: false
@@ -323,6 +323,8 @@ ActiveRecord::Schema[8.0].define(version: 29) do
     t.text "recommendation"
     t.float "score"
     t.json "scores"
+    t.string "scoring_token"
+    t.datetime "scoring_expires_at"
     t.integer "status", default: 0, null: false
     t.json "tool_calls"
     t.datetime "updated_at", null: false

@@ -17,11 +17,12 @@ module ActionAgent
       return finish_without_result(run_id, selection) unless row
 
       run = row.evaluation_run
+      runner = ScenarioEvaluationRunner.new(run.evaluation, selection: selection, run: run)
       begin
-        ScenarioEvaluationRunner.new(run.evaluation, selection: selection, run: run).judge_result!(row)
+        runner.judge_result!(row)
       rescue StandardError => e
         Rails.logger.warn("[ActionAgent] evaluation run #{run.id}: scoring result #{result_id} failed: #{e.class}: #{e.message}")
-        ScenarioEvaluationRunner.new(run.evaluation, selection: selection, run: run).fail_judging!(row.reload, e)
+        runner.fail_judging!(row.reload, e)
       end
     end
 
