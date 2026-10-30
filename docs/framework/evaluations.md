@@ -312,6 +312,64 @@ To run such a suite from the mounted dashboard rather than a script, return
 it from a host adapter — see
 [Running a host application's agent from the mounted dashboard](#running-a-host-application-s-agent-from-the-mounted-dashboard).
 
+### Jev as a judge
+
+Jev is TypeSafe AI's "System One" model, and it generates no text. A request
+carries a `state` (the text to judge) and named questions — a Score on a
+scale, a Choice over options, a yes/no — and the answer is one structured
+decision per question with a calibrated probability behind it, billed on
+input tokens only. Two of the three calls a judge serves end in exactly such
+a decision, so `ActiveAgent::Evals::Jev` builds a `Judge` that sends those
+to Jev and leaves the language tasks to an ordinary judge. It is loaded by
+its own require and talks to the API with the standard library's `Net::HTTP`,
+so it adds no gem.
+
+```ruby
+require "active_agent/evals/jev"
+
+text_judge = ActiveAgent::Evals::Judge.new(label: "claude-haiku-4-5") do |instructions:, prompt:|
+  JudgeAgent.prompt(message: prompt, instructions: instructions).generate_now.message.content
+end
+
+judge = ActiveAgent::Evals::Jev.judge(
+  label: "jev-latest",                  # how reports name the judge
+  api_key: ENV["TYPESAFE_API_KEY"],     # the default
+  model: "jev-latest",                  # the default; also jev-1.13, jev-preview
+  base_url: "https://api.typesafe.ai",  # the default; a host can route elsewhere
+  text_judge: text_judge,               # optional
+  on_usage: ->(usage) { meter(usage) }  # optional
+)
+
+ActiveAgent::Evals::Runner.new(scenarios:, models:, replay:, judge: judge, instructions: instructions).call
+```
+
+- **`:score`** (`score_task` and `score_criterion`) is one Score question on
+  0..1 over the gem's own scoring prompt — the criterion or the task, the
+  user's message and the answer — returned as the `{"score": 0.83}` the gem's
+  parser already reads and clamps.
+- **`:verdict`**'s winner is one Choice whose options are the compared
+  models' labels. The rationale is written by `text_judge`, asked the same
+  instructions and prompt; without one it is a sentence naming Jev's
+  probability ("Chosen by Jev with probability 0.81."). A choice that is not
+  one of the labels is discarded, and the report falls back to its pass-rate
+  verdict.
+- **`:recommend`** is a language task and goes to `text_judge` whole; without
+  one it is nil, which the runner treats as no recommendation.
+- `on_usage:` is called after each answered Jev call with
+  `{ "kind", "model", "input_tokens", "output_tokens", "cost" }`. Output
+  tokens are always 0 and the cost nil, since nothing is generated and the
+  price per input token is not yet known. An error it raises is logged, never
+  allowed to cost the grade.
+
+A request that fails — the endpoint unreachable, a rejection (a 401 or 403
+says to check `TYPESAFE_API_KEY`), a body that is not JSON — raises inside
+the judge's block and so becomes a nil answer with a warning, as any judge
+failure does. The wire format is assumed from the DeepEval and Langfuse
+integrations rather than the official reference, which was not reachable when
+this was written; it lives in `ActiveAgent::Evals::Jev::Client` alone, whose
+doc comment states the request and response it expects, so a mismatch
+against the real API is a one-file fix.
+
 ## Faults
 
 | Fault | Meaning |

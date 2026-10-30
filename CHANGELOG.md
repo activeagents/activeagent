@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **A Jev judge for scenario evaluations** (`activeagent`; refs #658).
+  `require "active_agent/evals/jev"` and `ActiveAgent::Evals::Jev.judge(label:,
+  api_key:, text_judge:)` build a `Judge` whose bounded decisions — the score
+  of an answer, the winner of a verdict — are answered by TypeSafe AI's Jev
+  model, with the language tasks (recommendations, the verdict's rationale)
+  left to an ordinary `text_judge` or skipped without one. `on_usage:` reports
+  each call's input tokens. Standard-library `Net::HTTP` only, no new gem; the
+  assumed wire format is isolated in `Jev::Client` pending the official
+  reference.
+
 ## [1.9.6] - 2026-10-29
 
 The dashboard on a phone, and the small finished pieces: the sidebar as a
