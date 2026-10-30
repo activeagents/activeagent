@@ -4,19 +4,33 @@ require "test_helper"
 require "active_agent/evals/jev"
 require_relative "evals_test_support"
 
-# The Jev judge against the wire format its Client assumes, every request
-# stubbed: a score is one Score question, a verdict's winner one Choice over
-# the compared labels, and the language tasks go to the text judge or nowhere.
+# The Jev judge against the System One protocol as OpenJevX serves it, every
+# request stubbed: a score is one Score question over described levels, a
+# verdict's winner one Choice over the compared labels with their results,
+# and the language tasks go to the text judge or nowhere.
 class EvalsJevTest < ActiveSupport::TestCase
   include EvalsTestSupport
   include WebMock::API
 
+  Jev = ActiveAgent::Evals::Jev
+
   ENDPOINT = "https://api.typesafe.ai/v1/systemone"
+  LOCAL_ENDPOINT = "#{Jev::OPENJEVX_BASE_URL}/v1/systemone".freeze
   KEY = "ts-test-0000"
 
   SUMMARIES = {
     "gpt-5-mini" => { "pass_rate" => 90.0, "avg_score" => 0.91, "avg_duration_ms" => 1200, "cost" => 0.12 },
     "ollama/qwen3:8b" => { "pass_rate" => 60.0, "avg_score" => 0.7, "faults" => { "low_quality" => 2 } }
+  }.freeze
+
+  # An OpenJevX score answer: the expected level 3.2 of 0..4, so 0.8.
+  SCORE_ANSWER = {
+    "type" => "score", "score" => 3.2,
+    "probabilities" => { "0" => 0.02, "1" => 0.08, "2" => 0.2, "3" => 0.25, "4" => 0.45 }, "confidence" => 0.45
+  }.freeze
+  CHOICE_ANSWER = {
+    "type" => "choice", "choice" => "ollama/qwen3:8b",
+    "probabilities" => { "gpt-5-mini" => 0.19, "ollama/qwen3:8b" => 0.81 }, "confidence" => 0.81
   }.freeze
 
   # Cleared around every test so a key in the developer's environment cannot
@@ -28,10 +42,10 @@ class EvalsJevTest < ActiveSupport::TestCase
   # Scores
   # =====================================================================
 
-  test "a score call sends one Score question with the bearer key and returns the score" do
-    stub_jev({ "score" => { "value" => 0.83, "probability" => 0.81, "confidence" => 0.9 } })
+  test "a score call sends one Score question over the described levels and returns the expected level as 0..1" do
+    stub_jev({ "score" => SCORE_ANSWER })
 
-    assert_equal 0.83, jev_judge.score_task(scenario: scenario, answer: "Alice changed it on Monday.")
+    assert_in_delta 0.8, jev_judge.score_task(scenario: scenario, answer: "Alice changed it on Monday."), 1e-9
 
     assert_requested(:post, ENDPOINT, headers: { "Authorization" => "Bearer #{KEY}", "Content-Type" => "application/json" }) do |request|
       body = JSON.parse(request.body)
@@ -39,15 +53,17 @@ class EvalsJevTest < ActiveSupport::TestCase
       assert_equal "jev-latest", body["model"]
       assert_includes body["state"], "Who changed the shipping policy?"
       assert_includes body["state"], "Alice changed it on Monday."
+      assert_not_includes body["state"], "Respond only with JSON", "the request for JSON is for a language model"
       assert_equal %w[score], body["questions"].keys
       assert_equal "score", question["type"]
-      assert_equal [ 0, 1 ], question.values_at("min", "max")
+      assert_equal Jev::SCORE_QUESTION, question["instructions"]
+      assert_equal Jev::SCORE_LEVELS, question["criteria"]
       true
     end
   end
 
-  test "a score outside the scale is clamped" do
-    stub_jev({ "score" => { "value" => 1.4 } })
+  test "a level beyond the scale is clamped" do
+    stub_jev({ "score" => SCORE_ANSWER.merge("score" => 5.5) })
 
     assert_equal 1.0, jev_judge.score_task(scenario: scenario, answer: "Alice did.")
   end
@@ -55,17 +71,17 @@ class EvalsJevTest < ActiveSupport::TestCase
   test "a score answered under another field name, as a list, as text, is still read" do
     stub_request(:post, ENDPOINT).to_return(
       status: 200, headers: { "Content-Type" => "application/json" },
-      body: { "results" => [ { "name" => "score", "score" => "0.5" } ] }.to_json
+      body: { "results" => [ { "name" => "score", "value" => "2" } ] }.to_json
     )
 
     assert_equal 0.5, jev_judge.score_task(scenario: scenario, answer: "Alice did.")
   end
 
   test "a score call never goes to the text judge" do
-    stub_jev({ "score" => { "value" => 0.6 } })
+    stub_jev({ "score" => SCORE_ANSWER })
     calls = []
 
-    assert_equal 0.6, jev_judge(text_judge: text_judge('{"score": 0.1}', calls)).score_task(scenario: scenario, answer: "Alice did.")
+    assert_in_delta 0.8, jev_judge(text_judge: text_judge('{"score": 0.1}', calls)).score_task(scenario: scenario, answer: "Alice did."), 1e-9
     assert_empty calls
   end
 
@@ -73,8 +89,8 @@ class EvalsJevTest < ActiveSupport::TestCase
   # Verdicts
   # =====================================================================
 
-  test "a verdict call sends a Choice over the compared labels and returns the winner" do
-    stub_jev({ "winner" => { "choice" => "ollama/qwen3:8b", "probability" => 0.81 } })
+  test "a verdict call sends a Choice over the compared labels, each described by its results, and returns the winner" do
+    stub_jev({ "winner" => CHOICE_ANSWER })
 
     verdict = jev_judge.verdict(SUMMARIES, instructions: "Answer order questions.")
 
@@ -84,7 +100,10 @@ class EvalsJevTest < ActiveSupport::TestCase
       question = body.fetch("questions").fetch("winner")
       assert_includes body["state"], "Results per model:"
       assert_equal "choice", question["type"]
-      assert_equal [ "gpt-5-mini", "ollama/qwen3:8b" ], question["options"]
+      assert_equal Jev::VERDICT_QUESTION, question["instructions"]
+      assert_equal [ "gpt-5-mini", "ollama/qwen3:8b" ], question["criteria"].keys
+      assert_match(/\Apass rate 90\.0%, mean score 0\.91, avg latency 1200ms, cost \$0\.12\z/, question["criteria"]["gpt-5-mini"])
+      assert_includes question["criteria"]["ollama/qwen3:8b"], "faults: low_quality×2"
       true
     end
   end
@@ -103,7 +122,7 @@ class EvalsJevTest < ActiveSupport::TestCase
   end
 
   test "a verdict whose choice is not a compared label is discarded" do
-    stub_jev({ "winner" => { "value" => "gpt-5", "probability" => 0.5 } })
+    stub_jev({ "winner" => CHOICE_ANSWER.merge("choice" => "gpt-5") })
     calls = []
 
     assert_nil jev_judge(text_judge: text_judge("{}", calls)).verdict(SUMMARIES)
@@ -140,7 +159,7 @@ class EvalsJevTest < ActiveSupport::TestCase
 
     assert_nil jev_judge.score_task(scenario: scenario, answer: "Alice did.")
 
-    error = assert_raises(ActiveAgent::Evals::Jev::Error) { client.score("state", "question") }
+    error = assert_raises(Jev::Error) { client.score("state", "question", Jev::SCORE_LEVELS) }
     assert_includes error.message, "HTTP 401"
     assert_includes error.message, "TYPESAFE_API_KEY"
     assert_includes error.message, ENDPOINT
@@ -156,23 +175,48 @@ class EvalsJevTest < ActiveSupport::TestCase
   test "a body that is not JSON is an error naming the endpoint and not the body" do
     stub_request(:post, ENDPOINT).to_return(status: 200, body: "<html>maintenance</html>")
 
-    error = assert_raises(ActiveAgent::Evals::Jev::Error) { client.score("state", "question") }
+    error = assert_raises(Jev::Error) { client.score("state", "question", Jev::SCORE_LEVELS) }
     assert_includes error.message, ENDPOINT
     assert_includes error.message, "invalid JSON"
     assert_not_includes error.message, "maintenance"
     assert_nil jev_judge.score_task(scenario: scenario, answer: "Alice did.")
   end
 
-  test "an answer without the question's decision is an error" do
-    stub_jev({ "other" => { "value" => 0.5 } })
-
-    error = assert_raises(ActiveAgent::Evals::Jev::Error) { client.score("state", "question") }
+  test "an answer without the question's decision, or without a number for a score, is an error" do
+    stub_jev({ "other" => SCORE_ANSWER })
+    error = assert_raises(Jev::Error) { client.score("state", "question", Jev::SCORE_LEVELS) }
     assert_includes error.message, "without a decision for score"
+
+    stub_jev({ "score" => { "type" => "score", "score" => "high" } })
+    error = assert_raises(Jev::Error) { client.score("state", "question", Jev::SCORE_LEVELS) }
+    assert_includes error.message, "without a number"
   end
 
-  test "building a judge without a key raises" do
-    error = assert_raises(ArgumentError) { ActiveAgent::Evals::Jev.judge(label: "jev-latest") }
+  test "building a judge for the hosted endpoint without a key raises" do
+    error = assert_raises(ArgumentError) { Jev.judge(label: "jev-latest") }
     assert_includes error.message, "TYPESAFE_API_KEY"
+  end
+
+  # =====================================================================
+  # A server of your own
+  # =====================================================================
+
+  test "a local OpenJevX needs no key and is sent no model" do
+    stub_request(:post, LOCAL_ENDPOINT).to_return(
+      status: 200, headers: { "Content-Type" => "application/json" },
+      body: { "answers" => { "score" => SCORE_ANSWER } }.to_json
+    )
+    usages = []
+    judge = Jev.judge(label: "openjevx", base_url: Jev::OPENJEVX_BASE_URL, on_usage: ->(usage) { usages << usage })
+
+    assert_in_delta 0.8, judge.score_task(scenario: scenario, answer: "Alice did."), 1e-9
+
+    assert_requested(:post, LOCAL_ENDPOINT) do |request|
+      assert_not request.headers.key?("Authorization"), "no key was configured, so none is sent"
+      assert_not JSON.parse(request.body).key?("model"), "a server of your own serves one model"
+      true
+    end
+    assert_equal [ { "kind" => "score", "model" => nil, "input_tokens" => nil, "output_tokens" => 0, "cost" => nil } ], usages
   end
 
   # =====================================================================
@@ -180,7 +224,7 @@ class EvalsJevTest < ActiveSupport::TestCase
   # =====================================================================
 
   test "on_usage receives the input tokens of each answered call" do
-    stub_jev({ "score" => { "value" => 0.7 } }, usage: { "input_tokens" => 412 })
+    stub_jev({ "score" => SCORE_ANSWER }, usage: { "input_tokens" => 412 })
     usages = []
 
     jev_judge(on_usage: ->(usage) { usages << usage }).score_task(scenario: scenario, answer: "Alice did.")
@@ -189,7 +233,7 @@ class EvalsJevTest < ActiveSupport::TestCase
   end
 
   test "on_usage reports nil input tokens when the response has no usage" do
-    stub_jev({ "score" => { "value" => 0.7 } }, usage: nil)
+    stub_jev({ "score" => SCORE_ANSWER })
     usages = []
 
     jev_judge(on_usage: ->(usage) { usages << usage }).score_task(scenario: scenario, answer: "Alice did.")
@@ -198,21 +242,21 @@ class EvalsJevTest < ActiveSupport::TestCase
   end
 
   test "an on_usage error is logged and the grade kept" do
-    stub_jev({ "score" => { "value" => 0.7 } })
+    stub_jev({ "score" => SCORE_ANSWER })
 
-    assert_equal 0.7, jev_judge(on_usage: ->(_usage) { raise "meter down" }).score_task(scenario: scenario, answer: "Alice did.")
+    assert_in_delta 0.8, jev_judge(on_usage: ->(_usage) { raise "meter down" }).score_task(scenario: scenario, answer: "Alice did."), 1e-9
   end
 
   test "the key is read from TYPESAFE_API_KEY and a base_url routes the request elsewhere" do
     ENV["TYPESAFE_API_KEY"] = "ts-from-env"
     stub_request(:post, "https://jev.example.test/proxy/v1/systemone").to_return(
       status: 200, headers: { "Content-Type" => "application/json" },
-      body: { "answers" => { "score" => { "value" => 0.9 } } }.to_json
+      body: { "answers" => { "score" => SCORE_ANSWER.merge("score" => 4) } }.to_json
     )
 
-    judge = ActiveAgent::Evals::Jev.judge(label: "jev", model: "jev-preview", base_url: "https://jev.example.test/proxy/")
+    judge = Jev.judge(label: "jev", model: "jev-preview", base_url: "https://jev.example.test/proxy/")
 
-    assert_equal 0.9, judge.score_task(scenario: scenario, answer: "Alice did.")
+    assert_equal 1.0, judge.score_task(scenario: scenario, answer: "Alice did.")
     assert_requested(:post, "https://jev.example.test/proxy/v1/systemone", headers: { "Authorization" => "Bearer ts-from-env" }) do |request|
       assert_equal "jev-preview", JSON.parse(request.body)["model"]
       true
@@ -223,11 +267,11 @@ class EvalsJevTest < ActiveSupport::TestCase
   private
 
   def jev_judge(**options)
-    ActiveAgent::Evals::Jev.judge(label: "jev-latest", api_key: KEY, **options)
+    Jev.judge(label: "jev-latest", api_key: KEY, **options)
   end
 
   def client
-    ActiveAgent::Evals::Jev::Client.new(api_key: KEY)
+    Jev::Client.new(api_key: KEY)
   end
 
   # A text judge that records every call it is asked, as `[kind, instructions, prompt]`.
@@ -242,7 +286,8 @@ class EvalsJevTest < ActiveSupport::TestCase
     ActiveAgent::Evals::Diagnosis::Result.new(fault: "low_quality", summary: "s", recommendation: "r", evidence: {})
   end
 
-  def stub_jev(answers, usage: { "input_tokens" => 321 })
+  # A hosted answer: the model that answered, the answers, and usage when given.
+  def stub_jev(answers, usage: nil)
     body = { "model" => "jev-1.13", "answers" => answers }
     body["usage"] = usage if usage
     stub_request(:post, ENDPOINT).to_return(status: 200, headers: { "Content-Type" => "application/json" }, body: body.to_json)
