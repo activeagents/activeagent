@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ActiveAgent Previews</title>
+  <style>
+    body { color-scheme: light dark; font: 16px/1.5 system-ui, sans-serif; max-width: 1000px; padding: 1rem; margin: auto; }
+    pre { white-space: pre-wrap; overflow-wrap: anywhere; border: 1px solid; border-radius: .25rem; padding: 1rem; }
+    a { text-underline-offset: .2em; }
+  </style>
+</head>
+<body>
+  <nav><%= link_to "All agent previews", rails_agent_previews_path %></nav>
+  <%= yield %>
+</body>
+</html>

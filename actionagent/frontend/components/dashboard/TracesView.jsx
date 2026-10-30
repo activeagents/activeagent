@@ -8,10 +8,12 @@ import { useTimeWindow } from '../../contexts/TimeWindowContext';
 import AgentStatCard from './AgentStatCard';
 import TimeWindowSelector from './TimeWindowSelector';
 import TraceCard from './TraceCard';
+import { telemetryColors } from './TelemetryObject';
 import { formatDuration, getSpanIcon } from './SpanWaterfall';
 import { dashboardPath } from '../../utils/dashboardPath';
 import { tracesQuery } from '../../utils/tracesQuery.mjs';
 import { traceWindowData } from '../../utils/traceWindow.mjs';
+import { PHONE_STAT_LABEL } from './TelemetryObject';
 
 // Deterministic color assignment for agent classes
 const AGENT_PALETTE = ['#6366f1', '#10b981', '#f59e0b', '#ec4899', '#3b82f6', '#8b5cf6', '#14b8a6', '#f97316'];
@@ -428,7 +430,7 @@ export default function TracesView({ agentId = null, embedded = false }) {
     const muted = dark ? 'rgba(255,255,255,0.5)' : '#6b7280';
     const barColorByType = { llm: '#ef4444', tool: '#10b981', generate: '#8b5cf6', prompt: '#3b82f6' };
     return (
-      <div style={{ padding: dark ? '0 24px 24px 24px' : 0 }}>
+      <div className={dark ? 'px-6 pb-6 max-md:px-4' : undefined}>
         <div style={{ background: cardBg, border, borderRadius: '12px', padding: '16px' }}>
           <div style={{ fontSize: '14px', fontWeight: 600, color: text, marginBottom: '4px' }}>
             Slowest operations
@@ -441,14 +443,16 @@ export default function TracesView({ agentId = null, embedded = false }) {
           ) : (
             <div style={{ display: 'grid', gap: '10px' }}>
               {spanStats.map((stat) => (
-                <div key={stat.name} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <div style={{ width: '220px', flexShrink: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                // One line from md: name · bar · figures. On a phone each
+                // takes its own line, the bar at full width between them.
+                <div key={stat.name} className="flex flex-wrap items-center gap-3">
+                  <div className="w-[220px] max-md:w-full" style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <span style={{ color: muted }}>{getSpanIcon(stat.type)}</span>
                     <span style={{ fontSize: '13px', color: stat.errors > 0 ? '#ef4444' : text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {stat.name}
                     </span>
                   </div>
-                  <div style={{ flex: 1, height: '18px', background: dark ? 'rgba(255,255,255,0.06)' : '#f3f4f6', borderRadius: '4px', position: 'relative' }}>
+                  <div className="flex-1 min-w-[120px] max-md:basis-full" style={{ height: '18px', background: dark ? 'rgba(255,255,255,0.06)' : '#f3f4f6', borderRadius: '4px', position: 'relative' }}>
                     <div
                       style={{
                         position: 'absolute', top: '3px', left: 0, height: '12px', borderRadius: '3px',
@@ -457,7 +461,7 @@ export default function TracesView({ agentId = null, embedded = false }) {
                       }}
                     />
                   </div>
-                  <div style={{ width: '260px', flexShrink: 0, fontSize: '12px', color: muted, fontFamily: TYPOGRAPHY.mono, textAlign: 'right' }}>
+                  <div className="w-[260px] text-right max-md:w-full max-md:text-left" style={{ flexShrink: 0, fontSize: '12px', color: muted, fontFamily: TYPOGRAPHY.mono }}>
                     {stat.count}× · avg {formatDuration(stat.avg)} · max {formatDuration(stat.max)} · Σ {formatDuration(stat.total)}
                   </div>
                 </div>
@@ -477,6 +481,79 @@ export default function TracesView({ agentId = null, embedded = false }) {
     );
   }
 
+  // Tool usage — which tools get called and what they cost in aggregate.
+  // A 20ms tool called 40 times can dominate a 3s one called once, and
+  // neither is visible from a single trace's waterfall.
+  const renderToolsBreakdown = (dark) => {
+    const colors = telemetryColors(dark);
+    return (
+      <div className={dark ? 'px-6 pb-6 max-md:px-4' : undefined}>
+        {toolStats.length === 0 ? (
+          <div className="text-center py-8 text-sm" style={{ color: colors.textSecondary }}>
+            No tool calls in this window
+          </div>
+        ) : (
+          <div className="rounded-xl border overflow-x-auto" style={{ background: colors.cardBg, borderColor: colors.cardBorder }}>
+            {/* Flexbox rather than a 12-column grid: Tailwind compiles only
+                the class names it finds in the source, and the grid column
+                utilities appear nowhere else. Naming one, even in a comment,
+                would add it to the build. The min width scrolls the table on
+                narrow screens instead of crushing its columns. */}
+            <div style={{ minWidth: 560 }}>
+              <div className="flex items-center gap-4 px-4 py-2 text-xs font-medium border-b" style={{ color: colors.textSecondary, borderColor: colors.cardBorder }}>
+                <div className="flex-1">Tool</div>
+                <div className="w-20 text-right">Calls</div>
+                <div className="w-24 text-right">Total time</div>
+                <div className="w-20 text-right">Avg</div>
+                <div className="w-20 text-right">Slowest</div>
+              </div>
+              {toolStats.map((stat) => {
+                const share = toolStats[0].totalDuration
+                  ? (stat.totalDuration / toolStats[0].totalDuration) * 100
+                  : 0;
+                return (
+                  <div key={stat.name} className="px-4 py-2 border-b last:border-0" style={{ borderColor: colors.cardBorder }}>
+                    <div className="flex items-center gap-4 text-sm">
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium truncate" style={{ color: colors.textPrimary }} title={stat.name}>{stat.name}</div>
+                        {stat.agents.length > 0 && (
+                          <div className="text-xs truncate" style={{ color: colors.textMuted }} title={stat.agents.join(', ')}>
+                            {stat.agents.join(', ')}
+                          </div>
+                        )}
+                      </div>
+                      <div className="w-20 text-right" style={{ fontFamily: TYPOGRAPHY.mono, color: colors.textBody }}>
+                        {stat.count.toLocaleString()}
+                        {stat.errors > 0 && (
+                          <span className="ml-1" style={{ color: colors.bad }} title={`${stat.errors} failed`}>
+                            ({stat.errors})
+                          </span>
+                        )}
+                      </div>
+                      <div className="w-24 text-right font-medium" style={{ fontFamily: TYPOGRAPHY.mono, color: colors.textPrimary }}>
+                        {formatDuration(stat.totalDuration)}
+                      </div>
+                      <div className="w-20 text-right" style={{ fontFamily: TYPOGRAPHY.mono, color: colors.textSecondary }}>
+                        {formatDuration(stat.avgDuration)}
+                      </div>
+                      <div className="w-20 text-right" style={{ fontFamily: TYPOGRAPHY.mono, color: colors.textSecondary }}>
+                        {formatDuration(stat.maxDuration)}
+                      </div>
+                    </div>
+                    {/* Share of the heaviest tool's total time */}
+                    <div className="h-1 rounded mt-1.5" style={{ background: colors.trackBg }}>
+                      <div className="h-1 rounded" style={{ width: `${Math.max(share, 1)}%`, background: colors.good }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const summaryStats = windowData.summary;
   const detailNotice = windowData.truncated && (
     <div role="status" data-testid="trace-window-notice" style={{ padding: '12px 24px', fontSize: 13, color: darkMode ? '#fbbf24' : '#92400e' }}>
@@ -491,9 +568,10 @@ export default function TracesView({ agentId = null, embedded = false }) {
     return (
       <div className="preview-content" style={{ borderRadius: '12px', overflow: 'hidden', minHeight: 'calc(100vh - 200px)' }}>
         {detailNotice}
-        {/* Header inside dark container */}
-        <div style={{ padding: '24px 24px 0 24px', borderBottom: '1px solid rgba(255,255,255,0.1)', marginBottom: '16px', paddingBottom: '16px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        {/* Header inside dark container. 24px gutters from md, 16px on a
+            phone; title and controls wrap onto their own lines there. */}
+        <div className="px-6 pt-6 pb-4 max-md:px-4 max-md:pt-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.1)', marginBottom: '16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
             <div>
               {!embedded && <h1 style={{ fontSize: '24px', fontWeight: 'bold', color: 'white', margin: 0 }}>Traces</h1>}
               <p style={{ fontSize: '14px', color: 'rgba(255,255,255,0.6)', marginTop: '4px' }}>
@@ -502,9 +580,10 @@ export default function TracesView({ agentId = null, embedded = false }) {
                   : `Last ${timeWindow.label} • Click timeline to drill down`}
               </p>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', minWidth: 0 }}>
+              <TimeWindowSelector />
               {/* View Mode Toggle */}
-              <div style={{ display: 'flex', background: 'rgba(255,255,255,0.1)', borderRadius: '8px', padding: '2px' }}>
+              <div style={{ display: 'flex', background: 'rgba(255,255,255,0.1)', borderRadius: '8px', padding: '2px', maxWidth: '100%', overflowX: 'auto' }}>
                 {['timeline', 'agents', 'actions', 'tools', 'spans'].map((mode) => (
                   <button
                     key={mode}
@@ -623,14 +702,14 @@ export default function TracesView({ agentId = null, embedded = false }) {
         )}
 
         {/* Throughput Chart - New Relic style */}
-        <div style={{ padding: '0 24px', marginBottom: '24px' }}>
+        <div className="px-6 max-md:px-4" style={{ marginBottom: '24px' }}>
           <div style={{
             background: 'rgba(0,0,0,0.3)',
             borderRadius: '12px',
             padding: '16px',
             border: '1px solid rgba(255,255,255,0.1)'
           }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
               <div style={{ fontSize: '14px', fontWeight: '600', color: 'white' }}>
                 Agent Requests / Minute
               </div>
@@ -700,39 +779,39 @@ export default function TracesView({ agentId = null, embedded = false }) {
               </ResponsiveContainer>
             </div>
             {/* Summary Stats */}
-            <div style={{ display: 'flex', gap: '24px', marginTop: '12px', paddingTop: '12px', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+            <div style={{ display: 'flex', gap: '24px', rowGap: '8px', flexWrap: 'wrap', marginTop: '12px', paddingTop: '12px', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
               <div>
-                <div style={{ fontSize: '20px', fontWeight: '700', color: 'white' }}>
+                <div className="max-md:text-lg!" style={{ fontSize: '20px', fontWeight: '700', color: 'white' }}>
                   {summaryStats.requests}
                 </div>
-                <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)' }}>Total Requests</div>
+                <div className={PHONE_STAT_LABEL} style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)' }}>Total Requests</div>
               </div>
               <div>
-                <div style={{ fontSize: '20px', fontWeight: '700', color: '#ef4444' }}>
+                <div className="max-md:text-lg!" style={{ fontSize: '20px', fontWeight: '700', color: '#ef4444' }}>
                   {summaryStats.errors}
                 </div>
-                <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)' }}>Errors</div>
+                <div className={PHONE_STAT_LABEL} style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)' }}>Errors</div>
               </div>
               <div>
-                <div style={{ fontSize: '20px', fontWeight: '700', color: '#10b981' }}>
+                <div className="max-md:text-lg!" style={{ fontSize: '20px', fontWeight: '700', color: '#10b981' }}>
                   {summaryStats.avgLatency}ms
                 </div>
-                <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)' }}>Avg Latency</div>
+                <div className={PHONE_STAT_LABEL} style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)' }}>Avg Latency</div>
               </div>
               <div>
-                <div style={{ fontSize: '20px', fontWeight: '700', color: '#f59e0b' }}>
+                <div className="max-md:text-lg!" style={{ fontSize: '20px', fontWeight: '700', color: '#f59e0b' }}>
                   {summaryStats.throughput}/min
                 </div>
-                <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)' }}>Throughput</div>
+                <div className={PHONE_STAT_LABEL} style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)' }}>Throughput</div>
               </div>
             </div>
           </div>
         </div>
 
         {viewMode === 'agents' && (
-          <div style={{ padding: '0 24px', marginBottom: '24px' }}>
+          <div className="px-6 max-md:px-4" style={{ marginBottom: '24px' }}>
             {agentRankControl}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(280px, 100%), 1fr))', gap: '16px' }}>
               {agentStats.map((stat) => (
                 <AgentStatCard
                   key={stat.agent}
@@ -779,8 +858,8 @@ export default function TracesView({ agentId = null, embedded = false }) {
 
         {/* Actions Breakdown View - per Agent#action */}
         {viewMode === 'actions' && (
-          <div style={{ padding: '0 24px', marginBottom: '24px' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '12px' }}>
+          <div className="px-6 max-md:px-4" style={{ marginBottom: '24px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(320px, 100%), 1fr))', gap: '12px' }}>
               {actionStats.map((stat) => {
                 const isActive = filter.action === stat.key;
                 return (
@@ -860,6 +939,8 @@ export default function TracesView({ agentId = null, embedded = false }) {
           </div>
         )}
 
+        {viewMode === 'tools' && renderToolsBreakdown(true)}
+
         {/* Span Duration Breakdown View */}
         {viewMode === 'spans' && renderSpansBreakdown(true)}
 
@@ -910,11 +991,11 @@ export default function TracesView({ agentId = null, embedded = false }) {
         </div>
         {/* Wraps instead of forcing horizontal page overflow; long
             agent#action option names cap the selects, not the layout. */}
-        <div className="flex items-center space-x-3 flex-wrap gap-y-2 min-w-0">
+        <div className="flex items-center flex-wrap gap-x-3 gap-y-2 min-w-0">
           <TimeWindowSelector />
 
           {/* View Mode Toggle */}
-          <div className="flex bg-gray-100 rounded-lg p-1">
+          <div className="flex bg-gray-100 rounded-lg p-1 max-w-full overflow-x-auto">
             {['timeline', 'agents', 'actions', 'tools', 'spans'].map((mode) => (
               <button
                 key={mode}
@@ -987,7 +1068,7 @@ export default function TracesView({ agentId = null, embedded = false }) {
 
       {/* Throughput Chart */}
       <div className="bg-white rounded-xl border border-gray-200 p-4">
-        <div className="flex justify-between items-center mb-3">
+        <div className="flex flex-wrap justify-between items-center gap-2 mb-3">
           <h3 className="text-sm font-semibold text-gray-700">Agent Requests / Minute</h3>
           <div className="flex gap-4 flex-wrap">
             {Object.entries(agentColors).map(([agent, color]) => (
@@ -1048,22 +1129,22 @@ export default function TracesView({ agentId = null, embedded = false }) {
           </ResponsiveContainer>
         </div>
         {/* Summary Stats */}
-        <div className="flex gap-6 mt-3 pt-3 border-t border-gray-100">
+        <div className="flex flex-wrap gap-x-6 gap-y-2 mt-3 pt-3 border-t border-gray-100">
           <div>
             <div className="text-lg font-bold text-gray-900">{summaryStats.requests}</div>
-            <div className="text-xs text-gray-500">Total Requests</div>
+            <div className={`text-xs text-gray-500 ${PHONE_STAT_LABEL}`}>Total Requests</div>
           </div>
           <div>
             <div className="text-lg font-bold text-red-500">{summaryStats.errors}</div>
-            <div className="text-xs text-gray-500">Errors</div>
+            <div className={`text-xs text-gray-500 ${PHONE_STAT_LABEL}`}>Errors</div>
           </div>
           <div>
             <div className="text-lg font-bold text-green-600">{summaryStats.avgLatency}ms</div>
-            <div className="text-xs text-gray-500">Avg Latency</div>
+            <div className={`text-xs text-gray-500 ${PHONE_STAT_LABEL}`}>Avg Latency</div>
           </div>
           <div>
             <div className="text-lg font-bold text-amber-500">{summaryStats.throughput}/min</div>
-            <div className="text-xs text-gray-500">Throughput</div>
+            <div className={`text-xs text-gray-500 ${PHONE_STAT_LABEL}`}>Throughput</div>
           </div>
         </div>
       </div>
@@ -1154,7 +1235,7 @@ export default function TracesView({ agentId = null, embedded = false }) {
                     <div className="text-gray-600">{Math.round(stat.minDuration)}ms / {Math.round(stat.maxDuration)}ms</div>
                   </div>
                   <div>
-                    <div className="text-xs text-gray-500">Errors</div>
+                    <div className={`text-xs text-gray-500 ${PHONE_STAT_LABEL}`}>Errors</div>
                     <div className={stat.errors > 0 ? 'text-red-600' : 'text-green-600'}>
                       {stat.errors} ({((stat.errors / stat.count) * 100).toFixed(0)}%)
                     </div>
@@ -1170,68 +1251,7 @@ export default function TracesView({ agentId = null, embedded = false }) {
         </div>
       )}
 
-      {/* Tool usage — which tools get called and what they cost in aggregate.
-          A 20ms tool called 40 times can dominate a 3s one called once, and
-          neither is visible from a single trace's waterfall. */}
-      {viewMode === 'tools' && (
-        toolStats.length === 0 ? (
-          <div className="text-center py-8 text-gray-500 text-sm">
-            No tool calls in this window
-          </div>
-        ) : (
-          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-            {/* Flexbox rather than a 12-col grid: grid-cols-12 / col-span-*
-                aren't in the compiled Tailwind build. */}
-            <div className="flex items-center gap-4 px-4 py-2 text-xs font-medium text-gray-500 border-b border-gray-100">
-              <div className="flex-1">Tool</div>
-              <div className="w-20 text-right">Calls</div>
-              <div className="w-24 text-right">Total time</div>
-              <div className="w-20 text-right">Avg</div>
-              <div className="w-20 text-right">Slowest</div>
-            </div>
-            {toolStats.map((stat) => {
-              const share = toolStats[0].totalDuration
-                ? (stat.totalDuration / toolStats[0].totalDuration) * 100
-                : 0;
-              return (
-                <div key={stat.name} className="px-4 py-2 border-b border-gray-50 last:border-0">
-                  <div className="flex items-center gap-4 text-sm">
-                    <div className="flex-1 min-w-0">
-                      <div className="font-medium text-gray-900 truncate" title={stat.name}>{stat.name}</div>
-                      {stat.agents.length > 0 && (
-                        <div className="text-xs text-gray-400 truncate" title={stat.agents.join(', ')}>
-                          {stat.agents.join(', ')}
-                        </div>
-                      )}
-                    </div>
-                    <div className="w-20 text-right text-gray-700" style={{ fontFamily: TYPOGRAPHY.mono }}>
-                      {stat.count.toLocaleString()}
-                      {stat.errors > 0 && (
-                        <span className="text-red-600 ml-1" title={`${stat.errors} failed`}>
-                          ({stat.errors})
-                        </span>
-                      )}
-                    </div>
-                    <div className="w-24 text-right text-gray-900 font-medium" style={{ fontFamily: TYPOGRAPHY.mono }}>
-                      {formatDuration(stat.totalDuration)}
-                    </div>
-                    <div className="w-20 text-right text-gray-500" style={{ fontFamily: TYPOGRAPHY.mono }}>
-                      {formatDuration(stat.avgDuration)}
-                    </div>
-                    <div className="w-20 text-right text-gray-500" style={{ fontFamily: TYPOGRAPHY.mono }}>
-                      {formatDuration(stat.maxDuration)}
-                    </div>
-                  </div>
-                  {/* Share of the heaviest tool's total time */}
-                  <div className="h-1 bg-gray-100 rounded mt-1.5">
-                    <div className="h-1 bg-green-500 rounded" style={{ width: `${Math.max(share, 1)}%` }} />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )
-      )}
+      {viewMode === 'tools' && renderToolsBreakdown(false)}
       {/* Span Duration Breakdown View */}
       {viewMode === 'spans' && renderSpansBreakdown(false)}
 

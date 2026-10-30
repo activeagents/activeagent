@@ -17,16 +17,19 @@ module ActionAgent
       LOG_TAIL_BYTES = 8 * 1024
       LOG_PAGE_BYTES = 64 * 1024
       LOG_MAX_PAGE_BYTES = 1024 * 1024
+      # The most of a backend's error the boot status carries (see #boot_report).
+      BACKEND_ERROR_BYTES = 1_000
       UPDATABLE = %i[name default_ref start_url].freeze
 
       before_action :require_owner!
-      before_action :set_project, except: [ :index, :create, :capabilities, :preflight, :discover_secrets ]
+      before_action :set_project, except: [ :index, :create, :capabilities, :repositories, :preflight, :discover_secrets ]
       before_action :require_execution_enabled!, only: [ :boot, :run_evaluation ]
 
       # Later handlers win, so subclasses are registered after GithubClient::Error.
       rescue_from GithubClient::Error, with: :github_unavailable
       rescue_from GithubClient::NotFound, with: :github_not_found
       rescue_from GithubClient::Unauthorized, with: :github_unauthorized
+      rescue_from GithubClient::InstallationUnavailable, with: :installation_unavailable
       rescue_from Project::ConfirmationRequired, with: :confirmation_required
       rescue_from Project::BootRefused, with: :boot_refused
       rescue_from SandboxOrchestrator::UnsupportedBackendError, with: :boot_refused
@@ -48,33 +51,68 @@ module ActionAgent
         render json: capabilities_check.call
       end
 
+      # GET /api/projects/repositories
+      # The New Project picker's list: the repositories the owner's GitHub
+      # sources reach (see #github_sources), each marked with whether it is
+      # selected and with the source ("app" or "oauth") a project from it
+      # would be read and checked out through. An installation lists every
+      # repository it reaches only to a caller who may manage it, and its
+      # selection to everyone else; the OAuth connection lists what its
+      # token reaches, as GET /api/github_connection/repositories does.
+      def repositories
+        sources = github_sources! or return
+
+        listed = {}
+        sources.each do |source|
+          source.repositories.each do |repo|
+            listed[repo["full_name"].downcase] ||= repo.merge("selected" => true, "source" => source.checkout_source)
+          end
+        end
+        unavailable = nil
+        sources.each do |source|
+          listing = source.is_a?(GithubConnection) || manages_github?(source) ? source.reachable_repositories : []
+          listing.each do |repo|
+            listed[repo["full_name"].downcase] ||= repo.merge("selected" => false, "source" => source.checkout_source)
+          end
+        rescue GithubClient::InstallationUnavailable => e
+          # Marked on the installation; the other sources still list.
+          unavailable = e
+        end
+        raise unavailable if unavailable && listed.empty?
+
+        render json: { repositories: listed.values }
+      end
+
       # GET /api/projects/preflight?repository=owner/name&ref=
       # Whether the repository can become a project, read through GitHub's
       # contents API before any sandbox exists (see ProjectPreflight). A
-      # repository the connection has not selected is looked up by name,
+      # repository no GitHub source has selected is looked up by name,
       # which also reaches repositories past the listing's cap, and needs
       # :manage_github.
       def preflight
-        connection = github_connection! or return
-        repository = reachable_repository!(connection) or return
+        sources = github_sources! or return
+        source, repository = reachable_repository!(sources)
+        return unless source
 
         ref = ref_param || repository["default_branch"]
         render json: {
-          repository: repository.merge("selected" => connection.repository(repository["full_name"]).present?),
-          preflight: ProjectPreflight.call(connection.client, repository: repository["full_name"], ref: ref)
+          repository: repository.merge("selected" => source.repository(repository["full_name"]).present?,
+            "source" => source.checkout_source),
+          preflight: ProjectPreflight.call(source.contents_client(repository), repository: repository["full_name"], ref: ref)
         }
       end
 
       # GET /api/projects/discover_secrets?repository=owner/name&ref=
       # The environment variables the repository expects (see
       # ProjectSecretDiscovery), each marked with whether the project named by
-      # `project_id`, if any, has it set. A repository the connection has not
+      # `project_id`, if any, has it set. A repository no GitHub source has
       # selected needs :manage_github, as for preflight.
       def discover_secrets
-        connection = github_connection! or return
-        repository = reachable_repository!(connection) or return
+        sources = github_sources! or return
+        source, repository = reachable_repository!(sources)
+        return unless source
 
-        discovery = ProjectSecretDiscovery.call(connection.client, repository: repository["full_name"],
+        discovery = ProjectSecretDiscovery.call(source.contents_client(repository), repository: repository["full_name"],
           ref: ref_param || repository["default_branch"])
         set = params[:project_id].present? ? owned(Project).find(params[:project_id]).secrets.pluck(:name).to_set : Set.new
         discovery[:variables].each { |variable| variable[:set] = set.include?(variable[:name]) }
@@ -87,8 +125,9 @@ module ActionAgent
       #
       # Refused while a blocking capability fails, when the host's quota
       # denies a :project, and for a repository the preflight does not
-      # support. Picking a repository the GitHub connection has not selected
-      # selects it, which needs :manage_github.
+      # support. Picking a repository no GitHub source has selected selects
+      # it on the source it was found through (a GitHub App installation
+      # ahead of the OAuth connection), which needs :manage_github.
       def create
         failures = capabilities_check.blocking_failures
         if failures.any?
@@ -97,11 +136,13 @@ module ActionAgent
         end
         return if quota_denied?
 
-        connection = github_connection! or return
-        repository = reachable_repository!(connection) or return
+        sources = github_sources! or return
+        source, repository = reachable_repository!(sources)
+        return unless source
         full_name = repository["full_name"]
         ref = ref_param
-        report = ProjectPreflight.call(connection.client, repository: full_name, ref: ref || repository["default_branch"])
+        report = ProjectPreflight.call(source.contents_client(repository), repository: full_name,
+          ref: ref || repository["default_branch"])
         if report["status"] == "unsupported"
           return render json: { error: report["summary"], code: "unsupported_repository", preflight: report },
             status: :unprocessable_entity
@@ -114,10 +155,10 @@ module ActionAgent
         return unless secret_sources_allowed!(secrets)
         return unless authorize_secrets!(project, secrets)
 
-        selecting = connection.repository(full_name).nil?
+        selecting = source.repository(full_name).nil?
         Project.transaction do
           # The selection is what a project's sandbox is booted from.
-          connection.update!(repositories: connection.repositories + [ repository ]) if selecting
+          source.update!(repositories: source.repositories + [ repository ]) if selecting
           project.save!
           secrets.each { |attributes| assign_secret_params(project, attributes).save! }
           project.ensure_app_assistant! unless project.engine_installed?
@@ -175,18 +216,20 @@ module ActionAgent
       # The current sandbox's boot, step by step (see
       # SandboxOrchestrator#boot_status), with the scrubbed tail of the step
       # that failed or is running, and the modes its browser can start in
-      # (none when the backend runs no browsers).
+      # (none when the backend runs no browsers). When the backend cannot
+      # report the boot, `boot` is null and `backend_error` names the backend
+      # and the reason (see #boot_report).
       def boot_status
         sandbox = @project.current_sandbox_session
         orchestrator = SandboxOrchestrator.new
-        status = sandbox && orchestrator.supports?(:boot_status) ? orchestrator.boot_status(sandbox) : nil
-        status = SecretScrubber.scrub(status.deep_symbolize_keys, @project.scrub_values) if status.is_a?(Hash)
+        status, log_tail, backend_error = boot_report(orchestrator, sandbox)
 
         render json: {
           project: @project.summary,
           boot: status,
-          log_tail: status && log_tail(orchestrator, sandbox, status),
+          log_tail: log_tail,
           error: sandbox&.failed? ? SecretScrubber.scrub(sandbox.error_summary, @project.scrub_values) : nil,
+          backend_error: backend_error,
           logs: sandbox.present? && orchestrator.supports?(:boot_log),
           confirmation: @project.local_boot_confirmation(orchestrator),
           browser_modes: browser_modes(orchestrator)
@@ -273,7 +316,7 @@ module ActionAgent
       def capabilities_check
         @capabilities_check ||= ProjectCapabilities.new(
           owner: current_owner,
-          github_connected: owned(GithubConnection).exists?,
+          github_connected: github_sources.any?,
           base_url: "#{request.base_url}#{request.script_name}"
         )
       end
@@ -296,45 +339,78 @@ module ActionAgent
         performed?
       end
 
-      def github_connection!
-        connection = owned(GithubConnection).first
-        return connection if connection
+      # Where the owner's repositories are reached through, in the order a
+      # repository is looked for in them: the usable GitHub App
+      # installations in the order they were linked, then the OAuth
+      # connection. It is the order SandboxSession#repository_available
+      # checks a project's repository out in, so a project is read through
+      # the source its sandbox will clone from. Installations count only
+      # while a GitHub App is configured, since nothing else can mint their
+      # tokens. Each source answers #repository, #repositories,
+      # #reachable_repositories, #find_repository and #contents_client.
+      def github_sources
+        @github_sources ||= begin
+          installations = ActionAgent.github_app_configured? ? owned(GithubInstallation).order(:id).select(&:usable?) : []
+          [ *installations, owned(GithubConnection).first ].compact
+        end
+      end
 
-        render json: { error: "Connect GitHub in Settings → Integrations first", code: "github_not_connected" },
+      def github_sources!
+        sources = github_sources
+        return sources if sources.any?
+
+        render json: { error: "Install the GitHub App or connect GitHub in Settings → Integrations first", code: "github_not_connected" },
           status: :unprocessable_entity
         nil
       end
 
-      # The repository +name+ names, as the connection reaches it: from its
-      # selection, else asked of GitHub by name. Renders a 403 for a
-      # repository outside the selection when the caller may not manage the
-      # GitHub connection, and a 404 when GitHub finds none it can reach.
+      def manages_github?(source)
+        ActionAgent.permitted?(current_user, :manage_github, source)
+      end
+
+      # [source, repository] for the repository +name+ names: from the first
+      # source that selected it, else asked of GitHub by name through each
+      # source the caller may manage, in #github_sources' order. Renders a
+      # 403 for a repository outside every selection when the caller may
+      # manage none of the sources, and a 404 when GitHub finds none they
+      # reach.
       #
       # The connection's token can be one member's, reaching that member's
-      # own repositories, so only the selection is shared with every member.
-      # The 403 is decided before GitHub is asked, so it says nothing about
-      # whether the repository exists.
-      def reachable_repository!(connection, name = params[:repository])
+      # own repositories, and an installation can reach repositories a
+      # member cannot see on GitHub, so only the selections are shared with
+      # every member. The 403 is decided before GitHub is asked, so it says
+      # nothing about whether the repository exists.
+      def reachable_repository!(sources, name = params[:repository])
         unless name.is_a?(String) && Project::REPOSITORY.match?(name)
           render json: { error: "repository must be owner/name" }, status: :bad_request
           return nil
         end
 
-        selected = connection.repository(name)
-        return selected if selected
+        sources.each do |source|
+          selected = source.repository(name)
+          return [ source, selected ] if selected
+        end
 
-        unless ActionAgent.permitted?(current_user, :manage_github, connection)
+        managed = sources.select { |source| manages_github?(source) }
+        if managed.empty?
           render json: { error: "#{name} is not one of the repositories selected in Settings → Integrations, and only " \
                                 "someone who may manage the GitHub connection can pick another",
                          code: "forbidden", permission: :manage_github }, status: :forbidden
           return nil
         end
 
-        repository = connection.client.repository(name)
-        return repository if repository
+        unavailable = []
+        managed.each do |source|
+          repository = source.find_repository(name)
+          return [ source, repository ] if repository
+        rescue GithubClient::InstallationUnavailable => e
+          unavailable << e
+        end
+        # Every source asked turned out removed or suspended.
+        raise unavailable.last if unavailable.size == managed.size
 
-        render json: { error: "GitHub found no repository #{name} that this connection can reach", code: "repository_not_found" },
-          status: :not_found
+        render json: { error: "GitHub found no repository #{name} that this dashboard's GitHub access can reach",
+                       code: "repository_not_found" }, status: :not_found
         nil
       end
 
@@ -350,9 +426,10 @@ module ActionAgent
         return nil if requested == @project.default_ref.to_s
         return nil unless authorize_secret_handover!(@project)
 
-        connection = github_connection! or return
-        repository = reachable_repository!(connection, @project.repository) or return
-        report = ProjectPreflight.call(connection.client, repository: @project.repository,
+        sources = github_sources! or return
+        source, repository = reachable_repository!(sources, @project.repository)
+        return unless source
+        report = ProjectPreflight.call(source.contents_client(repository), repository: @project.repository,
           ref: requested.presence || repository["default_branch"])
         if report["status"] == "unsupported"
           render json: { error: report["summary"], code: "unsupported_repository", preflight: report },
@@ -462,6 +539,27 @@ module ActionAgent
         []
       end
 
+      # The backend's account of the sandbox's boot, scrubbed, with the tail
+      # of the step's log that goes with it: [status, log_tail, nil]. When the
+      # backend cannot give one (no host configured, the host unreachable, a
+      # container that has not written its state yet), [nil, nil, error],
+      # where error names the backend and the scrubbed reason. The page then
+      # shows the boot as unknown for that reason and keeps following it,
+      # instead of failing to load the project (#650). The sandbox's own
+      # failure, if it failed, is reported beside it as `error`.
+      def boot_report(orchestrator, sandbox)
+        return [ nil, nil, nil ] unless sandbox && orchestrator.supports?(:boot_status)
+
+        status = orchestrator.boot_status(sandbox)
+        status = SecretScrubber.scrub(status.deep_symbolize_keys, @project.scrub_values) if status.is_a?(Hash)
+        [ status, status && log_tail(orchestrator, sandbox, status), nil ]
+      rescue StandardError => e
+        Rails.logger.warn("[ActionAgent] the #{orchestrator.backend_name} sandbox backend could not report the boot of " \
+          "sandbox #{sandbox.session_id}: #{e.class}: #{e.message}")
+        [ nil, nil, { backend: orchestrator.backend_name,
+                      message: SecretScrubber.scrub(e.message.to_s, @project.scrub_values).truncate(BACKEND_ERROR_BYTES) } ]
+      end
+
       # The last LOG_TAIL_BYTES of the step that failed, else of the one
       # running, else of the last that ran: { step:, text:, truncated: }.
       def log_tail(orchestrator, sandbox, status)
@@ -498,6 +596,12 @@ module ActionAgent
       def github_unauthorized
         render json: { error: "GitHub rejected the stored token. Reconnect GitHub.", reconnect_required: true },
           status: :unprocessable_entity
+      end
+
+      def installation_unavailable(exception)
+        state = exception.reason == :suspended ? "is suspended" : "was removed"
+        render json: { error: "The GitHub App installation #{state} on GitHub. Reinstall the GitHub App in Settings → Integrations.",
+                       code: "installation_unavailable", reinstall_required: true }, status: :unprocessable_entity
       end
 
       def github_not_found(exception)

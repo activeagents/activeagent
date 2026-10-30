@@ -28,6 +28,7 @@ module ActiveAgent
     end
 
     def transform! # :nodoc:
+      return context unless context.respond_to?(:html_part)
       return context if html_part.blank?
 
       html_part.body = html_part.decoded.gsub(PATTERN) do |match|

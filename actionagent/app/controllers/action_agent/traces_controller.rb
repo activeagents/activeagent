@@ -4,11 +4,13 @@ module ActionAgent
   # Controller for viewing telemetry traces.
   #
   # Provides:
-  # - List view with filtering and pagination
+  # - Bounded list of recent traces with filtering (no pagination)
   # - Detail view with span timeline
   # - Metrics overview
   # - Live updates via Turbo Streams
   class TracesController < ApplicationController
+    before_action :set_refresh_interval
+
     def index
       @traces = fetch_traces
       @metrics = calculate_metrics
@@ -37,6 +39,10 @@ module ActionAgent
     end
 
     private
+
+    def set_refresh_interval
+      @refresh_interval = params[:refresh].to_i if %w[30 60].include?(params[:refresh])
+    end
 
     def turbo_stream_available?
       Mime::Type.lookup_by_extension(:turbo_stream).present?
@@ -70,7 +76,8 @@ module ActionAgent
         )
       end
 
-      traces.limit(params[:limit] || 50)
+      limit = Integer(params[:limit], 10, exception: false) || 50
+      traces.limit(limit.clamp(1, 1000))
     end
 
     def calculate_metrics

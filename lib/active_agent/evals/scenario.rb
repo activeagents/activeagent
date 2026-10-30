@@ -24,16 +24,21 @@ module ActiveAgent
     #   @return [Array<String>] labels a catalog files the scenario under ("billing")
     # @!attribute params
     #   @return [Hash] free-form parameters a replay may read; kept as written
+    # @!attribute metadata
+    #   @return [Hash, nil] opaque extension fields from a catalog document
     Scenario = Struct.new(:key, :group, :group_name, :prompt, :expected_tools, :expected_patterns,
-                          :forbidden_patterns, :notes, :production_only, :position, :tags, :params,
+                          :forbidden_patterns, :notes, :production_only, :position, :tags, :params, :metadata,
                           keyword_init: true) do
       # Builds a scenario from a hash — ScenarioParser output, a suite entry, or
       # a persisted record's attributes. Expectations are read from an
       # `expectations`/`expect` sub-hash (`tools`, `contains`, `not_contains`)
       # or from those keys at the top level.
-      def self.from_hash(attributes, group: nil, group_name: nil)
+      # Pass +metadata+ when extension fields have been separated from a
+      # document; its literal `metadata` key may itself be an extension.
+      def self.from_hash(attributes, group: nil, group_name: nil, metadata: nil)
         attrs = attributes.to_h.deep_stringify_keys
         expect = (attrs["expectations"] || attrs["expect"] || {}).to_h.stringify_keys
+        metadata = attrs["metadata"] if metadata.nil? && attrs["metadata"].is_a?(Hash)
 
         new(
           key: attrs["key"].to_s,
@@ -47,7 +52,8 @@ module ActiveAgent
           production_only: attrs["production_only"] == true,
           position: attrs["position"],
           tags: list(attrs["tags"]),
-          params: (attrs["params"] || {}).to_h.deep_stringify_keys
+          params: (attrs["params"] || {}).to_h.deep_stringify_keys,
+          metadata: (metadata || {}).to_h.deep_stringify_keys
         )
       end
 
@@ -68,8 +74,10 @@ module ActiveAgent
       end
 
       def to_h
-        super.compact.reject { |field, value| %i[tags params].include?(field) && value.blank? }
+        super.compact.reject { |field, value| %i[tags params metadata].include?(field) && value.blank? }
       end
     end
+
+    Scenario::DOCUMENT_KEYS = %w[key prompt expect expectations tools contains not_contains notes tags params production_only position].freeze
   end
 end

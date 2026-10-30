@@ -3,10 +3,10 @@ import test from 'node:test';
 import {
   DETAILS_KEPT, DETAIL_STORAGE_KEY, KEY_COLUMN_MIN_WIDTH, PANEL_GUTTER, RAIL_BARS_MAX, RAIL_BREAKPOINT, RAIL_GAP, RAIL_WIDTH,
   STEPS_HEIGHT, STRIP_LIST_HEIGHT,
-  columnTotals, combinedBars, criterionExpectation, criterionGroup, criterionLabel, currentStepKey, cursorScrollTop, fmtClock, fmtDuration,
+  changesText, columnTotals, combinedBars, criterionExpectation, criterionGroup, criterionLabel, currentStepKey, cursorScrollTop, fmtClock, fmtDuration,
   fmtSpan, groupResultsByKey, groupStep, groupTime, groupsOutsideRun, isEstimated, judgeCallsText, judgeLabel, judgeSourceText, keepDetails,
   keepSandboxChoice, modelScorecard, costPer, openRowScrollTop, orderScenarioRows, pollIntervalFor, pricedCount, readDetailChoice,
-  reconcileResults, rerunFailedKeys, resultMetrics, runCohorts, runDelta, runElapsedMs, runLabel, runNumber, runRequestBody,
+  reconcileResults, rerunFailedKeys, resultChanges, resultMetrics, runCohorts, runDelta, runElapsedMs, runLabel, runNumber, runRequestBody,
   runRequestSelection, runSandboxLabel, runSandboxOptions, runScenarioKeys, runSelectionLabel, runSpend, runnableKeys, runsMeta, sameResult,
   samplingFixItems, scenarioStep, scenarioTime, scenarioTokens, selectionModelLabels, selectionOf, shownRunIndexes, sandboxLabel,
   spendSummary, spendTotalLabel, stepsMinWidth, sumMetrics, sumTokens, toolsMinWidth, versionChip, versionDelta, writeDetailChoice,
@@ -594,7 +594,7 @@ test('the details cache keeps only what the person can get back to', () => {
   // The figures the panel, the rail and the box share.
   assert.deepEqual(
     { PANEL_GUTTER, STEPS_HEIGHT, STRIP_LIST_HEIGHT, RAIL_BARS_MAX, DETAILS_KEPT, KEY_COLUMN_MIN_WIDTH },
-    { PANEL_GUTTER: 32, STEPS_HEIGHT: 'clamp(360px, calc(100vh - 240px), 900px)', STRIP_LIST_HEIGHT: 320, RAIL_BARS_MAX: 3, DETAILS_KEPT: 3, KEY_COLUMN_MIN_WIDTH: 720 },
+    { PANEL_GUTTER: 32, STEPS_HEIGHT: 'clamp(360px, calc(100vh - 240px), 900px)', STRIP_LIST_HEIGHT: 320, RAIL_BARS_MAX: 3, DETAILS_KEPT: 4, KEY_COLUMN_MIN_WIDTH: 720 },
   );
 });
 
@@ -664,4 +664,37 @@ test('a step carries each answer\'s time and tokens, and the box adds them up pe
   assert.equal(fmtTokenIO(2_400_000, null), '2.4M→—');
   assert.equal(fmtTokenIO(null, null), '—');
   assert.equal(fmtTokenIO(undefined, undefined), '—');
+});
+
+test('a run\'s results are read against the same scenario and model in the run before', () => {
+  const result = (status, score) => ({ status, score });
+  const now = {
+    a: { sonnet: result('passed', 0.98), haiku: result('failed', 0.6) },
+    b: { sonnet: result('errored', 0), haiku: result('passed', 0.94) },
+    c: { sonnet: result('passed', 0.9), haiku: result('pending') },
+    d: { sonnet: result('failed', 0.5) },
+    e: { sonnet: result('passed', 0.97) },
+  };
+  const before = {
+    a: { sonnet: result('failed', 0.54), haiku: result('passed', 0.93) },
+    b: { sonnet: result('passed', 0.96), haiku: result('passed', 0.9) },
+    c: { sonnet: result('passed', 0.95), haiku: result('failed', 0.4) },
+    d: { sonnet: result('errored', 0) },
+  };
+  const changes = resultChanges(now, before, ['sonnet', 'haiku']);
+
+  assert.deepEqual(
+    Object.fromEntries(Object.entries(changes.byKey).map(([key, cells]) => [key, Object.fromEntries(Object.entries(cells).map(([label, c]) => [label, c.kind]))])),
+    { a: { sonnet: 'improved', haiku: 'regressed' }, b: { sonnet: 'errored' } },
+    'a pending result, an earlier error and a scenario the earlier run did not cover are not changes',
+  );
+  assert.equal(changes.byKey.a.haiku.was, before.a.haiku, 'a change carries the earlier result');
+  assert.deepEqual([changes.improved, changes.regressed, changes.errored], [1, 1, 1]);
+  assert.deepEqual(resultChanges(now, {}, ['sonnet']), { byKey: {}, improved: 0, regressed: 0, errored: 0 });
+});
+
+test('the changed chip counts each kind of change that happened', () => {
+  assert.equal(changesText({ improved: 6, regressed: 5, errored: 4 }), ' · ▲6 ▼5 ○4');
+  assert.equal(changesText({ improved: 0, regressed: 2, errored: 0 }), ' · ▼2');
+  assert.equal(changesText({ improved: 0, regressed: 0, errored: 0 }), '');
 });

@@ -24,6 +24,8 @@ Keep each private customer's material within its own organization context.
 | Agent concerns/mixins | `lib/active_agent/concerns/` |
 | Agent-as-tool delegation | `lib/active_agent/delegation/` |
 | Rails generators | `lib/generators/active_agent/` |
+| Scenario evaluations (parser, runner, scorer, report, publisher) | `lib/active_agent/evals/` |
+| Command line (`activeagent` executable) | `exe/activeagent`, `lib/active_agent/cli/` |
 | Dashboard engine (`actionagent` gem) | `actionagent/` |
 | Dashboard React source | `actionagent/frontend/` |
 | Test suite | `test/` |
@@ -126,7 +128,7 @@ Creates (the view directory drops the `_agent` suffix, the agent file keeps it):
 - `app/views/agents/agent_name/action1.md.erb`
 - `app/views/agents/agent_name/action2.md.erb`
 - `test/agents/agent_name_agent_test.rb` and
-  `test/docs/previews/agent_name_agent_preview.rb`
+  `test/agents/previews/agent_name_agent_preview.rb`
 
 ### Adding a Tool to an Agent
 
@@ -283,12 +285,22 @@ bin/test test/path/to/test.rb
 # Run tests for a specific provider
 bin/test test/integration/open_ai/
 
+# The command line: standalone (no Rails loaded), then against the engine's dummy app
+bin/test test/cli/cli_test.rb actionagent/test/cli_contract_test.rb
+
 # Run both trees — the framework's test/ and the engine's actionagent/test/
 bundle exec rake test
 ```
 
 The engine's tests live in `actionagent/test/`. Both `bin/test` and the
 Rakefile's `test` task collect the framework and engine suites by default.
+
+A full `bin/test` with no `.env.test` needs the placeholder provider keys CI
+sets (`ANTHROPIC_API_KEY=ANTHROPIC_API_KEY OPEN_AI_API_KEY=OPEN_AI_API_KEY
+OPEN_ROUTER_API_KEY=OPEN_ROUTER_API_KEY`); without them every provider test
+whose client refuses to initialize without a key errors, a few hundred of
+them, before any request is stubbed or replayed. The suite's own exit code
+is the signal: piping it through `tail` hides it.
 
 `test/evals/` holds the tests *of* the evaluation module. The convention the
 module offers host apps — evals as ordinary tests in `test/evals`, skipped
@@ -383,6 +395,65 @@ cycle. (Both gemspecs declare `railties`; that one is not part of the split.)
   (authentication, `current_user_resolver`, `multi_tenant`,
   `table_name_prefix`, `execution_enabled`, sandbox backends, quotas); all
   are optional and unset means single-user self-hosted behaviour.
+- The MCP facade (`Api::MCPController`, `POST <mount>/mcp`, a dashboard API
+  key as the Bearer token) also serves the dashboard's own tools
+  (`Api::MCPDashboardTools`: `evaluations_*`, `evaluation_runs_*`,
+  `scenarios_merge`, `explorations_submit`, `traces_search|get|export`,
+  `catalogs_list|import|preview|export`, `catalog_set_run`,
+  `agents_versions`, `input_requests_*`). A new one is added in four
+  places — `NAMES`, `DEFINITIONS` (its JSON schema),
+  `dispatch_dashboard_tool`, and `DASHBOARD_TOOLS` in
+  `actionagent/test/mcp_dashboard_tools_test.rb` — plus the tools table in
+  `docs/framework/dashboard.md`. A tool reads under the key's owner exactly
+  as the JSON API reads for a signed-in owner (`owned`, `owner_agents`,
+  `owned_traces`), raises `ToolError` for anything the client can correct,
+  and every result is scrubbed of the owner's credentials before it leaves.
+- Every serialized evaluation run (`EvaluationSerializer.run_summary`)
+  carries `run_id`, the handle `GET <mount>/api/evaluation_reports/:run_id`
+  takes: a published run's own, a dashboard run's
+  `dashboard-run-<id>-<created_at>` (`EvaluationReportExport.run_id_for`).
+
+## The command line: the gem's third surface
+
+`exe/activeagent` (`lib/active_agent/cli.rb` and `lib/active_agent/cli/`) is
+the `activeagent` executable: it works with a dashboard over HTTP from a
+terminal or a CI job, and ships in the `activeagent` gem. Read
+`docs/framework/cli.md` first. The shape to keep:
+
+- It loads neither Rails nor the framework: stdlib `OptionParser` and
+  `Net::HTTP` only, plus `lib/active_agent/evals/publisher.rb`, which is
+  standalone too. `test/cli/cli_test.rb` requires the CLI alone, so a
+  `require "active_support"` (or anything else from the framework) under
+  `lib/active_agent/cli/` fails that test.
+- Every command answers through an API-key-authenticated endpoint, never a
+  session route: reads and runs through the facade's dashboard tools
+  (`Client#tool`, the dashboard API key); imports and the report export
+  through the endpoints the framework's own reporters post to
+  (`<mount>/api/evaluation_reports`, `<mount>/api/traces`; `Client#get` and
+  `Client#post`, the ingest key). A dashboard that offers neither exits
+  `EXIT_UNAVAILABLE` (5), never scrapes the UI's session API.
+- A dashboard feature ships with its CLI command, its API-key endpoint and
+  its UI together (#619); the rake tasks in `actionagent/lib/tasks/` stay
+  for in-app and offline use. When a command needs a read the facade lacks,
+  add a dashboard tool (above) rather than a controller of its own.
+- Adding a command: a private `<group>_<name>` method in the group's module
+  (`cli/eval_commands.rb`, `cli/resource_commands.rb`,
+  `cli/trace_commands.rb`, `cli/session_commands.rb`), named in the group's
+  list in `CLI#dispatch`. `parse` handles the options and `--help`, `emit`
+  prints `--json` or yields the table form, `write_output` writes a
+  document to `-o FILE` or standard output, and a failure is
+  `CLI::Error.new(message, exit_code:)`. Server messages reach the terminal
+  only through `Client#sanitize`, which filters both keys out; never print
+  a response body raw.
+- Tests: `test/cli/cli_test.rb` stubs the dashboard with WebMock and runs
+  the CLI in process (`CLI.start(argv, out:, err:, env:, credentials_path:)`
+  returns the exit code); `actionagent/test/cli_contract_test.rb` hands the
+  same requests to the dummy app (`stub_request(...).to_rack(Rails.application)`),
+  so a change to the facade or the collector that breaks the CLI fails
+  there, not on a user's machine.
+- Documentation: `docs/framework/cli.md` is the page (sidebar: Framework →
+  Command Line), with the facade's tools table in
+  `docs/framework/dashboard.md` and the run export in `docs/evals/publication.md`.
 
 ## Common Gotchas
 
@@ -417,6 +488,11 @@ bin/test
 
 # Lint
 bin/rubocop
+
+# The command line, from this checkout (`activeagent` once the gem is installed)
+exe/activeagent --help
+exe/activeagent login --url http://localhost:3000/activeagents --key aa_...
+exe/activeagent evals run "Support orders" --min-pass-rate 0.8
 
 # Cross-repo: this checkout against a local solid_agent (strict = no skips)
 SOLID_AGENT_PATH=../solid_agent \
