@@ -16,6 +16,23 @@ with the claim 1.9.3 uses, and catalog imports keep working but still drop
 scenario extensions; extensions discarded before the upgrade need the
 original document imported again.
 
+### Changed
+
+- **Ranked comparison tables and value pills** (`actionagent`). Wherever the
+  dashboard compares rows, they now read through one pattern: a
+  `ComparisonTable` with two-line mono headers that sort on click and a
+  rank-tinted `ValuePill` in every numeric cell, banded by tercile in the
+  column's better direction or by fixed thresholds where the domain has them
+  (pass rates at 85 and 50), with missing values unranked and sorted last,
+  and a visually hidden rank word so colour is never the only signal. Applied
+  to a run's model comparison table and the Evaluations leaderboard, the
+  scenario matrix (the key leads each step with the prompt under it, one
+  score pill per model, cost and time pills per scenario, the tools level
+  stacking tool call, time, tokens and cost pills), each opened result's
+  score, time, tokens and cost strip, the Metrics overview's change pills and
+  the home page's Top Agents list. Under 600px a table stacks each row to
+  labelled pills.
+
 ### Fixed
 
 - **An evaluation judge job delivered twice scores its result once**
