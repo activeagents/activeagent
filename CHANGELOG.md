@@ -5,7 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.9.6] - 2026-10-29
+
+The dashboard on a phone, and the small finished pieces: the sidebar as a
+drawer and the interactions, agents, evaluations and traces views laid out
+for a phone's width; agents and evaluations first in the sidebar; the
+appearance following the OS, with the agent interactions page dark when the
+dashboard is; the results that moved since the run before marked in the
+step box; and a project page that says why its sandbox backend did not
+answer instead of failing to load. All of it is `actionagent`; the
+framework gem moves to 1.9.6 with it and is otherwise unchanged.
+
+Upgrading: no migration and nothing to run; `bundle update activeagent
+actionagent`.
 
 ### Added
 
