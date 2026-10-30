@@ -859,6 +859,21 @@ service by other tooling. Without Active Storage the catalog lives in the
 database alone and the sync actions answer `422` with `code: "no_storage"`.
 "Export YAML" downloads the canonical document from the records either way.
 
+Scenario extension fields survive import, edits to standard fields, exports
+of a selection, and storage restore. An extension-only change appears in the
+import preview and changes the catalog's digest. Re-importing a scenario
+replaces its extensions; merge mode keeps scenarios omitted from the input.
+
+Existing installs need the `add_catalog_scenario_metadata` migration:
+
+```sh
+bin/rails generate action_agent:install --skip
+bin/rails db:migrate
+```
+
+This also installs the column on a fresh dashboard. Fields discarded by an
+earlier version can only be restored by importing the original document again.
+
 **Permissions and gates.** Importing, re-importing, deleting, syncing,
 materializing and running a set change evaluation scenarios, so each needs
 the `replace_scenarios` [permission](#permissions); reading needs none.

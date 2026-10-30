@@ -91,6 +91,26 @@ class ScenarioCatalogEntriesApiTest < ActionDispatch::IntegrationTest
     assert_equal 0, body.dig("catalog", "scenario_count")
   end
 
+  test "editing and exporting an imported scenario retains its extension fields" do
+    document = YAML.safe_load(DOCUMENT)
+    input = document.dig("products", 0, "sets", 0, "scenarios", 0)
+    extras = { "priority" => "high", "reviewed" => false, "metadata" => { "source" => "fixture" } }
+    input.merge!(extras)
+    catalog = import!(document.to_yaml)
+    scenario = catalog.scenarios.find_by!(key: "add_item")
+
+    patch "#{BASE}/#{catalog.id}/sets/#{scenario.set.id}/scenarios/#{scenario.id}",
+      params: { scenario: { prompt: "Add item 8." } }, as: :json
+    assert_response :success, response.body
+    get "#{BASE}/#{catalog.id}/export", params: { scenario_ids: [ scenario.id ] }
+    assert_response :success
+    exported = YAML.safe_load(response.body).dig("products", 0, "sets", 0, "scenarios", 0)
+
+    assert_equal extras, exported.slice(*extras.keys)
+    assert_equal "Add item 8.", exported["prompt"]
+    assert_equal extras, scenario.reload.metadata
+  end
+
   test "an entry the importer would refuse is refused, and nothing changes" do
     catalog = import!
     product = catalog.products.sole

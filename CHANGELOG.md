@@ -5,6 +5,56 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+Upgrading: two dashboard migrations, 030 `add_evaluation_scoring_leases`
+(the scoring lease columns on `evaluation_scenario_results`) and 031
+`add_catalog_scenario_metadata` (the `metadata` column on
+`catalog_scenarios`): run `bin/rails generate action_agent:install --skip`
+and `bin/rails db:migrate`. Until they run, fanned-out runs keep scoring
+with the claim 1.9.3 uses, and catalog imports keep working but still drop
+scenario extensions; extensions discarded before the upgrade need the
+original document imported again.
+
+### Fixed
+
+- **An evaluation judge job delivered twice scores its result once**
+  (`actionagent`). The claim on a pending result was a conditional write on
+  its timestamp, which turned away a stale reader but not a duplicate
+  delivered after the claim: that one read the new timestamp and asked the
+  judge to score the result again. A claim now takes a 30-minute lease
+  (`scoring_token`, `scoring_expires_at`) that a fresh reader cannot take
+  while it is live, and a worker that finishes after its lease was
+  reclaimed cannot overwrite its successor's result. A delivery that finds
+  a live lease, such as the queue's redelivery after a worker died
+  mid-judge, enqueues the job again for when the lease expires, so the run
+  still completes. Without migration 030 the judge job keeps the timestamp
+  claim instead of failing on the missing columns.
+
+- **Keep scenario catalog extension fields** (`activeagent`, `actionagent`).
+  Opaque scenario fields survive parsing, YAML/JSON export, database reload,
+  standard-field edits and storage restore. Their changes affect import
+  previews and catalog digests, including when only an extension changes.
+  Empty values and literal `metadata` keys are preserved; canonical format
+  fields cannot be replaced through the metadata container.
+
+- **Bound trace console list limits** (`actionagent`). The console defaults
+  to 50 recent matching traces, clamps integer limits to 1–1000, and uses
+  the default for malformed values. Its documentation describes the bounded
+  recent list rather than claiming pagination.
+
+- **Select trace time windows in dark mode** (`actionagent`). The dark
+  Traces header includes the shared time-window selector and zoom controls,
+  including when embedded on an agent page or when the window is empty.
+
+- **Show tool usage in both dashboard themes** (`actionagent`). The Traces
+  page renders the same tool counts, durations, failures and empty state
+  in dark and light mode, using the shared telemetry colors.
+
+- **Load evaluation catalogs without Rails** (`activeagent`). The standalone
+  `active_agent/evals` entry point loads the ActiveSupport array extension
+  used to construct, parse and load catalogs, without loading the framework.
+
 ## [1.9.6] - 2026-10-29
 
 The dashboard on a phone, and the small finished pieces: the sidebar as a
