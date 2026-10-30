@@ -213,6 +213,8 @@ module ActionAgent
           prompt: scenario.prompt, notes: scenario.notes, expectations: scenario.expectations,
           tags: scenario.tags, params: scenario.params, production_only: scenario.production_only?
         )
+        # Until add_catalog_scenario_metadata runs, imports keep working without extensions.
+        record.metadata = scenario.metadata if record.has_attribute?(:metadata)
         record.position = position_for(record, scenario.position, offset)
         record.save!
       end

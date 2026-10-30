@@ -195,8 +195,11 @@ module ActionAgent
           "failures). A run_<slug> call that pauses to ask for input returns its input request ids: " \
           "input_requests_list shows what paused runs are waiting on, and input_requests_answer answers a text or " \
           "choice request. Scenarios kept as a YAML catalog of products and sets (an .activeagents/evals file) are " \
-          "imported with catalogs_import, listed with catalogs_list, and one set is run as an evaluation named " \
-          "catalog/product/set with catalog_set_run (pass project_id to run against a project's running sandbox)."
+          "imported with catalogs_import (catalogs_preview shows what an import would change first), listed with " \
+          "catalogs_list, written back out with catalogs_export, and one set is run as an evaluation named " \
+          "catalog/product/set with catalog_set_run (pass project_id to run against a project's running sandbox). " \
+          "agents_versions lists an agent's versions with what each changed, and traces_export reads one trace " \
+          "whole, as the payload the trace ingest endpoint takes."
       end
 
       MESSAGE_INPUT_SCHEMA = {

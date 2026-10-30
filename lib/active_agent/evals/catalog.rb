@@ -49,7 +49,7 @@ module ActiveAgent
       # under `metadata` so a document round-trips.
       PRODUCT_KEYS = %w[key name description agent sets].freeze
       SET_KEYS = %w[key name description judge criteria scenarios].freeze
-      SCENARIO_KEYS = %w[key prompt expect expectations tools contains not_contains notes tags params production_only position].freeze
+      SCENARIO_KEYS = Scenario::DOCUMENT_KEYS
       CATALOG_KEYS = %w[catalog name description products suite groups].freeze
 
       Product = Struct.new(:key, :name, :description, :agent, :metadata, :sets, :position, keyword_init: true) do
@@ -259,7 +259,8 @@ module ActiveAgent
           metadata: set.except(*SET_KEYS),
           position: position,
           scenarios: set["scenarios"].each_with_index.map do |entry, index|
-            Scenario.from_hash(entry.merge("position" => index), group: set["key"], group_name: set["name"].presence || set["key"])
+            Scenario.from_hash(entry.merge("position" => index), group: set["key"], group_name: set["name"].presence || set["key"],
+              metadata: entry.except(*SCENARIO_KEYS))
           end
         )
       end
@@ -294,7 +295,19 @@ module ActiveAgent
           "tags" => scenario.tags,
           "params" => scenario.params,
           "production_only" => (true if scenario.production_only?)
-        })
+        }).merge(canonical_metadata(scenario.metadata.to_h.deep_stringify_keys.except(*SCENARIO_KEYS)))
+      end
+
+      # JSON object storage may reorder keys; array order remains meaningful.
+      def canonical_metadata(value)
+        case value
+        when Hash
+          value.keys.sort.to_h { |key| [ key, canonical_metadata(value[key]) ] }
+        when Array
+          value.map { |entry| canonical_metadata(entry) }
+        else
+          value
+        end
       end
 
       def compact(hash)

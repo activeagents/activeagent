@@ -261,7 +261,14 @@ module ActionAgent
       # +owner+ itself — unwrapped from a SimpleDelegator-style decorator —
       # once it is known to be an instance of the owner model.
       def owner_record(owner)
-        owner = owner.__getobj__ while defined?(::Delegator) && owner.is_a?(::Delegator)
+        # Not `... while defined?(::Delegator) && ...`: Prism (Ruby 3.4 and
+        # 4.0) miscompiles `defined?` inside a `while` modifier's condition
+        # when the source arrives as a string, which is how bootsnap 1.24.6+
+        # compiles files on those Rubies, and the whole engine then fails to
+        # boot with "argument stack underflow".
+        if defined?(::Delegator)
+          owner = owner.__getobj__ while owner.is_a?(::Delegator)
+        end
         association = owner_association
         return owner if owner.nil? || association.nil?
 

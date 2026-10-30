@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { Badge, SegmentedControl, statusTone } from './primitives';
+import { useTheme } from '../../contexts/ThemeContext';
 import AgentAvatar from '../AgentAvatar';
 import { useTimeWindow } from '../../contexts/TimeWindowContext';
 import TimeWindowSelector from './TimeWindowSelector';
@@ -6,9 +8,24 @@ import InteractionStream from './InteractionStream';
 import InteractionsView from './InteractionsView';
 import { dashboardPath, dashboardRelativePath } from '../../utils/dashboardPath';
 import ReplayLink from './replay/ReplayLink';
+import { PHONE_STAT_LABEL, PHONE_STAT_VALUE } from './TelemetryObject';
+
+// Where an execution came from: the one real difference between these
+// executions, so one list carries both.
+const SOURCE_OPTIONS = [
+  { value: '', label: 'All', title: 'Every execution, however it started' },
+  { value: 'dashboard', label: 'Dashboard', title: 'Executions started from this dashboard' },
+  { value: 'reported', label: 'Reported', title: 'Executions reported by your app via telemetry' },
+];
+// One run's stream, or every session for this agent.
+const MODE_OPTIONS = [
+  { value: 'run', label: 'Selected run' },
+  { value: 'all', label: 'Sessions' },
+];
 
 export default function AgentInteractions({ agent, onBack }) {
   const { timeWindow } = useTimeWindow();
+  const { darkMode } = useTheme();
   const [runs, setRuns] = useState([]);
   const [sessions, setSessions] = useState([]);
   const [selectedRun, setSelectedRun] = useState(null);
@@ -32,6 +49,11 @@ export default function AgentInteractions({ agent, onBack }) {
   const [filterSource, setFilterSource] = useState(''); // '' | 'dashboard' | 'reported'
   const [sort, setSort] = useState('recent'); // see AgentExecutions::SORTS
   const conversationRef = useRef(null);
+  // Below md the two columns show one at a time: the report or the selected
+  // run ('detail'), or the run list ('list'). Opening a run or a session
+  // returns to the detail; the breadcrumb bar's "Runs" button opens the
+  // list. From md up both columns render whatever this says.
+  const [mobilePane, setMobilePane] = useState('detail');
 
   const basePath = dashboardPath(`/agents/${agent.id}/interactions`);
 
@@ -148,6 +170,7 @@ export default function AgentInteractions({ agent, onBack }) {
       setSelectedMessages(data.messages || []);
       setDetailMode('run');
       setSelectedSession(null);
+      setMobilePane('detail');
       if (updateUrl) pushPath(`${basePath}/runs/${runId}`);
     } catch (error) {
       console.error('Failed to load run details:', error);
@@ -178,6 +201,7 @@ export default function AgentInteractions({ agent, onBack }) {
   // Drill into one session (or back to the sessions list with null)
   const selectSession = (session) => {
     setDetailMode('all');
+    setMobilePane('detail');
     if (session) {
       setSelectedSession({ id: session.id, name: session.display_name });
       pushPath(`${basePath}/sessions/${session.id}`);
@@ -252,17 +276,6 @@ export default function AgentInteractions({ agent, onBack }) {
     return { cohorts, totals };
   };
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'complete': return 'bg-green-100 text-green-700';
-      case 'failed': return 'bg-red-100 text-red-700';
-      case 'running': return 'bg-blue-100 text-blue-700';
-      case 'pending': return 'bg-yellow-100 text-yellow-700';
-      case 'cancelled': return 'bg-gray-100 text-gray-500';
-      default: return 'bg-gray-100 text-gray-500';
-    }
-  };
-
   const formatDuration = (ms) => {
     if (!ms) return '-';
     if (ms < 1000) return `${ms}ms`;
@@ -296,23 +309,35 @@ export default function AgentInteractions({ agent, onBack }) {
 
   return (
     <div className="flex h-full">
-      {/* Conversation List */}
-      <div className="w-80 border-r border-gray-200 flex flex-col bg-white">
+      {/* Conversation List — the whole width on a phone, when shown. */}
+      <div
+        className={`${mobilePane === 'list' ? 'flex' : 'hidden'} lg:flex w-full lg:w-80 lg:border-r aa-border flex-col aa-bg-card`}
+        data-testid="agent-runs-pane"
+      >
         {/* Header */}
-        <div className="p-4 border-b border-gray-200">
+        <div className="p-4 border-b aa-border">
           <div className="flex items-center space-x-3 mb-4">
             <button
               onClick={onBack}
-              className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
+              className="p-1 aa-text-muted hover:aa-text-secondary transition-colors"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
             </button>
-            <div>
-              <h2 className="font-semibold text-gray-900">Agent Interactions</h2>
-              <p className="text-sm text-gray-500">{agent.name}</p>
+            <div className="min-w-0">
+              <h2 className="font-semibold aa-text-primary">Agent Interactions</h2>
+              <p className="text-sm aa-text-secondary truncate">{agent.name}</p>
             </div>
+            {/* Back to the report or the open run (phones only). */}
+            <button
+              type="button"
+              onClick={() => setMobilePane('detail')}
+              className="lg:hidden ml-auto px-2 py-1 text-xs rounded-md aa-text-secondary hover:aa-text-primary hover:aa-bg-hover transition-colors whitespace-nowrap"
+              data-testid="agent-runs-show-detail"
+            >
+              {selectedRun && detailMode === 'run' ? `Run #${selectedRun.id} →` : 'Report →'}
+            </button>
           </div>
 
           {/* Shared dashboard time window */}
@@ -323,30 +348,12 @@ export default function AgentInteractions({ agent, onBack }) {
           {/* Source — the one real difference between these executions:
               did the dashboard run it, or did the customer's app report it?
               Both are the same grain, so they share one list. */}
-          <div className="flex bg-gray-100 rounded-lg p-1 mb-2 text-sm">
-            {[
-              { value: '', label: 'All' },
-              { value: 'dashboard', label: 'Dashboard' },
-              { value: 'reported', label: 'Reported' },
-            ].map((option) => (
-              <button
-                key={option.value || 'all'}
-                onClick={() => { setFilterSource(option.value); setPage(1); }}
-                className={`flex-1 px-2 py-1 rounded-md transition-colors ${
-                  filterSource === option.value ? 'bg-white shadow text-gray-900' : 'text-gray-600'
-                }`}
-                title={
-                  option.value === 'dashboard'
-                    ? 'Executions started from this dashboard'
-                    : option.value === 'reported'
-                      ? 'Executions reported by your app via telemetry'
-                      : 'Every execution, however it started'
-                }
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
+          <SegmentedControl
+            options={SOURCE_OPTIONS}
+            value={filterSource}
+            onChange={(value) => { setFilterSource(value); setPage(1); }}
+            style={{ marginBottom: 8 }}
+          />
 
           {/* Filter */}
           <select
@@ -355,7 +362,7 @@ export default function AgentInteractions({ agent, onBack }) {
               setFilterStatus(e.target.value);
               setPage(1);
             }}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500"
+            className="w-full px-3 py-2 border aa-border aa-bg-card aa-text-primary rounded-lg text-sm focus:ring-2 focus:ring-red-500"
           >
             <option value="">All statuses</option>
             <option value="complete">Completed</option>
@@ -372,7 +379,7 @@ export default function AgentInteractions({ agent, onBack }) {
               setSort(e.target.value);
               setPage(1);
             }}
-            className="w-full mt-2 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500"
+            className="w-full mt-2 px-3 py-2 border aa-border aa-bg-card aa-text-primary rounded-lg text-sm focus:ring-2 focus:ring-red-500"
             title="Rank these executions"
           >
             <option value="recent">Most recent</option>
@@ -399,51 +406,49 @@ export default function AgentInteractions({ agent, onBack }) {
                     title={reported
                       ? 'Reported by your app — opens its trace'
                       : 'Started from this dashboard'}
-                    className={`p-4 border-b border-gray-100 cursor-pointer transition-colors ${
+                    className={`p-4 border-b aa-border-light cursor-pointer transition-colors ${
                       !reported && selectedRun?.id === execution.id
-                        ? 'bg-red-50 border-l-4 border-l-red-500'
-                        : 'hover:bg-gray-50'
+                        ? 'aa-bg-accent-tint border-l-4 border-l-red-500'
+                        : 'hover:aa-bg-hover'
                     }`}
                   >
                     <div className="flex items-center justify-between mb-2 gap-2">
-                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(execution.status)}`}>
-                        {execution.status}
-                      </span>
+                      <Badge tone={statusTone(execution.status)}>{execution.status}</Badge>
                       <div className="flex items-center gap-2">
                         {/* The only real difference between these rows. */}
                         <span className={`px-1.5 py-0.5 rounded text-[10px] uppercase tracking-wide ${
-                          reported ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'
+                          reported ? 'bg-blue-100 text-blue-700' : 'aa-bg-muted aa-text-secondary'
                         }`}>
                           {reported ? 'reported' : 'dashboard'}
                         </span>
-                        <span className="text-xs text-gray-400">
+                        <span className="text-xs aa-text-muted">
                           {formatDate(execution.created_at || execution.occurred_at)}
                         </span>
                         {!reported && <ReplayLink kind="run" id={execution.id} title="Replay this run" />}
                       </div>
                     </div>
-                    <p className="text-sm text-gray-700 truncate">
+                    <p className="text-sm aa-text-cell truncate">
                       {execution.input_preview
                         || execution.input_prompt?.substring(0, 60)
                         || (reported
                           ? `${execution.action_name || 'execution'} · trace ${String(execution.trace_id || '').slice(0, 8)}`
                           : 'No input')}
                     </p>
-                    <div className="flex items-center space-x-3 mt-2 text-xs text-gray-400 flex-wrap gap-y-1">
+                    <div className="flex items-center space-x-3 mt-2 text-xs aa-text-muted flex-wrap gap-y-1">
                       {execution.model && (
                         <span className="px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 font-mono">{execution.model}</span>
                       )}
-                      <span className={sort === 'longest' ? 'text-gray-700 font-medium' : undefined}>
+                      <span className={sort === 'longest' ? 'aa-text-cell font-medium' : undefined}>
                         {formatDuration(execution.duration_ms)}
                       </span>
                       {!!execution.tokens && (
-                        <span className={sort === 'tokens' ? 'text-gray-700 font-medium' : undefined}>
+                        <span className={sort === 'tokens' ? 'aa-text-cell font-medium' : undefined}>
                           {execution.tokens} tokens
                         </span>
                       )}
                       {execution.cost != null && (
                         <span
-                          className={sort === 'cost' ? 'text-gray-700 font-medium' : undefined}
+                          className={sort === 'cost' ? 'aa-text-cell font-medium' : undefined}
                           title="Estimated from token counts at this model's published rates"
                         >
                           {formatCost(execution.cost)}
@@ -458,15 +463,15 @@ export default function AgentInteractions({ agent, onBack }) {
                 <button
                   onClick={() => setPage(prev => prev + 1)}
                   disabled={isLoading}
-                  className="w-full py-3 text-sm text-red-600 hover:bg-gray-50 transition-colors"
+                  className="w-full py-3 text-sm text-red-600 hover:aa-bg-hover transition-colors"
                 >
                   {isLoading ? 'Loading...' : 'Load More'}
                 </button>
               )}
             </>
           ) : (
-            <div className="p-8 text-center text-gray-400">
-              <svg className="w-12 h-12 mx-auto mb-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="p-8 text-center aa-text-muted">
+              <svg className="w-12 h-12 mx-auto mb-3 aa-text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
               </svg>
               <p>No conversations yet</p>
@@ -476,67 +481,60 @@ export default function AgentInteractions({ agent, onBack }) {
       </div>
 
       {/* Conversation Detail */}
-      <div className="flex-1 flex flex-col bg-gray-50">
+      <div
+        className={`${mobilePane === 'detail' ? 'flex' : 'hidden'} lg:flex flex-1 min-w-0 flex-col aa-bg-background`}
+        data-testid="agent-runs-detail"
+      >
         {/* Breadcrumbs — each level links back up, mirroring the URL
             (/interactions, /interactions/runs/:id, /interactions/sessions,
-            /interactions/sessions/:id). */}
-        <div className="px-4 py-2 bg-white border-b border-gray-100 flex items-center gap-1.5 text-xs text-gray-500">
-          <button onClick={onBack} className="hover:text-gray-900 hover:underline transition-colors">
+            /interactions/sessions/:id). On a phone the bar also opens the
+            run list, which is otherwise the hidden column. */}
+        <div className="px-4 py-2 aa-bg-card border-b aa-border-light flex items-center gap-1.5 text-xs aa-text-secondary flex-wrap">
+          <button
+            type="button"
+            onClick={() => setMobilePane('list')}
+            className="lg:hidden mr-1 px-2 py-1 rounded-md aa-text-secondary hover:aa-text-primary hover:aa-bg-hover transition-colors whitespace-nowrap"
+            data-testid="agent-runs-show-list"
+          >
+            ≡ Runs
+          </button>
+          <button onClick={onBack} className="hover:aa-text-primary hover:underline transition-colors">
             {agent.name}
           </button>
-          <span className="text-gray-300">/</span>
+          <span className="aa-text-muted">/</span>
           {detailMode === 'all' || selectedRun ? (
             <>
-              <button onClick={clearRunSelection} className="hover:text-gray-900 hover:underline transition-colors">
+              <button onClick={clearRunSelection} className="hover:aa-text-primary hover:underline transition-colors">
                 Interactions
               </button>
-              <span className="text-gray-300">/</span>
+              <span className="aa-text-muted">/</span>
               {detailMode === 'all' ? (
                 selectedSession ? (
                   <>
-                    <button onClick={() => selectSession(null)} className="hover:text-gray-900 hover:underline transition-colors">
+                    <button onClick={() => selectSession(null)} className="hover:aa-text-primary hover:underline transition-colors">
                       Sessions
                     </button>
-                    <span className="text-gray-300">/</span>
-                    <span className="text-gray-900 font-medium">{selectedSessionName}</span>
+                    <span className="aa-text-muted">/</span>
+                    <span className="aa-text-primary font-medium">{selectedSessionName}</span>
                   </>
                 ) : (
-                  <span className="text-gray-900 font-medium">Sessions</span>
+                  <span className="aa-text-primary font-medium">Sessions</span>
                 )
               ) : (
-                <span className="text-gray-900 font-medium">Run #{selectedRun.id}</span>
+                <span className="aa-text-primary font-medium">Run #{selectedRun.id}</span>
               )}
             </>
           ) : (
-            <span className="text-gray-900 font-medium">Interactions</span>
+            <span className="aa-text-primary font-medium">Interactions</span>
           )}
         </div>
 
         {/* Mode toggle: one run's stream, or every session for this agent —
             both rendered by the same shared interactions components. */}
-        <div className="p-3 bg-white border-b border-gray-200 flex items-center justify-between">
-          <div className="flex bg-gray-100 rounded-lg p-1">
-            <button
-              onClick={() => switchMode('run')}
-              className={`px-3 py-1 text-sm rounded-md transition-colors ${
-                detailMode === 'run' ? 'bg-white shadow text-gray-900' : 'text-gray-600'
-              }`}
-            >
-              Selected run
-            </button>
-            <button
-              onClick={() => switchMode('all')}
-              className={`px-3 py-1 text-sm rounded-md transition-colors ${
-                detailMode === 'all' ? 'bg-white shadow text-gray-900' : 'text-gray-600'
-              }`}
-            >
-              Sessions
-            </button>
-          </div>
+        <div className="p-3 max-md:px-4 max-md:py-2 aa-bg-card border-b aa-border flex items-center justify-between gap-2 flex-wrap">
+          <SegmentedControl options={MODE_OPTIONS} value={detailMode} onChange={switchMode} />
           {detailMode === 'run' && selectedRun && (
-            <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(selectedRun.status)}`}>
-              {selectedRun.status}
-            </span>
+            <Badge tone={statusTone(selectedRun.status)} size={12}>{selectedRun.status}</Badge>
           )}
         </div>
 
@@ -547,12 +545,12 @@ export default function AgentInteractions({ agent, onBack }) {
             {(() => {
               const { totals } = buildReport();
               return (
-                <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-3">
+                <div className="aa-bg-card rounded-xl border aa-border p-4 space-y-3">
                   <div className="flex items-center gap-3">
                     <AgentAvatar size={40} />
                     <div>
-                      <h3 className="font-semibold text-gray-900">{agent.name}</h3>
-                      <p className="text-xs text-gray-500">
+                      <h3 className="font-semibold aa-text-primary">{agent.name}</h3>
+                      <p className="text-xs aa-text-secondary">
                         {selectedSession
                           ? `${selectedSessionName} — one persisted interaction stream`
                           : 'Sessions group this agent’s runs into persisted interaction streams'}
@@ -560,21 +558,21 @@ export default function AgentInteractions({ agent, onBack }) {
                     </div>
                   </div>
                   <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                    <div className="bg-gray-50 rounded-lg p-3">
-                      <p className="text-xs text-gray-500">Runs</p>
-                      <p className="text-lg font-bold text-gray-900">{totals.runs}</p>
+                    <div className="aa-bg-muted rounded-lg p-3">
+                      <p className={`text-xs aa-text-secondary ${PHONE_STAT_LABEL}`}>Runs</p>
+                      <p className={`text-lg ${PHONE_STAT_VALUE} font-bold aa-text-primary`}>{totals.runs}</p>
                     </div>
-                    <div className="bg-gray-50 rounded-lg p-3">
-                      <p className="text-xs text-gray-500">Success</p>
-                      <p className="text-lg font-bold text-gray-900">{totals.runs ? Math.round((totals.completed / totals.runs) * 100) : 0}%</p>
+                    <div className="aa-bg-muted rounded-lg p-3">
+                      <p className={`text-xs aa-text-secondary ${PHONE_STAT_LABEL}`}>Success</p>
+                      <p className={`text-lg ${PHONE_STAT_VALUE} font-bold aa-text-primary`}>{totals.runs ? Math.round((totals.completed / totals.runs) * 100) : 0}%</p>
                     </div>
-                    <div className="bg-gray-50 rounded-lg p-3">
-                      <p className="text-xs text-gray-500">Avg Duration</p>
-                      <p className="text-lg font-bold text-gray-900">{formatDuration(Math.round(totals.avgDuration))}</p>
+                    <div className="aa-bg-muted rounded-lg p-3">
+                      <p className={`text-xs aa-text-secondary ${PHONE_STAT_LABEL}`}>Avg Duration</p>
+                      <p className={`text-lg ${PHONE_STAT_VALUE} font-bold aa-text-primary`}>{formatDuration(Math.round(totals.avgDuration))}</p>
                     </div>
-                    <div className="bg-gray-50 rounded-lg p-3">
-                      <p className="text-xs text-gray-500">Tokens</p>
-                      <p className="text-lg font-bold text-gray-900">{totals.tokens.toLocaleString()}</p>
+                    <div className="aa-bg-muted rounded-lg p-3">
+                      <p className={`text-xs aa-text-secondary ${PHONE_STAT_LABEL}`}>Tokens</p>
+                      <p className={`text-lg ${PHONE_STAT_VALUE} font-bold aa-text-primary`}>{totals.tokens.toLocaleString()}</p>
                     </div>
                   </div>
                 </div>
@@ -590,12 +588,12 @@ export default function AgentInteractions({ agent, onBack }) {
         ) : selectedRun ? (
           <>
             {/* Run Header */}
-            <div className="p-4 bg-white border-b border-gray-200">
+            <div className="p-4 aa-bg-card border-b aa-border">
               <div className="flex items-center space-x-3">
                 <AgentAvatar size={40} />
                 <div>
-                  <h3 className="font-medium text-gray-900">{agent.name} — Run #{selectedRun.id}</h3>
-                  <p className="text-xs text-gray-500">
+                  <h3 className="font-medium aa-text-primary">{agent.name} — Run #{selectedRun.id}</h3>
+                  <p className="text-xs aa-text-secondary">
                     {new Date(selectedRun.created_at).toLocaleString()}
                   </p>
                 </div>
@@ -603,13 +601,13 @@ export default function AgentInteractions({ agent, onBack }) {
             </div>
 
             {/* Run interaction stream — same design as the Interactions view */}
-            <div ref={conversationRef} className="flex-1 overflow-auto p-6">
-              <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
+            <div ref={conversationRef} className="flex-1 overflow-auto p-4 md:p-6">
+              <div className="aa-bg-card rounded-xl border aa-border shadow-sm p-4">
                 {selectedMessages.length > 0 ? (
-                  <InteractionStream messages={selectedMessages} darkMode={false} />
+                  <InteractionStream messages={selectedMessages} darkMode={darkMode} />
                 ) : (
                   <InteractionStream
-                    darkMode={false}
+                    darkMode={darkMode}
                     messages={[
                       {
                         id: `run-${selectedRun.id}-input`,
@@ -630,8 +628,8 @@ export default function AgentInteractions({ agent, onBack }) {
             </div>
 
             {/* Run Stats */}
-            <div className="p-4 bg-white border-t border-gray-200">
-              <div className="flex items-center justify-center space-x-8 text-sm text-gray-500">
+            <div className="p-4 aa-bg-card border-t aa-border">
+              <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-1 text-sm aa-text-secondary">
                 <span>Duration: {formatDuration(selectedRun.duration_ms)}</span>
                 {selectedRun.total_tokens && <span>Tokens: {selectedRun.total_tokens}</span>}
                 {selectedRun.input_tokens && selectedRun.output_tokens && (
@@ -655,7 +653,7 @@ export default function AgentInteractions({ agent, onBack }) {
             if (cohorts.length === 0) {
               return (
                 <div className="flex-1 flex items-center justify-center">
-                  <div className="text-center text-gray-400">
+                  <div className="text-center aa-text-muted">
                     <AgentAvatar size={100} />
                     <p className="mt-4">No runs yet — run the agent to build its report</p>
                   </div>
@@ -663,38 +661,38 @@ export default function AgentInteractions({ agent, onBack }) {
               );
             }
             return (
-              <div className="flex-1 overflow-auto p-6 space-y-5">
+              <div className="flex-1 overflow-auto p-4 md:p-6 space-y-5">
                 <div className="flex items-center gap-3">
                   <AgentAvatar size={40} />
                   <div>
-                    <h3 className="font-semibold text-gray-900">Agent Report</h3>
-                    <p className="text-xs text-gray-500">Recent activity for {agent.name} — select a run for its full interaction</p>
+                    <h3 className="font-semibold aa-text-primary max-md:text-sm">Agent Report</h3>
+                    <p className="text-xs aa-text-secondary">Recent activity for {agent.name} — select a run for its full interaction</p>
                   </div>
                 </div>
 
                 {/* Overview stats */}
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                  <div className="bg-white rounded-xl border border-gray-200 p-3">
-                    <p className="text-xs text-gray-500">Runs</p>
-                    <p className="text-xl font-bold text-gray-900">{totals.runs}</p>
+                  <div className="aa-bg-card rounded-xl border aa-border p-3">
+                    <p className={`text-xs aa-text-secondary ${PHONE_STAT_LABEL}`}>Runs</p>
+                    <p className={`text-xl ${PHONE_STAT_VALUE} font-bold aa-text-primary`}>{totals.runs}</p>
                   </div>
-                  <div className="bg-white rounded-xl border border-gray-200 p-3">
-                    <p className="text-xs text-gray-500">Success</p>
-                    <p className="text-xl font-bold text-gray-900">{totals.runs ? Math.round((totals.completed / totals.runs) * 100) : 0}%</p>
+                  <div className="aa-bg-card rounded-xl border aa-border p-3">
+                    <p className={`text-xs aa-text-secondary ${PHONE_STAT_LABEL}`}>Success</p>
+                    <p className={`text-xl ${PHONE_STAT_VALUE} font-bold aa-text-primary`}>{totals.runs ? Math.round((totals.completed / totals.runs) * 100) : 0}%</p>
                   </div>
-                  <div className="bg-white rounded-xl border border-gray-200 p-3">
-                    <p className="text-xs text-gray-500">Avg Duration</p>
-                    <p className="text-xl font-bold text-gray-900">{formatDuration(Math.round(totals.avgDuration))}</p>
+                  <div className="aa-bg-card rounded-xl border aa-border p-3">
+                    <p className={`text-xs aa-text-secondary ${PHONE_STAT_LABEL}`}>Avg Duration</p>
+                    <p className={`text-xl ${PHONE_STAT_VALUE} font-bold aa-text-primary`}>{formatDuration(Math.round(totals.avgDuration))}</p>
                   </div>
-                  <div className="bg-white rounded-xl border border-gray-200 p-3">
-                    <p className="text-xs text-gray-500">Tokens</p>
-                    <p className="text-xl font-bold text-gray-900">{totals.tokens.toLocaleString()}</p>
+                  <div className="aa-bg-card rounded-xl border aa-border p-3">
+                    <p className={`text-xs aa-text-secondary ${PHONE_STAT_LABEL}`}>Tokens</p>
+                    <p className={`text-xl ${PHONE_STAT_VALUE} font-bold aa-text-primary`}>{totals.tokens.toLocaleString()}</p>
                   </div>
                 </div>
 
                 {totals.models.length > 0 && (
                   <div className="flex items-center gap-2 flex-wrap text-xs">
-                    <span className="text-gray-500">Models used:</span>
+                    <span className="aa-text-secondary">Models used:</span>
                     {totals.models.map(model => (
                       <span key={model} className="px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 font-mono">{model}</span>
                     ))}
@@ -705,30 +703,30 @@ export default function AgentInteractions({ agent, onBack }) {
                     per agent action, appended to by every run). Top-level
                     drill-down into /interactions/sessions/:id. */}
                 {sessions.length > 0 && (
-                  <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                    <div className="px-4 py-3 border-b border-gray-100">
-                      <span className="text-xs uppercase tracking-wide text-gray-400">
+                  <div className="aa-bg-card rounded-xl border aa-border overflow-hidden">
+                    <div className="px-4 py-3 border-b aa-border-light max-md:px-3 max-md:py-2 max-md:aa-bg-muted">
+                      <span className="text-xs uppercase tracking-wide aa-text-muted max-md:font-mono max-md:text-[11px] max-md:font-semibold max-md:tracking-[0.05em] max-md:aa-text-secondary">
                         Sessions — grouped interaction streams
                       </span>
                     </div>
-                    <div className="divide-y divide-gray-100">
+                    <div className="divide-y aa-divide-light">
                       {sessions.map(session => (
                         <div
                           key={session.id}
-                          className="px-4 py-3 hover:bg-gray-50 cursor-pointer flex items-center justify-between gap-3"
+                          className="px-4 py-3 hover:aa-bg-hover cursor-pointer flex flex-wrap items-center justify-between gap-3"
                           onClick={() => selectSession(session)}
                           title="Open this session's interaction stream"
                         >
                           <div className="flex items-center gap-2 min-w-0" title={session.display_name}>
                             <span className="px-2 py-0.5 text-xs font-medium bg-blue-100 text-blue-700 rounded flex-shrink-0">SESSION</span>
-                            <span className="text-sm text-gray-900 truncate">{session.agent?.name || session.agent_name}</span>
+                            <span className="text-sm aa-text-primary truncate">{session.agent?.name || session.agent_name}</span>
                             {session.action_name && (
                               <span className="px-1.5 py-0.5 rounded bg-purple-50 text-purple-700 font-mono text-xs flex-shrink-0">
                                 #{session.action_name}
                               </span>
                             )}
                           </div>
-                          <div className="flex items-center gap-3 text-xs text-gray-400 flex-shrink-0">
+                          <div className="flex flex-wrap items-center gap-3 text-xs aa-text-muted flex-shrink-0">
                             <span>{session.message_count} messages</span>
                             <span>{(session.tokens?.total || 0).toLocaleString()} tokens</span>
                             <span>{formatDate(session.last_activity_at)}</span>
@@ -743,25 +741,25 @@ export default function AgentInteractions({ agent, onBack }) {
                 {/* Configuration cohorts — every (instructions, model)
                     combination this agent has run under, for comparing the
                     effect of config changes side by side. */}
-                <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                  <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
-                    <span className="text-xs uppercase tracking-wide text-gray-400">
+                <div className="aa-bg-card rounded-xl border aa-border overflow-hidden">
+                  <div className="px-4 py-3 border-b aa-border-light max-md:px-3 max-md:py-2 max-md:aa-bg-muted flex items-center justify-between max-md:flex-wrap max-md:gap-2">
+                    <span className="text-xs uppercase tracking-wide aa-text-muted max-md:font-mono max-md:text-[11px] max-md:font-semibold max-md:tracking-[0.05em] max-md:aa-text-secondary">
                       Interactions by instructions × model
                     </span>
                     <select
                       value={reportSort}
                       onChange={(e) => setReportSort(e.target.value)}
-                      className="text-xs border border-gray-200 rounded px-2 py-1 text-gray-600"
+                      className="text-xs border aa-border aa-bg-card rounded px-2 py-1 aa-text-secondary"
                     >
                       <option value="recent">Most recent</option>
                       <option value="longest">Longest interactions</option>
                     </select>
                   </div>
-                  <div className="divide-y divide-gray-100">
+                  <div className="divide-y aa-divide-light">
                     {cohorts.map(cohort => (
                       <div key={cohort.key}>
                         <div
-                          className="px-4 py-3 hover:bg-gray-50 cursor-pointer"
+                          className="px-4 py-3 hover:aa-bg-hover cursor-pointer"
                           onClick={() => setExpandedCohorts(prev => ({ ...prev, [cohort.key]: !prev[cohort.key] }))}
                           title="Show this configuration's runs"
                         >
@@ -770,7 +768,7 @@ export default function AgentInteractions({ agent, onBack }) {
                               {cohort.model || 'unknown model'}
                             </span>
                             <span
-                              className="text-xs text-gray-400 font-mono"
+                              className="text-xs aa-text-muted font-mono"
                               title={cohort.instructionsDigest ? `sha:${cohort.instructionsDigest}` : undefined}
                             >
                               instructions{' '}
@@ -782,9 +780,9 @@ export default function AgentInteractions({ agent, onBack }) {
                             </span>
                           </div>
                           {cohort.instructionsPreview && (
-                            <p className="text-xs text-gray-500 mt-1 truncate">{cohort.instructionsPreview}</p>
+                            <p className="text-xs aa-text-secondary mt-1 truncate">{cohort.instructionsPreview}</p>
                           )}
-                          <div className="flex items-center gap-3 mt-1.5 text-xs text-gray-400 flex-wrap gap-y-1">
+                          <div className="flex items-center gap-3 mt-1.5 text-xs aa-text-muted flex-wrap gap-y-1">
                             <span>{cohort.count} run{cohort.count > 1 ? 's' : ''}</span>
                             <span className={cohort.failed > 0 ? 'text-red-500' : 'text-green-600'}>
                               {cohort.count ? Math.round((cohort.completed / cohort.count) * 100) : 0}% success
@@ -796,16 +794,16 @@ export default function AgentInteractions({ agent, onBack }) {
                         </div>
 
                         {expandedCohorts[cohort.key] && (
-                          <div className="bg-gray-50 divide-y divide-gray-100 border-t border-gray-100">
+                          <div className="aa-bg-muted divide-y aa-divide-light border-t aa-border-light">
                             {cohort.sortedRuns.map(run => (
                               <div
                                 key={run.id}
-                                className="px-6 py-2 hover:bg-gray-100 cursor-pointer"
+                                className="px-6 py-2 hover:aa-bg-hover cursor-pointer"
                                 onClick={() => loadRunDetails(run.id)}
                                 title="Open this run's interaction"
                               >
-                                <p className="text-xs text-gray-700 truncate">{run.input_preview || 'No input'}</p>
-                                <div className="flex items-center gap-3 mt-0.5 text-[11px] text-gray-400">
+                                <p className="text-xs aa-text-cell truncate">{run.input_preview || 'No input'}</p>
+                                <div className="flex items-center gap-3 mt-0.5 text-[11px] aa-text-muted">
                                   <span className={run.status === 'failed' ? 'text-red-500' : ''}>{run.status}</span>
                                   <span>{formatDuration(run.duration_ms)}</span>
                                   {run.tokens && <span>{run.tokens.toLocaleString()} tokens</span>}

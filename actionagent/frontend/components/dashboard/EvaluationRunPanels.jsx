@@ -8,13 +8,14 @@ import {
   runsMeta, scenarioStep, scenarioTime, scenarioTokens, selectionModelLabels, selectionOf, stepsMinWidth, sumTokens, toolsMinWidth,
   withModelBreakdown,
 } from '../../utils/evaluationRuns.mjs';
-import { useIsoLayoutEffect } from '../../hooks/useMeasuredWidth';
+import useMeasuredWidth, { useIsoLayoutEffect } from '../../hooks/useMeasuredWidth';
 import ModelScorecard from './evaluations/ModelScorecard';
 import ModelComparisonTable from './evaluations/ModelComparisonTable';
 import ComparisonIntervals from './evaluations/ComparisonIntervals';
 import JudgeChip from './evaluations/JudgeChip';
 import CopyFixPromptButton, { dashboardUrl } from './evaluations/CopyFixPromptButton';
 import CopyMarkdownButton from './evaluations/CopyMarkdownButton';
+import CopyLinkButton from './evaluations/CopyLinkButton';
 import { markdownPartUrl } from '../../utils/reportExport.mjs';
 import ImplementFixButton from './evaluations/ImplementFixButton';
 import ReplayLink from './replay/ReplayLink';
@@ -447,7 +448,7 @@ export function ModelsPanel({ run, columns, results = [], scenarioCount = 0, jud
       {/* Whether the gap between them is real, from the run's recorded comparison. */}
       {columns.length > 1 && <ComparisonIntervals plot={comparisonPlot(run)} />}
       {columns.length > 0 && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 12 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(260px, 100%), 1fr))', gap: 12 }}>
           {columns.map((label) => {
             const { short, provider } = describeModel(run, label);
             const stats = summaries[label];
@@ -521,6 +522,35 @@ const gridFor = (level, n) => (level === 'tools'
 
 const GRID_GAP = { tools: 10, steps: 14 };
 
+// Below lg (phones, and tablets beside the fixed sidebar) the box is
+// narrower than its columns, so its first column — the step glyph, the key,
+// the prompt — stays put while the model columns
+// scroll under it. The cell paints the row's own background (opaque, on the
+// surface colour) so what scrolls beneath does not show through; an open row
+// and a group row carry their tints on top. The cell stretches to the row's
+// full height and its negative margins run the background out over the row's
+// padding and the column gap — a one-line cell in a two-line row would
+// otherwise let the model cells peek out above and below it. The vertical
+// margins match each row kind's padding; the right ones match GRID_GAP.
+// From lg up these do nothing.
+const STICKY_BASE = 'max-lg:sticky max-lg:left-0 max-lg:z-[1] max-lg:self-stretch max-lg:-ml-3 max-lg:pl-3';
+const STICKY_GAP = { steps: 'max-lg:-mr-2 max-lg:pr-2', tools: 'max-lg:-mr-2.5 max-lg:pr-2.5' };
+const STICKY_BG = {
+  row: 'max-lg:bg-[var(--color-surface)]',
+  open: 'max-lg:bg-[var(--color-surface)] max-lg:[background-image:linear-gradient(var(--color-muted),var(--color-muted))]',
+  group: 'max-lg:bg-[var(--color-background)]',
+};
+// Row padding is 6px at the steps level and 10px at the tools level; the
+// header's is 8px and a group row's 7px.
+const stickyFirst = (detail, kind) => {
+  const pad = kind === 'header' ? 'max-lg:-my-2 max-lg:py-2 max-lg:content-end'
+    : kind === 'group' ? 'max-lg:-my-[7px] max-lg:py-[7px]'
+      : detail === 'steps' ? 'max-lg:-my-1.5 max-lg:py-1.5 max-lg:items-center!'
+        : 'max-lg:-my-2.5 max-lg:py-2.5';
+  const bg = kind === 'group' ? STICKY_BG.group : kind === 'row' ? STICKY_BG.row : STICKY_BG.open;
+  return `${STICKY_BASE} ${STICKY_GAP[detail] || STICKY_GAP.steps} ${pad} ${bg}`;
+};
+
 const EMPTY_LIST = [];
 const EMPTY_MAP = {};
 const EMPTY_SET = new Set();
@@ -545,7 +575,27 @@ const isFormField = (el) => ['INPUT', 'TEXTAREA', 'SELECT'].includes(el?.tagName
 // (or one whose replay never landed) reads "—". `compact` is the steps
 // level's one line — glyph, score and fault — with the tool calls, the cost
 // and the time in its title.
-function ResultCell({ result, expects, pending, compact = false }) {
+// A result's movement against the run before, as a mark beside its score.
+const CHANGE_MARK = {
+  improved: { text: '▲', color: 'var(--color-success)', verb: 'now passes' },
+  regressed: { text: '▼', color: 'var(--color-error)', verb: 'now fails' },
+  errored: { text: '○', color: 'var(--color-warning-text)', verb: 'errored this time' },
+};
+
+function ChangeMark({ change, comparedNumber }) {
+  const mark = change && CHANGE_MARK[change.kind];
+  if (!mark) return null;
+  const was = change.was;
+  const before = `${was.status === 'passed' ? 'passed' : was.status} ${fmtScore(was.score)}`;
+  const title = `${mark.verb} · ${before} in run #${comparedNumber ?? '?'}`;
+  return (
+    <span data-testid="scenario-cell-change" data-change={change.kind} title={title} aria-label={title} style={{ fontWeight: 700, color: mark.color, flexShrink: 0 }}>
+      {mark.text}
+    </span>
+  );
+}
+
+function ResultCell({ result, expects, pending, compact = false, change = null, comparedNumber = null }) {
   if (!result) {
     return <span style={{ ...mono(12), fontWeight: 600 }}>{pending ? '…' : '—'}</span>;
   }
@@ -561,8 +611,9 @@ function ResultCell({ result, expects, pending, compact = false }) {
     // drill-down, so a step reads at a glance.
     const detail = [fault, metricsText(resultMetrics(result)), cost].filter(Boolean).join(' · ');
     return (
-      <span title={`${title}${detail ? `\n${detail}` : ''}`} style={{ display: 'inline-flex', minWidth: 0 }}>
+      <span title={`${title}${detail ? `\n${detail}` : ''}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
         <ValuePill rank={pass ? 'good' : 'poor'} size="mini" testId="scenario-cell-score">{`${pass ? '[+]' : '[!]'} ${fmtScore(result.score)}`}</ValuePill>
+        <ChangeMark change={change} comparedNumber={comparedNumber} />
       </span>
     );
   }
@@ -570,6 +621,7 @@ function ResultCell({ result, expects, pending, compact = false }) {
     <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 3 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', fontFamily: MONO, fontSize: 12 }}>
         <ValuePill rank={pass ? 'good' : 'poor'} size="compact" testId="scenario-cell-score">{`${pass ? '[+]' : '[!]'} ${fmtScore(result.score)}`}</ValuePill>
+        <ChangeMark change={change} comparedNumber={comparedNumber} />
         {result.fault && <span style={{ fontSize: 11, color: 'var(--color-error-text)' }}>{faultName(result.fault)}</span>}
       </div>
       <CallLine calls={calls} empty="no tools called" />
@@ -647,11 +699,19 @@ export const STEP_MARK = {
 const sameCost = (a, b) => a === b
   || (!!a && !!b && a.cost === b.cost && a.judgeCost === b.judgeCost && a.total === b.total && a.estimated === b.estimated);
 const sameTokens = (a, b) => a === b || (!!a && !!b && a.input === b.input && a.output === b.output);
+const sameChanges = (a, b) => {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  const labels = Object.keys(a);
+  return labels.length === Object.keys(b).length
+    && labels.every((label) => a[label].kind === b[label]?.kind && a[label].was === b[label]?.was);
+};
 
 // Every prop by identity — the catalog row (scenarioRowsForRun's cache), its
 // results (groupResultsByKey) and the columns (the panel's ref) keep theirs
 // while nothing about them changed — except the cost, the tokens and the
-// time, which are rebuilt each render and compared by value. The two
+// time, which are rebuilt each render and compared by value, as are the
+// scenario's changes against the run before. The two
 // callbacks are the matrix's stable ones, so they are not compared.
 const rowPropsEqual = (prev, next) =>
   prev.scenario === next.scenario && prev.results === next.results && prev.columns === next.columns
@@ -659,7 +719,7 @@ const rowPropsEqual = (prev, next) =>
   && prev.detail === next.detail && prev.showKey === next.showKey && prev.grid === next.grid
   && prev.inSelection === next.inSelection && prev.running === next.running && prev.loading === next.loading
   && prev.tabIndex === next.tabIndex && sameCost(prev.costEntry, next.costEntry) && sameTokens(prev.tokens, next.tokens)
-  && prev.timeMs === next.timeMs;
+  && prev.timeMs === next.timeMs && sameChanges(prev.changes, next.changes) && prev.comparedNumber === next.comparedNumber;
 
 // One step of the box: a scenario's row at the given detail level. Memoised
 // on rowPropsEqual, so a poll that lands two results re-renders two rows.
@@ -669,7 +729,7 @@ const rowPropsEqual = (prev, next) =>
 // `onFocus(key, event)` tells the box which row holds focus.
 const ScenarioRow = React.memo(function ScenarioRow({
   scenario, results, columns, step, current, open, detail, showKey, grid, inSelection, running, loading, costEntry, tokens = null, timeMs, tabIndex,
-  onToggle, onFocus,
+  changes = null, comparedNumber = null, onToggle, onFocus,
 }) {
   const key = scenario.key;
   const steps = detail === 'steps';
@@ -709,7 +769,7 @@ const ScenarioRow = React.memo(function ScenarioRow({
       {steps ? (
         // The key leads, the prompt previews under it; a narrow box drops
         // the key and the prompt stands alone (the row's title keeps it).
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, minWidth: 0 }}>
+        <div className={stickyFirst(detail, open ? 'open' : 'row')} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, minWidth: 0 }}>
           <span style={{ paddingTop: showKey ? 1 : 2 }}>{glyph}</span>
           <span style={{ display: 'grid', gap: 2, minWidth: 0, flex: 1 }}>
             {showKey && (
@@ -728,7 +788,7 @@ const ScenarioRow = React.memo(function ScenarioRow({
         </div>
       ) : (
         <>
-          <div style={{ minWidth: 0 }}>
+          <div className={stickyFirst(detail, open ? 'open' : 'row')} style={{ minWidth: 0 }}>
             <div style={{ ...mono(12, 'var(--color-text-primary)', { fontWeight: 700 }), marginBottom: 2, display: 'flex', gap: 6 }}>
               {glyph}
               <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>{keyText}</span>
@@ -752,6 +812,8 @@ const ScenarioRow = React.memo(function ScenarioRow({
           expects={expects}
           pending={(running || loading) && inSelection}
           compact={steps}
+          change={changes?.[label] ?? null}
+          comparedNumber={comparedNumber}
         />
       ))}
       <CostBlock entry={costEntry} compact={steps} testId="scenario-row-cost" tokens={steps ? null : tokens} />
@@ -770,6 +832,8 @@ const ScenarioRow = React.memo(function ScenarioRow({
 //
 // `rows` are the scenarios to show, in the order to show them, already
 // filtered; each carries `.key`, `.prompt`, `.group`, `.expectations`.
+// `changesByKey` is resultChanges' `byKey` against run #`comparedNumber`,
+// marked beside each moved cell's score.
 // `stepsByKey` is every scenario's step (the panel computes it over the
 // whole suite, so the cursor cannot hide behind a filter); `currentKey` is
 // the step the build is on. `detail` is 'steps' (one line a scenario) or
@@ -781,7 +845,8 @@ const ScenarioRow = React.memo(function ScenarioRow({
 // the box keeps the cursor a third of the way down and holds it there when
 // the layout under it moves. `boxRef` receives the scrolling element.
 export function ScenarioMatrix({
-  rows = EMPTY_LIST, columns = EMPTY_LIST, run = null, resultsByKey = EMPTY_MAP, runKeys = EMPTY_SET, running = false, loading = false,
+  rows = EMPTY_LIST, columns = EMPTY_LIST, run = null, resultsByKey = EMPTY_MAP, changesByKey = EMPTY_MAP, comparedNumber = null,
+  runKeys = EMPTY_SET, running = false, loading = false,
   stepsByKey = null, currentKey = null, bars = EMPTY_LIST, detail = 'steps', showKey = true, collapsedGroups = EMPTY_SET, onToggleGroup,
   openKey = null, onToggleRow, following = false, onStopFollowing, emptyLabel, maxHeight = null, renderDetail, boxRef = null,
   testId = 'scenario-matrix',
@@ -837,6 +902,11 @@ export function ScenarioMatrix({
 
   const scrollRef = useRef(null);
   const headerRef = useRef(null);
+  // The scrollport's width. When the columns are wider than it (a phone,
+  // or a many-model run), an open drill-down is sized to it and stuck to
+  // its left edge, so it reads in full without scrolling sideways to it.
+  const boxWidth = useMeasuredWidth(scrollRef);
+  const detailStyle = boxWidth > 0 && boxWidth < minWidth ? { position: 'sticky', left: 0, width: boxWidth } : undefined;
   const [headerHeight, setHeaderHeight] = useState(50);
   const [detailHeight, setDetailHeight] = useState(0);
   const headerHeightRef = useRef(headerHeight);
@@ -1010,7 +1080,9 @@ export function ScenarioMatrix({
             backgroundColor: 'var(--color-surface)', backgroundImage: 'linear-gradient(var(--color-muted), var(--color-muted))',
           }}
         >
-          <MicroLabel size={10} color="var(--color-text-muted)">{steps ? 'Step' : 'Scenario'}</MicroLabel>
+          <span className={stickyFirst(steps ? 'steps' : 'tools', 'header')} style={{ minWidth: 0 }}>
+            <MicroLabel size={10} color="var(--color-text-muted)">{steps ? 'Step' : 'Scenario'}</MicroLabel>
+          </span>
           {!steps && <MicroLabel size={10} color="var(--color-text-muted)">Expects</MicroLabel>}
           {columns.map((label) => {
             const { short, provider } = describeModel(run, label);
@@ -1094,7 +1166,7 @@ export function ScenarioMatrix({
                     position: 'sticky', top: headerHeight, zIndex: 1,
                   }}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                  <div className={stickyFirst(steps ? 'steps' : 'tools', 'group')} style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
                     <Glyph kind="chevron" open={!collapsed} />
                     <span data-testid="scenario-group-step" title={mark.title} style={{ ...mono(11, mark.color), fontWeight: 700, flexShrink: 0 }}>{mark.text}</span>
                     <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--color-text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{name || 'ungrouped'}</span>
@@ -1139,11 +1211,13 @@ export function ScenarioMatrix({
                       costEntry={costByKey.get(scenario.key) ?? null}
                       tokens={tokensByKey.get(scenario.key) ?? null}
                       timeMs={scenarioTime(resultsByKey[scenario.key], columns)}
+                      changes={changesByKey[scenario.key] ?? null}
+                      comparedNumber={comparedNumber}
                       tabIndex={tabStop === scenario.key ? 0 : -1}
                       onToggle={toggleRow}
                       onFocus={focusNav}
                     />
-                    {open && <div ref={attachDetail}>{renderDetail?.(scenario)}</div>}
+                    {open && <div ref={attachDetail} style={detailStyle}>{renderDetail?.(scenario)}</div>}
                   </div>
                 );
               })}
@@ -1175,13 +1249,23 @@ function resultMeta(result) {
   return parts.join(' · ');
 }
 
-function ResultCard({ label, run, result, expects, running }) {
+// `evaluationId` lets a settled result offer a link to itself; `linked`
+// marks the result a shared link named.
+function ResultCard({ label, run, result, expects, running, evaluationId = null, linked = false }) {
   const { short } = describeModel(run, label);
   const header = (
     <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 600, color: 'var(--color-text-primary)' }} title={label}>{short}</span>
   );
   const shell = (children, extra) => (
-    <div data-testid="scenario-result-detail" style={{ background: 'var(--color-card)', border: '1px solid var(--color-border-light)', borderRadius: 10, overflow: 'hidden', minWidth: 0 }}>
+    <div
+      data-testid="scenario-result-detail"
+      data-result-id={result?.id ?? undefined}
+      data-linked={linked ? 'true' : undefined}
+      style={{
+        background: 'var(--color-card)', border: `1px solid ${linked ? 'var(--color-info)' : 'var(--color-border-light)'}`, borderRadius: 10, overflow: 'hidden', minWidth: 0,
+        boxShadow: linked ? '0 0 0 1px var(--color-info)' : undefined,
+      }}
+    >
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderBottom: '1px solid var(--color-border-light)', flexWrap: 'wrap' }}>
         {header}
         {extra}
@@ -1256,6 +1340,15 @@ function ResultCard({ label, run, result, expects, running }) {
       {result.agent_run_id && (
         <ReplayLink kind="scenario_result" id={result.id} title="Replay this scenario's run" testId="scenario-result-replay" style={{ marginLeft: 'auto' }} />
       )}
+      <CopyLinkButton
+        evaluationId={evaluationId}
+        runId={run?.id}
+        resultId={result.id}
+        label="copy link"
+        testId="scenario-result-copy-link"
+        title="Copy a link that opens this result, for a teammate in your organization"
+        style={{ padding: '0 4px', fontFamily: MONO, fontSize: 11, ...(meta || result.agent_run_id ? {} : { marginLeft: 'auto' }) }}
+      />
     </>
   );
 }
@@ -1263,7 +1356,10 @@ function ResultCard({ label, run, result, expects, running }) {
 // `inRun` says whether the selected run covers this scenario: a scenario the
 // run skipped offers a replay instead of empty result cards, and a suite with
 // no run at all says so rather than blaming a run that never happened.
-export function ScenarioDetail({ scenario, run, columns, resultsByKey, running, inRun = true, onRerun, onToggleEnabled, canMutate = true, markdownUrl = null }) {
+export function ScenarioDetail({
+  scenario, run, columns, resultsByKey, running, inRun = true, onRerun, onToggleEnabled, canMutate = true, markdownUrl = null,
+  evaluationId = null, linkedResultId = null,
+}) {
   const expects = expectList(scenario, 'tools');
   const results = resultsByKey[scenario.key] || {};
   const anyResult = columns.some((label) => results[label]);
@@ -1309,9 +1405,18 @@ export function ScenarioDetail({ scenario, run, columns, resultsByKey, running, 
       ) : !covered ? (
         <div style={mono(11)}>Not part of this run — use “re-run scenario” to replay it.</div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 12 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(300px, 100%), 1fr))', gap: 12 }}>
           {columns.map((label) => (
-            <ResultCard key={label} label={label} run={run} result={results[label]} expects={expects} running={running} />
+            <ResultCard
+              key={label}
+              label={label}
+              run={run}
+              result={results[label]}
+              expects={expects}
+              running={running}
+              evaluationId={evaluationId}
+              linked={linkedResultId != null && results[label]?.id === linkedResultId}
+            />
           ))}
         </div>
       )}
@@ -1395,7 +1500,7 @@ export function FixList({
           {`[+] nothing to fix for ${splitModelLabel(selected).short}`}
         </Empty>
       )}
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 12 }}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(320px, 100%), 1fr))', gap: 12 }}>
       {visible.map((item, index) => {
         const info = item.kind === 'instruction';
         const tone = info ? 'info' : 'error';

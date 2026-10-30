@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import AgentAvatar from '../AgentAvatar';
 import AgentStatCard, { rateTone } from './AgentStatCard';
+import { Badge, statusTone } from './primitives';
 import { fmtPasses, fmtPercent } from '../../utils/evalFormat.mjs';
 
 // Mirrors Api::AgentsController::LIST_SORTS. Ordering is applied server-side
@@ -53,15 +54,6 @@ export default function AgentList({
     return date.toLocaleDateString();
   };
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'active': return 'bg-green-100 text-green-700';
-      case 'draft': return 'bg-yellow-100 text-yellow-700';
-      case 'archived': return 'bg-gray-100 text-gray-500';
-      default: return 'bg-gray-100 text-gray-500';
-    }
-  };
-
   const formatDuration = (ms) => {
     if (ms == null) return '—';
     if (ms < 1000) return `${Math.round(ms)}ms`;
@@ -94,18 +86,22 @@ export default function AgentList({
 
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-md:space-y-4">
       {/* Header Actions */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div className="flex-1 flex items-center space-x-4">
+      {/* Toolbar: on a phone the search takes a row, the three selects sit
+          on a two-column grid under it (the sort spanning both) and the
+          actions share one row; one flex row from md, where the grid wrapper
+          dissolves (md:contents) so the desktop layout is untouched. */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 max-md:gap-3">
+        <div className="flex-1 flex flex-wrap items-center gap-4 max-md:gap-3 min-w-0">
           {/* Search */}
-          <div className="relative flex-1 max-w-md">
+          <div className="relative flex-1 max-w-md max-md:basis-full">
             <input
               type="text"
               placeholder="Search agents..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+              className="w-full pl-10 pr-4 py-2 max-md:h-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
             />
             <svg className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -113,45 +109,53 @@ export default function AgentList({
           </div>
 
           {/* Filters */}
-          <select
-            value={filterProvider}
-            onChange={(e) => setFilterProvider(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500"
-          >
-            <option value="">All Providers</option>
-            {meta.providers?.map(p => (
-              <option key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</option>
-            ))}
-          </select>
+          <div className="grid grid-cols-2 gap-3 max-md:basis-full md:contents" data-testid="agent-filters">
+            <select
+              value={filterProvider}
+              onChange={(e) => setFilterProvider(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 max-md:w-full max-md:min-w-0 max-md:h-10"
+            >
+              <option value="">All Providers</option>
+              {meta.providers?.map(p => (
+                <option key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</option>
+              ))}
+            </select>
 
-          <select
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500"
-          >
-            <option value="">All Status</option>
-            <option value="active">Active</option>
-            <option value="draft">Draft</option>
-            <option value="archived">Archived</option>
-          </select>
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 max-md:w-full max-md:min-w-0 max-md:h-10"
+            >
+              <option value="">All Status</option>
+              <option value="active">Active</option>
+              <option value="draft">Draft</option>
+              <option value="archived">Archived</option>
+            </select>
 
-          <select
-            value={sort}
-            onChange={(e) => onSortChange?.(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500"
-            title="Rank agents by their scorecard"
-          >
-            {SORTS.map((option) => (
-              <option key={option.value} value={option.value}>{option.label}</option>
-            ))}
-          </select>
+            <select
+              value={sort}
+              onChange={(e) => onSortChange?.(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 max-md:w-full max-md:min-w-0 max-md:h-10 max-md:col-span-2"
+              title="Rank agents by their scorecard"
+            >
+              {SORTS.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+          </div>
         </div>
 
-        <div className="flex items-center space-x-3">
+        {/* Refresh is an icon button the same height as its neighbours; on
+            a phone it gets their border too, and the two labelled buttons
+            share the rest of the row, dropping their icons below sm so all
+            three fit at 360. */}
+        <div className="flex flex-wrap items-center gap-3 md:flex-shrink-0" data-testid="agent-actions">
           <button
             onClick={onRefresh}
             disabled={isLoading}
-            className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+            title="Refresh"
+            aria-label="Refresh"
+            className="p-2 flex-shrink-0 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50 max-md:h-10 max-md:w-10 max-md:inline-flex max-md:items-center max-md:justify-center max-md:border max-md:border-gray-300 max-md:hover:bg-gray-50"
           >
             <svg className={`h-5 w-5 ${isLoading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -159,18 +163,18 @@ export default function AgentList({
           </button>
           <button
             onClick={onBrowseTemplates}
-            className="flex items-center space-x-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+            className="flex items-center space-x-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors max-md:flex-1 max-md:justify-center max-md:h-10 max-md:px-3 max-md:text-sm max-md:whitespace-nowrap"
           >
-            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="h-5 w-5 max-sm:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
             </svg>
             <span>Browse Templates</span>
           </button>
           <button
             onClick={onNew}
-            className="flex items-center space-x-2 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
+            className="flex items-center space-x-2 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors max-md:flex-1 max-md:justify-center max-md:h-10 max-md:px-3 max-md:text-sm max-md:whitespace-nowrap"
           >
-            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="h-5 w-5 max-sm:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
             </svg>
             <span>New Agent</span>
@@ -193,11 +197,7 @@ export default function AgentList({
                 key={agent.id}
                 name={agent.name}
                 subtitle={agent.description || 'No description'}
-                badge={
-                  <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${getStatusColor(agent.status)}`}>
-                    {agent.status}
-                  </span>
-                }
+                badge={<Badge tone={statusTone(agent.status)}>{agent.status}</Badge>}
                 onClick={() => onSelect(agent)}
                 stats={[
                   { label: `Runs ${stats.window_days || 30}d`, value: stats.runs ?? 0, title: runsTitle },
@@ -228,15 +228,7 @@ export default function AgentList({
                 footer={
                   <>
                     <span style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
-                      <span style={{
-                        padding: '2px 6px',
-                        borderRadius: '4px',
-                        background: 'rgba(128,128,128,0.15)',
-                        whiteSpace: 'nowrap',
-                        flexShrink: 0,
-                      }}>
-                        {agent.provider}
-                      </span>
+                      <Badge tone="muted" style={{ flexShrink: 0 }}>{agent.provider}</Badge>
                       {/* Model ids run long (meta-llama/llama-3.3-70b-instruct);
                           truncate rather than wrap the card to three lines. */}
                       <span
@@ -292,7 +284,7 @@ export default function AgentList({
               : 'Try adjusting your search or filters'}
           </p>
           {agents.length === 0 && (
-            <div className="flex items-center justify-center space-x-4">
+            <div className="flex flex-wrap items-center justify-center gap-4">
               <button
                 onClick={onBrowseTemplates}
                 className="inline-flex items-center space-x-2 px-6 py-3 border-2 border-red-500 text-red-600 rounded-lg hover:bg-red-50 transition-colors"

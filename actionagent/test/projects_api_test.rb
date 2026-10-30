@@ -32,12 +32,13 @@ class ProjectsApiTest < ActionDispatch::IntegrationTest
   # class.
   class ProjectBackend
     class << self
-      attr_accessor :calls, :create_error, :boot_state, :log_pages
+      attr_accessor :calls, :create_error, :boot_state, :boot_error, :log_pages
 
       def reset!
         self.calls = []
         self.create_error = nil
         self.boot_state = nil
+        self.boot_error = nil
         self.log_pages = {}
       end
     end
@@ -54,7 +55,11 @@ class ProjectsApiTest < ActionDispatch::IntegrationTest
       created(session)
     end
 
-    def boot_status(_session) = self.class.boot_state
+    def boot_status(_session)
+      raise self.class.boot_error if self.class.boot_error
+
+      self.class.boot_state
+    end
 
     def boot_log(_session, step:, offset:, secrets:, limit: 65_536)
       text = self.class.log_pages[step] or return nil
@@ -794,6 +799,43 @@ class ProjectsApiTest < ActionDispatch::IntegrationTest
     get "#{BASE}/#{project.id}/boot_log", params: { step: "db_prepare", offset: 9000 }
     assert_response :success
     assert_no_secret_in(response.body)
+  end
+
+  test "a boot the backend cannot report answers the reason instead of 500" do
+    project = create_project!(secrets: { "STRIPE_SECRET_KEY" => SECRET })
+    perform_enqueued_jobs { post "#{BASE}/#{project.id}/boot", as: :json }
+    ProjectBackend.boot_error = RuntimeError.new("Incus answered 500 reading /workspace/boot/state.json (sent #{SECRET})")
+
+    get "#{BASE}/#{project.id}/boot"
+
+    assert_response :success
+    assert_no_secret_in(response.body)
+    body = JSON.parse(response.body)
+    assert_nil body["boot"]
+    assert_nil body["log_tail"]
+    assert_nil body["error"], "the sandbox itself did not fail"
+    assert_equal({ "backend" => "project_test", "message" => "Incus answered 500 reading /workspace/boot/state.json (sent [REDACTED])" },
+      body["backend_error"])
+    assert_equal true, body["logs"]
+  end
+
+  test "a backend with no host fails the boot and still answers the project's boot status" do
+    project = create_project!
+    reason = "The Rails Incus adapter requires an HTTPS endpoint; set INCUS_HOST, INCUS_CERT_PATH and INCUS_KEY_PATH"
+    ProjectBackend.create_error = RuntimeError.new(reason)
+    ProjectBackend.boot_error = RuntimeError.new(reason)
+    perform_enqueued_jobs { post "#{BASE}/#{project.id}/boot", as: :json }
+    assert project.reload.current_sandbox_session.failed?
+
+    get "#{BASE}/#{project.id}/boot"
+
+    assert_response :success
+    body = JSON.parse(response.body)
+    assert_equal "failed", body.dig("project", "sandbox_state")
+    assert_equal reason, body["error"]
+    assert_nil body["boot"]
+    assert_equal reason, body.dig("backend_error", "message")
+    assert_equal "project_test", body.dig("backend_error", "backend")
   end
 
   test "the sandboxes API scrubs a project's secrets from its sandbox's boot status and logs too" do

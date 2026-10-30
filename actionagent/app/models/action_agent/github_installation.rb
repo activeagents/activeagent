@@ -49,7 +49,8 @@ module ActionAgent
 
     # Whether GitHub will still mint tokens for this installation, as far as
     # the dashboard last heard: false once a mint found it removed or
-    # suspended, until a later mint succeeds or it is linked again.
+    # suspended, or a webhook delivery reported it (GithubWebhookJob), until
+    # a later mint succeeds, an unsuspend is delivered, or it is linked again.
     def usable?
       removed_at.nil? && suspended_at.nil?
     end
@@ -100,6 +101,32 @@ module ActionAgent
     # can read repository metadata and nothing else.
     def listing_client
       GithubClient.new(mint_token!(permissions: LISTING_PERMISSIONS))
+    end
+
+    # The repositories GitHub lists for the installation, whether selected
+    # or not (GithubClient#repositories' shape). Mints a listing token.
+    def reachable_repositories
+      listing_client.installation_repositories
+    end
+
+    # The repository +full_name+ names, as the installation reaches it, or
+    # nil when it reaches none: asked of GitHub by name, so it also finds one
+    # the owner has not selected. Mints a listing token.
+    def find_repository(full_name)
+      listing_client.repository(full_name)
+    end
+
+    # A client that reads the files of the one repository +repo+ (a
+    # repository row with an "id"), with a freshly minted token limited to
+    # its contents, for a project's preflight and secret discovery. The
+    # token is held by the client only.
+    def contents_client(repo)
+      GithubClient.new(mint_token!(permissions: CHECKOUT_PERMISSIONS, repository_ids: [ repo["id"] ]))
+    end
+
+    # How a project or sandbox says where its repository is reached through.
+    def checkout_source
+      "app"
     end
 
     # Records what GitHub reported about the installation when it was linked.

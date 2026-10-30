@@ -1,13 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { Badge, Card, GLYPH, MonoLink, PassBar, SegmentedBar, MONO, TONE, toneFor } from '../primitives';
-import { META_COLUMN, MetaStrip } from '../TelemetryObject';
+import { META_COLUMN, MetaCells } from '../TelemetryObject';
 import { dashboardPath, navigateTo } from '../../../utils/dashboardPath';
 import { splitModelLabel, timeAgo } from '../../../utils/format';
 import { fmtPasses } from '../../../utils/evalFormat.mjs';
 import { fmtClock, fmtDuration, plural, runElapsedMs } from '../../../utils/evaluationRuns.mjs';
 import { DELTA_TONE, RunBadge, VERSION_TONE, VersionChip } from './RunsList';
 import CopyMarkdownButton from './CopyMarkdownButton';
+import CopyLinkButton from './CopyLinkButton';
 import { reportExports } from '../../../utils/reportExport.mjs';
 import { AgentCostCell, JudgeCostCell, StatCell } from './SpendStrip';
 
@@ -86,7 +87,7 @@ export default function RunHeader({
   agentName = 'agent', scenarioCount = 0, groupCount = 0, columns = [], judgedBy = 'rules', bars = [],
   delta = null, version = null, totals = NO_TOTALS, settledCount = 0, settledFailed = 0, expectedResults = 0,
   running = false, loading = false, spend = null, fixSummary = NO_FIXES, selectionLabel = null, sandboxLabel = null,
-  reportPath = null, rerun = NO_RERUN,
+  reportPath = null, rerun = NO_RERUN, evaluationId = null,
   onSelectLatest, onWatchLatest, onJumpToFix, onRerunFailed, onRunAgain,
 }) {
   const { darkMode } = useTheme();
@@ -233,6 +234,14 @@ export default function RunHeader({
             run again
           </MonoLink>
         )}
+        <CopyLinkButton
+          evaluationId={evaluationId}
+          runId={run.id}
+          label="copy link"
+          testId="suite-run-copy-link"
+          title="Copy a link that opens this run, for a teammate in your organization"
+          style={{ padding: '0 4px', fontFamily: MONO, fontSize: 11 }}
+        />
         {reportPath && (
           <MonoLink href={hrefFor(reportPath)} onClick={() => navigateTo(reportPath)} title="The run rendered as a report page" testId="suite-run-report">
             run report
@@ -248,8 +257,8 @@ export default function RunHeader({
               title="Copy the whole report as GitHub-flavored Markdown" style={{ padding: '0 4px', fontFamily: MONO, fontSize: 11 }} />
           </span>
         )}
-        <span style={{ marginLeft: 'auto' }}>
-          <MetaStrip darkMode={darkMode} cells={cells} />
+        <span className="flex min-w-0 max-w-full" style={{ marginLeft: 'auto' }}>
+          <MetaCells darkMode={darkMode} cells={cells} />
         </span>
       </div>
 

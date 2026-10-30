@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Badge, roleBadge, TONE } from './primitives';
 import Markdown from './Markdown';
 import GenerativeUI from './GenerativeUI';
 import { ToolDetails } from './ToolRoster';
@@ -160,6 +161,9 @@ const SpanMessagePill = ({ message, darkMode }) => {
   return (
     <span
       title={`${Math.round(message.span_duration_ms)}ms · starts at ${Math.round(message.span_start_ms || 0)}ms of ${Math.round(total)}ms`}
+      // Hidden on a phone: 96px of pill beside a 72px badge left the message
+      // itself a few words wide. The waterfall is still in the trace.
+      className="hidden sm:inline-block"
       style={{
         position: 'relative',
         width: '96px',
@@ -168,7 +172,6 @@ const SpanMessagePill = ({ message, darkMode }) => {
         background: darkMode ? 'rgba(255,255,255,0.08)' : '#f3f4f6',
         flexShrink: 0,
         marginTop: '8px',
-        display: 'inline-block',
       }}
     >
       <span
@@ -198,33 +201,13 @@ export const streamPreStyle = (darkMode) => ({
   margin: 0,
 });
 
-export const roleBubble = (role, darkMode) => {
-  switch (role) {
-    case 'user':
-      return darkMode
-        ? { background: 'rgba(59,130,246,0.15)', color: '#93c5fd', label: 'User' }
-        : { background: '#eff6ff', color: '#1d4ed8', label: 'User' };
-    case 'assistant':
-      return darkMode
-        ? { background: 'rgba(239,68,68,0.12)', color: '#fca5a5', label: 'Assistant' }
-        : { background: '#fef2f2', color: '#b91c1c', label: 'Assistant' };
-    case 'tool':
-      return darkMode
-        ? { background: 'rgba(245,158,11,0.12)', color: '#fcd34d', label: 'Tool' }
-        : { background: '#fffbeb', color: '#b45309', label: 'Tool' };
-    case 'system':
-      return darkMode
-        ? { background: 'rgba(139,92,246,0.15)', color: '#c4b5fd', label: 'System' }
-        : { background: '#f5f3ff', color: '#6d28d9', label: 'System' };
-    case 'developer':
-      return darkMode
-        ? { background: 'rgba(20,184,166,0.15)', color: '#5eead4', label: 'Dev' }
-        : { background: '#f0fdfa', color: '#0f766e', label: 'Dev' };
-    default:
-      return darkMode
-        ? { background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.7)', label: role }
-        : { background: '#f3f4f6', color: '#374151', label: role };
-  }
+// The role's badge colors as the shared tones resolve them (the theme is in
+// the tokens, so `darkMode` no longer picks a palette; it stays in the
+// signature for the callers that pass it).
+export const roleBubble = (role, _darkMode) => {
+  const { tone, label } = roleBadge(role);
+  const t = TONE[tone] || TONE.muted;
+  return { background: t.soft, color: t.text, label, tone };
 };
 
 // Files a user message carried, as chips: image thumbnails from the
@@ -438,13 +421,9 @@ export default function InteractionStream({ messages, darkMode, tools, onUiActio
             >
               <span className="flex flex-col gap-1 flex-shrink-0 mt-0.5" style={{ minWidth: '72px' }}>
                 {(mergedCall ? [assistantTone, toolTone] : [bubble]).map((tone) => (
-                  <span
-                    key={tone.label}
-                    className="px-2 py-0.5 rounded text-xs font-medium"
-                    style={{ background: tone.background, color: tone.color, textAlign: 'center' }}
-                  >
+                  <Badge key={tone.label} tone={tone.tone} style={{ justifyContent: 'center' }}>
                     {tone.label}
-                  </span>
+                  </Badge>
                 ))}
               </span>
               <div className="min-w-0 flex-1">

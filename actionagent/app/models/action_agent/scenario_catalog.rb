@@ -69,10 +69,16 @@ module ActionAgent
     # that hold them), as a document of this catalog's key that a merge
     # import (ScenarioCatalogImport mode "merge") reads back into it.
     def export_yaml(product_ids: nil, set_ids: nil, scenario_ids: nil)
-      selection = { product_ids: ids(product_ids), set_ids: ids(set_ids), scenario_ids: ids(scenario_ids) }
-      return to_catalog.to_yaml if selection.values.all?(&:nil?)
+      export_catalog(product_ids: product_ids, set_ids: set_ids, scenario_ids: scenario_ids).to_yaml
+    end
 
-      ActiveAgent::Evals::Catalog.new([ to_document(**selection) ], name: key).to_yaml
+    # The records as an ActiveAgent::Evals::Catalog, whole or narrowed as
+    # #export_yaml narrows it, for the YAML or the JSON of the document.
+    def export_catalog(product_ids: nil, set_ids: nil, scenario_ids: nil)
+      selection = { product_ids: ids(product_ids), set_ids: ids(set_ids), scenario_ids: ids(scenario_ids) }
+      return to_catalog if selection.values.all?(&:nil?)
+
+      ActiveAgent::Evals::Catalog.new([ to_document(**selection) ], name: key)
     end
 
     # A key for a new product, set or scenario: +text+ as a key, made unique

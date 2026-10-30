@@ -256,6 +256,35 @@ class ProviderKeysApiTest < ActionDispatch::IntegrationTest
     assert_equal "/team/invitations/new", meta["memberInviteUrl"]
   end
 
+  test "the dashboard learns the host's user menu links for the signed-in user" do
+    ActionAgent.user_menu_links = lambda do |user, owner|
+      links = [ { label: "Workspace", href: "/workspace" }, { "label" => "Members", "href" => "/workspace/members" } ]
+      links << { label: "Platform admin", href: "/admin" } if user == @ada
+      links << { label: "", href: "/blank" } << { label: "Elsewhere", href: "javascript:alert(1)" } << { label: "Owner", href: owner.nil? ? "" : "/owner" }
+      links
+    end
+
+    get "/activeagents"
+
+    meta = JSON.parse(css_select("[data-props]").first["data-props"])["meta"]
+    assert_equal [ { "label" => "Workspace", "href" => "/workspace" }, { "label" => "Members", "href" => "/workspace/members" },
+                   { "label" => "Platform admin", "href" => "/admin" }, { "label" => "Owner", "href" => "/owner" } ], meta["userMenuLinks"]
+  end
+
+  test "without user menu links, or with a resolver that raises, the menu carries none" do
+    get "/activeagents"
+    assert_equal [], JSON.parse(css_select("[data-props]").first["data-props"])["meta"]["userMenuLinks"]
+
+    ActionAgent.user_menu_links = ->(_user, _owner) { raise "directory down" }
+    get "/activeagents"
+    assert_equal [], JSON.parse(css_select("[data-props]").first["data-props"])["meta"]["userMenuLinks"]
+
+    ActionAgent.user_menu_links = [ { label: "Settings", href: "https://example.com/settings" } ]
+    get "/activeagents"
+    assert_equal [ { "label" => "Settings", "href" => "https://example.com/settings" } ],
+      JSON.parse(css_select("[data-props]").first["data-props"])["meta"]["userMenuLinks"]
+  end
+
   test "provider_key_scope accepts the documented values and reset! clears it" do
     ActionAgent.provider_key_scope = "personal_override"
     assert_equal :personal_override, ActionAgent.provider_key_scope

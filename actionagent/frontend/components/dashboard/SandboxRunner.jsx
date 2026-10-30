@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { Badge, statusTone } from './primitives';
 import AgentAvatar from '../AgentAvatar';
 import { useActionCable } from '../../hooks/useActionCable';
 import { startCheckout } from '../../utils/checkout';
@@ -445,17 +446,6 @@ export default function SandboxRunner({ initialType = 'playwright_mcp', onClose,
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'completed': return 'text-green-600 bg-green-100';
-      case 'failed': return 'text-red-600 bg-red-100';
-      case 'running': return 'text-blue-600 bg-blue-100';
-      case 'ready': return 'text-emerald-600 bg-emerald-100';
-      case 'expired': return 'text-orange-600 bg-orange-100';
-      default: return 'text-gray-600 bg-gray-100';
-    }
-  };
-
   const canRun = session?.status === 'ready' &&
                  session?.runs_count < session?.max_runs &&
                  !isRunning;
@@ -501,9 +491,7 @@ export default function SandboxRunner({ initialType = 'playwright_mcp', onClose,
             {/* Session Status */}
             {session && (
               <div className="flex items-center space-x-3 text-sm">
-                <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(session.status)}`}>
-                  {session.status}
-                </span>
+                <Badge tone={statusTone(session.status)}>{session.status}</Badge>
                 <span className="text-gray-500">
                   {session.runs_count}/{session.max_runs} runs
                 </span>
@@ -578,9 +566,7 @@ export default function SandboxRunner({ initialType = 'playwright_mcp', onClose,
                   {comparisonMode && Object.keys(comparisonResults).length > 0 ? 'Comparison Results' : 'Output'}
                 </h3>
                 {currentRun && !comparisonMode && (
-                  <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(currentRun.status)}`}>
-                    {currentRun.status}
-                  </span>
+                  <Badge tone={statusTone(currentRun.status)}>{currentRun.status}</Badge>
                 )}
                 {comparisonMode && runningProviders.length > 0 && (
                   <span className="text-xs text-blue-600">
@@ -615,9 +601,7 @@ export default function SandboxRunner({ initialType = 'playwright_mcp', onClose,
                             </div>
                             {result && (
                               <div className="flex items-center space-x-2">
-                                <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(result.status)}`}>
-                                  {result.status}
-                                </span>
+                                <Badge tone={statusTone(result.status)}>{result.status}</Badge>
                                 {result.tokens && (
                                   <span className="text-xs text-gray-500">{result.tokens} tokens</span>
                                 )}
@@ -834,9 +818,7 @@ export default function SandboxRunner({ initialType = 'playwright_mcp', onClose,
                       onClick={() => setCurrentRun(run)}
                     >
                       <div className="flex items-center justify-between mb-1">
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(run.status || 'completed')}`}>
-                          {run.status || 'completed'}
-                        </span>
+                        <Badge tone={statusTone(run.status || 'completed')}>{run.status || 'completed'}</Badge>
                         <span className="text-xs text-gray-400">
                           {run.tokens || 0} tokens
                         </span>
