@@ -736,7 +736,10 @@ as a suite's, plus free-form `tags` and `params` that the runner carries
 through to the results. A set may name a `judge` (`kind`, `model`) and
 `criteria`, which become the evaluation's when the set is run. Keys the
 format does not define (`owner_team`, `repository`, …) are kept as
-`metadata` on the catalog, product or set they sit on.
+`metadata` on the catalog, product, set or scenario they sit on. Scenario
+extensions are opaque data: they do not add scoring rules. They remain at
+their original keys in YAML and JSON exports, including a literal key named
+`metadata`, and are available through `scenario.metadata` in Ruby.
 
 ```ruby
 catalog = ActiveAgent::Evals::Catalog.load("config/evals/support_desk.yml")
@@ -754,8 +757,8 @@ narrowed or extended by a local file the way `Suite.load` layers suites. A
 suite document (`suite:` and `groups:`) loads as a catalog of one product
 whose sets are its groups, so existing suites need no rewrite.
 
-`Catalog#to_yaml` writes the canonical document (keys in a fixed order,
-empty values dropped) and `Catalog#digest` is the SHA-256 of that text, so
+`Catalog#to_yaml` writes the canonical document (format keys in a fixed order,
+empty optional format fields dropped) and `Catalog#digest` is the SHA-256 of that text, so
 two copies of a catalog can be compared without diffing them. The mounted
 dashboard stores catalogs in its own tables, writes the canonical document
 to Active Storage and runs one set at a time as an evaluation of the
@@ -765,6 +768,13 @@ product's agent; see
 what an import would change, and writes the stored records back out as the
 canonical YAML or as JSON (`catalogs import|export`; see
 [Command Line](/framework/cli#scenario-catalogs)).
+
+Scenario extension fields retain their values, including `false`, `0`,
+`null`, empty collections and nested data. Changing only an extension field
+changes the catalog's digest. A later document replaces a scenario by key,
+including its extensions; omitting a previously supplied extension removes it.
+Object key order does not change that digest, including after a JSON database
+column reorders the keys. Array order is preserved and remains significant.
 
 ## Running a host application's agent from the mounted dashboard
 
