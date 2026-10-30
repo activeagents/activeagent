@@ -108,6 +108,11 @@ capture writes through the trace model and issues no HTTP at all, so that
 path is a label, not a request; apps posting from elsewhere set `endpoint:`
 to the full URL, as shown below, and `resolved_endpoint` returns that.)
 
+A stored trace moves between installs the way a run does: the `activeagent`
+command line's `traces export TRACE` writes it as the payload this route
+ingests, and `traces import FILE` posts it to another dashboard with that
+dashboard's ingest key (see [Command Line](/framework/cli#traces)).
+
 ```ruby
 # A path on your main app:
 mount ActionAgent::Engine => "/activeagents"
@@ -236,10 +241,12 @@ Any complete run comes back out the same way:
 `GET <mount>/api/evaluation_reports/:run_id`, with the same key, returns the
 envelope that endpoint takes, so a run moves to another install with one
 POST, and posting it back here is an identical retry (200); `?format=html`
-and `?format=md` return its report page or Markdown instead. From the command
-line, `bin/rails action_agent:evaluations:export` and
-`action_agent:evaluations:import` do the same (see
-[Exporting a stored run](/evals/publication#exporting-a-stored-run)).
+and `?format=md` return its report page or Markdown instead. Inside the host
+app, `bin/rails action_agent:evaluations:export` and
+`action_agent:evaluations:import` do the same, and from any machine with the
+gem, `activeagent evals report` and `activeagent evals import` (see
+[Exporting a stored run](/evals/publication#exporting-a-stored-run) and
+[Command Line](/framework/cli#reports)).
 
 ## RubyLLM applications
 
@@ -468,6 +475,13 @@ Open `<mount>/console/traces` for the server-rendered trace console, or
 The console includes its styles in the HTML. It needs no CDN, JavaScript,
 asset pipeline, or frontend build. Expand a trace with its summary or use
 **Open trace** for a standalone detail page.
+
+The list shows the newest 50 matching traces by default. Set `?limit=100`
+to change the number of rows; integer limits are clamped to 1–1000, and
+blank or invalid limits use the default. Agent, service, status and date
+filters apply before the limit. This is a bounded recent list with no
+pagination. The summary tiles and metrics page cover the last 24 hours,
+independently of the list limit.
 
 Refresh is manual by default so an open trace stays open. **Auto-refresh**
 reloads the current page every 30 seconds; `?refresh=60` uses 60 seconds.

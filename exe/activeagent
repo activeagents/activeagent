@@ -1,0 +1,8 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# The activeagent CLI. Loads only lib/active_agent/cli, not Rails or the
+# framework. See docs/framework/cli.md.
+require_relative "../lib/active_agent/cli"
+
+exit ActiveAgent::CLI.start(ARGV)

@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useTheme } from '../../contexts/ThemeContext';
+import { SegmentedControl } from './primitives';
+import { themeDescription, THEME_OPTIONS } from '../../utils/theme.mjs';
 import GithubIntegrationCard from './GithubIntegrationCard';
 import ClaudeCodeIntegrationCard from './ClaudeCodeIntegrationCard';
 import CodexIntegrationCard from './CodexIntegrationCard';
@@ -20,7 +22,7 @@ function initialQuery() {
 }
 
 export default function SettingsView({ user, account }) {
-  const { darkMode, toggleDarkMode } = useTheme();
+  const { darkMode, theme, systemDark, setTheme } = useTheme();
   // With personal keys on, the API Keys tab manages the signed-in user's own
   // provider keys; the organization's are on the Organization page.
   const [providerKeyScope] = useState(() => (window.ACTIVE_AGENT_DASHBOARD?.meta?.personalProviderKeys ? 'personal' : undefined));
@@ -223,27 +225,17 @@ export default function SettingsView({ user, account }) {
             <h3 className={`text-lg font-semibold mb-4 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
               Appearance
             </h3>
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-4">
               <div>
                 <p className={`font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                  Dark Mode
+                  Theme
                 </p>
-                <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                  Use dark theme across the dashboard
+                <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`} data-testid="theme-description">
+                  {themeDescription(theme, systemDark)}
                 </p>
               </div>
-              <button
-                onClick={toggleDarkMode}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                  darkMode ? 'bg-red-500' : 'bg-gray-300'
-                }`}
-              >
-                <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                    darkMode ? 'translate-x-6' : 'translate-x-1'
-                  }`}
-                />
-              </button>
+              {/* System follows the OS appearance and changes with it. */}
+              <SegmentedControl options={THEME_OPTIONS} value={theme} onChange={setTheme} />
             </div>
           </div>
         </div>

@@ -134,6 +134,7 @@ ActionAgent::Engine.routes.draw do
     resources :projects, only: [ :index, :show, :create, :update, :destroy ] do
       collection do
         get :capabilities
+        get :repositories
         get :preflight
         get :discover_secrets
       end
@@ -324,6 +325,11 @@ ActionAgent::Engine.routes.draw do
       end
     end
 
+    # The GitHub App's webhook deliveries. Authenticated by GitHub's
+    # signature (github_app_webhook_secret), not a session; the App's
+    # Webhook URL is <mount>/api/github_app/webhooks.
+    post "github_app/webhooks", to: "github_app_webhooks#create", as: :github_app_webhooks
+
     # Creating the GitHub App from a manifest on a self-hosted dashboard.
     resource :github_app_manifest, only: [ :create ] do
       get :callback
@@ -370,6 +376,15 @@ ActionAgent::Engine.routes.draw do
   # The frame the session player runs in, holding the replay bundle and no
   # data. See SessionPlayerController.
   get "session_player", to: "session_player#show", as: :session_player
+
+  # Shareable evaluation links: an evaluation, one of its runs, or one
+  # scenario result of a run. The React app reads these paths like any other
+  # client-side route; they are matched here first so the page itself is
+  # checked against the caller's scope, and a link to an evaluation outside
+  # it answers 404 whether or not the evaluation exists.
+  get "evaluations/:evaluation_id(/runs/:run_id(/results/:result_id))", to: "dashboard#evaluation",
+    as: :evaluation_link, format: false,
+    constraints: { evaluation_id: /\d+/, run_id: /\d+/, result_id: /\d+/ }
 
   # Everything else under the mount is a client-side route: render the
   # dashboard and let the browser resolve it. Anchored last so it can only

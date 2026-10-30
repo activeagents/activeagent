@@ -116,9 +116,13 @@ export default function NewInteractionPicker({ inline = false, label = 'New inte
         {label}
       </Button>
       {open && (
+        // A popover under the button from md up; on a phone, where the
+        // button may sit anywhere in a wrapped toolbar, a sheet across the
+        // bottom of the screen instead.
         <div
-          className="absolute right-0 mt-2 z-20 p-3 rounded-xl"
-          style={{ width: 360, background: 'var(--color-card)', border: '1px solid var(--color-border)', boxShadow: '0 8px 24px rgba(0,0,0,0.12)' }}
+          className="z-50 p-3 rounded-xl max-md:fixed max-md:inset-x-0 max-md:bottom-0 max-md:rounded-b-none max-md:max-h-[80vh] max-md:overflow-y-auto md:absolute md:right-0 md:mt-2 md:z-20 md:w-[360px]"
+          data-testid="new-interaction-popover"
+          style={{ background: 'var(--color-card)', border: '1px solid var(--color-border)', boxShadow: '0 8px 24px rgba(0,0,0,0.12)' }}
         >
           <MicroLabel style={{ display: 'block', marginBottom: 8 }}>Start a conversation with</MicroLabel>
           {list}

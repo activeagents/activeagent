@@ -112,12 +112,20 @@ and `?download=1` an attachment. A
 signed-in session reads it at
 `<mount>/api/evaluations/:id/runs/:run_id/report.json`, the HTML page at
 `report`, and GitHub-flavored Markdown at `report.md`, each downloadable with
-`?download=1`. From the command line:
+`?download=1`. Inside the host app:
 
 ```bash
 bin/rails action_agent:evaluations:export RUN=<run_id> FORMAT=json|html|md [FILE=path]
 bin/rails action_agent:evaluations:export EVALUATION=<id> RUN=<id> FORMAT=md
 bin/rails action_agent:evaluations:import FILE=run.json [ACCOUNT_ID=<id>]
+```
+
+From any machine with the `activeagent` gem, over HTTP with the ingest key
+(see [Command Line](https://docs.activeagents.ai/framework/cli)):
+
+```bash
+activeagent evals report <run_id> --format json -o run.json   # or html, md
+activeagent evals import run.json
 ```
 
 See [Publishing an externally executed evaluation](https://docs.activeagents.ai/evals/publication)

@@ -138,6 +138,7 @@ export function Chip({ selected = false, onClick, children, square = false, mono
 }
 
 // Bordered buttons, radius 8, 13px/500; the selected one carries the accent.
+// An option's `title`, when given, is the button's tooltip.
 export function SegmentedControl({ options, value, onChange, style }) {
   return (
     <div style={{ display: 'flex', gap: 4, ...style }} role="group">
@@ -149,6 +150,7 @@ export function SegmentedControl({ options, value, onChange, style }) {
             type="button"
             onClick={() => onChange(option.value)}
             aria-pressed={active}
+            title={option.title}
             style={{
               padding: '6px 12px', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 500,
               background: 'var(--color-card)',
@@ -198,9 +200,9 @@ export function Card({ children, padding = 20, style, className, testId, ...rest
 // Stat tile: mono uppercase label · 32px mono/700 value · 13px secondary sub-line.
 export function StatCard({ label, value, sub, valueColor, valueSize = 32, testId }) {
   return (
-    <Card testId={testId}>
+    <Card testId={testId} className="max-md:p-4!">
       <MicroLabel size={11} spacing="0.05em">{label}</MicroLabel>
-      <div style={{ marginTop: 8, fontFamily: MONO, fontSize: valueSize, fontWeight: 700, lineHeight: 1.1, color: valueColor || 'var(--color-text-primary)' }}>{value}</div>
+      <div className="max-md:text-[24px]!" style={{ marginTop: 8, fontFamily: MONO, fontSize: valueSize, fontWeight: 700, lineHeight: 1.1, color: valueColor || 'var(--color-text-primary)' }}>{value}</div>
       {sub != null && <div style={{ marginTop: 8, fontSize: 13, color: 'var(--color-text-secondary)' }}>{sub}</div>}
     </Card>
   );

@@ -533,9 +533,22 @@ thread count.
 The agent's tool roster is discovered once, before the replays, and every
 scoring job reads it from the run, so a diagnosis names the same tools
 whichever job wrote it. A replay job delivered again does not replay a pair
-that already has a stored result, a judge job delivered again does not score
-a result twice, a job that fails with an exception outside the replay stores
-an errored result, and a failure while completing the run marks it failed. A
+that already has a stored result. A judge job delivered again does not score
+a result twice: the job that claims a pending result holds a 30-minute
+scoring lease on it, and a delivery that finds the lease live enqueues itself
+again for when it expires. When the queue redelivers the job of a worker
+that died mid-judge, the redelivery scores the result once that worker's
+lease runs out; a duplicate whose first delivery finishes in time finds the
+result scored. A worker that finishes after another reclaimed its lease
+cannot overwrite that worker's result. A provider call that outlasts the
+lease may still be repeated, so set provider timeouts below that interval.
+The lease columns come from migration 030, installed with
+`bin/rails generate action_agent:install --skip` and `bin/rails db:migrate`;
+until it runs, the judge job claims a result by its timestamp alone, which
+turns away a stale duplicate but not one delivered after the claim.
+
+A job that fails with an exception outside the replay stores an errored
+result, and a failure while completing the run marks it failed. A
 scenario removed from the suite while a run is in flight is left out of that
 run's results. What no job can recover from is a job lost outright: a worker
 killed without a graceful shutdown drops the job it was running
@@ -723,7 +736,10 @@ as a suite's, plus free-form `tags` and `params` that the runner carries
 through to the results. A set may name a `judge` (`kind`, `model`) and
 `criteria`, which become the evaluation's when the set is run. Keys the
 format does not define (`owner_team`, `repository`, …) are kept as
-`metadata` on the catalog, product or set they sit on.
+`metadata` on the catalog, product, set or scenario they sit on. Scenario
+extensions are opaque data: they do not add scoring rules. They remain at
+their original keys in YAML and JSON exports, including a literal key named
+`metadata`, and are available through `scenario.metadata` in Ruby.
 
 ```ruby
 catalog = ActiveAgent::Evals::Catalog.load("config/evals/support_desk.yml")
@@ -741,13 +757,24 @@ narrowed or extended by a local file the way `Suite.load` layers suites. A
 suite document (`suite:` and `groups:`) loads as a catalog of one product
 whose sets are its groups, so existing suites need no rewrite.
 
-`Catalog#to_yaml` writes the canonical document (keys in a fixed order,
-empty values dropped) and `Catalog#digest` is the SHA-256 of that text, so
+`Catalog#to_yaml` writes the canonical document (format keys in a fixed order,
+empty optional format fields dropped) and `Catalog#digest` is the SHA-256 of that text, so
 two copies of a catalog can be compared without diffing them. The mounted
 dashboard stores catalogs in its own tables, writes the canonical document
 to Active Storage and runs one set at a time as an evaluation of the
 product's agent; see
-[Scenario catalogs](/framework/dashboard#scenario-catalogs).
+[Scenario catalogs](/framework/dashboard#scenario-catalogs). The
+`activeagent` command line imports a catalog into that dashboard, previews
+what an import would change, and writes the stored records back out as the
+canonical YAML or as JSON (`catalogs import|export`; see
+[Command Line](/framework/cli#scenario-catalogs)).
+
+Scenario extension fields retain their values, including `false`, `0`,
+`null`, empty collections and nested data. Changing only an extension field
+changes the catalog's digest. A later document replaces a scenario by key,
+including its extensions; omitting a previously supplied extension removes it.
+Object key order does not change that digest, including after a JSON database
+column reorders the keys. Array order is preserved and remains significant.
 
 ## Running a host application's agent from the mounted dashboard
 
@@ -820,6 +847,9 @@ schema migration. Existing result and report URLs continue to work:
   `model=` or `scenario=`, for one piece), `report.json` as the
   [evaluation report envelope](/evals/publication#exporting-a-stored-run), and
   `?download=1` downloads any of them as `<evaluation>-run-<n>.html|md|json`.
+- From a terminal, `activeagent evals report RUN --format json|html|md`
+  writes the same three for a run's `run_id`, and `activeagent evals import`
+  posts the JSON to another install (see [Command Line](/framework/cli#reports)).
 - `<mount>/evaluations/:id/runs/:run_id/report` opens it within the dashboard.
 - `<mount>/evaluations/:id` opens an evaluation on its run history, and
   `<mount>/evaluations/:id/runs/:run_id` one of its runs — a page of its own
@@ -828,7 +858,10 @@ schema migration. Existing result and report URLs continue to work:
   one outside the first index page. Add `&run=:run_id` to open its saved report.
 
 Every serialized run carries `number` (its position in the evaluation's
-history, oldest first) and `usage`, which keeps the agent's spend apart from
+history, oldest first), `run_id` (the handle
+`GET <mount>/api/evaluation_reports/:run_id` and `activeagent evals report`
+take: a published run's own, a dashboard run's
+`dashboard-run-<id>-<created_at>`) and `usage`, which keeps the agent's spend apart from
 the judge's: `replays` (or `samples`, for a sampling run), `cost`,
 `per_interaction`, tokens and timing on the agent's side — what the
 interactions cost to serve — and `judge` (`calls`, tokens, `cost`, `model`,

@@ -4,7 +4,7 @@ import ContextMeter from './ContextMeter';
 import TraceDetail, { traceContext } from './TraceDetail';
 import { formatDuration, traceContentPreview } from './SpanWaterfall';
 import { roleBubble } from './InteractionStream';
-import { Chevron, META_COLUMN, MetaStrip, ObjectCard, PreviewLines, telemetryColors } from './TelemetryObject';
+import { Chevron, META_COLUMN, MetaCells, ObjectCard, PreviewLines, telemetryColors } from './TelemetryObject';
 
 // One trace as an expandable object: what ran, what it cost, what went in and
 // came out — then the full waterfall or conversation underneath. The same card
@@ -41,7 +41,7 @@ export default function TraceCard({ trace, darkMode, expanded, onToggle }) {
         onClick={onToggle}
         style={expanded ? { background: colors.hoverBg } : undefined}
       >
-        <div className="flex items-center gap-3 min-w-0">
+        <div className="flex items-center gap-3 min-w-0 max-lg:flex-wrap max-lg:gap-y-1">
           <span
             className="px-2 py-1 text-xs rounded flex-shrink-0"
             style={{ fontFamily: TYPOGRAPHY.mono, background: colors.controlBg, color: colors.textSecondary }}
@@ -56,9 +56,10 @@ export default function TraceCard({ trace, darkMode, expanded, onToggle }) {
           </span>
         </div>
         {/* One strip, the same columns on every row — including the rows
-            with nothing to put in them. */}
-        <div className="flex items-center gap-4 flex-shrink-0">
-          <MetaStrip
+            with nothing to put in them. Below md it folds into the card as a
+            wrapping line under the title (MetaCells), chevron at the end. */}
+        <div className="flex items-center gap-4 flex-shrink-0 max-lg:w-full max-lg:min-w-0">
+          <MetaCells
             darkMode={darkMode}
             cells={[
               {

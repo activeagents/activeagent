@@ -215,6 +215,12 @@ ActionAgent.configure do |config|
   # config.github_app_client_secret = Rails.application.credentials.dig(:github_app, :client_secret)
   # config.github_app_private_key = Rails.application.credentials.dig(:github_app, :private_key)
   #
+  # With the App's webhook pointed at <mount>/api/github_app/webhooks, the
+  # secret its deliveries are signed with (GITHUB_APP_WEBHOOK_SECRET when
+  # unset). Settings then learns of an uninstall or suspension when it happens.
+  #
+  # config.github_app_webhook_secret = Rails.application.credentials.dig(:github_app, :webhook_secret)
+  #
   # Or an OAuth App, connected per owner with the callback URL
   # <mount>/api/github_connection/callback (GITHUB_CLIENT_ID and
   # GITHUB_CLIENT_SECRET when unset).
