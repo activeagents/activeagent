@@ -20,6 +20,12 @@ the MCP Services page cannot list or save servers of your own.
 
 ### Added
 
+- **Atlas Cloud as an OpenAI-compatible provider** (`activeagent`).
+  `service: "AtlasCloud"` generates through Atlas Cloud's compatibility
+  endpoint, with the key from `ATLASCLOUD_API_KEY` and an overridable
+  `base_url`; chat only, no embeddings (docs/providers/atlas_cloud.md).
+  Contributed in #352.
+
 - **Cheaper Inference as an OpenAI-compatible provider** (`activeagent`).
   `service: "CheaperInference"` generates and embeds through
   `https://api.cheaperinference.com/v1`, with the key from
