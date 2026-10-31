@@ -15,8 +15,12 @@ module ActiveAgent
     #
     # Tool calls are captured on the agent instance's `tools_function`, the
     # proc every provider calls to run a tool, which is also where the
-    # telemetry tool spans hang. A tool served by an MCP server is dispatched
-    # before that proc and is not recorded.
+    # telemetry tool spans hang. A tool served by a client-side MCP server
+    # (`mcp_strategy: :client`, or a provider with no MCP of its own) is
+    # dispatched before that proc, so the provider reports it through the
+    # agent's `tool_observer` instead, with a failure the server reported
+    # marked as one. A tool a provider runs on its own side (Anthropic's or
+    # OpenAI's hosted MCP) never reaches this process and is not recorded.
     #
     # `model:` and `provider:` replay the same action under another model,
     # the way a comparison run does. A model is an option on the agent
@@ -105,6 +109,44 @@ module ActiveAgent
         end
       end
 
+      # Runs one tool call and appends its record to +calls+: the name, the
+      # arguments, a preview of the result and the time it took. A call that
+      # raises is recorded as an error and re-raised. So is one an MCP server
+      # reported as failed: it comes back as an MCPBridge::ErrorResult rather
+      # than an exception, so the model can recover, and is returned to the
+      # provider unchanged.
+      #
+      # @api private
+      # @return [Object] what the call returned
+      def self.record_call(calls, name, arguments)
+        call = { "name" => name.to_s }
+        call["arguments"] = jsonable(arguments) unless arguments.nil?
+        started = monotonic_ms
+
+        begin
+          result = yield
+          if mcp_error?(result)
+            call["error"] = true
+            call["detail"] = preview(result.message)
+          else
+            call["detail"] = preview(result)
+          end
+          result
+        rescue StandardError => e
+          call["error"] = true
+          call["detail"] = "#{e.class}: #{e.message}"
+          raise
+        ensure
+          call["duration_ms"] = elapsed_ms(started)
+          calls << call
+        end
+      end
+
+      def self.mcp_error?(result)
+        defined?(ActiveAgent::Providers::MCPBridge::ErrorResult) && result.is_a?(ActiveAgent::Providers::MCPBridge::ErrorResult)
+      end
+      private_class_method :mcp_error?
+
       def self.monotonic_ms
         Process.clock_gettime(Process::CLOCK_MONOTONIC, :millisecond)
       end
@@ -143,6 +185,11 @@ module ActiveAgent
       # @tool_calls. The singleton method takes precedence over the telemetry
       # module prepended on the class, and `base` is that module's wrapped
       # proc, so tool spans still fire.
+      #
+      # A tool served by a client-side MCP server never reaches tools_function:
+      # the provider runs that call inside the agent's `tool_observer`, which
+      # records it the same way. The two paths are disjoint, so a call is
+      # recorded once, and the observer sees the call without making it again.
       def record_tool_calls(agent)
         calls = @tool_calls
         base = agent.tools_function
@@ -150,24 +197,13 @@ module ActiveAgent
 
         agent.define_singleton_method(:tools_function) do
           proc do |name, *args, **kwargs|
-            call = { "name" => name.to_s }
             arguments = kwargs.presence || (args.length == 1 ? args.first : args.presence)
-            call["arguments"] = capture.jsonable(arguments) unless arguments.nil?
-            started = capture.monotonic_ms
-
-            begin
-              result = base.call(name, *args, **kwargs)
-              call["detail"] = capture.preview(result)
-              result
-            rescue StandardError => e
-              call["error"] = true
-              call["detail"] = "#{e.class}: #{e.message}"
-              raise
-            ensure
-              call["duration_ms"] = capture.elapsed_ms(started)
-              calls << call
-            end
+            capture.record_call(calls, name, arguments) { base.call(name, *args, **kwargs) }
           end
+        end
+
+        agent.define_singleton_method(:tool_observer) do
+          proc { |name, arguments, &call| capture.record_call(calls, name, arguments.presence, &call) }
         end
       end
 
