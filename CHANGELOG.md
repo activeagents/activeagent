@@ -27,7 +27,7 @@ the MCP Services page cannot list or save servers of your own.
   beside the catalog as `custom:<id>`. Agent runs and scenario evaluation runs
   call its tools, and evaluation fix items attribute them to it. Each server
   belongs to an owner like a provider key (`MCPServerConfig`, install
-  migration 032), and every lookup, including a run's, is scoped to that
+  migration 029), and every lookup, including a run's, is scoped to that
   owner. Header values are encrypted at rest, never returned to the browser
   (names with masked values; a blank value on update keeps the stored one),
   and scrubbed from recorded output. Writes and tests ask for
@@ -35,42 +35,6 @@ the MCP Services page cannot list or save servers of your own.
   link-local address is refused when saved and when called (`MCPHostGuard`),
   unless the host sets `ActionAgent.allow_private_mcp_hosts`, e.g. for local
   development. API: `/api/mcp_server_configs` with a `test` member action.
-- **Evaluation runs published while they run** (`activeagent`, `actionagent`).
-  `ActiveAgent::Evals::Publisher#progress` sends the results so far as a
-  `"status": "running"` envelope, and the collector stores them as a running
-  run that the Evaluations page follows live; each later delivery under the
-  run_id replaces the results until `#call` completes the run. Only the first
-  delivery is admitted and counted. A progress delivery after completion
-  changes nothing. The collector lists `"progress"` in the `capabilities` of
-  its readiness answer, and `#progress` sends nothing to a collector that does
-  not (`#supports_progress?`), since an older one would store the partial
-  report as complete.
-- **Imported evaluation runs keep their dates** (`actionagent`). The
-  collector dates a run by its report's `metadata.finished`, which an export
-  carries, so an exported run imported into another install keeps its place
-  in the run history instead of reading as just run. A report naming no
-  finish time is dated on arrival, and a malformed one is refused.
-- **`activeagent` command line** (`activeagent`, `actionagent`; refs #619).
-  The gem ships an `activeagent` executable (stdlib `OptionParser` and
-  `Net::HTTP`, no new dependencies) that works with a dashboard over HTTP:
-  `login`/`logout` (named profiles in `~/.config/activeagent/credentials.yml`,
-  `0600`; `ACTIVEAGENT_URL`, `ACTIVEAGENT_API_KEY` and
-  `ACTIVEAGENT_INGEST_KEY` override them for CI), `status`,
-  `evals list|runs|run|report|import`, `catalogs list|import|export`
-  (`import --preview` shows what a document would change, `--mode merge`
-  keeps what it leaves out), `agents list|versions` and
-  `traces list|get|export|import`, with `--json` output and distinct exit
-  codes. `evals run --min-pass-rate 0.8` waits for the run and exits 4
-  below the threshold, for CI gating. Reads and runs go through the MCP
-  facade's dashboard tools with a dashboard API key; the imports and
-  `evals report` use the endpoints the framework's own reporters post to,
-  with the ingest key. A run, a catalog and a trace each move between
-  installs as one file: `evals report RUN --format json` writes the
-  version-1 envelope `evals import` posts (`--format html|md` the report
-  page or its Markdown, for a pull request comment), `catalogs export KEY`
-  the canonical document (YAML, or `--format json`) that `catalogs import`
-  reads, and `traces export TRACE` the payload `traces import` sends to
-  trace ingest. See `docs/framework/cli.md`.
 
 - **Evals in the test suite** (`activeagent`). An eval is an ordinary test
   under `test/evals`, collected by `rails test` like any other, whose
