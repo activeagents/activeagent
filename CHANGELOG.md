@@ -7,14 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-Upgrading: two dashboard migrations, 030 `add_evaluation_scoring_leases`
-(the scoring lease columns on `evaluation_scenario_results`) and 031
+Upgrading: three dashboard migrations, 030 `add_evaluation_scoring_leases`
+(the scoring lease columns on `evaluation_scenario_results`), 031
 `add_catalog_scenario_metadata` (the `metadata` column on
-`catalog_scenarios`): run `bin/rails generate action_agent:install --skip`
-and `bin/rails db:migrate`. Until they run, fanned-out runs keep scoring
-with the claim 1.9.3 uses, and catalog imports keep working but still drop
-scenario extensions; extensions discarded before the upgrade need the
-original document imported again.
+`catalog_scenarios`) and 032 `create_active_agent_mcp_server_configs` (the
+table behind a user's own MCP servers): run `bin/rails generate
+action_agent:install --skip` and `bin/rails db:migrate`. Until they run,
+fanned-out runs keep scoring with the claim 1.9.3 uses, catalog imports
+keep working but still drop scenario extensions (extensions discarded
+before the upgrade need the original document imported again), and
+the MCP Services page cannot list or save servers of your own.
 
 ### Added
 
@@ -69,6 +71,36 @@ original document imported again.
   the canonical document (YAML, or `--format json`) that `catalogs import`
   reads, and `traces export TRACE` the payload `traces import` sends to
   trace ingest. See `docs/framework/cli.md`.
+
+- **Evals in the test suite** (`activeagent`). An eval is an ordinary test
+  under `test/evals`, collected by `rails test` like any other, whose
+  `ActiveAgent::Evals::TestCase` skips it unless `EVALS` is on, so the
+  suite never calls a model by accident. `bin/rails test:evals` switches
+  evals on and runs them through the same runner (`TEST=path` narrows,
+  `TESTOPTS` passes through); `EVALS=1 bin/rails test ...` runs one file,
+  one line, or the whole suite with the evals in. The same switch gates an
+  RSpec suite (`filter_run_excluding eval: true unless
+  ActiveAgent::Evals::TestHelper.enabled?`, with `expect_with :minitest`
+  for the assertions). `require "active_agent/evals/test_helper"`
+  after `rails/test_help` gives `ActiveAgent::Evals::TestCase` and the
+  `TestHelper` module: `run_eval MyAgent.with(...).action` returns an
+  `ActiveAgent::Evals::Replay` — the answer, every tool call with its
+  arguments, result or error and timing, duration and tokens — and
+  `assert_answer_present`, `assert_output_contains` /
+  `refute_output_contains`, `assert_tool_called` (with an argument subset)
+  / `refute_tool_called` and `assert_tools_succeeded` read it, failing with
+  what the agent did. `assert_eval_passes` (and `score_eval`) scores the
+  replay as a dashboard run does and fails with the fault and the fix;
+  `run_eval_suite` replays a YAML suite across models and returns the
+  `Report`, which `assert_pass_rate` gates and `to_html` writes.
+  `ActiveAgent::Evals::Capture` is the assertion-free core: it runs a
+  generation into a `Replay`, capturing tool calls on the agent's
+  `tools_function` (where the telemetry tool spans are; MCP-served tools
+  are dispatched before that hook and are not recorded), replays under
+  another `model:` or `provider:` the way a comparison run does, and takes
+  a block for an agent run some other way. The framework's railtie now
+  loads the gem's rake tasks; the empty `activeagent_tasks.rake`
+  placeholder is gone.
 
 ### Fixed
 
@@ -195,6 +227,43 @@ for `evals report` (the report export); an older dashboard answers those
 commands with exit code 5.
 
 ### Added
+
+- **Evaluation runs published while they run** (`activeagent`, `actionagent`).
+  `ActiveAgent::Evals::Publisher#progress` sends the results so far as a
+  `"status": "running"` envelope, and the collector stores them as a running
+  run that the Evaluations page follows live; each later delivery under the
+  run_id replaces the results until `#call` completes the run. Only the first
+  delivery is admitted and counted. A progress delivery after completion
+  changes nothing. The collector lists `"progress"` in the `capabilities` of
+  its readiness answer, and `#progress` sends nothing to a collector that does
+  not (`#supports_progress?`), since an older one would store the partial
+  report as complete.
+- **Imported evaluation runs keep their dates** (`actionagent`). The
+  collector dates a run by its report's `metadata.finished`, which an export
+  carries, so an exported run imported into another install keeps its place
+  in the run history instead of reading as just run. A report naming no
+  finish time is dated on arrival, and a malformed one is refused.
+- **`activeagent` command line** (`activeagent`, `actionagent`; refs #619).
+  The gem ships an `activeagent` executable (stdlib `OptionParser` and
+  `Net::HTTP`, no new dependencies) that works with a dashboard over HTTP:
+  `login`/`logout` (named profiles in `~/.config/activeagent/credentials.yml`,
+  `0600`; `ACTIVEAGENT_URL`, `ACTIVEAGENT_API_KEY` and
+  `ACTIVEAGENT_INGEST_KEY` override them for CI), `status`,
+  `evals list|runs|run|report|import`, `catalogs list|import|export`
+  (`import --preview` shows what a document would change, `--mode merge`
+  keeps what it leaves out), `agents list|versions` and
+  `traces list|get|export|import`, with `--json` output and distinct exit
+  codes. `evals run --min-pass-rate 0.8` waits for the run and exits 4
+  below the threshold, for CI gating. Reads and runs go through the MCP
+  facade's dashboard tools with a dashboard API key; the imports and
+  `evals report` use the endpoints the framework's own reporters post to,
+  with the ingest key. A run, a catalog and a trace each move between
+  installs as one file: `evals report RUN --format json` writes the
+  version-1 envelope `evals import` posts (`--format html|md` the report
+  page or its Markdown, for a pull request comment), `catalogs export KEY`
+  the canonical document (YAML, or `--format json`) that `catalogs import`
+  reads, and `traces export TRACE` the payload `traces import` sends to
+  trace ingest. See `docs/framework/cli.md`.
 
 - **Four more dashboard tools on the MCP facade** (`actionagent`), the
   API-key routes the CLI needed: `catalogs_export` (a catalog's canonical
