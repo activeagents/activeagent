@@ -17,7 +17,7 @@ module ActiveAgent
   # @example Disable sanitization entirely
   #   ActiveAgent::ModelCapabilities.enabled = false
   module ModelCapabilities
-    SAMPLING_PARAMS = [ :temperature, :top_p ].freeze
+    SAMPLING_PARAMS = [ :temperature, :top_p, :top_k ].freeze
 
     # Model families that reject sampling parameters with a 400:
     # - Anthropic thinking-first models (Opus 4.7+, Opus 5, Sonnet 5,
