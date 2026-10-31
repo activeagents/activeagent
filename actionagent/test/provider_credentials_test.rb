@@ -83,7 +83,7 @@ class ProviderCredentialsTest < ActionDispatch::IntegrationTest
     agent = anthropic_agent
     keys = []
     stub_request(:post, ANTHROPIC_URL).to_return do |request|
-      keys << request.headers["X-Api-Key"]
+      keys << anthropic_key_sent(request)
       anthropic_reply
     end
 
@@ -174,7 +174,7 @@ class ProviderCredentialsTest < ActionDispatch::IntegrationTest
     ActionAgent.provider_key_scope = :personal_override
     keys = []
     stub_request(:post, ANTHROPIC_URL).to_return do |request|
-      keys << request.headers["X-Api-Key"]
+      keys << anthropic_key_sent(request)
       anthropic_reply("Pick an evaluation.")
     end
 
@@ -205,5 +205,13 @@ class ProviderCredentialsTest < ActionDispatch::IntegrationTest
     get "/activeagents/api/provider_models", params: { provider: "ollama" }
     assert_equal "live", response.parsed_body["source"]
     assert_equal "qwen-ada", response.parsed_body["models"].first
+  end
+
+  private
+
+  # The key a stubbed Anthropic request was signed with. The anthropic gem 1.x
+  # sends it as `x-api-key`; 2.0 sends `Authorization: Bearer <key>`.
+  def anthropic_key_sent(request)
+    request.headers["X-Api-Key"] || request.headers["Authorization"]&.delete_prefix("Bearer ")
   end
 end
