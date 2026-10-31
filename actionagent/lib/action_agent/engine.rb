@@ -1,5 +1,12 @@
 # frozen_string_literal: true
 
+# The class body below reads Zeitwerk's inflector. Rails requires Zeitwerk
+# only when an application sets up its autoloaders, which is after
+# Bundler.require has loaded this file; a host that reaches it earlier does so
+# by chance (Action Cable's engine loads it as a side effect). So the constant
+# has to come from here. Zeitwerk is a dependency of Active Support, so it is
+# always installed.
+require "zeitwerk"
 require_relative "assistant_request_filter"
 
 module ActionAgent

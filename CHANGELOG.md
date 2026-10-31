@@ -85,6 +85,19 @@ the MCP Services page cannot list or save servers of your own.
 
 ### Fixed
 
+- **The dashboard engine loads in a host without Action Cable**
+  (`actionagent`). The engine's class body camelizes its inflection
+  overrides with `Zeitwerk::Inflector` and did not require Zeitwerk itself.
+  Rails requires it only once the application sets up its autoloaders,
+  after `Bundler.require` has loaded the gem; until then the constant
+  exists only because Action Cable's engine loads it as a side effect. An
+  app generated with `--skip-action-cable`, or any API-only host, died at
+  boot with `uninitialized constant ActionAgent::Engine::Zeitwerk` (seen on
+  Rails 8.1.4; the require order is the same on every Rails since 7.0). The
+  engine requires Zeitwerk, a dependency of Active Support, before reading
+  it, and a test loads the engine in a fresh process right after `rails`,
+  with nothing in between.
+
 - **An evaluation judge job delivered twice scores its result once**
   (`actionagent`). The claim on a pending result was a conditional write on
   its timestamp, which turned away a stale reader but not a duplicate
@@ -134,6 +147,19 @@ the MCP Services page cannot list or save servers of your own.
   `failed_tool_calls` and `assert_tools_succeeded` see it. A server the
   provider runs itself (Anthropic's or OpenAI's hosted MCP) executes on the
   provider's side and is still not recorded.
+
+- **An agent run is executed by one job** (`actionagent`). The execution
+  job read a run's status, then wrote `running`, as two steps, and only
+  turned away a finished or paused run. A job delivered twice, or two
+  workers that both loaded the run as pending, each started a generation
+  for it, and a duplicate that arrived while the run was running started
+  another. The job now moves the run from pending to running in one
+  conditional update, as `CodeSessionJob` claims a session, and starts no
+  generation unless it was the one to do so. The database decides at the
+  write, so this holds on SQLite under Rails 7.2 too, where a row-lock read
+  followed by a write is refused once another worker has committed. Nothing
+  is held over the generation, so a cancel does not wait for one. A run
+  whose worker died after the claim stays running and is not run again.
 
 ## [1.9.6] - 2026-10-29
 
