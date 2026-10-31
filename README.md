@@ -63,6 +63,9 @@ bundle add openai
 # Opper (uses OpenAI-compatible API)
 bundle add openai
 
+# Cheaper Inference (uses OpenAI-compatible API)
+bundle add openai
+
 # DeepSeek (uses OpenAI-compatible API)
 bundle add openai
 
