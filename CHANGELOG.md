@@ -135,6 +135,19 @@ the MCP Services page cannot list or save servers of your own.
   `active_agent/evals` entry point loads the ActiveSupport array extension
   used to construct, parse and load catalogs, without loading the framework.
 
+- **An agent run is executed by one job** (`actionagent`). The execution
+  job read a run's status, then wrote `running`, as two steps, and only
+  turned away a finished or paused run. A job delivered twice, or two
+  workers that both loaded the run as pending, each started a generation
+  for it, and a duplicate that arrived while the run was running started
+  another. The job now moves the run from pending to running in one
+  conditional update, as `CodeSessionJob` claims a session, and starts no
+  generation unless it was the one to do so. The database decides at the
+  write, so this holds on SQLite under Rails 7.2 too, where a row-lock read
+  followed by a write is refused once another worker has committed. Nothing
+  is held over the generation, so a cancel does not wait for one. A run
+  whose worker died after the claim stays running and is not run again.
+
 ## [1.9.6] - 2026-10-29
 
 The dashboard on a phone, and the small finished pieces: the sidebar as a
