@@ -916,6 +916,79 @@ generator's migration `025_create_active_agent_scenario_catalogs`; a host
 installed before it runs `bin/rails generate action_agent:install` again to
 pick it up.
 
+## Your own MCP servers
+
+An agent can call the MCP servers the built-in catalog lists, the ones the
+host app registers in `ActionAgent.mcp_catalog`, and a checkout sandbox's app
+runtime. A dashboard user can also add a remote server of their own by URL,
+such as their app's MCP endpoint, under **MCP Services → Your MCP servers**:
+
+1. **Add server** and enter a name and the server's Streamable HTTP URL, for
+   example `https://app.example.com/mcp`. Add request headers when the server
+   needs them, such as `Authorization: Bearer …`.
+2. **Test** runs `tools/list` against the server and records the tools it
+   lists, or why it could not be reached.
+3. In an agent's **Tools** tab (or the builder's Configure step) the server is
+   listed beside the catalog, marked *your server*. Switch it on, and narrow
+   it to some of its tools if you like.
+
+The agent then names the server in `mcp_servers` under the key
+`custom:<id>`. Agent runs and scenario evaluation runs offer its tools to the
+model and call it with the stored headers, like any catalog server, and an
+evaluation's fix items name it when a missing tool is one it serves.
+
+A server belongs to its owner the way a provider key does: the account in a
+multi-tenant install, else the user. Every read and write is scoped to the
+caller's owner, and a run resolves `custom:<id>` among its agent's owner's
+servers only, so naming another tenant's id reaches nothing. Saving, testing
+and deleting ask the host's `permission_checker` for `:manage_credentials`.
+Switching a server off keeps it listed and stops every run from calling it;
+deleting it leaves agents naming a key that resolves to nothing, listed as
+*removed* in their Tools tab until switched off.
+
+**Header values are write-only.** They are encrypted at rest with the other
+credentials (see `ActionAgent.encrypt_credentials`) and never returned to the
+browser: the API and the page show each header's name with a masked value.
+When a server is edited, a header left blank keeps its stored value and a
+header removed from the form is deleted. The values are also scrubbed from
+recorded browser actions and from the dashboard's own output, like provider
+keys.
+
+**Private addresses are refused.** These servers are called from the
+dashboard's own network, so a URL that reaches a loopback, private,
+link-local or other non-public address is refused when it is saved (a
+literal address such as `http://10.0.0.5/` or `http://169.254.169.254/`, or
+`localhost`), and a host name that resolves to one is refused when it is
+called. The client then connects to the address it checked, so a DNS answer
+that changes in between cannot redirect it. A URL may not carry a user name
+or password either. For local development against a server on localhost,
+allow private addresses in the initializer:
+
+```ruby
+# config/initializers/action_agent.rb
+ActionAgent.configure do |config|
+  config.allow_private_mcp_hosts = Rails.env.development?
+end
+```
+
+Host registrations (`mcp_catalog`) and checkout sandbox runtimes are the
+host app's own configuration and are not affected by the setting.
+
+The page uses these endpoints, each scoped to the caller's owner:
+
+| Endpoint | What it does |
+|---|---|
+| `GET <mount>/api/mcp_server_configs` | The caller's servers, with masked headers, the last test result and the tools it found |
+| `POST <mount>/api/mcp_server_configs` | Adds one: `{ mcp_server_config: { name, url, description, enabled, headers: [{ name, value }] } }` |
+| `PATCH <mount>/api/mcp_server_configs/:id` | Changes one; a blank header value keeps the stored value, and omitting `headers` keeps them all |
+| `POST <mount>/api/mcp_server_configs/:id/test` | Runs `tools/list` and records the outcome; answers 200 with `ok: false` and the error when the server does not answer |
+| `DELETE <mount>/api/mcp_server_configs/:id` | Deletes one |
+
+The table comes with install migration 032
+(`create_active_agent_mcp_server_configs`). An existing install picks it up by
+running `bin/rails generate action_agent:install` again, which adds only the
+migrations it does not have yet, then `bin/rails db:migrate`.
+
 ## The MCP facade
 
 The dashboard is itself an MCP server: `POST <mount>/mcp` speaks Streamable

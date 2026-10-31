@@ -7,16 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-Upgrading: two dashboard migrations, 030 `add_evaluation_scoring_leases`
-(the scoring lease columns on `evaluation_scenario_results`) and 031
+Upgrading: three dashboard migrations, 030 `add_evaluation_scoring_leases`
+(the scoring lease columns on `evaluation_scenario_results`), 031
 `add_catalog_scenario_metadata` (the `metadata` column on
-`catalog_scenarios`): run `bin/rails generate action_agent:install --skip`
-and `bin/rails db:migrate`. Until they run, fanned-out runs keep scoring
-with the claim 1.9.3 uses, and catalog imports keep working but still drop
-scenario extensions; extensions discarded before the upgrade need the
-original document imported again.
+`catalog_scenarios`) and 032 `create_active_agent_mcp_server_configs` (the
+table behind a user's own MCP servers): run `bin/rails generate
+action_agent:install --skip` and `bin/rails db:migrate`. Until they run,
+fanned-out runs keep scoring with the claim 1.9.3 uses, catalog imports
+keep working but still drop scenario extensions (extensions discarded
+before the upgrade need the original document imported again), and
+the MCP Services page cannot list or save servers of your own.
 
 ### Added
+
+- **Your own MCP servers** (`actionagent`). A dashboard user adds a remote
+  MCP server by URL on the MCP Services page (*Your MCP servers*), with
+  optional request headers, tests it (`tools/list`, recording the tools it
+  serves) and enables it on agents from the Tools tab, where it is listed
+  beside the catalog as `custom:<id>`. Agent runs and scenario evaluation runs
+  call its tools, and evaluation fix items attribute them to it. Each server
+  belongs to an owner like a provider key (`MCPServerConfig`, install
+  migration 029), and every lookup, including a run's, is scoped to that
+  owner. Header values are encrypted at rest, never returned to the browser
+  (names with masked values; a blank value on update keeps the stored one),
+  and scrubbed from recorded output. Writes and tests ask for
+  `:manage_credentials`. A URL that reaches a loopback, private or
+  link-local address is refused when saved and when called (`MCPHostGuard`),
+  unless the host sets `ActionAgent.allow_private_mcp_hosts`, e.g. for local
+  development. API: `/api/mcp_server_configs` with a `test` member action.
 
 - **Evals in the test suite** (`activeagent`). An eval is an ordinary test
   under `test/evals`, collected by `rails test` like any other, whose

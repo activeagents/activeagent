@@ -11,15 +11,18 @@ module ActionAgent
   # explicit +mcp__server__tool+ namespace wins because the name said so,
   # then MCPCatalog's hints for the bare names of well-known servers, then
   # the servers the agent itself declares in +mcp_servers+ when one of them
-  # lists the tool. Nothing here reads telemetry: the resolver runs inside
-  # the request that serializes a run, and every lookup is a constant or a
-  # single agent attribute.
+  # lists the tool, then the servers the agent's owner added on the MCP
+  # Services page (MCPServerConfig, "custom:<id>"), by the tools their last
+  # connection test listed. Nothing here reads telemetry: the resolver runs
+  # inside the request that serializes a run, and every lookup is a constant,
+  # a single agent attribute, or one query for the owner's configurations.
   #
   # The status is what the fix item's action turns on:
   #
   #   "enabled"   — the agent's mcp_servers configuration names the server
-  #   "available" — the catalog (built-in or ActionAgent.mcp_catalog) knows
-  #                 the server and the agent has not enabled it
+  #   "available" — the catalog (built-in or ActionAgent.mcp_catalog) or the
+  #                 owner's enabled configurations know the server, and the
+  #                 agent has not enabled it
   #   nil         — the namespace named a server nothing here knows; the
   #                 report renders that as "unknown"
   #
@@ -60,14 +63,15 @@ module ActionAgent
 
       ActiveAgent::Telemetry::ToolOrigin.server_for(name).presence ||
         MCPCatalog.server_for_tool(name).presence ||
-        configured_tools[name]
+        configured_tools[name] ||
+        custom_tools[name]
     end
 
     # @param key [String] a server key
     # @return [String, nil] ENABLED, AVAILABLE, or nil when unknown
     def status_for(key)
       return ENABLED if configured_keys.include?(normalize(key))
-      return AVAILABLE if MCPCatalog.find(key)
+      return AVAILABLE if MCPCatalog.find(key) || custom_config(key)
 
       nil
     end
@@ -105,6 +109,7 @@ module ActionAgent
     # (which is what MCPCatalog.display_name falls back to as well).
     def display_name_for(key)
       return MCPCatalog.display_name(key) if MCPCatalog.find(key)
+      return custom_config(key).name if custom_config(key)
 
       configured_names[normalize(key)] || MCPCatalog.display_name(key)
     end
@@ -143,6 +148,29 @@ module ActionAgent
           map[name] ||= key unless name.blank?
         end
       end
+    end
+
+    # The agent's owner's enabled MCPServerConfig rows, read once. None
+    # without an agent: there is no owner to scope them to.
+    def custom_configs
+      @custom_configs ||= agent ? MCPServerConfig.for_owner(agent.try(:owner)).enabled.order(:id).to_a : []
+    end
+
+    def custom_config(key)
+      return nil unless MCPServerConfig.key?(key)
+
+      custom_configs.find { |config| config.server_key == key.to_s.strip }
+    end
+
+    # bare tool name => "custom:<id>", from the tools each of the owner's
+    # configurations listed when last tested. A configuration the agent
+    # enables claims a name before one it does not.
+    def custom_tools
+      @custom_tools ||= custom_configs
+        .sort_by { |config| [ configured_keys.include?(config.server_key) ? 0 : 1, config.id ] }
+        .each_with_object({}) do |config, map|
+          config.tool_names_list.each { |tool| map[tool] ||= config.server_key }
+        end
     end
 
     # The agent's mcp_servers as a list of entries. Agents store an Array of
