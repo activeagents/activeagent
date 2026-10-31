@@ -312,6 +312,98 @@ To run such a suite from the mounted dashboard rather than a script, return
 it from a host adapter — see
 [Running a host application's agent from the mounted dashboard](#running-a-host-application-s-agent-from-the-mounted-dashboard).
 
+### Jev as a judge
+
+A "System One" model generates no text. A request carries a `state` (the
+text to judge) and named questions — a Score over described levels, a
+Choice over options, a yes/no — and the answer is one structured decision
+per question with a calibrated probability behind it. Two of the three
+calls a judge serves end in exactly such a decision, so
+`ActiveAgent::Evals::Jev` builds a `Judge` that sends those to one and
+leaves the language tasks to an ordinary judge. Two servers speak the
+protocol: Jev, TypeSafe AI's hosted model (closed weights, an API key,
+billed on input tokens only), and [OpenJevX](https://github.com/muthuishere/openjevx),
+an Apache-2.0 re-implementation of about 0.4B parameters that answers on a
+laptop CPU in tens of milliseconds and runs as a container beside your own
+services. The judge is loaded by its own require and talks to either with
+the standard library's `Net::HTTP`, so it adds no gem.
+
+```ruby
+require "active_agent/evals/jev"
+
+text_judge = ActiveAgent::Evals::Judge.new(label: "claude-haiku-4-5") do |instructions:, prompt:|
+  JudgeAgent.prompt(message: prompt, instructions: instructions).generate_now.message.content
+end
+
+# Hosted Jev, the key from TYPESAFE_API_KEY:
+judge = ActiveAgent::Evals::Jev.judge(
+  label: "jev-latest",                  # how reports name the judge
+  api_key: ENV["TYPESAFE_API_KEY"],     # the default
+  model: "jev-latest",                  # the hosted default; also jev-1.13, jev-preview
+  base_url: "https://api.typesafe.ai",  # the default
+  text_judge: text_judge,               # optional
+  on_usage: ->(usage) { meter(usage) }  # optional
+)
+
+# OpenJevX on this machine, no key and no model name:
+judge = ActiveAgent::Evals::Jev.judge(
+  label: "openjevx",
+  base_url: ActiveAgent::Evals::Jev::OPENJEVX_BASE_URL,  # http://127.0.0.1:21118
+  text_judge: text_judge
+)
+
+ActiveAgent::Evals::Runner.new(scenarios:, models:, replay:, judge: judge, instructions: instructions).call
+```
+
+- **`:score`** (`score_task` and `score_criterion`) is one Score question
+  over the gem's own scoring prompt — the criterion or the task, the user's
+  message and the answer, without the closing request for JSON that a
+  language model needs. The question's criteria are five described levels,
+  from "fails completely" to "fully satisfies"; the model answers the
+  expected level, which is normalised to 0..1 by the last one and returned
+  as the `{"score": 0.8}` the gem's parser already reads and clamps.
+- **`:verdict`**'s winner is one Choice whose options are the compared
+  models' labels, each described by its results line (pass rate, mean score,
+  latency, cost, faults). The rationale is written by `text_judge`, asked
+  the same instructions and prompt; without one it is a sentence naming the
+  probability ("Chosen by Jev with probability 0.81."). A choice that is not
+  one of the labels is discarded, and the report falls back to its pass-rate
+  verdict.
+- **`:recommend`** is a language task and goes to `text_judge` whole; without
+  one it is nil, which the runner treats as no recommendation.
+- `on_usage:` is called after each answered call with
+  `{ "kind", "model", "input_tokens", "output_tokens", "cost" }`. Output
+  tokens are always 0 and the cost nil, since nothing is generated and the
+  price per input token is not yet known; input tokens are nil when the
+  server reports none, as OpenJevX does not. An error it raises is logged,
+  never allowed to cost the grade.
+
+A request that fails — the endpoint unreachable, a rejection (a 401 or 403
+says to check `TYPESAFE_API_KEY`), a body that is not JSON — raises inside
+the judge's block and so becomes a nil answer with a warning, as any judge
+failure does.
+
+**Running one locally.** `docker compose up -d --build` in OpenJevX's
+repository serves the protocol at `http://127.0.0.1:21118` with the model
+inside the container; the same model folder also runs in-process in Python
+(`openjevx.py` on its [Hugging Face page](https://huggingface.co/muthuishere/openjevx)).
+Point `base_url:` at it and omit the key. The opt-in test
+`test/evals/jev_openjevx_test.rb` runs the judge against such a server
+(`OPENJEVX_URL=http://127.0.0.1:21118 bin/test test/evals/jev_openjevx_test.rb`)
+and checks the shape of its judgement — a complete answer grades above a
+refusal, a verdict picks a compared model — so an install can verify the
+wire format without a vendor key. The heavier open alternatives
+(`autotrust/JEV-9B` and up, Qwen3.5 fine-tunes served with vLLM on a GPU)
+speak the same request shape and work the same way.
+
+**The wire format** lives in `ActiveAgent::Evals::Jev::Client` alone. It is
+the protocol as OpenJevX documents and serves it, which OpenJevX states
+matches TypeSafe's `POST /v1/systemone`; TypeSafe's own reference was not
+reachable when this was written, so against the hosted endpoint that is the
+best evidence rather than a confirmation. Every field of a request or a
+response is read in that one class, whose doc comment states the shapes, so
+a difference is a one-file fix.
+
 ## Faults
 
 | Fault | Meaning |
