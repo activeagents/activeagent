@@ -12,12 +12,13 @@ class SandboxBootApiTest < ActionDispatch::IntegrationTest
   # class.
   class SpecBackend
     class << self
-      attr_accessor :calls, :create_error, :boot_state, :log_pages
+      attr_accessor :calls, :create_error, :boot_state, :boot_error, :log_pages
 
       def reset!
         self.calls = []
         self.create_error = nil
         self.boot_state = nil
+        self.boot_error = nil
         self.log_pages = {}
       end
     end
@@ -36,6 +37,8 @@ class SandboxBootApiTest < ActionDispatch::IntegrationTest
 
     def boot_status(session)
       self.class.calls << [ :boot_status, session.session_id ]
+      raise self.class.boot_error if self.class.boot_error
+
       self.class.boot_state
     end
 
@@ -212,6 +215,20 @@ class SandboxBootApiTest < ActionDispatch::IntegrationTest
     assert_equal({ "boot" => nil, "resumable" => false, "logs" => false }, JSON.parse(response.body))
     get "/activeagents/api/sandboxes/#{session_id}/boot_log", params: { step: "setup" }
     assert_response :not_found
+  end
+
+  test "GET boot answers the backend's reason when it cannot report the boot, instead of 500" do
+    session_id = failed_checkout
+    SpecBackend.boot_error = RuntimeError.new("The Incus host at 10.10.0.2 did not answer")
+
+    get "/activeagents/api/sandboxes/#{session_id}/boot"
+
+    assert_response :success
+    body = JSON.parse(response.body)
+    assert_nil body["boot"]
+    assert_equal({ "backend" => "spec", "message" => "The Incus host at 10.10.0.2 did not answer" }, body["backend_error"])
+    assert_equal false, body["resumable"]
+    assert_equal true, body["logs"]
   end
 
   test "GET boot_log pages through a step's log" do

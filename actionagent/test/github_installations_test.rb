@@ -105,6 +105,17 @@ class GithubInstallationsTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "an organization membership GitHub refuses to show reports the missing Members permission, not not_admin" do
+    state = start_install
+    stub_app_user(installations: [ github_installation(account_type: "Organization", account_id: 555, login: "acme") ])
+    stub_membership("acme", status: 403)
+
+    get CALLBACK, params: { installation_id: INSTALLATION_ID, code: "app-code", state: state }
+
+    assert_redirected_to "/activeagents/settings?github_app=members_permission&tab=integrations"
+    assert_equal 0, ActionAgent::GithubInstallation.count
+  end
+
   test "a user installation on another GitHub account is refused" do
     state = start_install
     stub_app_user(installations: [ github_installation(account_type: "User", account_id: GITHUB_USER_ID + 1, login: "someone") ])

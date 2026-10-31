@@ -9,6 +9,8 @@ import {
   emptyToolsHint,
   fmtAgo,
   fmtDuration,
+  isCustomServer,
+  isRemovedCustomServer,
   isSandboxRuntime,
   isStoppedRuntime,
   isUndocumented,
@@ -421,6 +423,12 @@ export default function AgentToolsTab({ agent, formData, updateField, onSave, ha
                         <Badge tone="warning" size={10} title="This checkout sandbox has stopped; the agent still names its runtime">
                           not running
                         </Badge>
+                      )}
+                      {isCustomServer(service) && (
+                        <Badge tone="info" size={10} title="A server you added by URL on the MCP Services page">your server</Badge>
+                      )}
+                      {isRemovedCustomServer(service) && (
+                        <Badge tone="warning" size={10} title="This server was deleted from MCP Services; the agent still names it">removed</Badge>
                       )}
                       {isUndocumented(service) && (
                         <Badge size={10} title="Seen in your traffic but not in the platform catalog">undocumented</Badge>

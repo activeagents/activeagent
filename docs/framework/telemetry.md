@@ -231,7 +231,10 @@ The `actionagent` dashboard engine already implements this endpoint spec:
 add the gem, mount the engine, and its ingest API (`<mount>/api/traces`)
 receives traces from any app in your fleet — see
 [Self-Hosted Observability](/framework/self-hosted-observability). The
-requirements below are for building your own receiver instead.
+`activeagent` command line reads a stored trace back out of that dashboard
+as the same payload and posts it to another (`traces export`, `traces
+import`; see [Command Line](/framework/cli#traces)). The requirements below
+are for building your own receiver instead.
 
 ### Endpoint Requirements
 

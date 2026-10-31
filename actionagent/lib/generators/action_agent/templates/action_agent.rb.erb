@@ -215,6 +215,12 @@ ActionAgent.configure do |config|
   # config.github_app_client_secret = Rails.application.credentials.dig(:github_app, :client_secret)
   # config.github_app_private_key = Rails.application.credentials.dig(:github_app, :private_key)
   #
+  # With the App's webhook pointed at <mount>/api/github_app/webhooks, the
+  # secret its deliveries are signed with (GITHUB_APP_WEBHOOK_SECRET when
+  # unset). Settings then learns of an uninstall or suspension when it happens.
+  #
+  # config.github_app_webhook_secret = Rails.application.credentials.dig(:github_app, :webhook_secret)
+  #
   # Or an OAuth App, connected per owner with the callback URL
   # <mount>/api/github_connection/callback (GITHUB_CLIENT_ID and
   # GITHUB_CLIENT_SECRET when unset).
@@ -310,6 +316,17 @@ ActionAgent.configure do |config|
   #
   # Expired sandboxes are stopped by `bin/rails action_agent:sandbox:reap`.
   # Schedule it every few minutes.
+
+  # ==========================================================================
+  # MCP servers
+  # ==========================================================================
+  #
+  # Users add their own remote MCP servers on the MCP Services page. Their
+  # URLs may not reach a loopback, private or link-local address unless this
+  # is on: those servers are called from the dashboard's own network. Turn it
+  # on in development to test a server running on localhost.
+  #
+  # config.allow_private_mcp_hosts = Rails.env.development?
 
   # ==========================================================================
   # UI

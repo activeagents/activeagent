@@ -7,7 +7,322 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+Upgrading: three dashboard migrations, 030 `add_evaluation_scoring_leases`
+(the scoring lease columns on `evaluation_scenario_results`), 031
+`add_catalog_scenario_metadata` (the `metadata` column on
+`catalog_scenarios`) and 032 `create_active_agent_mcp_server_configs` (the
+table behind a user's own MCP servers): run `bin/rails generate
+action_agent:install --skip` and `bin/rails db:migrate`. Until they run,
+fanned-out runs keep scoring with the claim 1.9.3 uses, catalog imports
+keep working but still drop scenario extensions (extensions discarded
+before the upgrade need the original document imported again), and
+the MCP Services page cannot list or save servers of your own.
+
+### Added
+
+- **Your own MCP servers** (`actionagent`). A dashboard user adds a remote
+  MCP server by URL on the MCP Services page (*Your MCP servers*), with
+  optional request headers, tests it (`tools/list`, recording the tools it
+  serves) and enables it on agents from the Tools tab, where it is listed
+  beside the catalog as `custom:<id>`. Agent runs and scenario evaluation runs
+  call its tools, and evaluation fix items attribute them to it. Each server
+  belongs to an owner like a provider key (`MCPServerConfig`, install
+  migration 029), and every lookup, including a run's, is scoped to that
+  owner. Header values are encrypted at rest, never returned to the browser
+  (names with masked values; a blank value on update keeps the stored one),
+  and scrubbed from recorded output. Writes and tests ask for
+  `:manage_credentials`. A URL that reaches a loopback, private or
+  link-local address is refused when saved and when called (`MCPHostGuard`),
+  unless the host sets `ActionAgent.allow_private_mcp_hosts`, e.g. for local
+  development. API: `/api/mcp_server_configs` with a `test` member action.
+
+- **Evals in the test suite** (`activeagent`). An eval is an ordinary test
+  under `test/evals`, collected by `rails test` like any other, whose
+  `ActiveAgent::Evals::TestCase` skips it unless `EVALS` is on, so the
+  suite never calls a model by accident. `bin/rails test:evals` switches
+  evals on and runs them through the same runner (`TEST=path` narrows,
+  `TESTOPTS` passes through); `EVALS=1 bin/rails test ...` runs one file,
+  one line, or the whole suite with the evals in. The same switch gates an
+  RSpec suite (`filter_run_excluding eval: true unless
+  ActiveAgent::Evals::TestHelper.enabled?`, with `expect_with :minitest`
+  for the assertions). `require "active_agent/evals/test_helper"`
+  after `rails/test_help` gives `ActiveAgent::Evals::TestCase` and the
+  `TestHelper` module: `run_eval MyAgent.with(...).action` returns an
+  `ActiveAgent::Evals::Replay` — the answer, every tool call with its
+  arguments, result or error and timing, duration and tokens — and
+  `assert_answer_present`, `assert_output_contains` /
+  `refute_output_contains`, `assert_tool_called` (with an argument subset)
+  / `refute_tool_called` and `assert_tools_succeeded` read it, failing with
+  what the agent did. `assert_eval_passes` (and `score_eval`) scores the
+  replay as a dashboard run does and fails with the fault and the fix;
+  `run_eval_suite` replays a YAML suite across models and returns the
+  `Report`, which `assert_pass_rate` gates and `to_html` writes.
+  `ActiveAgent::Evals::Capture` is the assertion-free core: it runs a
+  generation into a `Replay`, capturing tool calls on the agent's
+  `tools_function` (where the telemetry tool spans are; MCP-served tools
+  are dispatched before that hook and are not recorded), replays under
+  another `model:` or `provider:` the way a comparison run does, and takes
+  a block for an agent run some other way. The framework's railtie now
+  loads the gem's rake tasks; the empty `activeagent_tasks.rake`
+  placeholder is gone.
+
+### Changed
+
+- **Ranked comparison tables and value pills** (`actionagent`). Wherever the
+  dashboard compares rows, they now read through one pattern: a
+  `ComparisonTable` with two-line mono headers that sort on click and a
+  rank-tinted `ValuePill` in every numeric cell, banded by tercile in the
+  column's better direction or by fixed thresholds where the domain has them
+  (pass rates at 85 and 50), with missing values unranked and sorted last,
+  and a visually hidden rank word so colour is never the only signal. Applied
+  to a run's model comparison table and the Evaluations leaderboard, the
+  scenario matrix (the key leads each step with the prompt under it, one
+  score pill per model, cost and time pills per scenario, the tools level
+  stacking tool call, time, tokens and cost pills), each opened result's
+  score, time, tokens and cost strip, the Metrics overview's change pills and
+  the home page's Top Agents list. Under 600px a table stacks each row to
+  labelled pills.
+
 ### Fixed
+
+- **The dashboard engine loads in a host without Action Cable**
+  (`actionagent`). The engine's class body camelizes its inflection
+  overrides with `Zeitwerk::Inflector` and did not require Zeitwerk itself.
+  Rails requires it only once the application sets up its autoloaders,
+  after `Bundler.require` has loaded the gem; until then the constant
+  exists only because Action Cable's engine loads it as a side effect. An
+  app generated with `--skip-action-cable`, or any API-only host, died at
+  boot with `uninitialized constant ActionAgent::Engine::Zeitwerk` (seen on
+  Rails 8.1.4; the require order is the same on every Rails since 7.0). The
+  engine requires Zeitwerk, a dependency of Active Support, before reading
+  it, and a test loads the engine in a fresh process right after `rails`,
+  with nothing in between.
+
+- **An evaluation judge job delivered twice scores its result once**
+  (`actionagent`). The claim on a pending result was a conditional write on
+  its timestamp, which turned away a stale reader but not a duplicate
+  delivered after the claim: that one read the new timestamp and asked the
+  judge to score the result again. A claim now takes a 30-minute lease
+  (`scoring_token`, `scoring_expires_at`) that a fresh reader cannot take
+  while it is live, and a worker that finishes after its lease was
+  reclaimed cannot overwrite its successor's result. A delivery that finds
+  a live lease, such as the queue's redelivery after a worker died
+  mid-judge, enqueues the job again for when the lease expires, so the run
+  still completes. Without migration 030 the judge job keeps the timestamp
+  claim instead of failing on the missing columns.
+
+- **Keep scenario catalog extension fields** (`activeagent`, `actionagent`).
+  Opaque scenario fields survive parsing, YAML/JSON export, database reload,
+  standard-field edits and storage restore. Their changes affect import
+  previews and catalog digests, including when only an extension changes.
+  Empty values and literal `metadata` keys are preserved; canonical format
+  fields cannot be replaced through the metadata container.
+
+- **Bound trace console list limits** (`actionagent`). The console defaults
+  to 50 recent matching traces, clamps integer limits to 1–1000, and uses
+  the default for malformed values. Its documentation describes the bounded
+  recent list rather than claiming pagination.
+
+- **Select trace time windows in dark mode** (`actionagent`). The dark
+  Traces header includes the shared time-window selector and zoom controls,
+  including when embedded on an agent page or when the window is empty.
+
+- **Show tool usage in both dashboard themes** (`actionagent`). The Traces
+  page renders the same tool counts, durations, failures and empty state
+  in dark and light mode, using the shared telemetry colors.
+
+- **Load evaluation catalogs without Rails** (`activeagent`). The standalone
+  `active_agent/evals` entry point loads the ActiveSupport array extension
+  used to construct, parse and load catalogs, without loading the framework.
+
+- **An agent run is executed by one job** (`actionagent`). The execution
+  job read a run's status, then wrote `running`, as two steps, and only
+  turned away a finished or paused run. A job delivered twice, or two
+  workers that both loaded the run as pending, each started a generation
+  for it, and a duplicate that arrived while the run was running started
+  another. The job now moves the run from pending to running in one
+  conditional update, as `CodeSessionJob` claims a session, and starts no
+  generation unless it was the one to do so. The database decides at the
+  write, so this holds on SQLite under Rails 7.2 too, where a row-lock read
+  followed by a write is refused once another worker has committed. Nothing
+  is held over the generation, so a cancel does not wait for one. A run
+  whose worker died after the claim stays running and is not run again.
+
+## [1.9.6] - 2026-10-29
+
+The dashboard on a phone, and the small finished pieces: the sidebar as a
+drawer and the interactions, agents, evaluations and traces views laid out
+for a phone's width; agents and evaluations first in the sidebar; the
+appearance following the OS, with the agent interactions page dark when the
+dashboard is; the results that moved since the run before marked in the
+step box; and a project page that says why its sandbox backend did not
+answer instead of failing to load. All of it is `actionagent`; the
+framework gem moves to 1.9.6 with it and is otherwise unchanged.
+
+Upgrading: no migration and nothing to run; `bundle update activeagent
+actionagent`.
+
+### Added
+
+- **The dashboard follows the system appearance** (`actionagent`). Settings
+  → Appearance offers System, Light and Dark; System (the default when
+  nothing was chosen) follows the OS light/dark setting and changes with it
+  while the page is open. Light and Dark are fixed, as the old toggle's
+  choices were, and a choice that toggle saved still holds. The header's
+  sun/moon button flips to the opposite of what shows and saves it as a
+  fixed choice; pick System on the settings page to follow the OS again.
+- **What changed since the last run** (`actionagent`). A scenario suite's
+  step box marks each result that moved against the latest earlier complete
+  run sharing one of its models: ▲ where a failure now passes, ▼ where a pass
+  now fails, ○ where the replay errored this time. The cell's tooltip names
+  the earlier result and run, and a `changed vs #N` chip counts each kind and
+  filters the box to the scenarios that moved.
+
+### Changed
+
+- **The dashboard works on a phone** (`actionagent`; closes #653). Below
+  768px the sidebar is a drawer behind a menu button in the header, and the
+  interactions, agents, evaluations and traces views lay out for the width:
+  headers, controls, chart legends and stat tiles wrap or stack; the
+  fixed-width meta strips fold into their cards; the agent interactions page
+  shows one pane at a time, with a switch between the runs and the open run;
+  the new-interaction picker is a bottom sheet; the agent editor's tab strip
+  and the runs × scenarios matrix scroll inside their boxes, the matrix with
+  a sticky first column; and nothing scrolls the page sideways. The folds
+  that sit beside the fixed sidebar switch below 1024px instead, since at
+  768px the content column is phone-sized. From 1024px up the layout is as
+  it was. Layout only: no route, path, view or Ruby change.
+- **Agents and evaluations lead the sidebar** (`actionagent`). The first
+  group is Ask ActiveAgents, Agents, New Agent, Run Agents, Evaluations and
+  Scenarios; Observability keeps Traces, Interactions, Sessions and Metrics;
+  a new Build group holds Projects, Tools and MCP Services; Workspace is
+  unchanged. Every path and view is the same, only the order and grouping.
+
+### Fixed
+
+- **The agent interactions page follows the dark theme** (`actionagent`). It
+  was written in Tailwind's grey scale (white panes, grey text) and stayed
+  light under the dark theme at every width, with its run stream rendered
+  light too. Its surfaces, borders and text now use the dashboard's tokens,
+  as `aa-*` utilities in `dashboard.css` that take Tailwind's variants; its
+  source and run/sessions toggles are the shared segmented control; and the
+  stream renders in the theme that shows.
+- **A sandbox backend that cannot report a boot no longer breaks the project
+  page** (`actionagent`; #650). `GET /api/projects/:id/boot` answered 500
+  whenever the backend raised while reading the boot (no sandbox host
+  configured, the host unreachable, a container that had not written its
+  state yet), so the project page showed "Could not load the project" under
+  "sandbox booting" and stopped following the boot. It now answers 200 with
+  `boot` null and `backend_error` naming the backend and the scrubbed
+  reason; the page says no sandbox backend answered, with that reason,
+  beside the boot's own failure when it failed. `GET
+  /api/sandboxes/:session_id/boot` answers the same way.
+
+## [1.9.5] - 2026-10-28
+
+The `activeagent` command line: the gem's third surface beside the dashboard
+and its API, working with a dashboard over HTTP from a terminal or a CI job,
+and the facade tools it needed. A run, a scenario catalog and a trace each
+move between installs as one file. The framework and the dashboard engine
+move to 1.9.5 together.
+
+Upgrading: `rails generate action_agent:install` and `rails db:migrate` add
+the GitHub App webhook deliveries table (below). The CLI needs `actionagent`
+1.9.5 on the dashboard for `catalogs export`, `catalogs import --preview`,
+`agents versions` and `traces export` (the facade's new tools), and 1.9.3
+for `evals report` (the report export); an older dashboard answers those
+commands with exit code 5.
+
+### Added
+
+- **Evaluation runs published while they run** (`activeagent`, `actionagent`).
+  `ActiveAgent::Evals::Publisher#progress` sends the results so far as a
+  `"status": "running"` envelope, and the collector stores them as a running
+  run that the Evaluations page follows live; each later delivery under the
+  run_id replaces the results until `#call` completes the run. Only the first
+  delivery is admitted and counted. A progress delivery after completion
+  changes nothing. The collector lists `"progress"` in the `capabilities` of
+  its readiness answer, and `#progress` sends nothing to a collector that does
+  not (`#supports_progress?`), since an older one would store the partial
+  report as complete.
+- **Imported evaluation runs keep their dates** (`actionagent`). The
+  collector dates a run by its report's `metadata.finished`, which an export
+  carries, so an exported run imported into another install keeps its place
+  in the run history instead of reading as just run. A report naming no
+  finish time is dated on arrival, and a malformed one is refused.
+- **`activeagent` command line** (`activeagent`, `actionagent`; refs #619).
+  The gem ships an `activeagent` executable (stdlib `OptionParser` and
+  `Net::HTTP`, no new dependencies) that works with a dashboard over HTTP:
+  `login`/`logout` (named profiles in `~/.config/activeagent/credentials.yml`,
+  `0600`; `ACTIVEAGENT_URL`, `ACTIVEAGENT_API_KEY` and
+  `ACTIVEAGENT_INGEST_KEY` override them for CI), `status`,
+  `evals list|runs|run|report|import`, `catalogs list|import|export`
+  (`import --preview` shows what a document would change, `--mode merge`
+  keeps what it leaves out), `agents list|versions` and
+  `traces list|get|export|import`, with `--json` output and distinct exit
+  codes. `evals run --min-pass-rate 0.8` waits for the run and exits 4
+  below the threshold, for CI gating. Reads and runs go through the MCP
+  facade's dashboard tools with a dashboard API key; the imports and
+  `evals report` use the endpoints the framework's own reporters post to,
+  with the ingest key. A run, a catalog and a trace each move between
+  installs as one file: `evals report RUN --format json` writes the
+  version-1 envelope `evals import` posts (`--format html|md` the report
+  page or its Markdown, for a pull request comment), `catalogs export KEY`
+  the canonical document (YAML, or `--format json`) that `catalogs import`
+  reads, and `traces export TRACE` the payload `traces import` sends to
+  trace ingest. See `docs/framework/cli.md`.
+
+- **Four more dashboard tools on the MCP facade** (`actionagent`), the
+  API-key routes the CLI needed: `catalogs_export` (a catalog's canonical
+  document as YAML or JSON, whole or one product or set), `catalogs_preview`
+  (what `catalogs_import` would change, writing nothing), `agents_versions`
+  (an agent's versions with their diffs, as `GET /api/agents/:id/versions`)
+  and `traces_export` (one trace, whole and untruncated, as the payload
+  `POST <mount>/api/traces` takes, so a trace moves between installs).
+  `catalogs_import` takes `mode: replace|merge` as the API does. Every run
+  summary (`GET /api/evaluations`, the facade's `evaluations_get`,
+  `evaluations_run` and `evaluation_runs_get`) now carries `run_id`, the
+  handle `GET <mount>/api/evaluation_reports/:run_id` takes.
+
+- **GitHub App webhooks** (`actionagent`). `POST <mount>/api/github_app/webhooks`
+  receives the App's deliveries, verified with `X-Hub-Signature-256` under
+  `ActionAgent.github_app_webhook_secret` (falling back to
+  `GITHUB_APP_WEBHOOK_SECRET`; unset, the endpoint answers 404), and applies
+  them in `ActionAgent::GithubWebhookJob`: an uninstall marks the linked
+  installation removed, suspend and unsuspend set and clear `suspended_at`,
+  accepted permissions are recorded, a repository removed from the
+  installation leaves the owner's selection, and a revoked App authorization
+  deletes the user's stored connection when connections authorize through the
+  App. Each `X-GitHub-Delivery` is recorded for seven days, so a redelivery
+  is a no-op. Ships a new migration,
+  `create_active_agent_github_webhook_deliveries`; run
+  `rails generate action_agent:install` and `rails db:migrate` to add it.
+
+### Fixed
+
+- **Sandbox sign-in recognises Claude Code 2.1's authorization page**
+  (`actionagent`). "Sign in with your Claude subscription" on a local sandbox
+  stayed at "Preparing Claude's authorization page": the CLI now sends
+  sign-ins to `claude.com/cai/oauth/authorize` and prints the link as a
+  terminal hyperlink whose text repeats the URL, which the flow neither
+  accepted nor cut at the hyperlink's end. Both are read now, and
+  `claude.ai` and `platform.claude.com` still are.
+- **Projects accept GitHub App installations** (`actionagent`). A dashboard
+  that runs only the GitHub App could link an installation but not create a
+  project ("GitHub is not connected"). The New Project checklist now counts a
+  usable installation as connected, `GET /api/projects/repositories` lists
+  the installations' repositories together with the OAuth connection's, and
+  the preflight, secret discovery and creation reach a repository through the
+  installation first, as its checkout does, with a token minted for reading
+  that one repository. Picking a repository the installation has not
+  selected selects it there. A removed or suspended installation answers
+  `installation_unavailable`.
+- **Report a missing Members permission when linking an organization's
+  GitHub App installation** (`actionagent`). GitHub answers the membership
+  check with 403 while the App lacks the organization permission Members
+  (read); the callback now reports `members_permission` instead of
+  `not_admin`. The dashboard guide documents the permission, and that the
+  dashboard's callback URL must be the App's first.
 
 - **Boot on Ruby 3.4 and 4.0 with bootsnap 1.24.6 or newer** (`actionagent`).
   `ProviderKey#owner_record` unwrapped delegators with

@@ -14,7 +14,8 @@ module ActionAgent
   #                      project's secrets and bootstrap reach it
   #   execution          agent execution is enabled
   #   github             a GitHub App or OAuth app is configured
-  #   github_connection  the owner connected GitHub
+  #   github_connection  the owner linked a usable GitHub App installation
+  #                      or connected GitHub through OAuth
   #   model_credentials  credentials for the model the project's agent
   #                      runs on (not blocking)
   #   browser            a browser for the project's sandbox, started and
@@ -24,7 +25,8 @@ module ActionAgent
     Item = Struct.new(:key, :label, :ok, :blocking, :detail, :fix, keyword_init: true)
 
     # @param owner [Object, nil] the caller's owner, for its credentials
-    # @param github_connected [Boolean]
+    # @param github_connected [Boolean] whether the owner has a usable GitHub
+    #   App installation or an OAuth connection
     # @param base_url [String] the engine's absolute mount URL, for callback URLs
     # @param environment [ActiveSupport::EnvironmentInquirer]
     def initialize(owner:, github_connected:, base_url:, environment: Rails.env)
@@ -137,9 +139,10 @@ module ActionAgent
     end
 
     def github_connection_item
+      fix = github[:mode] == "app" ? "Install the GitHub App in Settings → Integrations" : "Connect GitHub in Settings → Integrations"
       Item.new(key: "github_connection", label: "GitHub connection", ok: @github_connected, blocking: true,
         detail: @github_connected ? "Connected" : "GitHub is not connected",
-        fix: @github_connected ? nil : "Connect GitHub in Settings → Integrations")
+        fix: @github_connected ? nil : fix)
     end
 
     def default_model

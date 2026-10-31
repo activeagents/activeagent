@@ -6,13 +6,12 @@ module ActionAgent
 
     def perform(run_id)
       run = AgentRun.find(run_id)
-      # Anything already finished — complete, failed or cancelled — is never
-      # executed again, and neither is a run waiting for input, which only
-      # AgentResumeJob continues. A retry of a failed run would re-run the
-      # generation.
-      return if run.finished? || run.awaiting_input?
+      # Only a pending run is executed. A finished run (complete, failed or
+      # cancelled) is never executed again, a run waiting for input only
+      # AgentResumeJob continues, and a running run already has a worker. A
+      # retry of a failed run would re-run the generation.
+      return unless claim_pending(run)
 
-      run.update!(status: :running, started_at: Time.current)
       run.add_log("Starting execution", level: :info)
 
       begin
@@ -37,6 +36,27 @@ module ActionAgent
     end
 
     private
+
+    # Moves the run from pending to running in one conditional update, as
+    # CodeSessionJob#start claims a session, and returns whether this job is
+    # the one that did. The write checks the status itself, so of two
+    # workers that loaded the run as pending only the first to write
+    # executes it, and the other starts no generation, on every database. A
+    # read under the row lock followed by a write would be refused on SQLite
+    # with Rails 7.2, whose deferred transactions cannot write once another
+    # writer has committed. Nothing is held over the generation, so a cancel
+    # never waits for it. The update skips callbacks, so the status change is
+    # broadcast here.
+    def claim_pending(run)
+      now = Time.current
+      claimed = AgentRun.where(id: run.id, status: AgentRun.statuses[:pending])
+        .update_all(status: AgentRun.statuses[:running], started_at: now, updated_at: now)
+      return false if claimed.zero?
+
+      run.reload
+      run.broadcast_update
+      true
+    end
 
     def execute_agent(agent_record, run)
       AgentExecutionService.call(agent_record, run)

@@ -184,7 +184,12 @@ telemetry:
 The generator mounts the engine at `/activeagents` — open it and every
 generation appears as a trace. See
 [docs/framework/dashboard.md](docs/framework/dashboard.md) for
-authentication, remote ingestion, and multi-tenant mode. The hosted
+authentication, remote ingestion, and multi-tenant mode. The gem's
+`activeagent` command line works with that dashboard from a terminal or a
+CI job — `activeagent evals run "Support orders" --min-pass-rate 0.8` fails
+a build below the threshold, and runs, scenario catalogs and traces move
+between installs as JSON files; see
+[docs/framework/cli.md](docs/framework/cli.md). The hosted
 platform at [activeagents.ai](https://activeagents.ai) runs this same
 engine multi-tenant, adding what a hosted product has to have — accounts,
 plans, billing, quotas and managed sandboxes; every workspace starts with
@@ -201,6 +206,7 @@ a free low-volume trial.
 - **Agent-as-Tool Delegation**: Hand work to sub-agents with declared schemas, cost/latency budgets, and swappable backends
 - **Context Management**: Maintain conversation history across interactions
 - **Structured Output**: Define JSON schemas for predictable responses
+- **Command Line**: `activeagent` runs evaluations and gates CI on a pass rate from a terminal, and moves runs, scenario catalogs and traces between dashboards as JSON
 
 ## Examples
 

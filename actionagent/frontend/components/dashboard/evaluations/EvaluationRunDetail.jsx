@@ -14,6 +14,7 @@ import ModelComparisonTable from './ModelComparisonTable';
 import SpendStrip from './SpendStrip';
 import CriteriaFooter from './CriteriaFooter';
 import CopyFixPromptButton, { dashboardUrl } from './CopyFixPromptButton';
+import CopyLinkButton from './CopyLinkButton';
 import { samplingFixPromptMarkdown } from '../../../utils/fixPrompt.mjs';
 
 // One run of a sampling evaluation, opened from its runs list: what it cost
@@ -204,6 +205,12 @@ export default function EvaluationRunDetail({
               {`#${runNumber(candidate, index, runs, runCount)}`}
             </Chip>
           ))}
+          <CopyLinkButton
+            evaluationId={evaluation.id}
+            runId={run.id}
+            testId="run-copy-link"
+            title="Copy a link that opens this run, for a teammate in your organization"
+          />
           <Button variant="primary" disabled={running} onClick={onRun} testId="run-again-button">{running ? 'Running…' : 'Run again'}</Button>
         </div>
       </div>
@@ -228,7 +235,7 @@ export default function EvaluationRunDetail({
         {models.length > 1 && (
           <ModelComparisonTable rows={modelComparisonRows(run, { columns: models })} unit="interaction" judgedBy={verdict?.judge || null} judgeEstimated={spend?.judge?.estimated ?? true} />
         )}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 12 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(260px, 100%), 1fr))', gap: 12 }}>
           {columns.map((model) => {
             const card = modelScorecard(run, model);
             const cohort = cohortFor(model);
@@ -371,7 +378,7 @@ export default function EvaluationRunDetail({
           <span style={mono()}>{items.length ? plural(items.length, 'item') : 'nothing'}</span>
         </div>
         {items.length ? (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(320px, 100%), 1fr))', gap: 12 }}>
             {items.map((item) => <FixCard key={item.kind} item={item} evaluation={evaluation} run={run} number={number} />)}
           </div>
         ) : (

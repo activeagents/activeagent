@@ -10,9 +10,11 @@ module ActiveAgent
   module Evals
     # Publishes a completed report without replaying the agent. The caller must
     # retain run_id when retrying: compatible collectors treat that identity as
-    # immutable within the authenticated account. Delivery is blocking and does
-    # not follow redirects with the account's bearer credential. +verify!+ asks
-    # the collector whether it is up and accepts the key before a run is paid for.
+    # immutable within the authenticated account once the report is complete.
+    # Delivery is blocking and does not follow redirects with the account's
+    # bearer credential. +verify!+ asks the collector whether it is up and
+    # accepts the key before a run is paid for, and +progress+ shows a run's
+    # results so far while it is still running.
     #
     # Every failure to deliver raises Error. Invalid arguments raise
     # ArgumentError before anything is sent.
@@ -94,19 +96,35 @@ module ActiveAgent
       # report may be a Report or its saved JSON hash. Full prompts, answers and
       # tool results are included; applications should make publication opt-in.
       def call(report:, run_id:, source:, agent_name:, suite:)
-        body = encode(self.class.envelope(report: report, run_id: run_id, source: source, agent_name: agent_name, suite: suite))
-        raise Error, "Evaluation report exceeds the 2 MiB delivery limit; publish a smaller selection" if body.bytesize > MAX_BYTES
+        envelope = self.class.envelope(report: report, run_id: run_id, source: source, agent_name: agent_name, suite: suite)
+        publish(envelope, accepted: %w[complete], receipt: "completion receipt")
+      end
 
-        deliver("retain the report and run_id for retry") do
-          response = post(body)
-          raise rejection(response) unless %w[200 201].include?(response.code)
-
-          receipt = JSON.parse(response.body.to_s)
-          unless receipt.is_a?(Hash) && receipt["run_id"] == run_id && receipt["status"] == "complete" && receipt["id"] && receipt["evaluation_id"]
-            raise Error.new("Evaluation collector returned an invalid completion receipt; retain the report and run_id for retry", retryable: true)
-          end
-          receipt
+      # Returns the collector's receipt for the results +report+ holds so far,
+      # which the collector shows as a running run under +run_id+. Each call
+      # replaces the results the previous one sent; +call+ with the finished
+      # report under the same run_id completes the run. The receipt's status
+      # is "running", or "complete" when the run already finished.
+      #
+      # Raises Error, without sending the report, when the collector does not
+      # list "progress" among its capabilities (see +supports_progress?+): a
+      # collector that predates progress would store the partial report as
+      # complete.
+      def progress(report:, run_id:, source:, agent_name:, suite:)
+        unless supports_progress?
+          raise Error, "Evaluation collector does not accept progress; publish the finished report with call"
         end
+
+        envelope = self.class.envelope(report: report, run_id: run_id, source: source, agent_name: agent_name, suite: suite, status: "running")
+        publish(envelope, accepted: %w[running complete], receipt: "progress receipt")
+      end
+
+      # Returns true when the collector accepts +progress+. Asks it once, with
+      # the probe +verify!+ sends, unless +verify!+ already has; raises as
+      # +verify!+ does.
+      def supports_progress?
+        verify! if @capabilities.nil?
+        @capabilities.include?("progress")
       end
 
       # Returns true when the collector is up and accepts the API key, without
@@ -116,6 +134,8 @@ module ActiveAgent
       # only that one, is the ready answer. Call it before an expensive run, so
       # a stopped collector or a refused key fails before the first model call
       # rather than after the last one.
+      #
+      # The refusal's +capabilities+ is what +supports_progress?+ reads.
       #
       # Raises Error for anything else: a rejection other than 422, with the
       # status, detail and guidance +call+ would carry (401 for a refused key,
@@ -128,7 +148,10 @@ module ActiveAgent
           response = post("{}")
           if response.code == "422"
             detail = collector_detail(response.body)
-            next true if detail&.match?(/\bversion\b/)
+            if detail&.match?(/\bversion\b/)
+              @capabilities = collector_capabilities(response.body)
+              next true
+            end
 
             raise Error.new("Evaluation collector answered HTTP 422 without refusing the empty envelope as a version-1 report, " \
                             "so it is not a compatible collector; check the endpoint", status: 422, detail: detail)
@@ -144,9 +167,12 @@ module ActiveAgent
       # collector's export of a stored run returns, so the export can be
       # posted again. report may be a Report or its saved JSON hash.
       #
+      # `status: "running"` marks the envelope +progress+ sends; a complete
+      # report's envelope carries no status.
+      #
       # Raises ArgumentError for an identity that is not a nonempty string,
       # or a report that is neither.
-      def self.envelope(report:, run_id:, source:, agent_name:, suite:)
+      def self.envelope(report:, run_id:, source:, agent_name:, suite:, status: nil)
         identities = { "run_id" => run_id, "source" => source, "agent_name" => agent_name, "suite" => suite }
         identities.each do |key, value|
           raise ArgumentError, "#{key} must be a nonempty string" unless value.is_a?(String) && !value.strip.empty?
@@ -154,10 +180,39 @@ module ActiveAgent
         hash = report.to_h if report.respond_to?(:to_h) && !report.nil? && !report.is_a?(Array)
         raise ArgumentError, "report must be a Report or its saved JSON hash" unless hash.is_a?(Hash)
 
-        identities.merge("version" => 1, "report" => hash)
+        envelope = identities.merge("version" => 1, "report" => hash)
+        status ? envelope.merge("status" => status) : envelope
       end
 
       private
+
+      # Delivers +envelope+ and returns the collector's receipt, which must name
+      # the envelope's run_id, a stored run, and one of the +accepted+ statuses.
+      def publish(envelope, accepted:, receipt:)
+        body = encode(envelope)
+        raise Error, "Evaluation report exceeds the 2 MiB delivery limit; publish a smaller selection" if body.bytesize > MAX_BYTES
+
+        deliver("retain the report and run_id for retry") do
+          response = post(body)
+          raise rejection(response) unless %w[200 201].include?(response.code)
+
+          answer = JSON.parse(response.body.to_s)
+          unless answer.is_a?(Hash) && answer["run_id"] == envelope["run_id"] && accepted.include?(answer["status"]) &&
+                 answer["id"] && answer["evaluation_id"]
+            raise Error.new("Evaluation collector returned an invalid #{receipt}; retain the report and run_id for retry", retryable: true)
+          end
+          answer
+        end
+      end
+
+      # The string entries of a JSON object body's +capabilities+ array, or none.
+      def collector_capabilities(body)
+        parsed = JSON.parse(body.to_s)
+        list = parsed["capabilities"] if parsed.is_a?(Hash)
+        list.is_a?(Array) ? list.grep(String).freeze : [].freeze
+      rescue JSON::ParserError, EncodingError
+        [].freeze
+      end
 
       # Posts +body+ to the endpoint with the bearer key and the delivery timeouts.
       def post(body)

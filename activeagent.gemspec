@@ -9,8 +9,11 @@ Gem::Specification.new do |spec|
   spec.email = "jusbowen@gmail.com"
   # The dashboard lives in the sibling `actionagent` gem (actionagent/), so
   # nothing under it ships here.
-  spec.files = Dir["CHANGELOG.md", "README.md", "LICENSE", "lib/**/*"]
+  spec.files = Dir["CHANGELOG.md", "README.md", "LICENSE", "lib/**/*", "exe/*"]
   spec.require_paths = "lib"
+  # The `activeagent` command line (lib/active_agent/cli.rb).
+  spec.bindir = "exe"
+  spec.executables = [ "activeagent" ]
   spec.homepage = "https://activeagents.ai"
   spec.license = "MIT"
   # activeagents-telemetry, a hard dependency, requires Ruby >= 3.2 in every

@@ -102,7 +102,9 @@ export const META_COLUMN = {
 // `cells` are `{ key, content, width, title, empty, align }`: `width` in
 // pixels (omitted only for a leading content-sized column), `title` the
 // tooltip when there is a value and `empty` the one explaining its absence.
-export function MetaStrip({ cells, darkMode, gap = 16, className = '', style }) {
+// A `className` replaces the default `grid`, so a caller can decide at which
+// widths the strip renders at all (MetaCells passes `hidden lg:grid`).
+export function MetaStrip({ cells, darkMode, gap = 16, className = 'grid', style }) {
   const colors = telemetryColors(darkMode);
   const shown = (cells || []).filter(Boolean);
   if (shown.length === 0) return null;
@@ -111,7 +113,6 @@ export function MetaStrip({ cells, darkMode, gap = 16, className = '', style }) 
     <div
       className={`flex-shrink-0 text-sm ${className}`}
       style={{
-        display: 'grid',
         gridTemplateColumns: shown.map((cell) => (cell.width ? `${cell.width}px` : 'minmax(0, auto)')).join(' '),
         alignItems: 'center',
         columnGap: `${gap}px`,
@@ -135,6 +136,35 @@ export function MetaStrip({ cells, darkMode, gap = 16, className = '', style }) 
         );
       })}
     </div>
+  );
+}
+
+// The strip at every width. From md up it is the MetaStrip above, columns
+// held. Below md those columns (some 450px of them) cannot fit beside a
+// title on a 360px screen, so the same cells read as one wrapping line of
+// values instead — only the filled ones, since with no columns to hold there
+// is nothing for a dash to line up with. Use this wherever an object header
+// has to read on a phone; use MetaStrip alone inside a box that scrolls.
+export function MetaCells({ cells, darkMode, className = '', ...strip }) {
+  const colors = telemetryColors(darkMode);
+  const filled = (cells || []).filter((cell) => cell && cell.content != null && cell.content !== false && cell.content !== '');
+  return (
+    <>
+      <MetaStrip cells={cells} darkMode={darkMode} className={`hidden lg:grid ${className}`} {...strip} />
+      {filled.length > 0 && (
+        <div
+          className="lg:hidden flex flex-1 flex-wrap items-center gap-x-3 gap-y-1 min-w-0 text-xs"
+          style={{ color: colors.textSecondary }}
+          data-testid="meta-cells"
+        >
+          {filled.map((cell) => (
+            <span key={cell.key} title={cell.title || undefined} className="min-w-0 max-w-full truncate">
+              {cell.content}
+            </span>
+          ))}
+        </div>
+      )}
+    </>
   );
 }
 
@@ -200,6 +230,10 @@ export function PreviewLines({ lines, darkMode, onClick, indent = 0, size = '12p
       className="min-w-0"
       style={{
         display: 'grid',
+        // One column no wider than the block: an implicit `auto` column
+        // sizes to the unbroken line, so the lines ran 700px past a phone's
+        // edge (clipped by the card) instead of ellipsing where it ends.
+        gridTemplateColumns: 'minmax(0, 1fr)',
         gap: '2px',
         paddingLeft: indent ? `${indent}px` : 0,
         fontFamily: TYPOGRAPHY.mono,
@@ -349,3 +383,11 @@ export function useDisclosureSet(initial = {}) {
   const isOpen = useCallback((key) => !!open[key], [open]);
   return [isOpen, toggle, setOpen];
 }
+
+// Below md every headline number reads the same across views: the number at
+// text-lg, its label as the mono small caps MicroLabel draws (11px, semibold,
+// uppercase). Views that already use that treatment (evaluations) need
+// nothing; the rest add these next to their own desktop classes, which keep
+// applying from md up.
+export const PHONE_STAT_VALUE = 'max-md:text-lg';
+export const PHONE_STAT_LABEL = 'max-md:font-mono max-md:text-[11px] max-md:font-semibold max-md:uppercase max-md:tracking-[0.05em]';

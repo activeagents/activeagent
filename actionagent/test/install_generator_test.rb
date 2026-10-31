@@ -271,6 +271,28 @@ class ActionAgentInstallGeneratorTest < Rails::Generators::TestCase
     connection&.drop_table("#{prefix}sandbox_sessions", if_exists: true)
   end
 
+  test "scoring lease columns install under a custom prefix and reverse" do
+    run_generator [ "--skip-routes" ]
+    connection = ActiveRecord::Base.connection
+    prefix = "scoring_probe_"
+    table = "#{prefix}evaluation_scenario_results"
+    connection.create_table(table, force: true)
+    ActionAgent.table_name_prefix = prefix
+    namespace = Module.new
+    namespace.module_eval(File.read(migration_file_name("db/migrate/add_evaluation_scoring_leases.rb")))
+    migration = namespace::AddEvaluationScoringLeases.new
+
+    ActiveRecord::Migration.suppress_messages { migration.migrate(:up) }
+    assert connection.column_exists?(table, :scoring_token, :string)
+    assert connection.column_exists?(table, :scoring_expires_at, :datetime)
+    ActiveRecord::Migration.suppress_messages { migration.migrate(:down) }
+    assert_not connection.column_exists?(table, :scoring_token)
+    assert_not connection.column_exists?(table, :scoring_expires_at)
+  ensure
+    ActionAgent.table_name_prefix = "active_agent_"
+    connection&.drop_table(table, if_exists: true) if table
+  end
+
   test "files in the numbered template directory that break the naming convention are not emitted" do
     with_numbered_templates(
       "001_create_widgets.rb.erb" => numbered_template("CreateWidgets"),
@@ -439,6 +461,29 @@ class ActionAgentInstallGeneratorTest < Rails::Generators::TestCase
     connection&.drop_table("#{prefix}draft_pull_requests", if_exists: true)
   end
 
+  # Under a probe prefix, so the result can be compared with the dummy's own
+  # table.
+  test "the webhook deliveries migration builds the table the dummy schema has, with a unique delivery id" do
+    run_generator [ "--skip-routes" ]
+    assert_migration "db/migrate/create_active_agent_github_webhook_deliveries.rb"
+    connection = ActiveRecord::Base.connection
+    prefix = "wh_probe_"
+    ActionAgent.table_name_prefix = prefix
+
+    run_migration("create_active_agent_github_webhook_deliveries", :CreateActiveAgentGithubWebhookDeliveries)
+
+    shape = ->(table) { connection.columns(table).to_h { |column| [ column.name, [ column.sql_type, column.null, column.default ] ] } }
+    assert_equal shape.call("active_agent_github_webhook_deliveries"), shape.call("#{prefix}github_webhook_deliveries")
+    assert connection.index_exists?("#{prefix}github_webhook_deliveries", :delivery_id, unique: true)
+    assert connection.index_exists?("#{prefix}github_webhook_deliveries", :created_at)
+
+    run_migration("create_active_agent_github_webhook_deliveries", :CreateActiveAgentGithubWebhookDeliveries, :down)
+    assert_not connection.table_exists?("#{prefix}github_webhook_deliveries")
+  ensure
+    ActionAgent.table_name_prefix = "active_agent_"
+    connection&.drop_table("#{prefix}github_webhook_deliveries", if_exists: true)
+  end
+
   test "a missing numbered template directory emits nothing" do
     ActionAgent::InstallGenerator.numbered_migrations_path = File.join(destination_root, "no-such-directory")
 
@@ -447,7 +492,79 @@ class ActionAgentInstallGeneratorTest < Rails::Generators::TestCase
     ActionAgent::InstallGenerator.numbered_migrations_path = nil
   end
 
+  test "the scenario metadata upgrade follows catalog creation and is emitted again only when missing" do
+    run_generator [ "--skip-routes" ]
+    assert_migration "db/migrate/add_catalog_scenario_metadata.rb"
+    assert_operator migration_version("add_catalog_scenario_metadata"), :>, migration_version("create_active_agent_scenario_catalogs")
+    FileUtils.rm(migration_file_name("db/migrate/add_catalog_scenario_metadata.rb"))
+    before = Dir.children(File.join(destination_root, "db/migrate"))
+
+    run_generator [ "--skip-routes" ]
+    emitted = Dir.children(File.join(destination_root, "db/migrate")) - before
+    assert_equal 1, emitted.grep(/_add_catalog_scenario_metadata\.rb\z/).size
+    run_generator [ "--skip-routes" ]
+    assert_equal 1, Dir.glob(File.join(destination_root, "db/migrate/*_add_catalog_scenario_metadata.rb")).size
+  end
+
+  test "the scenario metadata upgrade preserves old rows under a custom prefix and reverses idempotently" do
+    run_generator [ "--skip-routes" ]
+    connection = ActiveRecord::Base.connection
+    prefix = "scenario_metadata_probe_"
+    table = "#{prefix}catalog_scenarios"
+    connection.create_table(table, force: true) { |t| t.string :key }
+    connection.execute("INSERT INTO #{table} (key) VALUES ('existing')")
+    ActionAgent.table_name_prefix = prefix
+
+    2.times { run_migration("add_catalog_scenario_metadata", :AddCatalogScenarioMetadata) }
+    assert connection.column_exists?(table, :metadata)
+    assert_equal [ "existing" ], connection.select_values("SELECT key FROM #{table}")
+    assert_nil connection.select_value("SELECT metadata FROM #{table}")
+    2.times { run_migration("add_catalog_scenario_metadata", :AddCatalogScenarioMetadata, :down) }
+    assert_not connection.column_exists?(table, :metadata)
+    assert_equal [ "existing" ], connection.select_values("SELECT key FROM #{table}")
+  ensure
+    ActionAgent.table_name_prefix = "active_agent_"
+    connection&.drop_table(table, if_exists: true) if table
+  end
+
+  test "the scenario metadata upgrade is safe without catalog tables" do
+    run_generator [ "--skip-routes" ]
+    ActionAgent.table_name_prefix = "missing_catalog_probe_"
+
+    run_migration("add_catalog_scenario_metadata", :AddCatalogScenarioMetadata)
+    run_migration("add_catalog_scenario_metadata", :AddCatalogScenarioMetadata, :down)
+    assert_not ActiveRecord::Base.connection.table_exists?("missing_catalog_probe_catalog_scenarios")
+  ensure
+    ActionAgent.table_name_prefix = "active_agent_"
+  end
+
+  test "the scenario metadata upgrade uses each adapter's JSON type without a JSON default" do
+    run_generator [ "--skip-routes" ]
+    namespace = Module.new
+    namespace.module_eval(File.read(migration_file_name("db/migrate/add_catalog_scenario_metadata.rb")))
+    { "PostgreSQL" => :jsonb, "Mysql2" => :json, "Trilogy" => :json, "SQLite" => :json }.each do |adapter, type|
+      migration = namespace::AddCatalogScenarioMetadata.new
+      added = []
+      connection = connection_without_metadata_column(adapter, added)
+      ActiveRecord::Migration.suppress_messages { migration.stub(:connection, connection) { migration.up } }
+      assert_equal [ [ "active_agent_catalog_scenarios", :metadata, type, {} ] ], added, adapter
+    end
+  end
+
   private
+
+  # The real connection, reporting +adapter+ and a table without the column,
+  # and recording add_column calls in +added+ instead of running them.
+  # Everything else reaches the real adapter, so Rails' own migration
+  # plumbing (such as Rails 8.2's per-adapter migration_strategy) keeps working.
+  def connection_without_metadata_column(adapter, added)
+    Class.new(SimpleDelegator) do
+      define_method(:adapter_name) { adapter }
+      define_method(:table_exists?) { |_table| true }
+      define_method(:column_exists?) { |*_arguments, **_options| false }
+      define_method(:add_column) { |*arguments, **options| added << [ *arguments, options ] }
+    end.new(ActiveRecord::Base.connection)
+  end
 
   # Points the generator at a directory holding +files+ (name => content)
   # for the block.

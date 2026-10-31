@@ -74,6 +74,9 @@ function assertInOrder(html, markers) {
 }
 
 const count = (html, pattern) => (html.match(pattern) || []).length;
+// The texts of the value pills inside each element carrying `testId`.
+const pillsIn = (html, testId) => [...html.matchAll(new RegExp(`data-testid="${testId}"[^>]*>(.*?)</div>`, 'g'))]
+  .map((match) => [...match[1].matchAll(/class="aa-pill"[^>]*>([^<]+)</g)].map((pill) => pill[1]));
 // The markup between two markers (to the end when `to` is absent).
 const between = (html, from, to) => {
   const start = html.indexOf(from);
@@ -441,7 +444,7 @@ test('the tools level restores the three-line cells', () => {
   assert.doesNotMatch(steps, /scenario-cell-cost/);
 });
 
-test('every step shows each model\'s time and tokens, and the box adds them up per group, per scenario and per model', () => {
+test('a step shows each model\'s score alone; the tools level adds its time and tokens, and the box adds them up per group, per scenario and per model', () => {
   const specs = [spec, { label: 'claude-haiku-5-5', provider: 'anthropic', model: 'claude-haiku-5-5' }];
   const ticket = (key, prompt) => ({ id: key.charCodeAt(1), key, prompt, group: 'Tickets', enabled: true, expectations: {} });
   const scenarios = [ticket('t1', 'Which clients have overdue tickets?'), ticket('t2', 'What tickets are on my plate?')];
@@ -465,20 +468,34 @@ test('every step shows each model\'s time and tokens, and the box adds them up p
   assert.match(header, /scenario-column-totals[^>]*>1m 10s · 3\.2K→840</, "the header adds up gpt-5-mini's answers over the run");
   assert.match(header, /scenario-column-totals[^>]*>2\.1s · 900→120</, 'a pending answer adds nothing to its model');
 
-  const group = between(html, 'data-testid="scenario-group-row"', 'data-scenario-key="t1"');
-  assert.match(group, /scenario-group-metrics[^>]*>1m 10s · 3\.2K→840</);
-  assert.match(group, /scenario-group-metrics[^>]*>2\.1s · 900→120</);
+  const stepGroup = between(html, 'data-testid="scenario-group-row"', 'data-scenario-key="t1"');
+  assert.match(stepGroup, /scenario-group-time[^>]*>1m 10s</, "the group's time is its scenarios' slowest answers added up");
+  assert.doesNotMatch(stepGroup, /scenario-group-metrics|scenario-group-cost-tokens/, 'a step group row keeps to passes, cost and time');
+
+  const step1 = between(html, 'data-scenario-key="t1"', 'data-scenario-key="t2"');
+  assert.equal(count(step1, /scenario-cell-score/g), 2, 'a step shows one score pill per model');
+  assert.doesNotMatch(step1, /scenario-cell-metrics|scenario-row-cost-tokens/, 'a step keeps its time and tokens for the tools level');
+  assert.match(step1, /scenario-cell-score"[^>]*>\[\+\] 90%</);
+  assert.match(step1, /title="[^"]*low quality · 2\.1s · 900→120[^"]*"/, "a step's tooltip carries the fault, time and tokens");
+  assert.match(step1, /scenario-row-time[^>]*>5\.2s</, 'TIME stays the slowest answer');
+  assert.match(between(html, 'data-scenario-key="t2"', 'data-testid="suite-models-panel"'), /scenario-row-time[^>]*>1m 05s</);
+
+  Object.defineProperty(globalThis, 'localStorage', { value: storageStub((key) => (key === 'aa.evaluations.detail' ? 'tools' : 'light')), configurable: true, writable: true });
+  let tools;
+  try {
+    tools = render('ScenarioSuitePanel', suite(run, { scenarios }));
+  } finally {
+    Object.defineProperty(globalThis, 'localStorage', { value: storageStub(), configurable: true, writable: true });
+  }
+  const group = between(tools, 'data-testid="scenario-group-row"', 'data-scenario-key="t1"');
+  assert.deepEqual(pillsIn(group, 'scenario-group-metrics'), [['1m 10s', '3.2K→840'], ['2.1s', '900→120']], "each model's group time and tokens are pills");
   assert.match(group, /scenario-group-cost-tokens[^>]*>4\.1K→960</, "the group's tokens sit under its cost");
-  assert.match(group, /scenario-group-time[^>]*>1m 10s</, "the group's time is its scenarios' slowest answers added up");
 
-  const t1 = between(html, 'data-scenario-key="t1"', 'data-scenario-key="t2"');
-  assert.match(t1, /scenario-cell-metrics[^>]*>5\.2s · 1\.2K→340</, 'a passed cell carries its time and tokens');
-  assert.match(t1, /scenario-cell-metrics[^>]*>2\.1s · 900→120</, 'a failed cell does too, under its fault');
+  const t1 = between(tools, 'data-scenario-key="t1"', 'data-scenario-key="t2"');
+  assert.deepEqual(pillsIn(t1, 'scenario-cell-metrics'), [['5.2s', '1.2K→340'], ['2.1s', '900→120']], 'a passed cell and a failed cell each carry time and token pills');
   assert.match(t1, /scenario-row-cost-tokens[^>]*>2\.1K→460</, "the scenario's tokens across the models sit under its cost");
-  assert.match(t1, /scenario-row-time[^>]*>5\.2s</, 'TIME stays the slowest answer');
 
-  const t2 = between(html, 'data-scenario-key="t2"', 'data-testid="suite-models-panel"');
+  const t2 = between(tools, 'data-scenario-key="t2"', 'data-testid="suite-models-panel"');
   assert.equal(count(t2, /scenario-cell-metrics/g), 1, 'a pending cell has no metrics line');
-  assert.match(t2, /scenario-row-time[^>]*>1m 05s</);
   assert.match(t2, /scenario-row-cost-tokens[^>]*>2\.0K→500</);
 });

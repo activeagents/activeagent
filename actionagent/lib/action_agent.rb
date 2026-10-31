@@ -867,6 +867,16 @@ module ActionAgent
     attr_writer :github_app_id, :github_app_private_key, :github_app_slug,
       :github_app_client_id, :github_app_client_secret
 
+    # The secret GitHub signs the App's webhook deliveries with, which
+    # POST <mount>/api/github_app/webhooks verifies. Falls back to
+    # GITHUB_APP_WEBHOOK_SECRET. Not one of the settings
+    # github_app_configured? needs: without it the endpoint answers 404 and
+    # the dashboard learns of installation changes only when a token mint is
+    # refused. Set the App's Webhook URL to <mount>/api/github_app/webhooks
+    # and subscribe it to Installation and Installation repositories.
+    # @return [String, nil]
+    attr_writer :github_app_webhook_secret
+
     # MCP servers the host app itself serves or connects, appended to the
     # built-in catalog (MCPCatalog) so the MCP Services view lists them and
     # telemetry traffic attributes to them. Each entry is a hash shaped like
@@ -876,6 +886,22 @@ module ActionAgent
     # the server. A built-in entry keeps its key on collision.
     # @return [Array<Hash>]
     attr_accessor :mcp_catalog
+
+    # Whether a dashboard user's own MCP server (MCPServerConfig, added on the
+    # MCP Services page) may point at a loopback, private, link-local or
+    # otherwise non-public address. Off by default: those servers are reached
+    # from the dashboard's own network, so a URL such as
+    # http://169.254.169.254/ or http://10.0.0.5/admin would let any user make
+    # the dashboard call an address only it can reach. MCPHostGuard refuses
+    # such a URL when it is saved, and refuses a host name that resolves to
+    # one when it is called. Turn it on for local development, where the
+    # server under test runs on localhost, or for a single-user install whose
+    # user already has that network access.
+    #
+    # Host registrations (+mcp_catalog+) and checkout sandbox runtimes are the
+    # host app's own configuration and are not affected.
+    # @return [Boolean]
+    attr_accessor :allow_private_mcp_hosts
 
     # Host-declared ActiveAgent::SchemaTools subclasses whose generated tools
     # are offered alongside AgentToolbox's built-ins: each generated tool is
@@ -969,6 +995,10 @@ module ActionAgent
 
     def github_app_client_secret
       @github_app_client_secret.presence || ENV["GITHUB_APP_CLIENT_SECRET"].presence
+    end
+
+    def github_app_webhook_secret
+      @github_app_webhook_secret.presence || ENV["GITHUB_APP_WEBHOOK_SECRET"].presence
     end
 
     # Whether the GitHub App installation flow can run on this install: every
@@ -1334,6 +1364,7 @@ module ActionAgent
       @github_app_slug = nil
       @github_app_client_id = nil
       @github_app_client_secret = nil
+      @github_app_webhook_secret = nil
       @trace_retention = nil
       @trace_owner_resolver = nil
       @usage_recorder = nil
@@ -1343,6 +1374,7 @@ module ActionAgent
       @user_menu_links = nil
       @sign_in_path = nil
       @mcp_catalog = []
+      @allow_private_mcp_hosts = false
       @agent_actor_resolver = nil
       @schema_tools = nil
       @schema_tools_path = "app/agent_tools"

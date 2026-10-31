@@ -5,17 +5,36 @@ import { waitingLabel } from '../../../utils/projectSetup.mjs';
 
 // A project's boot, step by step (GET /api/projects/:id/boot): each step's
 // status, elapsed time and detail, then the scrubbed tail of the step that
-// failed or is running. `boot` is null when the backend reports no steps.
-// `waiting` counts the requests for input the project's agents wait on.
-export default function ProjectBootProgress({ boot, logTail, error, sandboxState, waiting }) {
+// failed or is running. `boot` is null when the backend reports no steps,
+// or when it could not report them: `backendError` ({ backend, message })
+// then says which backend and why (no sandbox host configured, the host
+// unreachable, a container that has not written its state yet), beside the
+// sandbox's own failure in `error` if it failed. `waiting` counts the
+// requests for input the project's agents wait on.
+export default function ProjectBootProgress({ boot, logTail, error, backendError, sandboxState, waiting }) {
   const steps = boot?.steps || [];
+  const emptyText = backendError
+    ? 'No sandbox backend answered.'
+    : sandboxState === 'booting' ? 'Waiting for the sandbox to report its steps…' : 'No boot to show yet.';
+  // The backend's reason, unless it is the same text as the boot's failure
+  // shown below it.
+  const backendNote = backendError
+    ? `The ${backendError.backend} sandbox backend could not report this boot`
+      + (backendError.message && backendError.message !== error ? `: ${backendError.message}` : '.')
+    : null;
 
   return (
     <Panel title="Boot" meta={waitingLabel(waiting) || sandboxState || 'none'} testId="project-boot-progress">
       {steps.length === 0 && (
         <p style={{ margin: 0, padding: 12, fontSize: 13, color: 'var(--color-text-secondary)' }}>
-          {sandboxState === 'booting' ? 'Waiting for the sandbox to report its steps…' : 'No boot to show yet.'}
+          {emptyText}
         </p>
+      )}
+      {backendNote && (
+        <div data-testid="boot-backend-error" style={{ padding: '8px 12px', fontSize: 13, color: 'var(--color-text-secondary)',
+          borderTop: '1px solid var(--color-border-light)', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
+          {backendNote}
+        </div>
       )}
       {steps.length > 0 && (
         <ol style={{ listStyle: 'none', margin: 0, padding: 0 }}>
