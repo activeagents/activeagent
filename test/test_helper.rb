@@ -143,10 +143,48 @@ VCR_GEM_SCOPE = {
   "openai"    => ENV["OPENAI_GEM_VERSION"]
 }.compact.map { |gem_name, version| "#{gem_name}-#{version}" }.first
 
+VCR_SHARED_CASSETTE_DIR = "test/fixtures/vcr_cassettes"
+
 VCR_CASSETTE_DIR = if VCR_GEM_SCOPE
-  "test/fixtures/vcr_cassettes/#{VCR_GEM_SCOPE}"
+  "#{VCR_SHARED_CASSETTE_DIR}/#{VCR_GEM_SCOPE}"
 else
-  "test/fixtures/vcr_cassettes"
+  VCR_SHARED_CASSETTE_DIR
+end
+
+# The file a cassette is read from: the version-scoped recording when one
+# exists, otherwise the shared one. A version-pinned gemfile only re-records
+# the cassettes whose request shape that gem version changes; every other
+# cassette, including those of providers the pin does not touch, is shared.
+#
+# @param cassette_name [String] as given to VCR.use_cassette
+# @return [String]
+def vcr_cassette_path(cassette_name)
+  file_name = "#{cassette_name}.yml"
+  [ VCR_CASSETTE_DIR, VCR_SHARED_CASSETTE_DIR ]
+    .map { |dir| File.join(dir, file_name) }
+    .find { |path| File.exist?(path) } || File.join(VCR_CASSETTE_DIR, file_name)
+end
+
+# VCR persister with the same lookup: reads fall back to the shared
+# directory, and a new recording goes into the scoped one so the shared
+# cassettes stay as they were recorded.
+module LayeredCassettePersister
+  extend self
+
+  def [](file_name)
+    path = absolute_path_to_file(file_name)
+    File.exist?(path) ? File.binread(path) : nil
+  end
+
+  def []=(file_name, content)
+    path = File.join(VCR_CASSETTE_DIR, file_name)
+    FileUtils.mkdir_p(File.dirname(path))
+    File.binwrite(path, content)
+  end
+
+  def absolute_path_to_file(file_name)
+    File.expand_path(vcr_cassette_path(file_name.to_s.delete_suffix(".yml")))
+  end
 end
 
 # VCR record mode.
@@ -173,8 +211,10 @@ VCR.configure do |config|
   # the `anthropic-beta` header alone. The beta cassettes were recorded under
   # 1.x and keep the query, so the URI matcher ignores that one parameter
   # instead of every beta cassette being re-recorded per gem major.
+  config.cassette_persisters[:layered] = LayeredCassettePersister
   config.default_cassette_options = {
     record:            VCR_RECORD_MODE,
+    persist_with:      :layered,
     match_requests_on: [ :method, VCR.request_matchers.uri_without_param(:beta) ]
   }
 
