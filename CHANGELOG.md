@@ -18,6 +18,19 @@ original document imported again.
 
 ### Fixed
 
+- **The dashboard engine loads in a host without Action Cable**
+  (`actionagent`). The engine's class body camelizes its inflection
+  overrides with `Zeitwerk::Inflector` and did not require Zeitwerk itself.
+  Rails requires it only once the application sets up its autoloaders,
+  after `Bundler.require` has loaded the gem; until then the constant
+  exists only because Action Cable's engine loads it as a side effect. An
+  app generated with `--skip-action-cable`, or any API-only host, died at
+  boot with `uninitialized constant ActionAgent::Engine::Zeitwerk` (seen on
+  Rails 8.1.4; the require order is the same on every Rails since 7.0). The
+  engine requires Zeitwerk, a dependency of Active Support, before reading
+  it, and a test loads the engine in a fresh process right after `rails`,
+  with nothing in between.
+
 - **An evaluation judge job delivered twice scores its result once**
   (`actionagent`). The claim on a pending result was a conditional write on
   its timestamp, which turned away a stale reader but not a duplicate
