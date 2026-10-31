@@ -20,6 +20,12 @@ the MCP Services page cannot list or save servers of your own.
 
 ### Added
 
+- **Cheaper Inference as an OpenAI-compatible provider** (`activeagent`).
+  `service: "CheaperInference"` generates and embeds through
+  `https://api.cheaperinference.com/v1`, with the key from
+  `CHEAPER_INFERENCE_API_KEY`; a thin subclass of the OpenAI provider, like
+  Opper. Contributed in #629.
+
 - **Your own MCP servers** (`actionagent`). A dashboard user adds a remote
   MCP server by URL on the MCP Services page (*Your MCP servers*), with
   optional request headers, tests it (`tools/list`, recording the tools it
