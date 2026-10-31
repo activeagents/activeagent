@@ -55,6 +55,8 @@ class BedrockBearerClientTest < ActiveSupport::TestCase
   end
 
   test "has completions resource" do
+    skip "the anthropic gem 2.0 removed Text Completions" unless defined?(::Anthropic::Resources::Completions)
+
     client = ActiveAgent::Providers::Bedrock::BearerClient.new(
       aws_region: "eu-west-2",
       bearer_token: "test-token"

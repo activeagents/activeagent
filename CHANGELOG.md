@@ -92,9 +92,13 @@ the MCP Services page cannot list or save servers of your own.
   (role-union `MessageParam`, one-value enums as constants, Text Completions
   removed) breaks none of them. The provider and the gemspec's development
   dependency now accept anthropic 1.12 through 2.x, and CI runs the provider
-  tests against 2.3 beside the 1.12, 1.14 and 1.55 legs. The 2.0 SDK also
-  dropped the `?beta=true` query string from its beta Messages requests, so
-  the test suite matches recorded cassettes with or without it.
+  tests against 2.3 beside the 1.12, 1.14 and 1.55 legs. Two 2.0 changes do
+  reach the code: Text Completions went away with
+  `Anthropic::Resources::Completions`, which the Bedrock bearer client now
+  sets up only when it exists, and the client sends its key as
+  `Authorization: Bearer` instead of `x-api-key`. The 2.0 SDK also dropped
+  the `?beta=true` query string from its beta Messages requests, so the test
+  suite matches recorded cassettes with or without it.
 
 - **The dashboard engine loads in a host without Action Cable**
   (`actionagent`). The engine's class body camelizes its inflection
