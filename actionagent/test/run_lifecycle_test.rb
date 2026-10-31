@@ -12,6 +12,14 @@ class RunLifecycleTest < ActiveSupport::TestCase
     ActionAgent::Agent.delete_all
     @agent = ActionAgent::Agent.create!(name: "Support", provider: "openai", model: "gpt-4o-mini")
     @run = @agent.agent_runs.create!(input_prompt: "hi", status: :pending)
+    @service_calls = 0
+  end
+
+  def counted_service
+    lambda do |_agent, _run|
+      @service_calls += 1
+      { output: "answer", metadata: {}, usage: {} }
+    end
   end
 
   test "the engine's jobs do not blanket-retry on StandardError" do
@@ -36,6 +44,66 @@ class RunLifecycleTest < ActiveSupport::TestCase
     assert_equal 1, calls
     assert @run.reload.failed?
     assert_equal 1, Array(@run.logs).count { |log| log["message"].to_s.include?("Starting execution") }
+  end
+
+  test "a run that is already running is not executed again" do
+    started_at = 1.hour.ago.change(usec: 0)
+    @run.update!(status: :running, started_at: started_at, logs: [ { "message" => "Starting execution" } ])
+    ActionAgent::AgentExecutionService.stub(:call, counted_service) do
+      ActionAgent::AgentExecutionJob.perform_now(@run.id)
+    end
+
+    @run.reload
+    assert_equal 0, @service_calls
+    assert @run.running?
+    assert_equal started_at, @run.started_at
+    assert_equal 1, Array(@run.logs).count { |log| log["message"].to_s.include?("Starting execution") }
+  end
+
+  %i[complete cancelled].each do |status|
+    test "a #{status} run is left as it is" do
+      @run.update!(status: status, started_at: 1.hour.ago, completed_at: 30.minutes.ago, output: "done")
+      before = @run.reload.attributes
+      ActionAgent::AgentExecutionService.stub(:call, counted_service) do
+        ActionAgent::AgentExecutionJob.perform_now(@run.id)
+      end
+
+      assert_equal 0, @service_calls
+      assert_equal before, @run.reload.attributes
+    end
+  end
+
+  test "a pending run is claimed once, with its start recorded" do
+    calls = 0
+    statuses = []
+    executing = lambda do |_agent, run|
+      calls += 1
+      statuses << run.reload.status
+      { output: "answer", metadata: {}, usage: {} }
+    end
+
+    ActionAgent::AgentExecutionService.stub(:call, executing) do
+      ActionAgent::AgentExecutionJob.perform_now(@run.id)
+    end
+
+    @run.reload
+    assert_equal 1, calls
+    assert_equal %w[running], statuses
+    assert @run.complete?
+    assert_not_nil @run.started_at
+    assert_equal 1, Array(@run.logs).count { |log| log["message"].to_s.include?("Starting execution") }
+  end
+
+  test "a run cancelled before its job starts is not started" do
+    @run.cancel!
+    ActionAgent::AgentExecutionService.stub(:call, counted_service) do
+      ActionAgent::AgentExecutionJob.perform_now(@run.id)
+    end
+
+    @run.reload
+    assert_equal 0, @service_calls
+    assert @run.cancelled?
+    assert_nil @run.started_at
   end
 
   test "a cancel that lands during execution survives the finishing job" do
@@ -65,6 +133,59 @@ class RunLifecycleTest < ActiveSupport::TestCase
 
     assert @run.reload.cancelled?
     assert_equal "Cancelled by user", @run.error_message
+  end
+end
+
+# Two workers that receive the same job at once (a queue delivering it twice,
+# or a redelivery after a visibility timeout) have both read the run as
+# pending before either writes. Real connections are needed to see it, so the
+# test does not run inside a transaction, and it removes the rows it commits.
+# Both workers are held at the run's lookup until each has it, which makes the
+# interleaving certain instead of likely.
+class RunClaimConcurrencyTest < ActiveSupport::TestCase
+  self.use_transactional_tests = false
+
+  def setup
+    @agent = ActionAgent::Agent.create!(name: "Support", provider: "openai", model: "gpt-4o-mini")
+    @run = @agent.agent_runs.create!(input_prompt: "hi", status: :pending)
+  end
+
+  # The agent's runs and versions go with it (dependent: :destroy).
+  def teardown
+    ActionAgent::Agent.find_by(id: @agent&.id)&.destroy!
+  end
+
+  test "two workers that load the same pending run execute it once" do
+    lookup = ActionAgent::AgentRun.method(:find)
+    barrier = Concurrent::CyclicBarrier.new(2)
+    loaded_together = lambda do |id|
+      run = lookup.call(id)
+      barrier.wait(10)
+      run
+    end
+    calls = Concurrent::AtomicFixnum.new(0)
+    executing = lambda do |_agent, _run|
+      calls.increment
+      { output: "answer", metadata: {}, usage: {} }
+    end
+
+    ActionAgent::AgentRun.stub(:find, loaded_together) do
+      ActionAgent::AgentExecutionService.stub(:call, executing) do
+        workers = Array.new(2) do
+          Thread.new do
+            ActiveRecord::Base.connection_pool.with_connection do
+              ActionAgent::AgentExecutionJob.perform_now(@run.id)
+            end
+          end
+        end
+        workers.each(&:join)
+      end
+    end
+
+    @run.reload
+    assert_equal 1, calls.value, "the run was executed by both workers"
+    assert @run.complete?
+    assert_equal 1, Array(@run.logs).count { |log| log["message"].to_s.include?("Starting execution") }
   end
 end
 

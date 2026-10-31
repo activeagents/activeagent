@@ -122,6 +122,17 @@ the MCP Services page cannot list or save servers of your own.
   `active_agent/evals` entry point loads the ActiveSupport array extension
   used to construct, parse and load catalogs, without loading the framework.
 
+- **An agent run is executed by one job** (`actionagent`). The execution
+  job read a run's status, then wrote `running`, as two steps, and only
+  turned away a finished or paused run. A job delivered twice, or two
+  workers that both loaded the run as pending, each started a generation
+  for it, and a duplicate that arrived while the run was running started
+  another. The job now moves the run from pending to running under the
+  run's row lock and starts no generation unless it was the one to do so;
+  the lock covers the status change only, so a cancel does not wait for a
+  generation. A run whose worker died after the claim stays running
+  and is not run again.
+
 ## [1.9.6] - 2026-10-29
 
 The dashboard on a phone, and the small finished pieces: the sidebar as a

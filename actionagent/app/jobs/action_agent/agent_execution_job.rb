@@ -6,13 +6,12 @@ module ActionAgent
 
     def perform(run_id)
       run = AgentRun.find(run_id)
-      # Anything already finished — complete, failed or cancelled — is never
-      # executed again, and neither is a run waiting for input, which only
-      # AgentResumeJob continues. A retry of a failed run would re-run the
-      # generation.
-      return if run.finished? || run.awaiting_input?
+      # Only a pending run is executed. A finished run (complete, failed or
+      # cancelled) is never executed again, a run waiting for input only
+      # AgentResumeJob continues, and a running run already has a worker. A
+      # retry of a failed run would re-run the generation.
+      return unless claim_pending(run)
 
-      run.update!(status: :running, started_at: Time.current)
       run.add_log("Starting execution", level: :info)
 
       begin
@@ -37,6 +36,21 @@ module ActionAgent
     end
 
     private
+
+    # Moves the run from pending to running under its row lock and returns
+    # whether this job is the one that did. The status is read again inside
+    # the lock, so of two workers that loaded the run as pending only the
+    # first to take the lock executes it, and the other starts no
+    # generation. The lock is held for the status change alone, not for the
+    # generation, so a cancel is never made to wait for it.
+    def claim_pending(run)
+      run.with_lock do
+        next false unless run.pending?
+
+        run.update!(status: :running, started_at: Time.current)
+        true
+      end
+    end
 
     def execute_agent(agent_record, run)
       AgentExecutionService.call(agent_record, run)
