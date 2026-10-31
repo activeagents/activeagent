@@ -695,14 +695,16 @@ module ActionAgent
     end
 
     # The credentials the run's owner holds, scrubbed from the browser
-    # actions the run records: provider keys, the GitHub token, and the
-    # runtime and browser tokens of the sandbox the run reaches.
+    # actions the run records: provider keys, the GitHub token, the header
+    # values of the owner's own MCP servers, and the runtime and browser
+    # tokens of the sandbox the run reaches.
     def recording_secrets
       sandbox_id = @run.try(:sandbox_id)
       sandbox = sandbox_id && SandboxSession.for_owner(owner).find_by(session_id: sandbox_id)
       [
         *ProviderKey.for_owner(owner).limit(RECORDING_SECRET_LOOKUP_LIMIT).pluck(:credential, :api_key).flatten,
         *GithubConnection.for_owner(owner).limit(RECORDING_SECRET_LOOKUP_LIMIT).pluck(:access_token),
+        *MCPServerConfig.for_owner(owner).limit(RECORDING_SECRET_LOOKUP_LIMIT).flat_map(&:secret_values),
         sandbox&.runtime_mcp_token,
         sandbox&.browser_token,
         *owner_provider_options(requested_provider).values_at(:access_token, :api_key)

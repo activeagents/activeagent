@@ -25,7 +25,10 @@ module ActionAgent
       "mcp_tool_dispatcher" => "MCPToolDispatcher",
       "mcp_controller" => "MCPController",
       "mcp_dashboard_tools" => "MCPDashboardTools",
+      "mcp_host_guard" => "MCPHostGuard",
       "mcp_recording_middleware" => "MCPRecordingMiddleware",
+      "mcp_server_config" => "MCPServerConfig",
+      "mcp_server_configs_controller" => "MCPServerConfigsController",
       "mcp_servers_controller" => "MCPServersController",
       "playwright_mcp_client" => "PlaywrightMCPClient"
     }.freeze

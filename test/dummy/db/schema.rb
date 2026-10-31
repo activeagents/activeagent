@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 31) do
+ActiveRecord::Schema[8.0].define(version: 32) do
   create_table "active_agent_agent_contexts", force: :cascade do |t|
     t.string "action_name", null: false
     t.string "agent_name", null: false
@@ -472,6 +472,24 @@ ActiveRecord::Schema[8.0].define(version: 31) do
     t.datetime "updated_at", null: false
     t.index [ "telemetry_trace_id", "feedback_id" ], name: "index_feedback_on_trace_and_feedback_id", unique: true
     t.index [ "telemetry_trace_id" ], name: "index_active_agent_interaction_feedbacks_on_telemetry_trace_id"
+  end
+
+  create_table "active_agent_mcp_server_configs", force: :cascade do |t|
+    t.string "name", null: false
+    t.text "description"
+    t.string "url", limit: 2048, null: false
+    t.text "secret_headers"
+    t.boolean "enabled", default: true, null: false
+    t.datetime "last_tested_at"
+    t.string "last_test_status"
+    t.text "last_test_error"
+    t.json "tool_names"
+    t.bigint "account_id"
+    t.bigint "user_id"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index [ "account_id" ], name: "index_active_agent_mcp_server_configs_on_account"
+    t.index [ "user_id" ], name: "index_active_agent_mcp_server_configs_on_user"
   end
 
   create_table "active_agent_project_secrets", force: :cascade do |t|

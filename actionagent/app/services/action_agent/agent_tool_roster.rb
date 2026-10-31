@@ -26,8 +26,10 @@ module ActionAgent
   #   AgentToolbox turns into function schemas at generation time.
   # * **MCP** — never stored on the roster. Computed from the services the
   #   agent enables, which is where they are edited. The services are the
-  #   catalog plus the live checkout sandbox runtimes the caller hands in
-  #   (+runtimes:+), which an agent enables under their "sandbox:<id>" keys.
+  #   catalog plus the listings the caller hands in (+runtimes:+): the live
+  #   checkout sandbox runtimes, which an agent enables under their
+  #   "sandbox:<id>" keys, and the servers the owner added on the MCP Services
+  #   page, enabled under their "custom:<id>" keys.
   #
   # Enablement reads the agent's own configuration: +tools+ for the dashboard
   # capabilities and the schema tools, +mcp_servers+ for services and their
@@ -135,6 +137,7 @@ module ActionAgent
         first_party: catalog ? catalog[:first_party] : false,
         known: !catalog.nil?,
         runtime: SandboxSession.runtime_server_key?(key),
+        custom: MCPServerConfig.key?(key),
         transport: transport_label(catalog),
         status: service_status(calls, enabled, catalog),
         enabled: enabled,
