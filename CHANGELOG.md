@@ -59,10 +59,10 @@ the MCP Services page cannot list or save servers of your own.
   `Report`, which `assert_pass_rate` gates and `to_html` writes.
   `ActiveAgent::Evals::Capture` is the assertion-free core: it runs a
   generation into a `Replay`, capturing tool calls on the agent's
-  `tools_function` (where the telemetry tool spans are; MCP-served tools
-  are dispatched before that hook and are not recorded), replays under
-  another `model:` or `provider:` the way a comparison run does, and takes
-  a block for an agent run some other way. The framework's railtie now
+  `tools_function` (where the telemetry tool spans are; tools served by a
+  client-side MCP server are recorded through the agent's `tool_observer`),
+  replays under another `model:` or `provider:` the way a comparison run
+  does, and takes a block for an agent run some other way. The framework's railtie now
   loads the gem's rake tasks; the empty `activeagent_tasks.rake`
   placeholder is gone.
 
@@ -121,6 +121,19 @@ the MCP Services page cannot list or save servers of your own.
 - **Load evaluation catalogs without Rails** (`activeagent`). The standalone
   `active_agent/evals` entry point loads the ActiveSupport array extension
   used to construct, parse and load catalogs, without loading the framework.
+
+- **Client-side MCP tool calls appear in an eval replay** (`activeagent`).
+  `Evals::Capture` recorded the tools that reach the agent's
+  `tools_function`, and a tool served by a client-side MCP server is
+  dispatched before it, so a replay of an agent with `mcps:` showed none of
+  those calls and `assert_tool_called` could not find them. The provider
+  now runs such a call inside the agent's `tool_observer`, which Capture
+  sets, so it is recorded once with its arguments, result preview and
+  timing. A result the server marks as an error, which the model receives
+  as a result and not an exception, is recorded as a failed call, so
+  `failed_tool_calls` and `assert_tools_succeeded` see it. A server the
+  provider runs itself (Anthropic's or OpenAI's hosted MCP) executes on the
+  provider's side and is still not recorded.
 
 ## [1.9.6] - 2026-10-29
 

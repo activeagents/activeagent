@@ -63,6 +63,107 @@ class EvalsCaptureTest < ActiveSupport::TestCase
     assert_equal [ "lookup_order" ], replay.tool_names
   end
 
+  test "a tool served by a client-side MCP server is recorded like any other" do
+    client = EvalsTest::FakeMCPClient.new
+    replay = capture_mcp("fetch https://example.test", client)
+
+    assert_equal [ "get_page" ], replay.tool_names
+    call = replay.tool_calls.first
+    assert_equal({ "url" => "https://example.test" }, call["arguments"])
+    assert_includes call["detail"], "<html>Example</html>"
+    assert_kind_of Integer, call["duration_ms"]
+    refute call["error"]
+    assert_empty replay.failed_tool_calls
+    assert_equal "page <html>Example</html>", replay.answer
+    assert_equal [ [ "get_page", { url: "https://example.test" } ] ], client.calls
+  end
+
+  test "a generation that calls a local tool and an MCP tool records each once" do
+    client = EvalsTest::FakeMCPClient.new
+    replay = capture_mcp("order ABC-123 then fetch https://example.test", client)
+
+    assert_equal %w[lookup_order get_page], replay.tool_names
+    assert_equal({ "number" => "ABC-123" }, replay.tool_calls.first["arguments"])
+    assert_equal({ "url" => "https://example.test" }, replay.tool_calls.last["arguments"])
+    assert_equal 1, client.calls.length
+    assert_equal "order ABC-123 shipped; page <html>Example</html>", replay.answer
+  end
+
+  test "the same MCP tool called twice is two calls, each with its own result" do
+    client = EvalsTest::FakeMCPClient.new(
+      { "content" => [ { "type" => "text", "text" => "first" } ] },
+      { "content" => [ { "type" => "text", "text" => "second" } ] }
+    )
+    replay = capture_mcp("fetch https://a.test fetch https://b.test", client)
+
+    assert_equal %w[get_page get_page], replay.tool_names
+    assert_equal [ "https://a.test", "https://b.test" ], replay.tool_calls.map { |call| call["arguments"]["url"] }
+    assert_equal %w[first second], replay.tool_calls.map { |call| call["detail"] }
+    assert_equal 2, client.calls.length
+  end
+
+  test "an MCP error result is a failed call, and the provider still receives it" do
+    client = EvalsTest::FakeMCPClient.new(EvalsTest::FakeMCPClient::INVALID)
+    replay = capture_mcp("fetch https://example.test", client)
+
+    refute replay.errored?
+    assert_equal [ "get_page" ], replay.tool_names
+    call = replay.tool_calls.first
+    assert call["error"]
+    assert_equal "Invalid params", call["detail"]
+    assert_equal [ call ], replay.failed_tool_calls
+    assert_equal "page failed: Invalid params", replay.answer
+    assert_equal 1, client.calls.length
+  end
+
+  test "an MCP tool that raises is recorded as an error and the replay is errored" do
+    client = EvalsTest::FakeMCPClient.new(IOError.new("connection lost"))
+    replay = capture_mcp("fetch https://example.test", client)
+
+    assert replay.errored?
+    assert_match(/IOError: connection lost/, replay.error)
+    assert_equal [ "get_page" ], replay.tool_names
+    call = replay.tool_calls.first
+    assert_equal "get_page", call["name"]
+    assert call["error"]
+    assert_equal "IOError: connection lost", call["detail"]
+    assert_kind_of Integer, call["duration_ms"]
+  end
+
+  test "raise_errors re-raises what an MCP tool raised" do
+    client = EvalsTest::FakeMCPClient.new(IOError.new("connection lost"))
+
+    assert_raises(IOError) { capture_mcp("fetch https://example.test", client, raise_errors: true) }
+  end
+
+  test "a result that merely has an error field is not an MCP failure" do
+    client = EvalsTest::FakeMCPClient.new({ "structuredContent" => { "error" => "not found" } })
+    replay = capture_mcp("fetch https://example.test", client)
+
+    assert_equal [ "get_page" ], replay.tool_names
+    refute replay.tool_calls.first["error"]
+    assert_empty replay.failed_tool_calls
+  end
+
+  test "captures running side by side each keep their own MCP calls" do
+    client = EvalsTest::FakeMCPClient.new
+    replays = with_mcp_client(client) do
+      %w[https://a.test https://b.test].map do |url|
+        Thread.new { Capture.run(EvalsTest::MCPAgent.with(question: "fetch #{url}").ask) }
+      end.map(&:value)
+    end
+
+    assert_equal [ [ "https://a.test" ], [ "https://b.test" ] ],
+                 replays.map { |replay| replay.tool_calls.map { |call| call["arguments"]["url"] } }
+    assert_equal 2, client.calls.length
+  end
+
+  test "an agent with no MCP servers is captured as before" do
+    replay = Capture.run(EvalsTest::OrdersAgent.with(question: "Where is order ABC-123?").ask)
+
+    assert_equal [ "lookup_order" ], replay.tool_names
+  end
+
   test "a model override runs the agent under that model and leaves the class alone" do
     replay = Capture.run(EvalsTest::OrdersAgent.with(question: "Where is order ABC-123?").ask, model: "mock-other")
 
@@ -138,5 +239,33 @@ class EvalsCaptureTest < ActiveSupport::TestCase
     assert_equal "short", Capture.preview("short")
     assert_equal Capture::DETAIL_LIMIT + 1, Capture.preview("x" * 1_000).length
     assert_equal '{"status":"shipped"}', Capture.preview({ status: "shipped" })
+  end
+
+  private
+
+  # Runs EvalsTest::MCPAgent with a bridge over +client+ per generation, so no
+  # transport opens. The bridge is the real one: it owns the tool, routes the
+  # call and turns the client's answer into a result.
+  def capture_mcp(question, client, **options)
+    with_mcp_client(client) { Capture.run(EvalsTest::MCPAgent.with(question: question).ask, **options) }
+  end
+
+  def with_mcp_client(client, &test)
+    servers = EvalsTest::MCPAgent.prompt_options[:mcps]
+    build = lambda do |_declared, cache: nil|
+      bridge = ActiveAgent::Providers::MCPBridge.allocate
+      bridge.send(:initialize, servers, cache:)
+      bridge.define_singleton_method(:connect) do |declaration|
+        server = ActiveAgent::Providers::MCPBridge::Server.new(name: declaration[:name], declaration:, client:)
+        @servers << server
+        server
+      end
+      bridge
+    end
+
+    ActiveAgent::Providers::MCPToolCache.reset!
+    ActiveAgent::Providers::MCPBridge.stub(:new, build, &test)
+  ensure
+    ActiveAgent::Providers::MCPToolCache.reset!
   end
 end

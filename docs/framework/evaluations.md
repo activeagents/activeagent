@@ -817,8 +817,14 @@ built from the conversation, as `ActiveAgent::Evals::RubyLLM.replay(chat.message
 does for a [RubyLLM host](#rubyllm-hosts), carries them. A run that raises comes back as an errored
 replay (`replay.error`), as under `Runner`; `raise_errors: true` re-raises
 for the backtrace. Tool calls are captured where the telemetry tool spans
-are, on the agent's `tools_function`; a tool served by an MCP server is
-dispatched before that hook and is not recorded.
+are, on the agent's `tools_function`. A tool served by a client-side MCP
+server (`mcp_strategy: :client`, a provider with no MCP of its own, or a
+server that needs approval) never reaches that hook, so the provider reports
+it to the agent's `tool_observer` instead, and it is recorded the same way. A
+result the server marks as an error comes back to the model as a result, not
+an exception, and is recorded as a failed call (`replay.failed_tool_calls`).
+A server the provider runs itself (Anthropic's or OpenAI's hosted MCP) executes
+on the provider's side and is not recorded.
 
 `ActiveAgent::Evals::Capture.run` is what `run_eval` wraps, with no
 assertions, for a host that runs generations itself.
