@@ -73,22 +73,27 @@ class RunLifecycleTest < ActiveSupport::TestCase
     end
   end
 
-  test "a pending run is claimed once, with its start recorded" do
+  test "a pending run is claimed once, with its start recorded and announced" do
     calls = 0
     statuses = []
+    announced = []
     executing = lambda do |_agent, run|
       calls += 1
       statuses << run.reload.status
       { output: "answer", metadata: {}, usage: {} }
     end
+    recording = ->(stream, payload) { announced << payload[:status] if stream == "agent_run_#{@run.id}" }
 
-    ActionAgent::AgentExecutionService.stub(:call, executing) do
-      ActionAgent::AgentExecutionJob.perform_now(@run.id)
+    ActionAgent::LiveUpdates.stub(:broadcast, recording) do
+      ActionAgent::AgentExecutionService.stub(:call, executing) do
+        ActionAgent::AgentExecutionJob.perform_now(@run.id)
+      end
     end
 
     @run.reload
     assert_equal 1, calls
     assert_equal %w[running], statuses
+    assert_equal "running", announced.first, "subscribers were not told the run started"
     assert @run.complete?
     assert_not_nil @run.started_at
     assert_equal 1, Array(@run.logs).count { |log| log["message"].to_s.include?("Starting execution") }
@@ -186,6 +191,47 @@ class RunClaimConcurrencyTest < ActiveSupport::TestCase
     assert_equal 1, calls.value, "the run was executed by both workers"
     assert @run.complete?
     assert_equal 1, Array(@run.logs).count { |log| log["message"].to_s.include?("Starting execution") }
+  end
+
+  # Another worker process has claimed the run and not yet committed when
+  # this worker's job claims it; it commits a moment later. The job waits
+  # for that commit and then declines. A read under the row lock followed by
+  # a write cannot do that on SQLite with Rails 7.2, whose deferred
+  # transactions refuse the write once the other process has committed
+  # ("database is locked"). The other worker is a forked process, as job
+  # workers are, so it commits whatever this process is blocked on; how long
+  # it holds the claim decides only whether the job meets it in flight.
+  test "a worker that finds another worker's claim in flight starts no generation" do
+    reader, writer = IO.pipe
+    claimant = fork do
+      reader.close
+      ActiveRecord::Base.establish_connection
+      run = ActionAgent::AgentRun.find(@run.id)
+      run.with_lock do
+        run.update!(status: :running, started_at: Time.current)
+        writer.puts("held")
+        writer.flush
+        sleep 0.3
+      end
+      exit!(0)
+    rescue Exception # rubocop:disable Lint/RescueException
+      exit!(1)
+    end
+    writer.close
+    assert_equal "held", reader.gets(chomp: true), "the other worker did not claim the run"
+
+    calls = 0
+    ActionAgent::AgentExecutionService.stub(:call, ->(_agent, _run) { calls += 1 }) do
+      ActionAgent::AgentExecutionJob.perform_now(@run.id)
+    end
+
+    Process.wait(claimant)
+    assert_predicate $?, :success?, "the other worker failed to claim the run"
+    assert_equal 0, calls
+    assert @run.reload.running?
+    assert_empty Array(@run.logs)
+  ensure
+    reader&.close
   end
 end
 

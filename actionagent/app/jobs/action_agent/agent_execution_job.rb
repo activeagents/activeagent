@@ -37,19 +37,25 @@ module ActionAgent
 
     private
 
-    # Moves the run from pending to running under its row lock and returns
-    # whether this job is the one that did. The status is read again inside
-    # the lock, so of two workers that loaded the run as pending only the
-    # first to take the lock executes it, and the other starts no
-    # generation. The lock is held for the status change alone, not for the
-    # generation, so a cancel is never made to wait for it.
+    # Moves the run from pending to running in one conditional update, as
+    # CodeSessionJob#start claims a session, and returns whether this job is
+    # the one that did. The write checks the status itself, so of two
+    # workers that loaded the run as pending only the first to write
+    # executes it, and the other starts no generation, on every database. A
+    # read under the row lock followed by a write would be refused on SQLite
+    # with Rails 7.2, whose deferred transactions cannot write once another
+    # writer has committed. Nothing is held over the generation, so a cancel
+    # never waits for it. The update skips callbacks, so the status change is
+    # broadcast here.
     def claim_pending(run)
-      run.with_lock do
-        next false unless run.pending?
+      now = Time.current
+      claimed = AgentRun.where(id: run.id, status: AgentRun.statuses[:pending])
+        .update_all(status: AgentRun.statuses[:running], started_at: now, updated_at: now)
+      return false if claimed.zero?
 
-        run.update!(status: :running, started_at: Time.current)
-        true
-      end
+      run.reload
+      run.broadcast_update
+      true
     end
 
     def execute_agent(agent_record, run)

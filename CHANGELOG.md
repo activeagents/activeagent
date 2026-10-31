@@ -127,11 +127,13 @@ the MCP Services page cannot list or save servers of your own.
   turned away a finished or paused run. A job delivered twice, or two
   workers that both loaded the run as pending, each started a generation
   for it, and a duplicate that arrived while the run was running started
-  another. The job now moves the run from pending to running under the
-  run's row lock and starts no generation unless it was the one to do so;
-  the lock covers the status change only, so a cancel does not wait for a
-  generation. A run whose worker died after the claim stays running
-  and is not run again.
+  another. The job now moves the run from pending to running in one
+  conditional update, as `CodeSessionJob` claims a session, and starts no
+  generation unless it was the one to do so. The database decides at the
+  write, so this holds on SQLite under Rails 7.2 too, where a row-lock read
+  followed by a write is refused once another worker has committed. Nothing
+  is held over the generation, so a cancel does not wait for one. A run
+  whose worker died after the claim stays running and is not run again.
 
 ## [1.9.6] - 2026-10-29
 
