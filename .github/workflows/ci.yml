@@ -187,6 +187,8 @@ jobs:
             test-glob: "test/integration/anthropic/**/*_test.rb test/providers/usage_test.rb test/docs/providers/anthropic_examples_test.rb"
           - gemfile: "gemfiles/anthropic_latest.gemfile"
             test-glob: "test/integration/anthropic/**/*_test.rb test/providers/usage_test.rb test/docs/providers/anthropic_examples_test.rb"
+          - gemfile: "gemfiles/anthropic_2.gemfile"
+            test-glob: "test/integration/anthropic/**/*_test.rb test/providers/usage_test.rb test/docs/providers/anthropic_examples_test.rb"
           - gemfile: "gemfiles/openai_0.34.gemfile"
             test-glob: "test/integration/open_ai/**/*_test.rb"
           - gemfile: "gemfiles/openai_0.35.gemfile"

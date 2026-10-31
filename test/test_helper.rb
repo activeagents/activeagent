@@ -168,7 +168,15 @@ VCR.configure do |config|
   config.cassette_library_dir = VCR_CASSETTE_DIR
   config.hook_into :webmock
 
-  config.default_cassette_options = { record: VCR_RECORD_MODE }
+  # The anthropic gem 1.x reached its beta Messages API at
+  # `POST /v1/messages?beta=true`; 2.0 dropped that query string and relies on
+  # the `anthropic-beta` header alone. The beta cassettes were recorded under
+  # 1.x and keep the query, so the URI matcher ignores that one parameter
+  # instead of every beta cassette being re-recorded per gem major.
+  config.default_cassette_options = {
+    record:            VCR_RECORD_MODE,
+    match_requests_on: [ :method, VCR.request_matchers.uri_without_param(:beta) ]
+  }
 
   # When recording is disabled, also refuse any real HTTP connection that
   # happens outside a cassette so nothing leaks out to the real APIs. Tests
