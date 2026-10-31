@@ -166,7 +166,7 @@ jobs:
       run: bin/test
 
   test-api-gems:
-    name: Test API Gems
+    name: Test API Gems (${{ matrix.gemfile }})
     runs-on: ubuntu-latest
     env:
       BUNDLE_JOBS: 4
@@ -178,22 +178,32 @@ jobs:
       OPEN_ROUTER_API_KEY: OPEN_ROUTER_API_KEY
     strategy:
       fail-fast: false
+      # Every entry carries `ruby` itself: with a `ruby` axis above an
+      # `include` list whose entries only add keys, GitHub merges all of them
+      # into the one `{ruby: "3.4"}` combination and the last entry wins, so
+      # a single job ran (openai_latest) and the other gemfiles never did.
       matrix:
-        ruby: ["3.4"]
         include:
-          - gemfile: "gemfiles/anthropic_1.12.gemfile"
+          - ruby: "3.4"
+            gemfile: "gemfiles/anthropic_1.12.gemfile"
             test-glob: "test/integration/anthropic/**/*_test.rb test/providers/usage_test.rb test/docs/providers/anthropic_examples_test.rb"
-          - gemfile: "gemfiles/anthropic_1.14.gemfile"
+          - ruby: "3.4"
+            gemfile: "gemfiles/anthropic_1.14.gemfile"
             test-glob: "test/integration/anthropic/**/*_test.rb test/providers/usage_test.rb test/docs/providers/anthropic_examples_test.rb"
-          - gemfile: "gemfiles/anthropic_latest.gemfile"
+          - ruby: "3.4"
+            gemfile: "gemfiles/anthropic_latest.gemfile"
             test-glob: "test/integration/anthropic/**/*_test.rb test/providers/usage_test.rb test/docs/providers/anthropic_examples_test.rb"
-          - gemfile: "gemfiles/anthropic_2.gemfile"
+          - ruby: "3.4"
+            gemfile: "gemfiles/anthropic_2.gemfile"
             test-glob: "test/integration/anthropic/**/*_test.rb test/providers/usage_test.rb test/docs/providers/anthropic_examples_test.rb"
-          - gemfile: "gemfiles/openai_0.34.gemfile"
+          - ruby: "3.4"
+            gemfile: "gemfiles/openai_0.34.gemfile"
             test-glob: "test/integration/open_ai/**/*_test.rb"
-          - gemfile: "gemfiles/openai_0.35.gemfile"
+          - ruby: "3.4"
+            gemfile: "gemfiles/openai_0.35.gemfile"
             test-glob: "test/integration/open_ai/**/*_test.rb"
-          - gemfile: "gemfiles/openai_latest.gemfile"
+          - ruby: "3.4"
+            gemfile: "gemfiles/openai_latest.gemfile"
             test-glob: "test/integration/open_ai/**/*_test.rb test/providers/usage_test.rb test/docs/providers/open_ai_examples_test.rb"
     steps:
     - uses: actions/checkout@v6
@@ -214,4 +224,8 @@ jobs:
       env:
         RAILS_ENV: test
         RAILS_MASTER_KEY: ${{ secrets.RAILS_MASTER_KEY }}
-      run: bundle exec ruby -Itest ${{ matrix.test-glob }}
+      # `ruby file1 file2` runs only file1 and hands the rest to ARGV, so the
+      # files are required explicitly. globstar makes `**` span directories.
+      run: |
+        shopt -s globstar
+        bundle exec ruby -Itest -e 'ARGV.each { |f| require File.expand_path(f) }' ${{ matrix.test-glob }}
