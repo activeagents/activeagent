@@ -5,19 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.9.7] - 2026-10-30
+## [Unreleased]
 
-Ollama Cloud. The Ollama provider reaches ollama.com as readily as a local
-server, lists and describes the models a host serves, and the dashboard
-prices a model run on Ollama Cloud at the cloud's own rate on traces,
-metrics and evaluations, whichever way the model was spelled. Every cost
-figure on a trace is now worked out under the provider that served it.
+Upgrading: three dashboard migrations, 030 `add_evaluation_scoring_leases`
+(the scoring lease columns on `evaluation_scenario_results`), 031
+`add_catalog_scenario_metadata` (the `metadata` column on
+`catalog_scenarios`) and 032 `create_active_agent_mcp_server_configs` (the
+table behind a user's own MCP servers): run `bin/rails generate
+action_agent:install --skip` and `bin/rails db:migrate`. Until they run,
+fanned-out runs keep scoring with the claim 1.9.3 uses, catalog imports
+keep working but still drop scenario extensions (extensions discarded
+before the upgrade need the original document imported again), and
+the MCP Services page cannot list or save servers of your own.
 
-Upgrading: no migration and nothing to run; `bundle update activeagent
-actionagent`. A trace recorded under Ollama that priced at the default
-rate before prices at Ollama Cloud's listed rate now, and a finished
-evaluation run's cached figures are worked out again, since the pricing
-tables changed.
+The pricing tables changed too: a trace recorded under Ollama that priced
+at the default rate before prices at Ollama Cloud's listed rate now, and a
+finished evaluation run's cached figures are worked out again.
 
 ### Added
 
@@ -51,6 +54,64 @@ tables changed.
   (`{ input, output, source }` in $ per million tokens); Settings → Provider
   API Keys shows both with the connection test.
 
+- **Atlas Cloud as an OpenAI-compatible provider** (`activeagent`).
+  `service: "AtlasCloud"` generates through Atlas Cloud's compatibility
+  endpoint, with the key from `ATLASCLOUD_API_KEY` and an overridable
+  `base_url`; chat only, no embeddings (docs/providers/atlas_cloud.md).
+  Contributed in #352.
+
+- **Cheaper Inference as an OpenAI-compatible provider** (`activeagent`).
+  `service: "CheaperInference"` generates and embeds through
+  `https://api.cheaperinference.com/v1`, with the key from
+  `CHEAPER_INFERENCE_API_KEY`; a thin subclass of the OpenAI provider, like
+  Opper. Contributed in #629.
+
+- **Your own MCP servers** (`actionagent`). A dashboard user adds a remote
+  MCP server by URL on the MCP Services page (*Your MCP servers*), with
+  optional request headers, tests it (`tools/list`, recording the tools it
+  serves) and enables it on agents from the Tools tab, where it is listed
+  beside the catalog as `custom:<id>`. Agent runs and scenario evaluation runs
+  call its tools, and evaluation fix items attribute them to it. Each server
+  belongs to an owner like a provider key (`MCPServerConfig`, install
+  migration 029), and every lookup, including a run's, is scoped to that
+  owner. Header values are encrypted at rest, never returned to the browser
+  (names with masked values; a blank value on update keeps the stored one),
+  and scrubbed from recorded output. Writes and tests ask for
+  `:manage_credentials`. A URL that reaches a loopback, private or
+  link-local address is refused when saved and when called (`MCPHostGuard`),
+  unless the host sets `ActionAgent.allow_private_mcp_hosts`, e.g. for local
+  development. API: `/api/mcp_server_configs` with a `test` member action.
+
+- **Evals in the test suite** (`activeagent`). An eval is an ordinary test
+  under `test/evals`, collected by `rails test` like any other, whose
+  `ActiveAgent::Evals::TestCase` skips it unless `EVALS` is on, so the
+  suite never calls a model by accident. `bin/rails test:evals` switches
+  evals on and runs them through the same runner (`TEST=path` narrows,
+  `TESTOPTS` passes through); `EVALS=1 bin/rails test ...` runs one file,
+  one line, or the whole suite with the evals in. The same switch gates an
+  RSpec suite (`filter_run_excluding eval: true unless
+  ActiveAgent::Evals::TestHelper.enabled?`, with `expect_with :minitest`
+  for the assertions). `require "active_agent/evals/test_helper"`
+  after `rails/test_help` gives `ActiveAgent::Evals::TestCase` and the
+  `TestHelper` module: `run_eval MyAgent.with(...).action` returns an
+  `ActiveAgent::Evals::Replay` — the answer, every tool call with its
+  arguments, result or error and timing, duration and tokens — and
+  `assert_answer_present`, `assert_output_contains` /
+  `refute_output_contains`, `assert_tool_called` (with an argument subset)
+  / `refute_tool_called` and `assert_tools_succeeded` read it, failing with
+  what the agent did. `assert_eval_passes` (and `score_eval`) scores the
+  replay as a dashboard run does and fails with the fault and the fix;
+  `run_eval_suite` replays a YAML suite across models and returns the
+  `Report`, which `assert_pass_rate` gates and `to_html` writes.
+  `ActiveAgent::Evals::Capture` is the assertion-free core: it runs a
+  generation into a `Replay`, capturing tool calls on the agent's
+  `tools_function` (where the telemetry tool spans are; tools served by a
+  client-side MCP server are recorded through the agent's `tool_observer`),
+  replays under another `model:` or `provider:` the way a comparison run
+  does, and takes a block for an agent run some other way. The framework's railtie now
+  loads the gem's rake tasks; the empty `activeagent_tasks.rake`
+  placeholder is gone.
+
 ### Changed
 
 - **Every trace cost is priced under its provider** (`actionagent`). The
@@ -60,6 +121,99 @@ tables changed.
   OpenRouter's rate, and a trace's `OpenAI::Chat` tag reads as `openai`
   (`ModelPricing.provider_slug`). `TelemetryTrace.pluck_with_llm_model_and_provider`
   plucks the provider beside the model for a caller that prices tokens.
+
+- **Ranked comparison tables and value pills** (`actionagent`). Wherever the
+  dashboard compares rows, they now read through one pattern: a
+  `ComparisonTable` with two-line mono headers that sort on click and a
+  rank-tinted `ValuePill` in every numeric cell, banded by tercile in the
+  column's better direction or by fixed thresholds where the domain has them
+  (pass rates at 85 and 50), with missing values unranked and sorted last,
+  and a visually hidden rank word so colour is never the only signal. Applied
+  to a run's model comparison table and the Evaluations leaderboard, the
+  scenario matrix (the key leads each step with the prompt under it, one
+  score pill per model, cost and time pills per scenario, the tools level
+  stacking tool call, time, tokens and cost pills), each opened result's
+  score, time, tokens and cost strip, the Metrics overview's change pills and
+  the home page's Top Agents list. Under 600px a table stacks each row to
+  labelled pills.
+
+### Fixed
+
+- **The dashboard engine loads in a host without Action Cable**
+  (`actionagent`). The engine's class body camelizes its inflection
+  overrides with `Zeitwerk::Inflector` and did not require Zeitwerk itself.
+  Rails requires it only once the application sets up its autoloaders,
+  after `Bundler.require` has loaded the gem; until then the constant
+  exists only because Action Cable's engine loads it as a side effect. An
+  app generated with `--skip-action-cable`, or any API-only host, died at
+  boot with `uninitialized constant ActionAgent::Engine::Zeitwerk` (seen on
+  Rails 8.1.4; the require order is the same on every Rails since 7.0). The
+  engine requires Zeitwerk, a dependency of Active Support, before reading
+  it, and a test loads the engine in a fresh process right after `rails`,
+  with nothing in between.
+
+- **An evaluation judge job delivered twice scores its result once**
+  (`actionagent`). The claim on a pending result was a conditional write on
+  its timestamp, which turned away a stale reader but not a duplicate
+  delivered after the claim: that one read the new timestamp and asked the
+  judge to score the result again. A claim now takes a 30-minute lease
+  (`scoring_token`, `scoring_expires_at`) that a fresh reader cannot take
+  while it is live, and a worker that finishes after its lease was
+  reclaimed cannot overwrite its successor's result. A delivery that finds
+  a live lease, such as the queue's redelivery after a worker died
+  mid-judge, enqueues the job again for when the lease expires, so the run
+  still completes. Without migration 030 the judge job keeps the timestamp
+  claim instead of failing on the missing columns.
+
+- **Keep scenario catalog extension fields** (`activeagent`, `actionagent`).
+  Opaque scenario fields survive parsing, YAML/JSON export, database reload,
+  standard-field edits and storage restore. Their changes affect import
+  previews and catalog digests, including when only an extension changes.
+  Empty values and literal `metadata` keys are preserved; canonical format
+  fields cannot be replaced through the metadata container.
+
+- **Bound trace console list limits** (`actionagent`). The console defaults
+  to 50 recent matching traces, clamps integer limits to 1–1000, and uses
+  the default for malformed values. Its documentation describes the bounded
+  recent list rather than claiming pagination.
+
+- **Select trace time windows in dark mode** (`actionagent`). The dark
+  Traces header includes the shared time-window selector and zoom controls,
+  including when embedded on an agent page or when the window is empty.
+
+- **Show tool usage in both dashboard themes** (`actionagent`). The Traces
+  page renders the same tool counts, durations, failures and empty state
+  in dark and light mode, using the shared telemetry colors.
+
+- **Load evaluation catalogs without Rails** (`activeagent`). The standalone
+  `active_agent/evals` entry point loads the ActiveSupport array extension
+  used to construct, parse and load catalogs, without loading the framework.
+
+- **Client-side MCP tool calls appear in an eval replay** (`activeagent`).
+  `Evals::Capture` recorded the tools that reach the agent's
+  `tools_function`, and a tool served by a client-side MCP server is
+  dispatched before it, so a replay of an agent with `mcps:` showed none of
+  those calls and `assert_tool_called` could not find them. The provider
+  now runs such a call inside the agent's `tool_observer`, which Capture
+  sets, so it is recorded once with its arguments, result preview and
+  timing. A result the server marks as an error, which the model receives
+  as a result and not an exception, is recorded as a failed call, so
+  `failed_tool_calls` and `assert_tools_succeeded` see it. A server the
+  provider runs itself (Anthropic's or OpenAI's hosted MCP) executes on the
+  provider's side and is still not recorded.
+
+- **An agent run is executed by one job** (`actionagent`). The execution
+  job read a run's status, then wrote `running`, as two steps, and only
+  turned away a finished or paused run. A job delivered twice, or two
+  workers that both loaded the run as pending, each started a generation
+  for it, and a duplicate that arrived while the run was running started
+  another. The job now moves the run from pending to running in one
+  conditional update, as `CodeSessionJob` claims a session, and starts no
+  generation unless it was the one to do so. The database decides at the
+  write, so this holds on SQLite under Rails 7.2 too, where a row-lock read
+  followed by a write is refused once another worker has committed. Nothing
+  is held over the generation, so a cancel does not wait for one. A run
+  whose worker died after the claim stays running and is not run again.
 
 ## [1.9.6] - 2026-10-29
 

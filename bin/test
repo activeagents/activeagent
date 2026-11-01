@@ -36,8 +36,9 @@ test_files = if ARGV.empty?
     Dir[File.expand_path("../test/**/*_test.rb", __dir__)] +
     Dir[File.expand_path("../actionagent/test/**/*_test.rb", __dir__)]
     # Generator tests write into the dummy app's tmp/, and those artifacts are
-    # not tests. The Rakefile excludes them too.
-  ).reject { |path| path.include?("/test/dummy/tmp/") }
+    # not tests; test/dummy/test/evals is the host-app sample that
+    # `cd test/dummy && bin/rails test:evals` runs. The Rakefile excludes both.
+  ).reject { |path| path.include?("/test/dummy/tmp/") || path.include?("/test/dummy/test/evals/") }
 else
   ARGV.map do |arg|
     if File.exist?(arg)

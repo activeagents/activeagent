@@ -7,6 +7,7 @@ Rake::TestTask.new(:test) do |t|
   t.test_files = FileList["test/**/*_test.rb", "actionagent/test/**/*_test.rb"]
     .exclude("test/**/integration_test.rb")
     .exclude("test/dummy/tmp/**/*")
+    .exclude("test/dummy/test/evals/**/*") # the host-app sample; `cd test/dummy && bin/rails test:evals`
   t.verbose = true
 end
 

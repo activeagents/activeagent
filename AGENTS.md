@@ -302,6 +302,14 @@ whose client refuses to initialize without a key errors, a few hundred of
 them, before any request is stubbed or replayed. The suite's own exit code
 is the signal: piping it through `tail` hides it.
 
+`test/evals/` holds the tests *of* the evaluation module. The convention the
+module offers host apps — evals as ordinary tests in `test/evals`, skipped
+unless `EVALS` is on, run by `bin/rails test:evals` — is
+`ActiveAgent::Evals::TestHelper` (`lib/active_agent/evals/test_helper.rb`,
+assertions over the `Replay` that `ActiveAgent::Evals::Capture` builds from
+a generation) and `lib/tasks/active_agent/evals.rake`, which the railtie
+loads. Docs: `docs/framework/evaluations.md`, "In your test suite".
+
 ### Test Fixtures
 
 - VCR cassettes in `test/fixtures/vcr_cassettes/`
