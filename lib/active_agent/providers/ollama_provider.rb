@@ -7,12 +7,24 @@ require_relative "ollama/_types"
 
 module ActiveAgent
   module Providers
-    # Connects to local Ollama instances via OpenAI-compatible API.
+    # Connects to Ollama through its OpenAI-compatible API: a local server,
+    # a remote one, or Ollama Cloud (https://ollama.com).
     #
-    # Provides chat completion and embedding functionality through locally-hosted
-    # Ollama models. Handles connection errors specific to local deployments.
+    # Provides chat completion and embedding functionality, and lists and
+    # describes the models the host serves ({#models}, {#model_info}).
+    # Handles connection errors specific to local deployments, and asks for
+    # an API key before a request to the cloud that would be refused
+    # without one.
+    #
+    # @example A local server
+    #   generate_with :ollama, model: "qwen3:8b"
+    #
+    # @example Ollama Cloud, the key from OLLAMA_API_KEY
+    #   generate_with :ollama, cloud: true, model: "gpt-oss:120b"
     #
     # @see OpenAI::ChatProvider
+    # @see Ollama::Options
+    # @see Ollama::Cloud
     class OllamaProvider < OpenAI::ChatProvider
       # @return [String]
       def self.service_name
@@ -32,6 +44,46 @@ module ActiveAgent
       # @return [ActiveModel::Type::Value]
       def self.embed_request_type
         namespace::Embedding::RequestType.new
+      end
+
+      # @return [Boolean] whether requests go to Ollama Cloud
+      def cloud?
+        options.cloud?
+      end
+
+      # The models the configured host serves, from the host's own API.
+      #
+      # @return [Ollama::Catalog]
+      def catalog
+        namespace::Catalog.new(host: options.base_url, api_key: options.api_key)
+      end
+
+      # Lists the models the configured host serves.
+      #
+      # @return [Array<Ollama::Catalog::Model>]
+      # @raise [Ollama::Catalog::Error] when the host cannot be read
+      def models
+        catalog.models
+      end
+
+      # Describes one model the configured host serves: its details,
+      # capabilities and context length.
+      #
+      # @param name [String]
+      # @return [Ollama::Catalog::Model]
+      # @raise [Ollama::Catalog::NotFoundError] when the host does not serve it
+      # @raise [Ollama::Catalog::Error] when the host cannot be read
+      def model_info(name)
+        catalog.model_info(name)
+      end
+
+      # The OpenAI client, once the cloud's key requirement is met.
+      #
+      # @see OpenAI::Base#client
+      # @raise [Errors::AuthenticationFailed] on the cloud host without a key
+      def client
+        options.require_cloud_api_key!
+        super
       end
 
       protected

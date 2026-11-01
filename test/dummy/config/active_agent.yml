@@ -29,6 +29,13 @@ ollama: &ollama
   service: "Ollama"
   model: "gpt-oss:20b"
 # endregion ollama_anchor
+# region ollama_cloud_anchor
+ollama_cloud: &ollama_cloud
+  service: "Ollama"
+  cloud: true
+  model: "gpt-oss:120b"
+  api_key: <%= ENV["OLLAMA_API_KEY"] %>
+# endregion ollama_cloud_anchor
 # region bedrock_anchor
 bedrock: &bedrock
   service: "Bedrock"
@@ -72,6 +79,8 @@ development:
   ollama:
     <<: *ollama
   # endregion ollama_dev_config
+  ollama_cloud:
+    <<: *ollama_cloud
   # region anthropic_dev_config
   anthropic:
     <<: *anthropic
@@ -107,6 +116,8 @@ test:
     model: "qwen/qwen3.8-max"
   ollama:
     <<: *ollama
+  ollama_cloud:
+    <<: *ollama_cloud
   anthropic:
     <<: *anthropic
   bedrock:
