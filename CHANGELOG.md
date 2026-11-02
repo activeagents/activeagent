@@ -7,16 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-Upgrading: three dashboard migrations, 030 `add_evaluation_scoring_leases`
+Upgrading: four dashboard migrations, 030 `add_evaluation_scoring_leases`
 (the scoring lease columns on `evaluation_scenario_results`), 031
 `add_catalog_scenario_metadata` (the `metadata` column on
-`catalog_scenarios`) and 032 `create_active_agent_mcp_server_configs` (the
-table behind a user's own MCP servers): run `bin/rails generate
-action_agent:install --skip` and `bin/rails db:migrate`. Until they run,
-fanned-out runs keep scoring with the claim 1.9.3 uses, catalog imports
-keep working but still drop scenario extensions (extensions discarded
-before the upgrade need the original document imported again), and
-the MCP Services page cannot list or save servers of your own.
+`catalog_scenarios`), 032 `create_active_agent_mcp_server_configs` (the
+table behind a user's own MCP servers) and 033
+`add_agent_run_execution_leases` (the lease columns on `agent_runs`): run
+`bin/rails generate action_agent:install --skip` and `bin/rails
+db:migrate`. Until they run, fanned-out runs keep scoring with the claim
+1.9.3 uses, catalog imports keep working but still drop scenario
+extensions (extensions discarded before the upgrade need the original
+document imported again), the MCP Services page cannot list or save
+servers of your own, and agent runs take no leases, so a run whose worker
+dies stays running as before.
 
 The pricing tables changed too: a trace recorded under Ollama that priced
 at the default rate before prices at Ollama Cloud's listed rate now, and a
@@ -138,6 +141,24 @@ finished evaluation run's cached figures are worked out again.
   labelled pills.
 
 ### Fixed
+
+- **A run whose worker died is failed as lost instead of running forever**
+  (`actionagent`). Since a run is claimed once, a worker that died after
+  its claim left the run `running` for good: a redelivered job leaves a
+  running run alone. Each claim (the execution job's, the resume job's,
+  `Agent#test_execute`'s) now takes a lease (migration 033,
+  `config.run_lease_duration`, 30 minutes by default) that each LLM or
+  tool call renews. A running run whose lease ran out is failed with
+  `error_class` `ActionAgent::AgentRun::WorkerLost` when its page or the
+  run list is read, or when `ActionAgent::AgentRunExpiryJob` runs (not
+  scheduled by default). Nothing is executed again: the run's provider and
+  tool calls may already have taken effect. A worker that was only slow
+  has its result discarded, as a cancelled run's is, and a result now
+  only lands while the run holds its worker's lease, so whatever ended
+  the run first is kept. `test_execute` records its result the same way,
+  so a cancel during a synchronous test run is no longer overwritten. A
+  run with no lease, such as one running when the migration is installed,
+  is never failed as lost.
 
 - **The dashboard engine loads in a host without Action Cable**
   (`actionagent`). The engine's class body camelizes its inflection
