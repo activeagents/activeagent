@@ -583,14 +583,19 @@ and `pass_rate` (a 0..1 fraction) beside the
 true when the rate reaches the bar, and always for an ungated group.
 `Report#passed?` is every gate met. `Report#failures(group:)` lists the
 results that did not pass — failed and errored, in run order — and
-`failures_markdown(group:)` writes them one per line, so a failing
-assertion names the answers to read:
+`failures_markdown(group:)` writes them one per line. The assertion a
+test suite writes over them ships with the gem for both test frameworks,
+each loaded by its own require so `require "active_agent/evals"` pulls in
+neither. In Minitest, include `ActiveAgent::Evals::Minitest::Assertions`
+and the assertion is `assert_meets_pass_gates(report)`:
 
 ```ruby
 require "test_helper"
-require "active_agent/evals"
+require "active_agent/evals/minitest"   # loads active_agent/evals with it
 
 class SupportDeskEvalTest < ActiveSupport::TestCase
+  include ActiveAgent::Evals::Minitest::Assertions
+
   test "the support desk suite clears its pass gates" do
     suite = ActiveAgent::Evals::Suite.load("config/evals/support_desk.yml")
     report = ActiveAgent::Evals::Runner.new(
@@ -600,11 +605,48 @@ class SupportDeskEvalTest < ActiveSupport::TestCase
       replay: ->(scenario, spec) { SupportAgent.evaluate(scenario.prompt, model: spec.model, provider: spec.provider) }
     ).call
 
-    unmet = report.gates.reject(&:met?)
-    assert report.passed?, unmet.map { |gate| "#{gate}\n#{report.failures_markdown(group: gate.group)}" }.join("\n\n")
+    assert_meets_pass_gates(report)
   end
 end
 ```
+
+In RSpec, include `ActiveAgent::Evals::RSpec` — once, in `RSpec.configure`,
+or in the example group that runs the suite — and the matcher is
+`meet_its_pass_gates`:
+
+```ruby
+require "active_agent/evals/rspec"   # loads active_agent/evals with it, and nothing from rspec
+
+RSpec.configure { |config| config.include ActiveAgent::Evals::RSpec }
+
+RSpec.describe "the support desk suite" do
+  it "clears its pass gates" do
+    suite = ActiveAgent::Evals::Suite.load("config/evals/support_desk.yml")
+    report = ActiveAgent::Evals::Runner.new(
+      scenarios: suite.all_scenarios, models: models, replay: replay,
+      pass_thresholds: suite.pass_thresholds
+    ).call
+
+    expect(report).to meet_its_pass_gates
+  end
+end
+```
+
+Both fail with one message. Its first line counts the gates missed — `2 of
+5 pass gates not met` — and each unmet gate follows as its sentence, one
+per line, in `gates` order. After a blank line come the failures to read:
+for each group with an unmet gate, a heading (`Orders failures:`)
+and that group's `failures_markdown`, one line per answer that failed or
+errored, with its fault and summary. An `All` row that is missed adds the
+failures it counts, those in gated groups and in no group: under
+`Failures:` when no group row is missed with it, and otherwise the ones
+outside the groups already listed under `Other failures:`, when there are
+any. An ungated group's failures count toward no gate and are never
+listed. Both take a `PassThresholds` to hold the report to a bar other
+than its own — `assert_meets_pass_gates(report, thresholds)`,
+`meet_its_pass_gates(thresholds)` — and a script that prints the message
+itself builds it as `ActiveAgent::Evals::GateCheck.new(report).message`,
+with `met?` and `unmet` beside it.
 
 A gate reads as one sentence — `Orders · gpt-5-mini: 1/2 (50%) passed,
 below 100%`, `All · gpt-5-mini: 1/2 (50%) passed, below 80%` (`at or above
@@ -635,6 +677,7 @@ reads the JSON.
 | `ScenarioParser` | Pasted text, JSON, or grouped YAML suites → scenarios. Lines, `# Heading` groups, backticked prompts with notes, `\| tools: a, b \| contains: x` options |
 | `Suite` | A YAML suite with groups; later documents override by key, so a deployment can add or reword tasks |
 | `PassThresholds` | A suite's `pass` block as data: the score every answer must reach, the share of answers that must pass for the suite and for each group, and which groups are gated; layered key by key across documents |
+| `GateCheck` | A report held to its pass gates: `met?`, the `unmet` gates and the `message` a failing assertion prints — each unmet gate as its sentence, then the failures to read per group. `assert_meets_pass_gates` (Minitest) and `meet_its_pass_gates` (RSpec) are built on it, each loaded by its own require |
 | `ModelSpec` | `provider/model` or a bare name with provider inference (`claude-*` → anthropic, `gpt-*` → openai, `name:tag` → ollama, `vendor/model` → openrouter) |
 | `Replay` | What your agent produced: answer, tool calls, timing, tokens, cost, error |
 | `Scorer` | Rule criteria (`response_present`, `min_length`, `max_latency_ms`, `token_budget`, `contains`, `not_contains`, `llm_judge`) plus the scenario's expectations |

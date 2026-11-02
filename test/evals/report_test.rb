@@ -7,12 +7,6 @@ require "cgi"
 class EvalsReportTest < ActiveSupport::TestCase
   include EvalsTestSupport
 
-  Result = ActiveAgent::Evals::Result
-  Diagnosis = ActiveAgent::Evals::Diagnosis
-  Report = ActiveAgent::Evals::Report
-  PassThresholds = ActiveAgent::Evals::PassThresholds
-
-  AVAILABLE = %w[find_tickets inbox_status index_status].freeze
   LINKS = { "mcp" => "/activeagents/mcp/%{key}", "tools" => "/activeagents/tools", "instructions" => "/activeagents/agents/1/edit" }.freeze
   SERVERS = {
     "index_status" => { "key" => "help_desk_status", "name" => "Help Desk Status", "status" => "enabled" },
@@ -20,33 +14,8 @@ class EvalsReportTest < ActiveSupport::TestCase
     "refund_order" => { "key" => "order_desk", "name" => "Order Desk", "status" => "available" }
   }.freeze
 
-  def models
-    @models ||= [ spec("gpt-5-mini"), spec("openrouter/meta-llama/llama-3.1-8b") ]
-  end
-
-  def gpt
-    models.first
-  end
-
-  def llama
-    models.last
-  end
-
   def resolver
     ->(name) { SERVERS[name] }
-  end
-
-  # A result whose diagnosis comes from the real Diagnosis, so the evidence
-  # has the shape the report reads; `judge:` adds the judge's refinement.
-  def result(scenario, spec, replay, score: 1.0, judge: nil)
-    scores = { "response_present" => replay.answer.present? ? 1.0 : 0.0 }
-    diagnosis = Diagnosis.call(scenario: scenario, replay: replay, scores: scores, score: score, available_tools: AVAILABLE)&.to_h
-    if diagnosis && judge
-      diagnosis["judge"] = judge
-      diagnosis["recommendation"] = judge["recommendation"] if judge["recommendation"]
-    end
-    Result.new(scenario: scenario, spec: spec, replay: replay, scores: scores, score: score,
-               status: replay.errored? ? "errored" : (diagnosis ? "failed" : "passed"), diagnosis: diagnosis)
   end
 
   # Five scenarios in three groups under two models: every fault type once,
@@ -823,43 +792,6 @@ class EvalsReportTest < ActiveSupport::TestCase
   end
 
   # --- pass gates --------------------------------------------------------------
-
-  THRESHOLDS = PassThresholds.new(
-    suite: { "threshold" => 0.7, "min_pass_rate" => 0.8 },
-    groups: { "orders" => { "min_pass_rate" => 1.0 }, "experimental" => { "gated" => false } }
-  )
-
-  def grouped(key, prompt, group, name)
-    Scenario.from_hash({ "key" => key, "prompt" => prompt, "expectations" => { "tools" => [ "inbox_status" ] } }, group: group, group_name: name)
-  end
-
-  # Three named groups and an ungrouped scenario under two models. Orders
-  # passes fully under llama and half under gpt; help has a result under gpt
-  # alone; experimental fails under gpt and errors under llama; the
-  # ungrouped scenario passes under gpt alone.
-  def gated_results
-    lookup = grouped("order_lookup", "Where is order ABC-123?", "orders", "Order support")
-    status = grouped("order_status", "Has order ABC-123 shipped?", "orders", "Order support")
-    cancel = grouped("help_cancel", "How do I cancel my order?", "help", "Product help")
-    experiment = grouped("exp_1", "Draft a reply in the customer's tone.", "experimental", "Experimental")
-    ping = scenario("ping", "Are you there?", group: nil, tools: [ "inbox_status" ])
-    called = [ { "name" => "inbox_status" } ]
-
-    [
-      result(lookup, gpt, replay(answer: "It shipped on Monday.", tool_calls: called)),
-      result(lookup, llama, replay(answer: "Shipped Monday.", tool_calls: called)),
-      result(status, gpt, replay(answer: "Probably.", tool_calls: called), score: 0.5),
-      result(status, llama, replay(answer: "Yes, on Monday.", tool_calls: called)),
-      result(cancel, gpt, replay(answer: "From the order page.", tool_calls: called)),
-      result(experiment, gpt, replay(answer: "Dear customer.", tool_calls: called), score: 0.5),
-      result(experiment, llama, ActiveAgent::Evals::Replay.failed(RuntimeError.new("provider down")), score: nil),
-      result(ping, gpt, replay(answer: "Yes.", tool_calls: called))
-    ]
-  end
-
-  def gated_report(**options)
-    Report.new(results: gated_results, models: models, pass_thresholds: THRESHOLDS, **options)
-  end
 
   def test_summary_by_group_counts_each_models_results_per_group_in_run_order
     summary = gated_report.summary_by_group
