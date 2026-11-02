@@ -221,8 +221,7 @@ dashboard never executes that application's agent.
 ActiveAgent::Evals::Publisher.new(
   endpoint: "https://activeagents.example.com/api/evaluation_reports",
   api_key: Rails.application.credentials.dig(:active_agent, :ingest_api_key)
-).call(report: report, run_id: report.metadata.fetch("run_id"),
-       source: "support-app", agent_name: "SupportBot", suite: "orders")
+).call(report: report, source: "support-app", agent_name: "SupportBot", suite: "orders")
 ```
 
 The endpoint is `<mount>/api/evaluation_reports`, authenticated with the same

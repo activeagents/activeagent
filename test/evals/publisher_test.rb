@@ -1,10 +1,12 @@
 # frozen_string_literal: true
 
 # The publisher also works with saved report hashes, without loading Rails or
-# the agent framework. Exercise that use directly.
+# the agent framework. Exercise that use directly; the evaluation module is
+# loaded only to build a Report that carries its run's metadata.
 require "minitest/autorun"
 require "webmock/minitest"
 require_relative "../../lib/active_agent/evals/publisher"
+require_relative "../../lib/active_agent/evals"
 
 class EvalsPublisherTest < Minitest::Test
   ENDPOINT = "https://collector.example.test/v1/evaluations"
@@ -222,6 +224,7 @@ class EvalsPublisherTest < Minitest::Test
     assert_equal bodies.first, envelope
     assert_equal %w[run_id source agent_name suite version report], envelope.keys
     assert_raises(ArgumentError) { Publisher.envelope(**arguments.merge(suite: " ")) }
+    assert_raises(ArgumentError) { Publisher.envelope(**arguments.merge(run_id: nil)) }
     assert_raises(ArgumentError) { Publisher.envelope(**arguments.merge(report: nil)) }
   end
 
@@ -342,5 +345,131 @@ class EvalsPublisherTest < Minitest::Test
       assert_raises(ArgumentError, timeout.inspect) { Publisher.new(api_key: "test-key", timeout: timeout) }
     end
     assert_instance_of Publisher, Publisher.new(endpoint: "http://127.0.0.1:3210/v1/evaluations", api_key: "test-key")
+  end
+
+  def identities
+    arguments.except(:report, :run_id)
+  end
+
+  def test_run_id_comes_from_the_reports_metadata_unless_given
+    # The receipt names the run_id the envelope was sent under.
+    stub_request(:post, ENDPOINT).to_return { |req| { status: 201, body: receipt.merge(run_id: JSON.parse(req.body)["run_id"]).to_json } }
+    report = ActiveAgent::Evals::Report.new(results: [], models: [], metadata: { "run_id" => "run-123" })
+
+    assert_equal "run-123", publisher.call(report: report, **identities)["run_id"]
+    assert_equal "run-123", publisher.call(report: report.to_h, **identities)["run_id"], "a saved report hash"
+    assert_equal "run-456", publisher.call(report: report, run_id: "run-456", **identities)["run_id"], "an explicit run_id wins"
+
+    report = ActiveAgent::Evals::Report.new(results: [], models: [], metadata: { run_id: "run-789" })
+    assert_equal "run-789", publisher.call(report: report, **identities)["run_id"], "metadata under a Symbol key"
+  end
+
+  def test_a_run_id_must_be_given_when_the_reports_metadata_records_none
+    [ { "results" => [] }, { "results" => [], "metadata" => { "run_id" => " " } }, { "results" => [], "metadata" => { "run_id" => 42 } },
+      { "results" => [], "metadata" => "run-123" }, ActiveAgent::Evals::Report.new(results: [], models: []) ].each do |report|
+      error = assert_raises(ArgumentError, report.inspect) { publisher.call(report: report, **identities) }
+      assert_equal "run_id must be given, or the report's metadata must carry one (Correlation#with_run records it)", error.message
+    end
+    error = assert_raises(ArgumentError) { publisher.progress(report: { "results" => [] }, **identities) }
+    assert_includes error.message, "run_id must be given"
+    error = assert_raises(ArgumentError) { publisher.call(report: nil, **identities) }
+    assert_equal "report must be a Report or its saved JSON hash", error.message, "a report that is not one fails as such, not as a missing run_id"
+    assert_not_requested :post, ENDPOINT
+  end
+
+  def test_a_receipt_path_resolves_against_the_endpoints_origin
+    stub_request(:post, ENDPOINT).to_return(status: 201, body: receipt.merge(url: "/evaluations/7/runs/42").to_json)
+
+    assert_equal "https://collector.example.test", publisher.dashboard_url
+    assert_equal receipt.transform_keys(&:to_s).merge("url" => "https://collector.example.test/evaluations/7/runs/42"), publisher.call(**arguments)
+    assert_equal "http://127.0.0.1:3210", Publisher.new(endpoint: "http://127.0.0.1:3210/v1/evaluations", api_key: "test-key").dashboard_url
+  end
+
+  def test_a_receipt_path_resolves_against_a_given_dashboard_url
+    stub_request(:post, ENDPOINT).to_return(status: 201, body: receipt.merge(url: "/evaluations/7/runs/42").to_json)
+
+    [ "https://evals.example.test", "https://evals.example.test/", "https://evals.example.test/activeagents/" ].each do |url|
+      publishing = Publisher.new(endpoint: ENDPOINT, api_key: "private-test-key", dashboard_url: url)
+      assert_equal url, publishing.dashboard_url, "the reader returns the dashboard_url given"
+      assert_equal "https://evals.example.test/evaluations/7/runs/42", publishing.call(**arguments)["url"], url
+    end
+    publishing = Publisher.new(endpoint: ENDPOINT, api_key: "private-test-key", dashboard_url: "http://evals.example.test:8080/")
+    assert_equal "http://evals.example.test:8080/evaluations/7/runs/42", publishing.call(**arguments)["url"], "a non-default port is kept"
+  end
+
+  def test_a_receipt_url_that_is_not_a_path_is_left_as_the_collector_sent_it
+    [ "https://other.example.test/runs/42", "//other.example.test/runs/42", "evaluations/7/runs/42", "/evaluations/7/runs/4 2", "" ].each do |url|
+      stub_request(:post, ENDPOINT).to_return(status: 201, body: receipt.merge(url: url).to_json)
+      assert_equal url, publisher.call(**arguments)["url"], url.inspect
+    end
+
+    stub_request(:post, ENDPOINT).to_return(status: 201, body: receipt.merge(url: nil).to_json)
+    assert_equal receipt.transform_keys(&:to_s).merge("url" => nil), publisher.call(**arguments), "a receipt with a null url"
+    stub_request(:post, ENDPOINT).to_return(status: 201, body: receipt.to_json)
+    assert_equal receipt.transform_keys(&:to_s), publisher.call(**arguments), "a receipt without a url"
+  end
+
+  def test_a_progress_receipt_path_resolves_the_same_way
+    probe(%w[progress])
+    stub_request(:post, ENDPOINT).with { |req| req.body != "{}" }
+      .to_return(status: 201, body: receipt.merge(status: "running", url: "/evaluations/7/runs/42").to_json)
+
+    assert_equal "https://collector.example.test/evaluations/7/runs/42", publisher.progress(**arguments)["url"]
+    # The receipt's run_id must match the envelope's, so a receipt for run-123 means the report's metadata named the run.
+    report = ActiveAgent::Evals::Report.new(results: [], models: [], metadata: { "run_id" => "run-123" })
+    assert_equal "https://collector.example.test/evaluations/7/runs/42", publisher.progress(report: report, **identities)["url"],
+                 "under the run_id the report's metadata records"
+  end
+
+  def test_dashboard_url_must_be_an_http_url_without_credentials_query_or_fragment
+    [ "", "evals.example.test", "ftp://evals.example.test", "https://", "https://evals.example.test/a b" ].each do |url|
+      error = assert_raises(ArgumentError, url.inspect) { Publisher.new(endpoint: ENDPOINT, api_key: "test-key", dashboard_url: url) }
+      assert_equal "Evaluation dashboard_url is not an http(s) URL", error.message
+    end
+    [ "https://user:pw@evals.example.test", "https://evals.example.test/?tenant=a", "https://evals.example.test/#runs" ].each do |url|
+      error = assert_raises(ArgumentError, url.inspect) { Publisher.new(endpoint: ENDPOINT, api_key: "test-key", dashboard_url: url) }
+      assert_equal "Evaluation dashboard_url must be an http(s) URL without credentials, query or fragment", error.message
+    end
+  end
+
+  def test_from_env_builds_a_publisher_from_the_documented_variables
+    publishing = Publisher.from_env("ACTIVEAGENTS_EVALUATIONS_ENDPOINT" => ENDPOINT, "ACTIVEAGENTS_API_KEY" => " private-test-key\n",
+                                    "ACTIVEAGENTS_DASHBOARD_URL" => "https://evals.example.test")
+    stub_request(:post, ENDPOINT).with(headers: { "Authorization" => "Bearer private-test-key" })
+      .to_return(status: 201, body: receipt.merge(url: "/evaluations/7/runs/42").to_json)
+
+    assert_equal ENDPOINT, publishing.endpoint
+    assert_equal "https://evals.example.test", publishing.dashboard_url
+    assert_equal "https://evals.example.test/evaluations/7/runs/42", publishing.call(**arguments)["url"]
+
+    publishing = Publisher.from_env("ACTIVEAGENTS_API_KEY" => "private-test-key", "ACTIVEAGENTS_EVALUATIONS_ENDPOINT" => " ", "ACTIVEAGENTS_DASHBOARD_URL" => "")
+    assert_equal Publisher::DEFAULT_ENDPOINT, publishing.endpoint
+    assert_equal "https://api.activeagents.ai", publishing.dashboard_url
+  end
+
+  def test_from_env_requires_the_api_key_and_checks_the_other_variables_as_new_does
+    [ {}, { "ACTIVEAGENTS_API_KEY" => " \t" } ].each do |env|
+      error = assert_raises(ArgumentError, env.inspect) { Publisher.from_env(env) }
+      assert_equal "ACTIVEAGENTS_API_KEY is not set", error.message
+    end
+    error = assert_raises(ArgumentError) { Publisher.from_env("ACTIVEAGENTS_API_KEY" => "private-test-key", "ACTIVEAGENTS_DASHBOARD_URL" => "evals.example.test") }
+    assert_equal "Evaluation dashboard_url is not an http(s) URL", error.message
+    assert_raises(ArgumentError) { Publisher.from_env("ACTIVEAGENTS_API_KEY" => "private-test-key", "ACTIVEAGENTS_EVALUATIONS_ENDPOINT" => "http://collector.example.test/v1/evaluations") }
+  end
+
+  def test_from_env_reads_the_process_environment_by_default
+    names = %w[ACTIVEAGENTS_API_KEY ACTIVEAGENTS_EVALUATIONS_ENDPOINT ACTIVEAGENTS_DASHBOARD_URL]
+    previous = names.to_h { |name| [ name, ENV.delete(name) ] }
+
+    error = assert_raises(ArgumentError) { Publisher.from_env }
+    assert_equal "ACTIVEAGENTS_API_KEY is not set", error.message
+
+    ENV.update("ACTIVEAGENTS_API_KEY" => "private-test-key", "ACTIVEAGENTS_EVALUATIONS_ENDPOINT" => ENDPOINT,
+               "ACTIVEAGENTS_DASHBOARD_URL" => "https://evals.example.test/")
+    publishing = Publisher.from_env
+    assert_equal ENDPOINT, publishing.endpoint
+    assert_equal "https://evals.example.test/", publishing.dashboard_url
+  ensure
+    previous&.each { |name, value| value.nil? ? ENV.delete(name) : ENV[name] = value }
   end
 end

@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **The evaluation publisher reads `run_id` from the report, returns an
+  absolute receipt `url` and builds itself from `ENV`** (`activeagent`).
+  `ActiveAgent::Evals::Publisher#call` and `#progress` take `run_id:` as
+  optional and read it from the report's `metadata.run_id`, where
+  `Correlation#with_run` records it, from a `Report` or its saved JSON hash;
+  an explicit `run_id:` wins, and a report with neither raises
+  `ArgumentError` before anything is sent. The receipt's `url` comes back
+  absolute: the path a collector sends
+  (`<mount>/evaluations/:evaluation_id/runs/:id` from the engine) is joined
+  onto the publisher's `dashboard_url`, by default the endpoint's origin, or
+  the HTTP(S) URL `Publisher.new(dashboard_url:)` is given, so the link opens
+  in a browser; an absolute `url` and a receipt without one are left as they
+  are. `Publisher.from_env` builds the publisher from
+  `ACTIVEAGENTS_EVALUATIONS_ENDPOINT` (the hosted default when blank),
+  `ACTIVEAGENTS_API_KEY` (required) and the new, optional
+  `ACTIVEAGENTS_DASHBOARD_URL`, for a dashboard people reach at another
+  address than the collector's:
+  `Publisher.from_env.call(report: report, source: "support-app", agent_name: "SupportBot", suite: "orders")`.
+
 ## [1.9.6] - 2026-10-29
 
 The dashboard on a phone, and the small finished pieces: the sidebar as a
