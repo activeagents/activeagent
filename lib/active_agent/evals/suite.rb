@@ -35,6 +35,28 @@ module ActiveAgent
         new(documents, name: name || File.basename(existing.first, ".yml"))
       end
 
+      # The scenarios among `scenarios` whose key is in `keys`, in the order of
+      # `scenarios`. `keys` is an Array of Strings or Symbols or one
+      # comma-separated String; blanks are dropped, a repeated key selects
+      # once, and blank `keys` leave `scenarios` unchanged. Every key must name
+      # a scenario in `known`, which may be wider than `scenarios` (several
+      # suites' scenarios together), else NotFound lists the missing keys in
+      # the order given, "in <name>" appended when `name` is given. The result
+      # is empty when `known` holds the keys but `scenarios` does not.
+      def self.select(scenarios, keys:, known: scenarios, name: nil)
+        keys = keys.to_s.split(",") unless keys.is_a?(Array)
+        keys = keys.map { |key| key.to_s.strip }.reject(&:empty?).uniq
+        return scenarios if keys.empty?
+
+        missing = keys - known.map(&:key)
+        if missing.any?
+          where = name.present? ? " in #{name}" : ""
+          raise NotFound, "no scenario #{missing.join(', ')}#{where}"
+        end
+
+        scenarios.select { |scenario| keys.include?(scenario.key) }
+      end
+
       # @param documents [Array<Hash>] parsed YAML documents, base first
       def initialize(documents, name: nil)
         documents = Array(documents).map(&:deep_stringify_keys)
@@ -44,11 +66,17 @@ module ActiveAgent
       end
 
       # Scenarios narrowed by group keys, scenario keys, or both; `production_only`
-      # scenarios are dropped unless `include_production_only` is true.
-      def scenarios(groups: nil, keys: nil, include_production_only: true)
+      # scenarios are dropped unless `include_production_only` is true. With
+      # `strict`, every key in `keys` must name a scenario of the suite (see
+      # Suite.select), and a key outside the chosen groups selects nothing.
+      def scenarios(groups: nil, keys: nil, include_production_only: true, strict: false)
         selected = all_scenarios
         selected = selected.select { |scenario| Array(groups).map(&:to_s).include?(scenario.group) } if groups.present?
-        selected = selected.select { |scenario| Array(keys).map(&:to_s).include?(scenario.key) } if keys.present?
+        if strict
+          selected = Suite.select(selected, keys: keys, known: all_scenarios, name: name)
+        elsif keys.present?
+          selected = selected.select { |scenario| Array(keys).map(&:to_s).include?(scenario.key) }
+        end
         selected = selected.reject(&:production_only?) unless include_production_only
         selected
       end

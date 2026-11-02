@@ -586,6 +586,36 @@ groups:
 ```ruby
 suite = ActiveAgent::Evals::Suite.load("config/evals/support_bot.yml", "config/evals/acme/support_bot.yml")
 suite.scenarios(groups: %w[orders], include_production_only: false)
+suite.scenarios(keys: "orders_1, orders_2", strict: true)
+```
+
+Without `strict:`, `keys:` is an Array of keys and narrows quietly: a
+misspelled key, or a key from another suite, selects nothing, and a run
+passes with zero scenarios. With `strict: true`, `keys:` is an Array of
+keys or one comma-separated String, split on commas and stripped, so the
+value can come straight from an environment variable or a command line,
+and every key is checked against the whole suite first: the call raises
+`Suite::NotFound` — `no scenario orders_3, orders_4 in support_bot`, the
+missing keys in the order given — when the suite does not hold one. A key
+the suite holds outside the chosen `groups:` is not an error: the selection
+is empty. A key held only by another suite is an error here; `Suite.select`
+below is for keys spread across suites. The scenarios come back in the
+suite's order, not the keys'.
+
+`Suite.select` is that check for scenarios that do not all sit in one
+suite. It takes the scenarios to choose from, the keys, `known:`, the
+wider set every key must come from, and `name:`, what the error names
+after `in`. A key missing from `known` raises, and a key `known` holds but
+the scenarios do not is left out. A runner that takes keys from the
+environment across several suites checks them once against all of them and
+skips a suite that holds none:
+
+```ruby
+known = suites.flat_map(&:all_scenarios)
+suites.each do |suite|
+  scenarios = ActiveAgent::Evals::Suite.select(suite.all_scenarios, keys: ENV["EVAL_KEYS"], known: known, name: "evals")
+  ActiveAgent::Evals::Runner.new(scenarios:, models:, replay:).call unless scenarios.empty?
+end
 ```
 
 The same grouped document can be pasted into `ScenarioParser` as YAML or
@@ -730,10 +760,18 @@ catalog = ActiveAgent::Evals::Catalog.load("config/evals/support_desk.yml")
 catalog.products.map(&:key)                      # => ["triage", "billing"]
 catalog.set(:triage, :smoke).scenarios.size      # => 2
 catalog.scenarios(product: :triage, include_production_only: false)
+catalog.scenarios(keys: %w[refund_request invoice_copy], strict: true)
 
 suite = catalog.suite_for(:triage, :smoke)       # a Suite named "support_desk/triage/smoke"
 ActiveAgent::Evals::Runner.new(suite.all_scenarios, ...)
 ```
+
+`Catalog#scenarios` takes the same `keys:` and `strict:` as
+`Suite#scenarios`. With `strict: true` every key must name a scenario
+somewhere in the catalog, whatever `product:` or `set:` narrows to, or the
+call raises `Suite::NotFound` naming the catalog (`no scenario invoice_dispute
+in support_desk`); a key that sits outside the chosen product or set
+selects nothing.
 
 `Catalog.load` takes several paths and `Catalog.new` several documents:
 later ones layer over earlier ones by key, so a team-wide catalog can be

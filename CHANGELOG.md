@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Strict scenario selection by key** (`activeagent`). `Suite#scenarios`
+  and `Catalog#scenarios` take `strict: true` with `keys:`: every key must
+  name a scenario the suite or catalog holds, or the call raises
+  `Suite::NotFound` listing the missing keys in the order given, so a
+  misspelled key from an environment variable or a command line fails the
+  run rather than passing it with zero scenarios. A key the suite holds
+  outside the chosen `groups:` returns an empty selection. `Suite.select`
+  is the same check over any scenarios, with `known:` the wider set the keys
+  must come from, for a runner that takes keys across several suites.
+  Without `strict:` the selection narrows as before.
+
 ## [1.9.6] - 2026-10-29
 
 The dashboard on a phone, and the small finished pieces: the sidebar as a
