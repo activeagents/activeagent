@@ -12,6 +12,8 @@ Providers connect your agents to AI services through a unified interface. Switch
 
 <<< @/../test/dummy/app/agents/providers/anthropic_agent.rb#agent{ruby} [Anthropic]
 
+<<< @/../test/dummy/app/agents/providers/atlas_cloud_agent.rb#agent{ruby} [Atlas Cloud]
+
 <<< @/../test/dummy/app/agents/providers/ollama_agent.rb#agent{ruby} [Ollama]
 
 <<< @/../test/dummy/app/agents/providers/open_ai_agent.rb#agent{ruby} [OpenAI]
@@ -47,11 +49,11 @@ Claude Sonnet 4.5, Haiku 4.5, and Opus 4.1 models. Extended thinking mode for de
 **Choose when:** You need exceptional reasoning, prefer Claude's outputs, or require very long context windows. Strong at coding and analysis.
 
 ### [Ollama](/providers/ollama)
-**Best for:** Local inference, privacy-sensitive data, development without API costs
+**Best for:** Local inference, privacy-sensitive data, development without API costs, and open models at scale through Ollama Cloud
 
-Run Llama 3, Mistral, Gemma, CodeLlama, and other open models locally. No API keys required. Full control over data.
+Run Llama 3, Mistral, Gemma, CodeLlama, and other open models locally with no API key, or reach the large open models Ollama serves from its cloud (`gpt-oss:120b`, `kimi-k3`, `glm-5.3`, …) with `cloud: true` and an API key, metered per token. The same provider lists and describes the models a host serves.
 
-**Choose when:** Data cannot leave your infrastructure, you're developing offline, or you want to avoid API costs. Requires local setup.
+**Choose when:** Data cannot leave your infrastructure, you're developing offline, or you want to avoid API costs. Ollama Cloud when a model is too large for your machine. Local use requires local setup.
 
 ### [OpenAI](/providers/open_ai)
 **Best for:** Production applications, advanced reasoning, vision tasks
@@ -66,6 +68,11 @@ GPT-4o, GPT-4.1, GPT-5, and o3 models. Two APIs available: Responses API (defaul
 Access 200+ models from OpenAI, Anthropic, Google, Meta, and more through one API. Intelligent routing, automatic fallbacks, multimodal support, PDF processing.
 
 **Choose when:** You want to compare models, need fallback options, or want flexible provider switching. Good for reducing vendor lock-in.
+
+### [Atlas Cloud](/providers/atlas_cloud)
+**Best for:** OpenAI-compatible access to Atlas Cloud text models
+
+Use Atlas Cloud model identifiers with Active Agent's chat, streaming, structured output, and tool-calling interfaces. The provider reads `ATLASCLOUD_API_KEY` and uses the Atlas Cloud endpoint automatically.
 
 ### [RubyLLM](/providers/ruby_llm)
 **Best for:** Multi-provider flexibility through a single unified gem

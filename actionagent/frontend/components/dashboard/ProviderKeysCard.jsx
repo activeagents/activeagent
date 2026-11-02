@@ -11,6 +11,13 @@ const PROVIDER_META = {
   ollama: { label: 'Ollama', icon: '🦙', placeholder: 'http://localhost:11434/v1' },
 };
 
+// "gpt-oss:120b ($0.15 / $0.60 per 1M)" for a model the probe priced
+// (`rates`, $ per million input and output tokens), else the bare name.
+const formatModelRate = (name, rate) => {
+  if (!rate || rate.input == null || rate.output == null) return name;
+  return `${name} ($${rate.input} / $${rate.output} per 1M)`;
+};
+
 // Returns the state and actions behind ProviderKeysCard: which provider is
 // being edited, the typed values, the last connection test per provider, and
 // save, test and remove. Called by the component that renders the card, so
@@ -353,15 +360,21 @@ export default function ProviderKeysCard({ providerKeys, editor, scope, editable
                   {testResult.ok ? (
                     <>
                       <span className="font-medium">Connected</span>
-                      {' '}to {testResult.host}
+                      {' '}to {testResult.host}{testResult.cloud ? ' (Ollama Cloud)' : ''}
                       {typeof testResult.latency_ms === 'number' ? ` in ${testResult.latency_ms} ms` : ''}
                       {' · '}
                       {testResult.models.length === 0
-                        ? 'no models pulled yet (run `ollama pull <model>` on the server)'
+                        ? (testResult.cloud ? 'no models listed' : 'no models pulled yet (run `ollama pull <model>` on the server)')
                         : `${testResult.models.length} model${testResult.models.length === 1 ? '' : 's'}`}
                       {testResult.models.length > 0 && (
                         <span className="block mt-1 font-mono" style={{ color: darkMode ? '#d1d5db' : '#374151' }}>
-                          {testResult.models.join(' · ')}
+                          {testResult.models.map((name) => formatModelRate(name, testResult.rates?.[name])).join(' · ')}
+                        </span>
+                      )}
+                      {testResult.rates && Object.keys(testResult.rates).length > 0 && (
+                        <span className="block mt-1">
+                          Rates are Ollama Cloud's list price per million input / output tokens; traces and evaluations
+                          on these models are priced at them.
                         </span>
                       )}
                     </>

@@ -10,7 +10,8 @@ module ActionAgent
     # its configuration, and the default catalog (MCPCatalog). An install
     # therefore sees both what it is already using and what it could turn on.
     # The caller's live checkout sandbox runtimes are listed with the catalog,
-    # so the one started from Settings -> Integrations shows up here too.
+    # so the one started from Settings -> Integrations shows up here too, and
+    # so are the servers the caller added (MCPServerConfigsController).
     class MCPServersController < BaseController
       before_action :require_owner!
       # Launching provisions a sandbox and runs a server in it, so it answers
@@ -110,14 +111,16 @@ module ActionAgent
 
       private
 
-      # Runtimes are the caller's own: a listing carries no token, but which
-      # repositories another owner has running is still theirs to know.
+      # Runtimes and added servers are the caller's own: a listing carries no
+      # token or header, but which repositories another owner has running and
+      # which servers they call are still theirs to know.
       def discovery
         ToolDiscovery.new(
           traces: owned_traces,
           agents: owner_agents,
           hours: window_hours,
-          runtimes: SandboxSession.runtime_server_listings(owned(SandboxSession))
+          runtimes: SandboxSession.runtime_server_listings(owned(SandboxSession)) +
+            MCPServerConfig.listings(owned(MCPServerConfig))
         )
       end
 

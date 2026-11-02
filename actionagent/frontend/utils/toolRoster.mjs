@@ -8,6 +8,11 @@
 // and the same rule on both sides of a save: a service entry that names no
 // tools offers every tool the server serves.
 
+import { isCustomServer } from './mcpServerConfigs.mjs';
+
+// Re-exported so the views that badge roster rows import one module.
+export { isCustomServer };
+
 export const SOURCES = ['agent_defined', 'dashboard', 'mcp'];
 
 export const SOURCE_LABELS = {
@@ -67,8 +72,13 @@ export const isStoppedRuntime = (row) => isSandboxRuntime(row) && !row.known;
 
 // Seen in traffic but not in the platform catalog. A sandbox runtime is not
 // in the catalog either, but the dashboard started it: a stopped one is "not
-// running", never "undocumented".
-export const isUndocumented = (row) => Boolean(row) && !row.known && !isSandboxRuntime(row);
+// running", never "undocumented". Nor is a server the owner added and later
+// removed: that one is "removed" (isRemovedCustomServer).
+export const isUndocumented = (row) => Boolean(row) && !row.known && !isSandboxRuntime(row) && !isCustomServer(row);
+
+// A server the owner added on the MCP Services page that an agent still
+// names after it was deleted: listed by its key alone, and never called.
+export const isRemovedCustomServer = (row) => isCustomServer(row) && !row.known;
 
 // What the Tools tab says for a service that lists no tools. A live runtime
 // has none recorded because it lists them when the agent runs; a stopped one
@@ -79,6 +89,8 @@ export function emptyToolsHint(service) {
       + 'and start a new sandbox from Settings → Integrations to enable its runtime';
   }
   if (isSandboxRuntime(service)) return 'tools are listed by the running app each time the agent runs';
+  if (isRemovedCustomServer(service)) return 'this server was removed from MCP Services, so it offers no tools — switch it off';
+  if (isCustomServer(service)) return 'test this server on the MCP Services page to list its tools';
   return 'no tools recorded for this service yet';
 }
 

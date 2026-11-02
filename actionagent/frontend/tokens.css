@@ -127,3 +127,24 @@
 .aa-dashboard .aa-roster-row { background: transparent; }
 .aa-dashboard .aa-roster-row[data-on="true"] { background: var(--color-accent-ui-tint); }
 .aa-dashboard .aa-roster-row:hover { background: var(--color-hover); }
+
+/* Comparison tables (ComparisonTable.jsx): hairline rows that highlight on
+   hover, a focus ring on the sort buttons, and under 600px each row stacks
+   to its identity cell over a wrapping grid of labelled pills (the header
+   row hides; each cell's data-label names its column). */
+.aa-dashboard .aa-comparison-row { border-bottom: 1px solid var(--color-border-light); transition: background 0.15s ease; }
+.aa-dashboard .aa-comparison-row:last-child { border-bottom: 0; }
+.aa-dashboard .aa-comparison-row:hover { background: var(--color-hover); }
+.aa-dashboard .aa-sort:focus-visible { outline: 2px solid var(--color-accent-ui); outline-offset: 2px; border-radius: 4px; }
+@media (max-width: 599px) {
+  .aa-dashboard .aa-comparison, .aa-dashboard .aa-comparison tbody { display: block; }
+  .aa-dashboard .aa-comparison thead { display: none; }
+  .aa-dashboard .aa-comparison-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 10px 6px; padding: 12px 10px; }
+  .aa-dashboard .aa-comparison-row:hover { background: transparent; }
+  .aa-dashboard .aa-comparison td { padding: 0 !important; text-align: center; min-width: 0; }
+  .aa-dashboard .aa-comparison td::before { content: attr(data-label); display: block; font-family: var(--font-mono); font-size: 9px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: var(--color-text-secondary); margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .aa-dashboard .aa-comparison td.aa-comparison-id, .aa-dashboard .aa-comparison td.aa-comparison-text { grid-column: 1 / -1; text-align: left; }
+  .aa-dashboard .aa-comparison td.aa-comparison-id::before { display: none; }
+  .aa-dashboard .aa-comparison td.aa-comparison-text::before { text-align: left; }
+  .aa-dashboard .aa-comparison td .aa-pill { display: block; min-width: 0; padding-left: 4px; padding-right: 4px; }
+}

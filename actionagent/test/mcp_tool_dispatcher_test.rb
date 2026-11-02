@@ -459,3 +459,128 @@ class MCPToolDispatcherRuntimeTest < ActiveSupport::TestCase
     assert_not_requested(:post, RUNTIME_URL) { |request| JSON.parse(request.body)["method"] == "tools/call" }
   end
 end
+
+# A server a dashboard user added on the MCP Services page, enabled on an
+# agent as "custom:<id>": resolved among the agent's owner's configurations
+# only, called with its stored headers, attributed like a catalog server,
+# and refused when its host resolves to a non-public address.
+class MCPToolDispatcherCustomServerTest < ActiveSupport::TestCase
+  URL = "https://app.example.com/mcp"
+  TOKEN = "Bearer custom-dispatch-token-01"
+
+  setup do
+    ActionAgent::MCPServerConfig.delete_all
+    ActionAgent.user_class = "User"
+    @owner = User.create!(email: "owner-#{SecureRandom.hex(3)}@example.com", name: "Owner", age: 30)
+    @stranger = User.create!(email: "stranger-#{SecureRandom.hex(3)}@example.com", name: "Stranger", age: 30)
+    @config = ActionAgent::MCPServerConfig.create!(
+      name: "Orders", url: URL, headers: { "Authorization" => TOKEN }, user_id: @owner.id, tool_names: %w[lookup_order]
+    )
+    ActionAgent::MCPHostGuard.resolver = ->(_host) { %w[93.184.216.34] }
+  end
+
+  teardown do
+    ActionAgent::MCPHostGuard.resolver = nil
+    ActionAgent.user_class = nil
+    ActionAgent.allow_private_mcp_hosts = false
+  end
+
+  def agent_with(servers, owner: @owner)
+    ActionAgent::Agent.new(name: "Orders agent", status: :draft, provider: "openai", model: "gpt-4o-mini",
+                           mcp_servers: servers, tools: [], user_id: owner.id)
+  end
+
+  def stub_server
+    stub_request(:post, URL)
+      .with(headers: { "Authorization" => TOKEN })
+      .to_return do |request|
+        payload = JSON.parse(request.body)
+        result =
+          case payload["method"]
+          when "initialize" then { protocolVersion: "2025-03-26", capabilities: { tools: {} } }
+          when "tools/list" then { tools: [ { name: "lookup_order", description: "Find an order.", inputSchema: { type: "object" } } ] }
+          when "tools/call" then { content: [ { type: "text", text: "order #{payload.dig('params', 'arguments', 'id')} shipped" } ] }
+          end
+
+        if payload.key?("id")
+          { status: 200, body: { jsonrpc: "2.0", id: payload["id"], result: result }.to_json, headers: { "Content-Type" => "application/json" } }
+        else
+          { status: 202, body: "" }
+        end
+      end
+  end
+
+  test "an enabled custom server is offered and called with its stored headers" do
+    stub_server
+    dispatcher = ActionAgent::MCPToolDispatcher.new(agent_with([ @config.server_key ]))
+
+    assert dispatcher.any_reachable_server?
+    assert_equal %w[lookup_order], dispatcher.tool_definitions.map { |tool| tool[:name] }
+    assert dispatcher.dispatchable?("lookup_order")
+    assert_equal({ text: "order A-17 shipped" }, dispatcher.call("lookup_order", { "id" => "A-17" }))
+    assert_requested(:post, URL, headers: { "Authorization" => TOKEN }, at_least_times: 1)
+  end
+
+  test "a bare tool name reaches the custom server through the tools its last test listed" do
+    stub_server
+    dispatcher = ActionAgent::MCPToolDispatcher.new(agent_with([ { "key" => @config.server_key, "name" => "Orders" } ]))
+
+    assert dispatcher.dispatchable?("lookup_order"), "dispatchable before tools/list ran"
+    assert_equal({ text: "order B-2 shipped" }, dispatcher.call("lookup_order", { "id" => "B-2" }))
+  end
+
+  test "another owner's agent naming the key reaches nothing" do
+    stub = stub_request(:post, URL)
+    dispatcher = ActionAgent::MCPToolDispatcher.new(agent_with([ @config.server_key ], owner: @stranger))
+
+    assert_not dispatcher.any_reachable_server?
+    assert_empty dispatcher.tool_definitions
+    assert_nil dispatcher.call("lookup_order", { "id" => "A-17" })
+    assert_not_requested stub
+  end
+
+  test "a disabled custom server is neither offered nor called" do
+    stub = stub_request(:post, URL)
+    @config.update!(enabled: false)
+    dispatcher = ActionAgent::MCPToolDispatcher.new(agent_with([ @config.server_key ]))
+
+    assert_empty dispatcher.tool_definitions
+    assert_nil dispatcher.call("lookup_order", {})
+    assert_not_requested stub
+  end
+
+  test "a custom server whose host resolves privately fails discovery without a request" do
+    ActionAgent::MCPHostGuard.resolver = ->(_host) { %w[169.254.169.254] }
+    stub = stub_request(:post, URL)
+    dispatcher = ActionAgent::MCPToolDispatcher.new(agent_with([ @config.server_key ]))
+
+    assert_empty dispatcher.tool_definitions
+    assert_match(/private, loopback or link-local/, dispatcher.discovery_errors[@config.server_key])
+    assert dispatcher.all_servers_failed?
+    assert_not_requested stub
+  end
+
+  test "allowing private hosts lets a custom server on localhost be called" do
+    ActionAgent.allow_private_mcp_hosts = true
+    @config.update!(url: "http://127.0.0.1:3999/mcp")
+    stub_request(:post, "http://127.0.0.1:3999/mcp").to_return do |request|
+      payload = JSON.parse(request.body)
+      result = payload["method"] == "tools/list" ? { tools: [ { name: "lookup_order" } ] } : {}
+      payload.key?("id") ? { status: 200, body: { jsonrpc: "2.0", id: payload["id"], result: result }.to_json } : { status: 202, body: "" }
+    end
+
+    dispatcher = ActionAgent::MCPToolDispatcher.new(agent_with([ @config.server_key ]))
+
+    assert_equal %w[lookup_order], dispatcher.tool_definitions.map { |tool| tool[:name] }
+  end
+
+  test "the evaluation resolver attributes a custom server's tools and says whether the agent enabled it" do
+    enabled = ActionAgent::EvaluationToolResolver.new(agent_with([ @config.server_key ]))
+    available = ActionAgent::EvaluationToolResolver.new(agent_with([]))
+    stranger = ActionAgent::EvaluationToolResolver.new(agent_with([], owner: @stranger))
+
+    assert_equal({ "key" => @config.server_key, "name" => "Orders", "status" => "enabled" }, enabled.call("lookup_order"))
+    assert_equal({ "key" => @config.server_key, "name" => "Orders", "status" => "available" }, available.call("lookup_order"))
+    assert_nil stranger.call("lookup_order"), "another owner's server is not named"
+  end
+end

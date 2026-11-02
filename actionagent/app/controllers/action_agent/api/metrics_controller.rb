@@ -181,17 +181,18 @@ module ActionAgent
       end
 
       # Estimated spend for the window, total and per agent class. The model
-      # lives inside the spans JSON (first llm span).
+      # and the provider it ran on live inside the spans JSON (first llm
+      # span); the rate is the model's under that provider.
       def cost_statistics(scope)
-        rows = ActionAgent.trace_model.pluck_with_llm_model(
+        rows = ActionAgent.trace_model.pluck_with_llm_model_and_provider(
           scope, :agent_class, :total_input_tokens, :total_output_tokens
         )
 
         by_agent = Hash.new(0.0)
         total = 0.0
 
-        rows.each do |model, agent_class, input_tokens, output_tokens|
-          cost = ModelPricing.estimate(model: model, input_tokens: input_tokens, output_tokens: output_tokens)
+        rows.each do |model, provider, agent_class, input_tokens, output_tokens|
+          cost = ModelPricing.estimate(model: model, provider: provider, input_tokens: input_tokens, output_tokens: output_tokens)
           next unless cost
 
           total += cost
