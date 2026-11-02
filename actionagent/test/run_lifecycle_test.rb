@@ -370,6 +370,13 @@ class RunCancelConcurrencyTest < ActiveSupport::TestCase
   # Released together, either may write first. Whichever wins, the run ends
   # in one consistent state: complete with the worker's output, or cancelled
   # without it. Never cancelled with the output a finished worker recorded.
+  #
+  # The worker records under unless_cancelled, a read under the row lock
+  # followed by a write. On SQLite under Rails 7.2, whose transactions are
+  # deferred, that write is refused ("database is locked") when the cancel
+  # commits between the two; the worker then records nothing, which leaves
+  # the run as the cancel left it. Rails 8 takes the write lock first, so
+  # the cancel waits for the worker instead.
   test "a cancel racing the finishing worker leaves one consistent outcome" do
     10.times do
       run = @agent.agent_runs.create!(input_prompt: "hi", status: :pending)
@@ -390,11 +397,17 @@ class RunCancelConcurrencyTest < ActiveSupport::TestCase
           executing.unless_cancelled do
             executing.record_result!(finishing_service.call(nil, executing), segment_started_at: executing.started_at)
           end
+        rescue ActiveRecord::StatementInvalid => e
+          raise unless e.cause.is_a?(SQLite3::BusyException)
+
+          :refused
         end
       end
-      [ cancelling, finishing ].each(&:join)
+      cancelling.join
+      refused = finishing.value == :refused
 
       run.reload
+      assert run.cancelled?, "the worker's write was refused, yet the run is #{run.status}" if refused
       if run.cancelled?
         assert_nil run.output, "a cancelled run kept the finished worker's output"
       else
