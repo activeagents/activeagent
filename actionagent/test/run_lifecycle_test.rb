@@ -139,6 +139,80 @@ class RunLifecycleTest < ActiveSupport::TestCase
     assert @run.reload.cancelled?
     assert_equal "Cancelled by user", @run.error_message
   end
+
+  # A cancel is decided on a copy of the run loaded earlier: the request's,
+  # or a caller's that has held the run since it executed. The run may have
+  # finished since then, and a finished run stays as it finished.
+  test "a cancel from a copy loaded before the run completed leaves it complete" do
+    stale = ActionAgent::AgentRun.find(@run.id)
+    ActionAgent::AgentExecutionService.stub(:call, counted_service) do
+      ActionAgent::AgentExecutionJob.perform_now(@run.id)
+    end
+    before = @run.reload.attributes
+
+    result = stale.cancel!
+
+    assert @run.reload.complete?, "a late cancel flipped a complete run to #{@run.status}"
+    assert_equal before, @run.attributes
+    assert stale.complete?, "the copy that was cancelled still reads #{stale.status}"
+    assert_equal false, result
+  end
+
+  test "a cancel from a copy loaded before the run failed keeps the failure" do
+    stale = ActionAgent::AgentRun.find(@run.id)
+    exploding = ->(_agent, _run) { raise "provider down" }
+    ActionAgent::AgentExecutionService.stub(:call, exploding) do
+      assert_raises(RuntimeError) { ActionAgent::AgentExecutionJob.perform_now(@run.id) }
+    end
+    before = @run.reload.attributes
+
+    result = stale.cancel!
+
+    assert @run.reload.failed?, "a late cancel flipped a failed run to #{@run.status}"
+    assert_equal "provider down", @run.error_message
+    assert_equal before, @run.attributes
+    assert_equal false, result
+  end
+
+  test "a second cancel keeps the first one's reason and time" do
+    stale = ActionAgent::AgentRun.find(@run.id)
+    assert_equal true, @run.cancel!("Stopped by the operator")
+    before = @run.reload.attributes
+
+    result = travel(1.minute) { stale.cancel! }
+
+    assert_equal "Stopped by the operator", @run.reload.error_message
+    assert_equal before, @run.attributes
+    assert_equal false, result
+    assert_equal false, @run.cancel!, "a cancelled run was cancelled again"
+  end
+
+  test "a cancel is announced once, and a cancel that changes nothing is not announced" do
+    announced = []
+    recording = ->(stream, payload) { announced << payload[:status] if stream == "agent_run_#{@run.id}" }
+    stale = ActionAgent::AgentRun.find(@run.id)
+
+    ActionAgent::LiveUpdates.stub(:broadcast, recording) do
+      @run.cancel!
+      assert_equal %w[cancelled], announced
+
+      announced.clear
+      stale.cancel!
+      assert_empty announced
+    end
+  end
+
+  test "a cancel that changes nothing leaves the run's requests for input alone" do
+    stale = ActionAgent::AgentRun.find(@run.id)
+    @run.update!(status: :failed, completed_at: Time.current, error_message: "expired")
+    request = ActionAgent::InputRequest.create!(
+      subject: @run, kind: "text", prompt: "Where to?", tool_call_id: "call_1", pause_key: "pause_1", status: :pending
+    )
+
+    stale.cancel!
+
+    assert request.reload.pending?
+  end
 end
 
 # Two workers that receive the same job at once (a queue delivering it twice,
@@ -232,6 +306,102 @@ class RunClaimConcurrencyTest < ActiveSupport::TestCase
     assert_empty Array(@run.logs)
   ensure
     reader&.close
+  end
+end
+
+# A cancel request and the job finishing the run, each on its own connection
+# as a web process and a worker are. Not inside a transaction, so each sees
+# what the other committed; the test removes the rows it commits.
+class RunCancelConcurrencyTest < ActiveSupport::TestCase
+  self.use_transactional_tests = false
+
+  def setup
+    @agent = ActionAgent::Agent.create!(name: "Support", provider: "openai", model: "gpt-4o-mini")
+  end
+
+  # The agent's runs and versions go with it (dependent: :destroy).
+  def teardown
+    ActionAgent::Agent.find_by(id: @agent&.id)&.destroy!
+  end
+
+  def finishing_service
+    ->(_agent, _run) { { output: "answer", metadata: {}, usage: {} } }
+  end
+
+  # The cancel loads the run while it is running and writes only after the
+  # worker has committed its result, which is the order a slow cancel
+  # request meets a fast generation in.
+  test "a cancel that loaded the run while it ran does not overwrite the worker's result" do
+    run = @agent.agent_runs.create!(input_prompt: "hi", status: :pending)
+    loaded = Concurrent::Event.new
+    finished = Concurrent::Event.new
+    cancel_result = nil
+
+    cancelling = Thread.new do
+      ActiveRecord::Base.connection_pool.with_connection do
+        stale = ActionAgent::AgentRun.find(run.id)
+        loaded.set
+        finished.wait(10)
+        cancel_result = stale.cancel!
+      end
+    end
+    held_until_loaded = lambda do |agent, executing|
+      loaded.wait(10)
+      finishing_service.call(agent, executing)
+    end
+    worker = Thread.new do
+      ActiveRecord::Base.connection_pool.with_connection do
+        ActionAgent::AgentExecutionService.stub(:call, held_until_loaded) do
+          ActionAgent::AgentExecutionJob.perform_now(run.id)
+        end
+      ensure
+        finished.set
+      end
+    end
+    [ worker, cancelling ].each(&:join)
+
+    run.reload
+    assert run.complete?, "the late cancel left the run #{run.status}"
+    assert_equal "answer", run.output
+    assert_nil run.error_message
+    assert_equal false, cancel_result
+  end
+
+  # Released together, either may write first. Whichever wins, the run ends
+  # in one consistent state: complete with the worker's output, or cancelled
+  # without it. Never cancelled with the output a finished worker recorded.
+  test "a cancel racing the finishing worker leaves one consistent outcome" do
+    10.times do
+      run = @agent.agent_runs.create!(input_prompt: "hi", status: :pending)
+      ActionAgent::AgentRun.where(id: run.id).update_all(status: ActionAgent::AgentRun.statuses[:running], started_at: Time.current)
+      barrier = Concurrent::CyclicBarrier.new(2)
+
+      cancelling = Thread.new do
+        ActiveRecord::Base.connection_pool.with_connection do
+          stale = ActionAgent::AgentRun.find(run.id)
+          barrier.wait(10)
+          stale.cancel!
+        end
+      end
+      finishing = Thread.new do
+        ActiveRecord::Base.connection_pool.with_connection do
+          executing = ActionAgent::AgentRun.find(run.id)
+          barrier.wait(10)
+          executing.unless_cancelled do
+            executing.record_result!(finishing_service.call(nil, executing), segment_started_at: executing.started_at)
+          end
+        end
+      end
+      [ cancelling, finishing ].each(&:join)
+
+      run.reload
+      if run.cancelled?
+        assert_nil run.output, "a cancelled run kept the finished worker's output"
+      else
+        assert run.complete?, "the race left the run #{run.status}"
+        assert_nil run.error_message, "a complete run carries the cancel's reason"
+      end
+    end
   end
 end
 

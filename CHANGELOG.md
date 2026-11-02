@@ -215,6 +215,21 @@ finished evaluation run's cached figures are worked out again.
   is held over the generation, so a cancel does not wait for one. A run
   whose worker died after the claim stays running and is not run again.
 
+- **A late cancel leaves a finished run as it finished** (`actionagent`).
+  `AgentRun#cancel!` checked the status of its own copy of the run and
+  then wrote `cancelled` unconditionally. A cancel request that loaded the
+  run while it was running, and wrote after the worker had recorded its
+  result, turned a complete run into a cancelled one that still carried
+  its output, and replaced a failed run's error with "Cancelled by user".
+  The cancel now moves the run to `cancelled` in one conditional update,
+  as the execution job claims a pending run, and only from pending,
+  running or awaiting input. A run that finished first keeps its status,
+  output, error and completion time; `cancel!` returns false and reloads
+  the copy, so the API answers with the status the run ended in. A cancel
+  is broadcast once, where the callback and the method each sent it
+  before. Cancelling still does not stop a provider call already in
+  flight; it keeps that call's result from being recorded.
+
 ## [1.9.6] - 2026-10-29
 
 The dashboard on a phone, and the small finished pieces: the sidebar as a
