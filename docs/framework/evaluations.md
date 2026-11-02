@@ -596,50 +596,61 @@ and `pass_rate` (a 0..1 fraction) beside the
 true when the rate reaches the bar, and always for an ungated group.
 `Report#passed?` is every gate met. `Report#failures(group:)` lists the
 results that did not pass — failed and errored, in run order — and
-`failures_markdown(group:)` writes them one per line. The assertion a
-test suite writes over them ships with the gem for both test frameworks,
-each loaded by its own require so `require "active_agent/evals"` pulls in
-neither. In Minitest, include `ActiveAgent::Evals::Minitest::Assertions`
-and the assertion is `assert_meets_pass_gates(report)`:
+`failures_markdown(group:)` writes them one per line.
+
+The [test helper](#in-your-test-suite) asserts on the gates.
+`run_eval_suite` hands the suite's bars to the runner when it declares any
+(a `threshold` other than 0.7, a `min_pass_rate` below 1, or any key in a
+group's `pass`, even one that restates a default), so the report it
+returns carries them; a suite-level block that only restates the
+defaults, with no group `pass`, runs and renders as a suite without one.
+`assert_meets_pass_gates report` passes when every
+gate is met, each group held to its own bar and ungated groups left out:
 
 ```ruby
+# test/evals/support_desk_test.rb
 require "test_helper"
-require "active_agent/evals/minitest"   # loads active_agent/evals with it
 
-class SupportDeskEvalTest < ActiveSupport::TestCase
-  include ActiveAgent::Evals::Minitest::Assertions
-
+class SupportDeskEval < ActiveAgent::Evals::TestCase
   test "the support desk suite clears its pass gates" do
-    suite = ActiveAgent::Evals::Suite.load("config/evals/support_desk.yml")
-    report = ActiveAgent::Evals::Runner.new(
-      scenarios: suite.all_scenarios,
-      models: ActiveAgent::Evals::ModelSpec.parse_all(%w[gpt-5-mini], default_provider: "openai"),
-      pass_thresholds: suite.pass_thresholds,
-      replay: ->(scenario, spec) { SupportAgent.evaluate(scenario.prompt, model: spec.model, provider: spec.provider) }
-    ).call
+    report = run_eval_suite "config/evals/support_desk.yml", models: %w[gpt-5-mini claude-haiku-4-5] do |scenario, _spec|
+      SupportAgent.with(question: scenario.prompt).help
+    end
 
-    assert_meets_pass_gates(report)
+    assert_meets_pass_gates report
   end
 end
 ```
 
-In RSpec, include `ActiveAgent::Evals::RSpec` — once, in `RSpec.configure`,
-or in the example group that runs the suite — and the matcher is
-`meet_its_pass_gates`:
+In RSpec the helper's assertions work through `expect_with :minitest`, as
+under [RSpec](#rspec), and `ActiveAgent::Evals::RSpec`, included beside the
+helper, adds the matcher `meet_its_pass_gates`. Its file,
+`active_agent/evals/rspec`, loads nothing from rspec, and
+`require "active_agent/evals"` loads neither it nor the helper. The setup
+is the one under [RSpec](#rspec), so the eval runs only when `EVALS` is on:
 
 ```ruby
-require "active_agent/evals/rspec"   # loads active_agent/evals with it, and nothing from rspec
+# spec/rails_helper.rb
+require "active_agent/evals/test_helper"
+require "active_agent/evals/rspec"
 
-RSpec.configure { |config| config.include ActiveAgent::Evals::RSpec }
+RSpec.configure do |config|
+  config.expect_with :rspec, :minitest
+  config.define_derived_metadata(file_path: %r{/spec/evals/}) { |metadata| metadata[:eval] = true }
+  config.include ActiveAgent::Evals::TestHelper, eval: true
+  config.include ActiveAgent::Evals::RSpec, eval: true
+  config.filter_run_excluding eval: true unless ActiveAgent::Evals::TestHelper.enabled?
+end
 
+# spec/evals/support_desk_spec.rb
 RSpec.describe "the support desk suite" do
   it "clears its pass gates" do
-    suite = ActiveAgent::Evals::Suite.load("config/evals/support_desk.yml")
-    report = ActiveAgent::Evals::Runner.new(
-      scenarios: suite.all_scenarios, models: models, replay: replay,
-      pass_thresholds: suite.pass_thresholds
-    ).call
+    report = run_eval_suite "config/evals/support_desk.yml", models: %w[gpt-5-mini] do |scenario, _spec|
+      SupportAgent.with(question: scenario.prompt).help
+    end
 
+    assert_meets_pass_gates report
+    # or, as a matcher:
     expect(report).to meet_its_pass_gates
   end
 end
@@ -660,6 +671,20 @@ than its own — `assert_meets_pass_gates(report, thresholds)`,
 `meet_its_pass_gates(thresholds)` — and a script that prints the message
 itself builds it as `ActiveAgent::Evals::GateCheck.new(report).message`,
 with `met?` and `unmet` beside it.
+
+Outside a test suite, a script hands the suite's bars to the runner
+itself and prints the same message:
+
+```ruby
+suite = ActiveAgent::Evals::Suite.load("config/evals/support_desk.yml")
+report = ActiveAgent::Evals::Runner.new(
+  scenarios: suite.all_scenarios, models: models, replay: replay,
+  pass_thresholds: suite.pass_thresholds
+).call
+
+check = ActiveAgent::Evals::GateCheck.new(report)
+abort check.message unless check.met?
+```
 
 A gate reads as one sentence — `Orders · gpt-5-mini: 1/2 (50%) passed,
 below 100%`, `All · gpt-5-mini: 1/2 (50%) passed, below 80%` (`at or above
@@ -690,7 +715,7 @@ reads the JSON.
 | `ScenarioParser` | Pasted text, JSON, or grouped YAML suites → scenarios. Lines, `# Heading` groups, backticked prompts with notes, `\| tools: a, b \| contains: x` options |
 | `Suite` | A YAML suite with groups; later documents override by key, so a deployment can add or reword tasks |
 | `PassThresholds` | A suite's `pass` block as data: the score every answer must reach, the share of answers that must pass for the suite and for each group, and which groups are gated; layered key by key across documents |
-| `GateCheck` | A report held to its pass gates: `met?`, the `unmet` gates and the `message` a failing assertion prints — each unmet gate as its sentence, then the failures to read per group. `assert_meets_pass_gates` (Minitest) and `meet_its_pass_gates` (RSpec) are built on it, each loaded by its own require |
+| `GateCheck` | A report held to its pass gates: `met?`, the `unmet` gates and the `message` a failing assertion prints — each unmet gate as its sentence, then the failures to read per group. `TestHelper#assert_meets_pass_gates` and the RSpec matcher `meet_its_pass_gates` are built on it, each loaded by its own require |
 | `ModelSpec` | `provider/model` or a bare name with provider inference (`claude-*` → anthropic, `gpt-*` → openai, `name:tag` → ollama, `vendor/model` → openrouter) |
 | `Replay` | What your agent produced: answer, tool calls, timing, tokens, cost, error |
 | `Scorer` | Rule criteria (`response_present`, `min_length`, `max_latency_ms`, `token_budget`, `contains`, `not_contains`, `llm_judge`) plus the scenario's expectations |
@@ -951,6 +976,12 @@ does; `default_provider:` and `providers:` resolve bare model names as
 `instructions:`, `available_tools:`). A model below the gate fails with its
 pass rate and the scenarios that fell short.
 
+When the suite's `pass` block sets bars other than the defaults,
+`run_eval_suite` hands them to the runner, and `assert_meets_pass_gates
+report` holds each group to its own bar, and each model's gated answers to
+the suite's, rather than every model to one rate the test names (see
+[Gating a suite](#gating-a-suite)).
+
 `run_eval` also takes `model:` and `provider:` to replay one action under
 another model, and a block for an agent run some other way:
 
@@ -991,11 +1022,13 @@ rspec spec/evals` and the release job read the same way:
 ```ruby
 # spec/rails_helper.rb
 require "active_agent/evals/test_helper"
+require "active_agent/evals/rspec"
 
 RSpec.configure do |config|
   config.expect_with :rspec, :minitest
   config.define_derived_metadata(file_path: %r{/spec/evals/}) { |metadata| metadata[:eval] = true }
   config.include ActiveAgent::Evals::TestHelper, eval: true
+  config.include ActiveAgent::Evals::RSpec, eval: true
   config.filter_run_excluding eval: true unless ActiveAgent::Evals::TestHelper.enabled?
 end
 
@@ -1011,7 +1044,10 @@ RSpec.describe SupportAgent do
 end
 ```
 
-Matchers (`expect(replay).to have_called_tool(...)`) are a follow-up.
+`meet_its_pass_gates` (`require "active_agent/evals/rspec"`) is the first
+matcher: `expect(report).to meet_its_pass_gates` holds a suite's report to
+its [pass gates](#gating-a-suite). Replay matchers such as
+`expect(replay).to have_called_tool(...)` are a follow-up.
 
 ## Catalogs
 

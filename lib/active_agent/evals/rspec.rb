@@ -9,16 +9,27 @@ require_relative "../evals"
 module ActiveAgent
   module Evals
     # `expect(report).to meet_its_pass_gates`: an RSpec matcher over
-    # GateCheck, failing with its message. Include the module once in
-    # `RSpec.configure`, or in one example group:
+    # GateCheck, failing with its message, as TestHelper's
+    # `assert_meets_pass_gates` does. Include it beside TestHelper where the
+    # evals are set up, tagged and run only when EVALS is on:
     #
+    #   # spec/rails_helper.rb
+    #   require "active_agent/evals/test_helper"
     #   require "active_agent/evals/rspec"
     #
-    #   RSpec.configure { |config| config.include ActiveAgent::Evals::RSpec }
+    #   RSpec.configure do |config|
+    #     config.expect_with :rspec, :minitest
+    #     config.define_derived_metadata(file_path: %r{/spec/evals/}) { |metadata| metadata[:eval] = true }
+    #     config.include ActiveAgent::Evals::TestHelper, eval: true
+    #     config.include ActiveAgent::Evals::RSpec, eval: true
+    #     config.filter_run_excluding eval: true unless ActiveAgent::Evals::TestHelper.enabled?
+    #   end
     #
+    #   # spec/evals/support_desk_spec.rb
     #   RSpec.describe "the support desk suite" do
-    #     # or, in this one group: include ActiveAgent::Evals::RSpec
     #     it "clears its pass gates" do
+    #       report = run_eval_suite("config/evals/support_desk.yml") { |scenario, _spec| SupportAgent.with(question: scenario.prompt).help }
+    #
     #       expect(report).to meet_its_pass_gates
     #     end
     #   end
@@ -59,10 +70,14 @@ module ActiveAgent
           @thresholds ? "meet the given pass gates" : "meet its pass gates"
         end
 
+        # RSpec shows no diff: the failure message already lists the unmet
+        # gates.
         def diffable?
           false
         end
 
+        # The matcher takes a report, not a block, so RSpec refuses
+        # `expect { ... }.to meet_its_pass_gates`.
         def supports_block_expectations?
           false
         end

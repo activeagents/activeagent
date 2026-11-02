@@ -28,7 +28,7 @@ class EvalsStandaloneLoadTest < ActiveSupport::TestCase
     assert_equal "ok", run_standalone(PASS_GATES_SCRIPT)
   end
 
-  def test_the_gate_matcher_and_assertion_load_without_the_framework_or_a_test_framework
+  def test_the_gate_matcher_and_assertion_load_without_the_framework_or_rspec
     assert_equal "ok", run_standalone(ASSERTIONS_SCRIPT)
   end
 

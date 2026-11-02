@@ -3,10 +3,10 @@
 module ActiveAgent
   module Evals
     # A report's pass gates as one check with the message a failing
-    # assertion prints, so the RSpec matcher (`active_agent/evals/rspec`)
-    # and the Minitest assertion (`active_agent/evals/minitest`) fail with
-    # the same text: how many gates are not met, each of them as a sentence,
-    # then the failures to read under a heading per group.
+    # assertion prints, so TestHelper#assert_meets_pass_gates and the RSpec
+    # matcher (`active_agent/evals/rspec`) fail with the same text: how many
+    # gates are not met, each of them as a sentence, then the failures to
+    # read under a heading per group.
     #
     #   check = ActiveAgent::Evals::GateCheck.new(report)
     #   check.met?   # => false
