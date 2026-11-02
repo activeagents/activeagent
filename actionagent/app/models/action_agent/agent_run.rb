@@ -409,9 +409,9 @@ module ActionAgent
       transaction do
         if result[:input_requests].present?
           InputRequest.record_pause!(self, result[:input_requests], checkpoint: result[:checkpoint])
-          update!(attributes.merge(status: :awaiting_input))
+          update!(attributes.merge(status: :awaiting_input, **lease_release_attributes))
         else
-          update!(attributes.merge(output: result[:output], status: :complete, completed_at: Time.current))
+          update!(attributes.merge(output: result[:output], status: :complete, completed_at: Time.current, **lease_release_attributes))
         end
       end
     end
@@ -428,17 +428,29 @@ module ActionAgent
         completed_at: Time.current,
         error_message: message,
         error_backtrace: error.backtrace&.first(10)&.join("\n"),
-        output_metadata: output_metadata.to_h.merge("error_class" => error.class.name)
+        output_metadata: output_metadata.to_h.merge("error_class" => error.class.name),
+        **lease_release_attributes
       )
     end
 
     # Yields under the run's row lock unless the run was cancelled meanwhile,
     # so a cancel that arrived while the run executed is never overwritten by
-    # the result. Returns whether it yielded.
-    def unless_cancelled
+    # the result. Given the +token+ of the worker's lease, it also yields only
+    # while the run still holds that token. Every write that ends a segment
+    # releases the lease, so a worker whose run was ended under it (failed as
+    # lost, say) or taken for another segment has its result discarded.
+    # Returns whether it yielded.
+    #
+    # @param token [String, nil] the lease token the worker's claim took; nil
+    #   (no lease) checks for a cancel only
+    def unless_cancelled(token: nil)
       with_lock do
         if cancelled?
           add_log("Execution finished after cancellation; result discarded", level: :info)
+          next false
+        end
+        if token && execution_token != token
+          add_log("Execution finished after its run was ended or taken by another worker; result discarded", level: :warn)
           next false
         end
 
@@ -448,6 +460,12 @@ module ActionAgent
     end
 
     private
+
+    # Ending a segment ends its lease: nothing renews it, and no worker holds
+    # the run until the next claim.
+    def lease_release_attributes
+      self.class.execution_leases? ? { execution_token: nil, execution_expires_at: nil } : {}
+    end
 
     def add_tokens(recorded, segment)
       return recorded if segment.nil?
