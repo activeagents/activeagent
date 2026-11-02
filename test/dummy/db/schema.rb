@@ -94,6 +94,8 @@ ActiveRecord::Schema[8.0].define(version: 35) do
     t.integer "duration_ms"
     t.text "error_backtrace"
     t.text "error_message"
+    t.datetime "execution_expires_at"
+    t.string "execution_token"
     t.json "input_params", default: {}
     t.text "input_prompt"
     t.integer "input_tokens"
@@ -108,6 +110,7 @@ ActiveRecord::Schema[8.0].define(version: 35) do
     t.datetime "updated_at", null: false
     t.index [ "agent_id" ], name: "index_active_agent_agent_runs_on_agent_id"
     t.index [ "created_at" ], name: "index_active_agent_agent_runs_on_created_at"
+    t.index [ "status", "execution_expires_at" ], name: "index_active_agent_agent_runs_on_status_and_lease"
     t.index [ "trace_id" ], name: "index_active_agent_agent_runs_on_trace_id"
   end
 

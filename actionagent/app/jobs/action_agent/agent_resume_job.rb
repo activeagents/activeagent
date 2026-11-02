@@ -60,7 +60,8 @@ module ActionAgent
     # Moves the run from awaiting_input to running when every request of the
     # pause is settled, under the run's row lock, and returns the pause's
     # requests in call order; nil when this job is not the one to resume it,
-    # or when the request's pause is not the one the run waits on.
+    # or when the request's pause is not the one the run waits on. The resumed
+    # segment takes a lease of its own, under a new token.
     def claim_pause(run, request)
       run.with_lock do
         next nil unless run.awaiting_input? && request.current_pause?
@@ -68,7 +69,7 @@ module ActionAgent
         pause = request.pause_requests.order(:id).to_a
         next nil unless pause.all? { |paused| paused.answered? || paused.declined? }
 
-        run.update!(status: :running)
+        run.update!(status: :running, **AgentRun.lease_attributes)
         pause
       end
     end
