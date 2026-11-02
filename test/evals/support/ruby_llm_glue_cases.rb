@@ -333,8 +333,8 @@ class EvalsRubyLLMGlueCases < Minitest::Test
 
   # A refusal names only the requirements the context's configuration leaves
   # unset, joined with "and", and calls them an API key only when each one
-  # is; with every listed requirement set, RubyLLM's own message says what
-  # the provider still wants.
+  # is. With every listed requirement set, RubyLLM 2's own message says what
+  # the provider still wants, and RubyLLM 1 builds the chat.
   def test_verify_names_the_requirements_the_context_leaves_unset
     with_provider(:aardvark, requirements: %i[aardvark_api_base aardvark_api_key]) do
       aardvark = ModelSpec.new(label: "aardvark-1", provider: "aardvark", model: "aardvark-1")
@@ -351,22 +351,30 @@ class EvalsRubyLLMGlueCases < Minitest::Test
         config.aardvark_api_base = "https://aardvark.example"
         config.aardvark_api_key = "key-placeholder"
       end
-      error = assert_raises(::RubyLLM::ConfigurationError) { ActiveAgent::Evals::RubyLLM.verify!(aardvark, context: context) }
-      assert_equal "aardvark-1 runs on aardvark: #{error.cause.message.strip}", error.message
-      assert_match(/Aardvark provider is not configured/, error.cause.message)
+      if provider_configured_beyond_requirements?
+        error = assert_raises(::RubyLLM::ConfigurationError) { ActiveAgent::Evals::RubyLLM.verify!(aardvark, context: context) }
+        assert_equal "aardvark-1 runs on aardvark: #{error.cause.message.strip}", error.message
+        assert_match(/Aardvark provider is not configured/, error.cause.message)
+      else
+        assert_equal [ aardvark ], ActiveAgent::Evals::RubyLLM.verify!(aardvark, context: context)
+      end
     end
   end
 
-  # A provider that lists no requirements and refuses anyway leaves nothing
-  # to name, so the refusal carries RubyLLM's own message. Registered last,
-  # it also leads the sorted list an unknown provider's refusal gives.
+  # A provider that lists no requirements and refuses anyway, as RubyLLM 2
+  # lets one do, leaves nothing to name, so the refusal carries RubyLLM's own
+  # message; RubyLLM 1 builds it. Registered last, it also leads the sorted
+  # list an unknown provider's refusal gives.
   def test_verify_relays_ruby_llms_message_when_a_provider_lists_nothing_to_set
     with_provider(:aardvark) do
       aardvark = ModelSpec.new(label: "aardvark-1", provider: "aardvark", model: "aardvark-1")
-      error = assert_raises(::RubyLLM::ConfigurationError) { ActiveAgent::Evals::RubyLLM.verify!(aardvark) }
-
-      assert_equal "aardvark-1 runs on aardvark: #{error.cause.message.strip}", error.message
-      assert_match(/Aardvark provider is not configured/, error.cause.message)
+      if provider_configured_beyond_requirements?
+        error = assert_raises(::RubyLLM::ConfigurationError) { ActiveAgent::Evals::RubyLLM.verify!(aardvark) }
+        assert_equal "aardvark-1 runs on aardvark: #{error.cause.message.strip}", error.message
+        assert_match(/Aardvark provider is not configured/, error.cause.message)
+      else
+        assert_equal [ aardvark ], ActiveAgent::Evals::RubyLLM.verify!(aardvark)
+      end
 
       acme = ModelSpec.new(label: "acme-1", provider: "acme", model: "acme-1")
       error = assert_raises(::RubyLLM::ConfigurationError) { ActiveAgent::Evals::RubyLLM.verify!(acme) }
@@ -656,11 +664,19 @@ class EvalsRubyLLMGlueCases < Minitest::Test
       define_singleton_method(:configuration_options) { requirements }
       define_singleton_method(:configured?) { |_config| false }
       define_singleton_method(:display_name) { name.to_s.capitalize }
+      define_method(:api_base) { "https://#{name}.example" }
     end
     ::RubyLLM::Provider.register(name, provider_class)
     yield
   ensure
     ::RubyLLM::Provider.providers.delete(name)
+  end
+
+  # Whether building a chat asks the provider class's configured? as well as
+  # its configuration_requirements: RubyLLM 2 does, so a provider can refuse
+  # with every listed requirement set; RubyLLM 1 checks the requirements alone.
+  def provider_configured_beyond_requirements?
+    Gem::Version.new(::RubyLLM::VERSION) >= Gem::Version.new("2")
   end
 
   # The cached-token keyword each RubyLLM generation's Message takes.
