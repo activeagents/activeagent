@@ -19,6 +19,11 @@ module ActionAgent
       end
     end
 
+    # The error class recorded on a run failed as lost: running past its
+    # lease with no news from its worker (see #expire_if_lost!). Never
+    # raised; it names the failure, as record_failure! names any other.
+    class WorkerLost < StandardError; end
+
     # Files uploaded with the run. The execution service delivers them to
     # the model (images and PDFs as data URIs, text inlined) and the
     # persisted user message keeps a manifest of them.
@@ -358,6 +363,54 @@ module ActionAgent
         input_requests.pending.update_all(status: InputRequest.statuses[:cancelled], updated_at: Time.current)
       end
       broadcast_update
+    end
+
+    # Running runs whose lease ran out: no claim, renewal or result from
+    # their worker within ActionAgent.run_lease_duration. A run without a
+    # lease (claimed before migration 033, or with leases off) is never
+    # among them. Needs the lease columns (see .execution_leases?).
+    scope :lost, ->(now = Time.current) {
+      running.where.not(execution_token: nil).where(execution_expires_at: ..now)
+    }
+
+    # Fails every lost run in +relation+ (see #expire_if_lost!) and returns
+    # how many it failed. Nothing without the lease columns.
+    # @return [Integer]
+    def self.expire_lost!(relation = all, now: Time.current)
+      return 0 unless execution_leases?
+
+      relation.lost(now).find_each.count { |run| run.expire_if_lost!(now) }
+    end
+
+    # Fails the run as lost when it is still running under the lease this
+    # copy read and that lease has run out, in one conditional update, so a
+    # renewal, a result or a cancel that lands first wins and this changes
+    # nothing. The run is not executed again: its worker may have died, or
+    # may only be slow, and whatever its provider and tool calls did may
+    # already have happened; a slow worker's result is then discarded (see
+    # #unless_cancelled). Returns whether this call failed the run, which is
+    # reloaded either way it touches the database.
+    # @return [Boolean]
+    def expire_if_lost!(now = Time.current)
+      return false unless self.class.execution_leases? && running? && execution_token &&
+        execution_expires_at && execution_expires_at <= now
+
+      message = "The run's worker stopped reporting progress (its lease expired at #{execution_expires_at.iso8601}). " \
+                "The run was not executed again; its provider and tool calls may already have taken effect."
+      changed = self.class
+        .where(id: id, status: self.class.statuses[:running], execution_token: execution_token)
+        .where(execution_expires_at: ..now)
+        .update_all(
+          status: self.class.statuses[:failed], completed_at: now, error_message: message,
+          output_metadata: output_metadata.to_h.merge("error_class" => WorkerLost.name),
+          execution_token: nil, execution_expires_at: nil, updated_at: now
+        )
+      reload
+      return false if changed.zero?
+
+      add_log(message, level: :error)
+      broadcast_update
+      true
     end
 
     # Expires the run's overdue requests for input, which fails the run (see
