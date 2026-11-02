@@ -8,6 +8,7 @@ module ActionAgent
       # GET /api/runs/:id
       def show
         @run.expire_overdue_input_requests!
+        @run.expire_if_lost!
         render json: {
           run: run_json(@run),
           messages: interaction_messages(@run),
@@ -29,6 +30,8 @@ module ActionAgent
       def index
         # Scoped to the caller's own agents: this listed (and counted) every
         # run in the database regardless of who owned it.
+        # A run whose worker was lost is listed as failed, not as running.
+        AgentRun.expire_lost!(AgentRun.where(agent: owner_agents))
         scope = AgentRun.includes(:agent, :pending_input_requests).with_attachments.where(agent: owner_agents).recent
 
         scope = scope.where(agent_id: params[:agent_id]) if params[:agent_id].present?

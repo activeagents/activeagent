@@ -320,3 +320,222 @@ class RunLeaseLateWorkerTest < ActiveSupport::TestCase
     assert_equal "lease expired", @run.error_message
   end
 end
+
+# A running run whose lease ran out is failed as lost, once, and never
+# executed again. Its page, the run list and AgentRunExpiryJob find it.
+class RunLeaseExpiryTest < ActionDispatch::IntegrationTest
+  def setup
+    @agent = ActionAgent::Agent.create!(name: "Support", provider: "openai", model: "gpt-4o-mini")
+  end
+
+  def leased_run(status: :running, expires_at: 1.minute.ago, token: "lost-worker", **attributes)
+    @agent.agent_runs.create!(
+      input_prompt: "hi", status: status, started_at: 1.hour.ago,
+      execution_token: token, execution_expires_at: expires_at, **attributes
+    )
+  end
+
+  def announcements(run)
+    seen = []
+    recording = ->(stream, payload) { seen << payload[:status] if stream == "agent_run_#{run.id}" }
+    ActionAgent::LiveUpdates.stub(:broadcast, recording) { yield }
+    seen
+  end
+
+  test "a running run past its lease is failed as lost, once, and announced once" do
+    run = leased_run(output_metadata: { "provider" => "openai" })
+
+    announced = announcements(run) do
+      assert_equal true, run.expire_if_lost!
+      assert_equal false, run.expire_if_lost!
+    end
+
+    run.reload
+    assert run.failed?
+    assert_equal({ "provider" => "openai", "error_class" => "ActionAgent::AgentRun::WorkerLost" }, run.output_metadata)
+    assert_match(/stopped reporting progress.*not executed again/, run.error_message)
+    assert_not_nil run.completed_at
+    assert_nil run.execution_token
+    assert_nil run.execution_expires_at
+    assert_equal %w[failed], announced
+    assert_equal 1, Array(run.logs).count { |log| log["message"].to_s.include?("stopped reporting progress") }
+  end
+
+  test "a lost run is not executed again" do
+    run = leased_run
+    calls = 0
+    ActionAgent::AgentExecutionService.stub(:call, ->(*) { calls += 1 }) do
+      assert_no_enqueued_jobs { ActionAgent::AgentRunExpiryJob.perform_now }
+      ActionAgent::AgentExecutionJob.perform_now(run.id)
+    end
+
+    assert_equal 0, calls
+    assert run.reload.failed?
+  end
+
+  test "a run within its lease, or renewed since it was read, is left running" do
+    live = leased_run(expires_at: 1.minute.from_now)
+    renewed = leased_run
+    stale = ActionAgent::AgentRun.find(renewed.id)
+    renewed.renew_lease!
+
+    # The run's page checks on every read: a run within its lease costs no query.
+    assert_no_queries { assert_equal false, live.expire_if_lost! }
+    assert_equal false, stale.expire_if_lost!
+    assert live.reload.running?
+    assert renewed.reload.running?
+  end
+
+  test "a run taken for a new segment since it was read is left to that segment" do
+    run = leased_run
+    stale = ActionAgent::AgentRun.find(run.id)
+    run.update!(execution_token: "next-segment")
+
+    assert_equal false, stale.expire_if_lost!
+    assert run.reload.running?
+    assert stale.running?, "the copy was not reloaded"
+  end
+
+  test "only running runs are expired, whatever their lease columns say" do
+    others = %i[pending complete failed cancelled awaiting_input].map { |status| leased_run(status: status) }
+    before = others.map { |run| run.reload.attributes }
+
+    assert_equal 0, ActionAgent::AgentRun.expire_lost!
+
+    assert_equal before, others.map { |run| run.reload.attributes }
+  end
+
+  test "a run without a lease, such as one started before migration 033, is never expired" do
+    run = leased_run(token: nil, expires_at: nil)
+
+    assert_empty ActionAgent::AgentRun.lost
+    assert_equal 0, ActionAgent::AgentRun.expire_lost!
+    assert_equal false, run.expire_if_lost!
+    assert run.reload.running?
+  end
+
+  test "nothing is expired without the lease columns" do
+    run = leased_run
+    ActionAgent::AgentRun.stub(:execution_leases?, false) do
+      ActionAgent::AgentRun.stub(:lost, ->(*) { flunk "queried the lease columns a host has not migrated" }) do
+        assert_equal 0, ActionAgent::AgentRun.expire_lost!
+      end
+      assert_equal false, run.expire_if_lost!
+    end
+
+    assert run.reload.running?
+  end
+
+  test "a cancel that lands first wins over the expiry" do
+    run = leased_run
+    stale = ActionAgent::AgentRun.find(run.id)
+    run.cancel!
+
+    assert_equal false, stale.expire_if_lost!
+    assert run.reload.cancelled?
+  end
+
+  test "AgentRunExpiryJob fails every lost run, and only those" do
+    lost = [ leased_run, leased_run(token: "other-lost-worker") ]
+    live = leased_run(expires_at: 5.minutes.from_now)
+
+    ActionAgent::AgentRunExpiryJob.perform_now
+
+    assert lost.all? { |run| run.reload.failed? }
+    assert live.reload.running?
+  end
+
+  test "a lost run's page shows it failed" do
+    run = leased_run
+
+    get "/activeagents/api/runs/#{run.id}"
+
+    assert_response :success
+    assert_equal "failed", JSON.parse(response.body).dig("run", "status")
+  end
+
+  test "the run list shows a lost run failed" do
+    run = leased_run
+
+    get "/activeagents/api/runs"
+
+    assert_response :success
+    listed = JSON.parse(response.body)["runs"].find { |entry| entry["id"] == run.id }
+    assert_equal "failed", listed["status"]
+  end
+
+  test "a worker that finishes after its run was failed as lost has its result discarded" do
+    run = @agent.agent_runs.create!(input_prompt: "hi", status: :pending)
+    outlived = lambda do |_agent, _run, **|
+      travel(31.minutes) { ActionAgent::AgentRunExpiryJob.perform_now }
+      { output: "late answer", metadata: {}, usage: {} }
+    end
+    ActionAgent::AgentExecutionService.stub(:call, outlived) do
+      ActionAgent::AgentExecutionJob.perform_now(run.id)
+    end
+
+    run.reload
+    assert run.failed?
+    assert_nil run.output
+    assert_equal "ActionAgent::AgentRun::WorkerLost", run.output_metadata["error_class"]
+  end
+
+  test "a healthy run whose progress renews its lease outlasts the lease duration" do
+    run = @agent.agent_runs.create!(input_prompt: "hi", status: :pending)
+    steady = lambda do |_agent, executing, **|
+      3.times do |step|
+        travel(20.minutes)
+        executing.append_event(eid: "e#{step}", kind: :llm, label: "gpt-4o-mini")
+        ActionAgent::AgentRunExpiryJob.perform_now
+      end
+      { output: "answer", metadata: {}, usage: {} }
+    end
+    ActionAgent::AgentExecutionService.stub(:call, steady) do
+      ActionAgent::AgentExecutionJob.perform_now(run.id)
+    end
+
+    assert run.reload.complete?, "a run that kept reporting progress was taken for lost"
+    assert_equal "answer", run.output
+  ensure
+    travel_back
+  end
+end
+
+# Two sweeps reach the same lost run at once, each on its own connection.
+class RunLeaseExpiryConcurrencyTest < ActiveSupport::TestCase
+  self.use_transactional_tests = false
+
+  def setup
+    @agent = ActionAgent::Agent.create!(name: "Support", provider: "openai", model: "gpt-4o-mini")
+  end
+
+  def teardown
+    ActionAgent::Agent.find_by(id: @agent&.id)&.destroy!
+  end
+
+  test "two sweeps that load the same lost run fail it once" do
+    run = @agent.agent_runs.create!(
+      input_prompt: "hi", status: :running, started_at: 1.hour.ago,
+      execution_token: "lost-worker", execution_expires_at: 1.minute.ago
+    )
+    barrier = Concurrent::CyclicBarrier.new(2)
+    announced = Concurrent::Array.new
+    recording = ->(stream, payload) { announced << payload[:status] if stream == "agent_run_#{run.id}" }
+
+    results = ActionAgent::LiveUpdates.stub(:broadcast, recording) do
+      Array.new(2) do
+        Thread.new do
+          ActiveRecord::Base.connection_pool.with_connection do
+            copy = ActionAgent::AgentRun.find(run.id)
+            barrier.wait(10)
+            copy.expire_if_lost!
+          end
+        end
+      end.map(&:value)
+    end
+
+    assert_equal [ false, true ], results.sort_by { |result| result ? 1 : 0 }
+    assert_equal %w[failed], announced.to_a
+    assert_equal 1, Array(run.reload.logs).count { |log| log["message"].to_s.include?("stopped reporting progress") }
+  end
+end

@@ -832,8 +832,12 @@ module ActionAgent
     # How long a claimed run stays its worker's without news from it. Each
     # claim (the execution job's, the resume job's, a synchronous test run's)
     # takes a lease this long under a token of its own, and each LLM or tool
-    # call the run makes renews it. 30 minutes by default. nil takes no
-    # leases, as before migration 033.
+    # call the run makes renews it. A run whose lease ran out is failed as
+    # lost once its page, the run list or AgentRunExpiryJob reaches it, and a
+    # worker that finishes after that has its result discarded. Nothing is
+    # executed again. 30 minutes by default: one provider call longer than
+    # this, with no progress in between, is taken for a lost worker. nil
+    # takes no leases, as before migration 033.
     # @return [ActiveSupport::Duration, nil]
     attr_accessor :run_lease_duration
 
