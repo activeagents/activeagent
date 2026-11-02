@@ -6,8 +6,9 @@ module ActiveAgent
   module Evals
     # A catalog of evaluation scenarios: the products an app evaluates, each
     # with the named sets of scenarios it is tested with. One YAML document,
-    # or several layered like Suite's: a later document's product, set or
-    # scenario with a key already present replaces it, a new key is appended.
+    # or several layered like Suite's: a later document's product, set,
+    # scenario or criterion with a key already present replaces it, a new key
+    # is appended.
     #
     #   catalog: support_desk
     #   name: Support Desk
@@ -16,6 +17,7 @@ module ActiveAgent
     #     - key: triage
     #       name: Triage agent
     #       agent: TriageAgent            # the agent class, or a dashboard agent's name
+    #       criteria: { shared: [] }      # optional; named criteria lists, as a Suite's
     #       sets:
     #         - key: smoke
     #           name: Smoke
@@ -47,12 +49,12 @@ module ActiveAgent
 
       # The keys a product, set or scenario may carry. Anything else is kept
       # under `metadata` so a document round-trips.
-      PRODUCT_KEYS = %w[key name description agent sets].freeze
+      PRODUCT_KEYS = %w[key name description agent criteria sets].freeze
       SET_KEYS = %w[key name description judge criteria scenarios].freeze
       SCENARIO_KEYS = %w[key prompt expect expectations tools contains not_contains notes tags params production_only position].freeze
       CATALOG_KEYS = %w[catalog name description products suite groups].freeze
 
-      Product = Struct.new(:key, :name, :description, :agent, :metadata, :sets, :position, keyword_init: true) do
+      Product = Struct.new(:key, :name, :description, :agent, :criteria, :metadata, :sets, :position, keyword_init: true) do
         def set(key)
           sets.find { |set| set.key == key.to_s }
         end
@@ -142,6 +144,7 @@ module ActiveAgent
         Suite.new([ {
           "suite" => [ key, found.key, set_key ].compact.join("/"),
           "description" => found.description || description,
+          "criteria" => found.criteria,
           "groups" => sets.map { |entry| set_document(entry) }
         } ])
       end
@@ -182,6 +185,7 @@ module ActiveAgent
             "key" => product_key,
             "name" => document["name"].presence || product_key,
             "description" => document["description"],
+            "criteria" => document["criteria"],
             "sets" => Array(document["groups"])
           } ]
         }.compact
@@ -197,11 +201,64 @@ module ActiveAgent
             if existing
               %w[name description agent].each { |field| existing[field] = incoming[field] if incoming[field].present? }
               existing.merge!(incoming.except(*PRODUCT_KEYS))
+              merge_criteria_lists(existing, incoming)
               merge_sets(existing, Array(incoming["sets"]))
             else
-              products << incoming.merge("key" => incoming["key"].to_s, "sets" => [])
+              products << incoming.merge("key" => incoming["key"].to_s, "criteria" => {}, "sets" => [])
+                .tap { |product| merge_criteria_lists(product, incoming) }
                 .tap { |product| merge_sets(product, Array(incoming["sets"])) }
             end
+          end
+        end
+      end
+
+      # Layers a product document's named criteria lists over the product's:
+      # by name, and within a name by criterion key.
+      def merge_criteria_lists(product, incoming)
+        criteria_lists(incoming).each do |list_name, list|
+          merge_criteria(product["criteria"][list_name] ||= [], list, "list #{list_name.inspect} of product #{product['key'].inspect}")
+        end
+      end
+
+      # A product document's `criteria` as `name => list`; a bare list is the
+      # one list named "default", and an empty one declares no list.
+      def criteria_lists(product)
+        value = product["criteria"]
+        return {} if value.nil? || value == []
+
+        value = { "default" => value } if value.is_a?(Array)
+        unless value.is_a?(Hash)
+          raise InvalidDocument, "the criteria of product #{product['key'].inspect} are not a list or a mapping of lists"
+        end
+
+        value.to_h do |list_name, list|
+          raise InvalidDocument, "criteria list #{list_name.inspect} of product #{product['key'].inspect} is not a list" unless list.is_a?(Array)
+
+          [ list_name.to_s, list ]
+        end
+      end
+
+      # Layers `incoming` criteria over `existing` by key: a criterion with a
+      # key already present replaces it in place and a new key is appended;
+      # an empty or missing `incoming` declares none. A criterion without a
+      # key is appended once, when `allow_keyless` is true, and refused
+      # otherwise.
+      def merge_criteria(existing, incoming, owner, allow_keyless: false)
+        return if incoming.blank?
+        raise InvalidDocument, "the criteria of #{owner} are not a list" unless incoming.is_a?(Array)
+
+        incoming.each do |criterion|
+          raise InvalidDocument, "a criterion in #{owner} is not a mapping" unless criterion.is_a?(Hash)
+
+          criterion = criterion.deep_stringify_keys
+          if criterion["key"].present?
+            criterion["key"] = criterion["key"].to_s
+            index = existing.index { |entry| entry["key"] == criterion["key"] }
+            index ? existing[index] = criterion : existing << criterion
+          elsif allow_keyless
+            existing << criterion unless existing.include?(criterion)
+          else
+            raise InvalidDocument, "a criterion in #{owner} has no key"
           end
         end
       end
@@ -213,14 +270,22 @@ module ActiveAgent
 
           existing = product["sets"].find { |set| set["key"] == incoming["key"].to_s }
           if existing
-            %w[name description judge criteria].each { |field| existing[field] = incoming[field] if incoming[field].present? }
+            %w[name description judge].each { |field| existing[field] = incoming[field] if incoming[field].present? }
             existing.merge!(incoming.except(*SET_KEYS))
+            merge_set_criteria(existing, incoming, product)
             merge_scenarios(existing, Array(incoming["scenarios"]))
           else
-            product["sets"] << incoming.merge("key" => incoming["key"].to_s, "scenarios" => [])
+            product["sets"] << incoming.merge("key" => incoming["key"].to_s, "criteria" => [], "scenarios" => [])
+              .tap { |set| merge_set_criteria(set, incoming, product) }
               .tap { |set| merge_scenarios(set, Array(incoming["scenarios"])) }
           end
         end
+      end
+
+      # Layers a set document's `criteria` over the set's by key; a set keeps
+      # a criterion without a key.
+      def merge_set_criteria(set, incoming, product)
+        merge_criteria(set["criteria"], incoming["criteria"], "set #{set['key'].inspect} of product #{product['key'].inspect}", allow_keyless: true)
       end
 
       def merge_scenarios(set, incoming_scenarios)
@@ -242,6 +307,7 @@ module ActiveAgent
             name: product["name"].presence || product["key"],
             description: product["description"].presence,
             agent: product["agent"].presence&.to_s,
+            criteria: product["criteria"],
             metadata: product.except(*PRODUCT_KEYS),
             position: position,
             sets: product["sets"].each_with_index.map { |set, set_position| build_set(set, set_position) }
@@ -255,7 +321,7 @@ module ActiveAgent
           name: set["name"].presence || set["key"],
           description: set["description"].presence,
           judge: (set["judge"] || {}).to_h.stringify_keys,
-          criteria: Array(set["criteria"]).map { |criterion| criterion.to_h.deep_stringify_keys },
+          criteria: set["criteria"],
           metadata: set.except(*SET_KEYS),
           position: position,
           scenarios: set["scenarios"].each_with_index.map do |entry, index|
@@ -270,6 +336,7 @@ module ActiveAgent
           "name" => product.name,
           "description" => product.description,
           "agent" => product.agent,
+          "criteria" => product.criteria,
           "sets" => product.sets.map { |set| set_document(set) }
         }.merge(product.metadata))
       end
