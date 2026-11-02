@@ -1,5 +1,12 @@
 # frozen_string_literal: true
 
+# The class body below reads Zeitwerk's inflector. Rails requires Zeitwerk
+# only when an application sets up its autoloaders, which is after
+# Bundler.require has loaded this file; a host that reaches it earlier does so
+# by chance (Action Cable's engine loads it as a side effect). So the constant
+# has to come from here. Zeitwerk is a dependency of Active Support, so it is
+# always installed.
+require "zeitwerk"
 require_relative "assistant_request_filter"
 
 module ActionAgent
@@ -25,7 +32,10 @@ module ActionAgent
       "mcp_tool_dispatcher" => "MCPToolDispatcher",
       "mcp_controller" => "MCPController",
       "mcp_dashboard_tools" => "MCPDashboardTools",
+      "mcp_host_guard" => "MCPHostGuard",
       "mcp_recording_middleware" => "MCPRecordingMiddleware",
+      "mcp_server_config" => "MCPServerConfig",
+      "mcp_server_configs_controller" => "MCPServerConfigsController",
       "mcp_servers_controller" => "MCPServersController",
       "playwright_mcp_client" => "PlaywrightMCPClient"
     }.freeze

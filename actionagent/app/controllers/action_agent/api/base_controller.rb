@@ -114,8 +114,8 @@ module ActionAgent
 
       # Returns the credentials the caller owns, for masking with
       # SecretScrubber: provider keys, GitHub tokens, checkout sandboxes'
-      # runtime tokens, dashboard API keys (newest first) and the owner's
-      # telemetry key. Raises what a lookup raises, such as a credential that
+      # runtime tokens, dashboard API keys (newest first), the header values
+      # of the owner's own MCP servers and the owner's telemetry key. Raises what a lookup raises, such as a credential that
       # cannot be decrypted, so each caller decides whether to go on without
       # the list.
       # @return [Array<String>]
@@ -125,6 +125,7 @@ module ActionAgent
           *owned(GithubConnection).limit(OWNER_CREDENTIAL_LIMIT).pluck(:access_token),
           *owned(SandboxSession).where.not(runtime_mcp_token: nil).order(id: :desc).limit(OWNER_CREDENTIAL_LIMIT).pluck(:runtime_mcp_token),
           *owned(ApiKey).order(id: :desc).limit(OWNER_CREDENTIAL_LIMIT).pluck(:token),
+          *owned(MCPServerConfig).order(id: :desc).limit(OWNER_CREDENTIAL_LIMIT).flat_map(&:secret_values),
           current_owner.try(:telemetry_api_key)
         ].compact
       end

@@ -279,10 +279,10 @@ module ActionAgent
       # ones the caller may see as well. Intersected by id rather than with
       # merge: both relations constrain the same owner column, and merge
       # lets the second condition replace the first instead of adding to it.
+      # The servers the owner added on the MCP Services page are offered the
+      # same way.
       def tool_roster
-        runtimes = SandboxSession.runtime_server_listings(
-          SandboxSession.for_owner(@agent.owner).where(id: owned(SandboxSession).select(:id))
-        )
+        runtimes = owner_server_listings(@agent.owner)
 
         render json: AgentToolRoster.new(
           agent: @agent,
@@ -303,9 +303,7 @@ module ActionAgent
       # an agent's history: which services its agents already enable.
       def new_tool_roster
         agent = owner_agents.build
-        runtimes = SandboxSession.runtime_server_listings(
-          SandboxSession.for_owner(agent.owner).where(id: owned(SandboxSession).select(:id))
-        )
+        runtimes = owner_server_listings(agent.owner)
 
         render json: AgentToolRoster.new(
           agent: agent,
@@ -443,6 +441,17 @@ module ActionAgent
       end
 
       private
+
+      # The checkout runtimes and added MCP servers an agent of +owner+ can be
+      # given, as MCP server listings: +owner+'s, and of those only the ones
+      # the caller may see as well.
+      def owner_server_listings(owner)
+        SandboxSession.runtime_server_listings(
+          SandboxSession.for_owner(owner).where(id: owned(SandboxSession).select(:id))
+        ) + MCPServerConfig.listings(
+          MCPServerConfig.for_owner(owner).where(id: owned(MCPServerConfig).select(:id))
+        )
+      end
 
       # Observed agents were discovered from reported telemetry; the platform
       # has no configuration to run them with (a placeholder model, no

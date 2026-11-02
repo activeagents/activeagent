@@ -136,6 +136,7 @@ module ActionAgent
 
       scope.map do |run|
         model = run.output_metadata&.dig("model")
+        provider = run.output_metadata&.dig("provider")
         Row.new(
           id: run.id,
           source: "dashboard",
@@ -147,13 +148,14 @@ module ActionAgent
           output_tokens: run.output_tokens.to_i,
           cost: ModelPricing.estimate(
             model: model,
+            provider: provider,
             input_tokens: run.input_tokens,
             output_tokens: run.output_tokens
           ),
           trace_id: run.trace_id,
           agent_id: run.agent_id,
           action_name: run.action_name,
-          provider: run.output_metadata&.dig("provider"),
+          provider: provider,
           model: model,
           input_preview: run.input_prompt.to_s.truncate(160),
           output_preview: run.output.to_s.truncate(160).presence,
@@ -183,6 +185,7 @@ module ActionAgent
           output_tokens: trace.total_output_tokens.to_i,
           cost: ModelPricing.estimate(
             model: model,
+            provider: trace.provider,
             input_tokens: trace.total_input_tokens,
             output_tokens: trace.total_output_tokens
           ),

@@ -217,7 +217,7 @@ Common settings available across all providers:
 **Provider-specific settings:** Each provider supports additional configuration options beyond these common settings. For complete details on available settings, environment variables, and provider-specific features, see:
 
 - **[Anthropic Provider](/providers/anthropic)** - Beta headers, base URL, retry configuration, etc.
-- **[Ollama Provider](/providers/ollama)** - Host configuration for local instances
+- **[Ollama Provider](/providers/ollama)** - Host configuration for local servers and Ollama Cloud (`OLLAMA_HOST`, `OLLAMA_API_KEY`, `cloud: true`)
 - **[OpenAI Provider](/providers/open_ai)** - Organization ID, request timeout, admin token, etc.
 - **[OpenRouter Provider](/providers/open_router)** - App name, site URL, provider preferences, etc.
 - **[RubyLLM Provider](/providers/ruby_llm)** - Unified API for 15+ providers via RubyLLM
