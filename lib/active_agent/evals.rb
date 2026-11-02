@@ -4,6 +4,7 @@ require "json"
 require "cgi"
 require "yaml"
 require "active_support"
+require "active_support/core_ext/array/wrap"
 require "active_support/core_ext/object/blank"
 require "active_support/core_ext/string/filters"
 require "active_support/core_ext/string/access"
@@ -32,6 +33,7 @@ require_relative "evals/report"
 require_relative "evals/runner"
 require_relative "evals/correlation"
 require_relative "evals/publisher"
+require_relative "evals/capture"
 
 # Scenario evaluations for agents that answer with tools.
 #
@@ -47,7 +49,10 @@ require_relative "evals/publisher"
 # and rolling everything up per model (Report). Runner ties them together
 # around one callable you supply: given a scenario and a model, run the
 # agent and return a Replay. Correlation is optional plumbing on top: it
-# links the traces a run emits back to the result that caused them.
+# links the traces a run emits back to the result that caused them. Capture
+# runs one ActiveAgent generation into a Replay, and
+# `require "active_agent/evals/test_helper"` adds the Minitest assertions an
+# eval written as a test case uses (TestHelper, TestCase).
 #
 #   scenarios = ActiveAgent::Evals::ScenarioParser.scenarios(pasted_text)
 #   models    = ActiveAgent::Evals::ModelSpec.parse_all(%w[gpt-5-mini qwen3:8b], default_provider: "openai")

@@ -101,16 +101,16 @@ module ActionAgent
       costs = Hash.new(0.0)
       priced = Set.new
 
-      run_models(windowed_runs).each do |agent_id, model, input, output|
-        cost = ModelPricing.estimate(model: model, input_tokens: input, output_tokens: output)
+      run_models(windowed_runs).each do |agent_id, model, provider, input, output|
+        cost = ModelPricing.estimate(model: model, provider: provider, input_tokens: input, output_tokens: output)
         next unless cost
 
         costs[agent_id] += cost
         priced << agent_id
       end
 
-      trace_models(unclaimed_traces(agent_ids, window_start)).each do |agent_id, model, input, output|
-        cost = ModelPricing.estimate(model: model, input_tokens: input, output_tokens: output)
+      trace_models(unclaimed_traces(agent_ids, window_start)).each do |agent_id, model, provider, input, output|
+        cost = ModelPricing.estimate(model: model, provider: provider, input_tokens: input, output_tokens: output)
         next unless cost
 
         costs[agent_id] += cost
@@ -123,27 +123,31 @@ module ActionAgent
     end
     private_class_method :estimated_costs
 
-    # [agent_id, model, input_tokens, output_tokens] per run. The model
-    # lives in the output_metadata JSON, which only PostgreSQL can reach
-    # from SQL; elsewhere the column is read back in Ruby.
+    # [agent_id, model, provider, input_tokens, output_tokens] per run. The
+    # model and the provider live in the output_metadata JSON, which only
+    # PostgreSQL can reach from SQL; elsewhere the column is read back in
+    # Ruby.
     def self.run_models(runs)
       if AgentRun.postgres?
-        runs.pluck(:agent_id, Arel.sql("output_metadata ->> 'model'"), :input_tokens, :output_tokens)
+        runs.pluck(:agent_id, Arel.sql("output_metadata ->> 'model'"), Arel.sql("output_metadata ->> 'provider'"),
+                   :input_tokens, :output_tokens)
       else
         runs.pluck(:agent_id, :output_metadata, :input_tokens, :output_tokens).map do |agent_id, metadata, input, output|
-          [ agent_id, metadata.is_a?(Hash) ? metadata["model"] : nil, input, output ]
+          metadata = {} unless metadata.is_a?(Hash)
+          [ agent_id, metadata["model"], metadata["provider"], input, output ]
         end
       end
     end
     private_class_method :run_models
 
-    # The same, for reported traces: the model is on the first llm span.
+    # The same, for reported traces: the model and provider are on the
+    # first llm span.
     def self.trace_models(traces)
       table = ActionAgent.trace_model.table_name
 
-      ActionAgent.trace_model.pluck_with_llm_model(
+      ActionAgent.trace_model.pluck_with_llm_model_and_provider(
         traces, Arel.sql("#{table}.agent_id"), :total_input_tokens, :total_output_tokens
-      ).map { |model, agent_id, input, output| [ agent_id, model, input, output ] }
+      ).map { |model, provider, agent_id, input, output| [ agent_id, model, provider, input, output ] }
     end
     private_class_method :trace_models
 

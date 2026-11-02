@@ -27,9 +27,15 @@ module ActionAgent
       value.is_a?(Hash) ? value : {}
     end
 
+    def metadata
+      value = self[:metadata]
+      value.is_a?(Hash) ? value : {}
+    end
+
     # @return [ActiveAgent::Evals::Scenario]
     def to_scenario
-      ActiveAgent::Evals::Scenario.from_hash(to_document.merge("position" => position), group: set.key, group_name: set.name)
+      ActiveAgent::Evals::Scenario.from_hash(to_document.merge("position" => position), group: set.key, group_name: set.name,
+        metadata: metadata)
     end
 
     def to_document
@@ -41,7 +47,7 @@ module ActionAgent
         "tags" => tags.presence,
         "params" => params.presence,
         "production_only" => (true if production_only?)
-      }.compact
+      }.compact.merge(metadata.deep_stringify_keys.except(*ActiveAgent::Evals::Catalog::SCENARIO_KEYS))
     end
 
     # The attributes Evaluation#replace_scenarios! takes.

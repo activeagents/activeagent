@@ -23,6 +23,12 @@ module ActionAgent
   # is reached the same way (SandboxSession.browser_server_entry), and only
   # this way. Only those keys are taken; a catalog server the agent does not
   # enable stays out of reach.
+  #
+  # A server a dashboard user added on the MCP Services page is enabled as
+  # "custom:<id>" and resolves through MCPServerConfig.server_entry, among the
+  # agent's owner's configurations only and only while it is enabled. Its
+  # client refuses a host that resolves to a non-public address (see
+  # MCPHostGuard) unless the host app allows them.
   class MCPToolDispatcher
     HTTP_TRANSPORTS = %w[http streamable_http sse].freeze
     class SandboxUnavailable < MCPClient::Error; end
@@ -43,6 +49,7 @@ module ActionAgent
     def self.unreachable_reason(entry)
       return "Unknown to the catalog" if entry.nil?
       return nil if SandboxSession.runtime_server_key?(entry[:key].to_s)
+      return "Switched off on the MCP Services page" if entry[:custom] && entry[:enabled] == false
 
       transport = entry[:transport].to_s
       unless transport.in?(HTTP_TRANSPORTS)
@@ -284,14 +291,16 @@ module ActionAgent
     end
 
     # A catalog server, the app runtime of a checkout sandbox the agent's
-    # owner started (keys "sandbox:<session_id>"), or, for a key this run was
-    # given, that sandbox's browser ("browser:<session_id>"). The sandbox
-    # lookups are scoped to the agent's owner, so naming another tenant's
-    # session resolves to nothing.
+    # owner started (keys "sandbox:<session_id>"), a server the agent's owner
+    # added ("custom:<id>"), or, for a key this run was given, that sandbox's
+    # browser ("browser:<session_id>"). The sandbox and custom lookups are
+    # scoped to the agent's owner, so naming another tenant's session or
+    # configuration resolves to nothing.
     def catalog_entry(key)
       if SandboxSession.browser_server_key?(key)
         return extra_server_keys.include?(key) ? SandboxSession.browser_server_entry(key, owner: agent.try(:owner)) : nil
       end
+      return MCPServerConfig.server_entry(key, owner: agent.try(:owner)) if MCPServerConfig.key?(key)
       return MCPCatalog.connection(key) unless SandboxSession.runtime_server_key?(key)
 
       SandboxSession.runtime_server_entry(key, owner: agent.try(:owner))
@@ -303,7 +312,8 @@ module ActionAgent
       @clients[entry[:key]] ||= MCPClient.new(
         url: absolute_url(entry[:url]),
         label: entry[:name] || entry[:key],
-        headers: entry[:headers] || {}
+        headers: entry[:headers] || {},
+        public_only: entry[:public_only] ? true : false
       )
     end
 
