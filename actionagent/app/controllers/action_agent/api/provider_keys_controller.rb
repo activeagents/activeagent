@@ -94,7 +94,7 @@ module ActionAgent
 
         host = params[:credential].presence || stored&.credential || platform_host(provider)
         if host.blank?
-          return render json: { ok: false, host: nil, models: [], latency_ms: nil, error: "No host configured" }
+          return render json: { ok: false, host: nil, models: [], latency_ms: nil, error: "No host configured", cloud: nil, rates: {} }
         end
 
         render json: OllamaHostProbe.call(host: host, api_key: probe_api_key(stored, host)).to_h

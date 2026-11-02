@@ -178,6 +178,27 @@ MyAgent.with(param: "value").my_action.generate_now
 - Re-run tests to record new cassettes
 - Verify API credentials are valid
 
+## Evals
+
+An eval is a test that calls a model and checks what the agent did — the
+answer, the tools it called. They are ordinary tests under `test/evals`;
+`ActiveAgent::Evals::TestCase` skips them unless `EVALS` is on, so `rails
+test` never calls a model, and `bin/rails test:evals` switches them on and
+runs them, on demand or in a release job:
+
+```ruby
+class SupportAgentEval < ActiveAgent::Evals::TestCase
+  test "finds an order with the lookup tool" do
+    replay = run_eval SupportAgent.with(question: "Where is order ABC-123?").help
+
+    assert_tool_called replay, "lookup_order", number: "ABC-123"
+    assert_output_contains replay, "ABC-123"
+  end
+end
+```
+
+See [Evaluations → In your test suite](/framework/evaluations#in-your-test-suite).
+
 ## Test Base Classes
 
 - `ActiveSupport::TestCase` - Standard Rails tests with credential helpers
