@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "net/http"
+require "openssl"
 require "resolv"
 require "uri"
 require "json"
@@ -17,12 +18,24 @@ module ActionAgent
 
     class Error < StandardError; end
 
+    # Failures to reach the server at all, raised as Error so a caller
+    # handles one exception for a server that cannot be called.
+    NETWORK_ERRORS = [
+      Errno::ECONNREFUSED, Errno::ECONNRESET, Errno::EHOSTUNREACH, Errno::ENETUNREACH,
+      Net::OpenTimeout, Net::ReadTimeout, OpenSSL::SSL::SSLError, SocketError
+    ].freeze
+
     # +headers+ are sent with every request: a checkout sandbox's runtime
     # authenticates its MCP facade with a bearer token.
-    def initialize(url:, label: nil, headers: {})
+    #
+    # +public_only+ refuses a host that resolves to anything but public
+    # addresses (MCPHostGuard#public_addresses!), and connects to the address
+    # that was checked. A URL a dashboard user supplied is called this way.
+    def initialize(url:, label: nil, headers: {}, public_only: false)
       @uri = URI(url)
       @label = label.presence || @uri.host
       @headers = headers.to_h
+      @public_only = public_only
       @mutex = Mutex.new
     end
 
@@ -40,6 +53,8 @@ module ActionAgent
           parameters: tool["inputSchema"] || { type: "object", properties: {} }
         }
       end
+    rescue *NETWORK_ERRORS => e
+      raise Error, "MCP server #{@label} unreachable at #{@uri} (#{e.class})"
     end
 
     # Returns { text:, is_error: } — the tool result's text content.
@@ -63,7 +78,7 @@ module ActionAgent
 
       text = Array(result["content"]).filter_map { |block| block["text"] }.join("\n")
       { text: text, is_error: result["isError"] ? true : false }
-    rescue Errno::ECONNREFUSED, Errno::EHOSTUNREACH, Net::OpenTimeout, SocketError => e
+    rescue *NETWORK_ERRORS => e
       raise Error, "MCP server #{@label} unreachable at #{@uri} (#{e.class})"
     end
 
@@ -101,6 +116,10 @@ module ActionAgent
       # fiber, where Net::HTTP reads of SSE bodies misbehave (headers arrive,
       # body comes back empty). A dedicated thread always does real blocking
       # IO outside any fiber/scheduler context.
+      #
+      # The address is resolved first, on the caller's thread, so a host the
+      # guard refuses raises here rather than inside the thread.
+      connect_address
       Thread.new { blocking_post_raw(payload, session: session) }.value
     end
 
@@ -111,8 +130,8 @@ module ActionAgent
       # Container->host bridge hostnames (host.orb.internal) publish an IPv6
       # address whose path doesn't reach the server; dual-stack connects then
       # fail intermittently. Pin to IPv4 while keeping the Host header.
-      if (ipv4 = ipv4_address)
-        http.ipaddr = ipv4
+      if (address = connect_address)
+        http.ipaddr = address
       end
       http.open_timeout = OPEN_TIMEOUT_SECONDS
       http.read_timeout = READ_TIMEOUT_SECONDS
@@ -159,6 +178,19 @@ module ActionAgent
       end
     rescue JSON::ParserError
       {}
+    end
+
+    # The address to connect to. For a public-only client, a checked public
+    # address (IPv4 first), resolved once so every request of this client
+    # reaches the address that was checked; otherwise the host's IPv4
+    # address when it has one.
+    def connect_address
+      return ipv4_address unless @public_only
+
+      @checked_address ||= begin
+        addresses = MCPHostGuard.public_addresses!(@uri.hostname)
+        addresses.find { |address| address =~ Resolv::IPv4::Regex } || addresses.first
+      end
     end
 
     def ipv4_address

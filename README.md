@@ -48,6 +48,9 @@ bundle add openai
 # Anthropic
 bundle add anthropic
 
+# Atlas Cloud (uses OpenAI-compatible API)
+bundle add openai
+
 # Ollama (uses OpenAI-compatible API)
 bundle add openai
 
@@ -58,6 +61,9 @@ bundle add openai
 bundle add openai
 
 # Opper (uses OpenAI-compatible API)
+bundle add openai
+
+# Cheaper Inference (uses OpenAI-compatible API)
 bundle add openai
 
 # DeepSeek (uses OpenAI-compatible API)

@@ -85,25 +85,46 @@ module ActionAgent
     # in Ruby, which costs more but keeps the dashboard adapter-agnostic.
     def self.pluck_with_llm_model(scope, *columns)
       if postgres?
-        scope.pluck(
-          Arel.sql(
-            # spans is cast rather than assumed to be jsonb: the column is
-            # json on every install created before the migration template
-            # started picking jsonb per adapter, and jsonb_array_elements
-            # rejects a json argument outright.
-            "(SELECT s.value -> 'attributes' ->> 'llm.model' " \
-            "FROM jsonb_array_elements(spans::jsonb) AS s " \
-            "WHERE s.value ->> 'type' = 'llm' LIMIT 1)"
-          ),
-          *columns
-        )
+        scope.pluck(llm_span_attribute_sql("llm.model"), *columns)
       else
         scope.pluck(:spans, *columns).map do |spans, *rest|
-          llm = Array(spans).find { |span| span.is_a?(Hash) && span["type"].to_s == "llm" }
-          [ llm&.dig("attributes", "llm.model"), *rest ]
+          [ first_llm_span(spans)&.dig("attributes", "llm.model"), *rest ]
         end
       end
     end
+
+    # Plucks [llm_model, llm_provider, *columns] per trace: as
+    # pluck_with_llm_model, with the provider the first llm span recorded
+    # beside its model, for a caller that prices the tokens (ModelPricing
+    # looks a model up under the provider that served it).
+    def self.pluck_with_llm_model_and_provider(scope, *columns)
+      if postgres?
+        scope.pluck(llm_span_attribute_sql("llm.model"), llm_span_attribute_sql("llm.provider"), *columns)
+      else
+        scope.pluck(:spans, *columns).map do |spans, *rest|
+          llm = first_llm_span(spans)
+          [ llm&.dig("attributes", "llm.model"), llm&.dig("attributes", "llm.provider"), *rest ]
+        end
+      end
+    end
+
+    # The first llm span's +attribute+, read in SQL. spans is cast rather
+    # than assumed to be jsonb: the column is json on every install created
+    # before the migration template started picking jsonb per adapter, and
+    # jsonb_array_elements rejects a json argument outright.
+    def self.llm_span_attribute_sql(attribute)
+      Arel.sql(
+        "(SELECT s.value -> 'attributes' ->> '#{attribute}' " \
+        "FROM jsonb_array_elements(spans::jsonb) AS s " \
+        "WHERE s.value ->> 'type' = 'llm' LIMIT 1)"
+      )
+    end
+    private_class_method :llm_span_attribute_sql
+
+    def self.first_llm_span(spans)
+      Array(spans).find { |span| span.is_a?(Hash) && span["type"].to_s == "llm" }
+    end
+    private_class_method :first_llm_span
 
     # The trace columns the Metrics report reads, in the order
     # pluck_metrics_rows returns them (before the span-derived fields).
