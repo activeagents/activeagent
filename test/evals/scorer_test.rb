@@ -15,8 +15,15 @@ class EvalsScorerTest < ActiveSupport::TestCase
     { "key" => "no_apology", "type" => "not_contains", "config" => { "pattern" => "sorry" } }
   ].freeze
 
-  def scorer(criteria: CRITERIA, judge: nil)
-    ActiveAgent::Evals::Scorer.new(criteria: criteria, judge: judge)
+  JUDGED = [ { "key" => "quality", "type" => "llm_judge", "config" => { "prompt" => "Is it helpful?" } } ].freeze
+
+  def scorer(criteria: CRITERIA, judge: nil, **options)
+    ActiveAgent::Evals::Scorer.new(criteria: criteria, judge: judge, **options)
+  end
+
+  # A scorer with one llm_judge criterion whose judge tallies its calls in `calls`.
+  def judged_scorer(calls, criteria: JUDGED, **options)
+    scorer(criteria: criteria, judge: counting_judge(calls), **options)
   end
 
   def test_rule_criteria_score_the_replay
@@ -82,6 +89,92 @@ class EvalsScorerTest < ActiveSupport::TestCase
   def test_mean_ignores_unscorable_criteria
     assert_equal 0.75, ActiveAgent::Evals::Scorer.mean("a" => 1.0, "b" => 0.5, "c" => nil)
     assert_nil ActiveAgent::Evals::Scorer.mean("c" => nil)
+  end
+
+  def test_a_replay_that_missed_an_expected_tool_is_judged_only_by_default
+    task = scenario(tools: [ "find_tickets" ])
+    missed = replay(answer: "Alice changed it on Monday.", tool_calls: [])
+    calls = Hash.new(0)
+
+    gated_scorer = judged_scorer(calls, judge_failed_expectations: false)
+    assert_equal false, gated_scorer.judge_failed_expectations
+    assert_equal true, scorer.judge_failed_expectations
+
+    gated = gated_scorer.score(task, missed)
+    assert_equal 0.0, gated["expected_tools"]
+    assert_nil gated["quality"]
+    assert_equal 0, calls["score_criterion"], "a replay that failed an expectation is not worth a judge call"
+
+    judged = judged_scorer(calls).score(task, missed)
+    assert_equal 0.9, judged["quality"]
+    assert_equal 1, calls["score_criterion"]
+  end
+
+  def test_a_replay_meeting_every_expectation_is_judged_whether_or_not_failed_ones_are
+    task = scenario(tools: [ "find_tickets" ], contains: %w[Alice Monday], not_contains: [ "Bob" ])
+    met = replay(answer: "Alice changed it on Monday.", tool_calls: [ { "name" => "find_tickets" } ])
+
+    [ true, false ].each do |flag|
+      calls = Hash.new(0)
+      scores = judged_scorer(calls, judge_failed_expectations: flag).score(task, met)
+
+      assert_equal 0.9, scores["quality"], "judge_failed_expectations: #{flag}"
+      assert_equal({ "score_criterion" => 1 }, calls)
+    end
+  end
+
+  def test_a_failed_tool_call_a_forbidden_phrase_or_a_missing_pattern_gates_the_judge
+    calls = Hash.new(0)
+    gated = judged_scorer(calls, judge_failed_expectations: false)
+
+    errored = gated.score(scenario(tools: [ "find_tickets" ]), replay(tool_calls: [ { "name" => "find_tickets", "error" => true } ]))
+    forbidden = gated.score(scenario(not_contains: [ "Alice" ]), replay)
+    partial = gated.score(scenario(contains: %w[Alice Tuesday]), replay)
+
+    assert_equal 0.0, errored["tools_succeeded"]
+    assert_nil errored["quality"]
+    assert_equal 0.0, forbidden["forbidden_content"]
+    assert_nil forbidden["quality"]
+    assert_equal 0.5, partial["expected_content"]
+    assert_nil partial["quality"]
+    assert_empty calls
+  end
+
+  def test_a_scenario_with_no_expectations_is_judged_and_a_blank_answer_never_is
+    calls = Hash.new(0)
+    gated = judged_scorer(calls, criteria: CRITERIA + JUDGED, judge_failed_expectations: false)
+
+    assert_equal 0.9, gated.score(scenario, replay)["quality"]
+    assert_equal({ "score_criterion" => 1 }, calls)
+
+    blank = gated.score(scenario(tools: [ "find_tickets" ]), replay(answer: ""))
+    assert blank.values.all?(0.0)
+    assert_equal({ "score_criterion" => 1 }, calls, "a blank answer scores 0.0 without asking the judge")
+  end
+
+  def test_expectations_are_met_when_every_expectation_key_present_is_full
+    met = ActiveAgent::Evals::Scorer.method(:expectations_met?)
+
+    assert met.call({})
+    assert met.call("quality" => 0.0, "expected_tools" => 1.0, "tools_succeeded" => 1.0)
+    assert_not met.call("expected_content" => 0.5)
+    assert_not met.call("forbidden_content" => 0.0)
+    assert_equal %w[expected_tools expected_content forbidden_content tools_succeeded], ActiveAgent::Evals::Scorer::EXPECTATION_KEYS
+  end
+
+  def test_scores_keep_their_key_order_whether_or_not_failed_expectations_are_judged
+    criteria = CRITERIA.first(3) + JUDGED + CRITERIA.last(3)
+    task = scenario(tools: [ "find_tickets" ], contains: %w[Alice Monday], not_contains: [ "Bob" ])
+    missed = replay(answer: "Alice changed it.", tool_calls: [ { "name" => "find_tickets" }, { "name" => "fetch_url", "error" => true } ])
+    expected = %w[response_present response_length latency quality token_budget mentions_alice no_apology
+                  expected_tools expected_content forbidden_content tools_succeeded]
+
+    [ true, false ].each do |flag|
+      scores = judged_scorer(Hash.new(0), criteria: criteria, judge_failed_expectations: flag).score(task, missed)
+
+      assert_equal expected, scores.keys, "judge_failed_expectations: #{flag}"
+      assert_equal expected, JSON.parse(scores.to_json).keys
+    end
   end
 
   def test_a_pattern_matches_as_a_substring_before_it_is_tried_as_a_regex

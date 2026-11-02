@@ -128,6 +128,34 @@ the aggregate across scored criteria; `avg_task_completion` in each model's
 summary reports the judge's task-completion mean separately. Invalid judge
 scores are unscorable, and unusable recommendation fields are discarded.
 
+A replay that called none of its expected tools, printed a forbidden phrase,
+lacks content the scenario expects or had a tool call fail is a failed result
+whatever the judge says: `Diagnosis` assigns one of its evidence faults
+(`tool_error`, `missing_capability`, `expected_tool_not_called`,
+`ungrounded_answer`, `forbidden_content` or `missing_content`; see
+[Faults](#faults)) before it looks at quality. The judge grades every
+answered replay all the same by default; `judge_failed_expectations: false`
+skips it for every answered replay whose expectation scores fall short of
+1.0:
+
+```ruby
+ActiveAgent::Evals::Runner.new(
+  scenarios:, models:, replay:, judge: judge, instructions: instructions,
+  judge_failed_expectations: false
+).call
+```
+
+Such a result fails on whichever of those faults `Diagnosis` assigns first (a
+refusal is `missing_capability`, an invented figure `ungrounded_answer`; when
+such a replay is gated, neither gets the judge's suggested tool) with no
+`task_completion` score, its `llm_judge` criteria unscored (nil, as with no
+judge) and no judge-written recommendation; `require_judge_scores: true`
+leaves that fault in place rather than reporting `judge_unavailable`. The
+calls it saves also stay out of the `judge_limit` budget, which then goes to
+the replays whose verdict a judge can change. A blank answer is never
+graded, and a blank or errored replay (`run_error`) is never refined under
+the default `refine_faults`, with or without the flag.
+
 Hosts can correlate the replay and its judge calls with one trace context by
 passing `around_evaluation:` to `Runner.new`. The callable receives the
 scenario and model spec, yields the evaluation, and returns its result:
@@ -414,7 +442,10 @@ and the same per model label; and `Report#judge_usage` sums every result's
 judge calls with the run-level part (`"run"`). The judge's cost is the
 evaluation's own overhead and never joins the agent's: it is not part of
 the verdict's ranking, nor of the prompt the judge is asked to rule with.
-`Report#to_h` carries `judge_usage` only when there is one.
+`Report#to_h` carries `judge_usage` only when there is one. A run that
+passes `Runner.new(judge_failed_expectations: false)` keeps that overhead
+off the replays that already failed one of their scenario's expectations
+(see [Adding a judge](#adding-a-judge)).
 
 `Report.new(release:)` (or `Runner.new(release:)`) names the release of the
 agent the run scored, `{ "digest", "revision", "label" }`, from

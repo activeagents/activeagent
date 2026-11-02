@@ -200,6 +200,82 @@ class EvalsRunnerTest < ActiveSupport::TestCase
     assert_equal "passed", report.results.first.status
   end
 
+  def test_a_replay_that_missed_its_expected_tool_is_not_judged_when_asked_and_keeps_the_judge_budget
+    missed = scenario("order_1", "Where is order ABC-123?", group: "orders", tools: [ "lookup_order" ])
+    ungrounded = scenario("tickets_1", "what tickets are on my plate?", group: "tickets")
+    calls = Hash.new(0)
+    asked = 0
+    runner = ActiveAgent::Evals::Runner.new(
+      scenarios: [ missed, ungrounded ], models: [ spec("test-model") ], judge: counting_judge(calls),
+      available_tools: { "lookup_order" => "Find an order by number" }, judge_failed_expectations: false, judge_limit: 1,
+      refine_gate: -> { asked += 1; true },
+      replay: lambda { |scenario, *|
+        next replay(answer: "The order shipped.", tool_calls: []) if scenario == missed
+
+        replay(answer: "You have 3 open tickets: #412 Login bug and #388 Export timeout.", tool_calls: [])
+      }
+    )
+
+    gated, refined = runner.call.results
+    assert_equal false, runner.judge_failed_expectations
+    assert_equal "failed", gated.status
+    assert_equal "expected_tool_not_called", gated.fault
+    assert_not gated.scores.key?("task_completion")
+    assert_nil gated.diagnosis["judge"]
+    assert_equal "ungrounded_answer", refined.fault
+    assert_equal "Call the expected tool.", refined.recommendation, "the one judge_limit call is still available after the gated replay"
+    assert_equal 1, asked, "the gate is asked only for the replay the judge can change"
+    assert_equal({ "score_task" => 1, "recommend" => 1 }, calls)
+  end
+
+  def test_a_replay_meeting_its_expectations_is_judged_and_refined_with_failed_ones_ungraded
+    task = scenario("order_1", "Where is order ABC-123?", group: "orders", tools: [ "lookup_order" ], contains: [ "ABC-123" ])
+    calls = Hash.new(0)
+    report = ActiveAgent::Evals::Runner.new(
+      scenarios: [ task ], models: [ spec("test-model") ], available_tools: [ "lookup_order" ], judge_failed_expectations: false,
+      judge: counting_judge(calls, reply: '{"score": 0.2, "recommendation": "Quote the carrier status."}'),
+      replay: ->(*) { replay(answer: "ABC-123 probably shipped.", tool_calls: [ { name: "lookup_order" } ]) }
+    ).call
+    result = report.results.first
+
+    assert_equal 0.2, result.scores["task_completion"]
+    assert_equal "low_quality", result.fault
+    assert_equal "Quote the carrier status.", result.recommendation
+    assert_equal({ "score_task" => 1, "recommend" => 1 }, calls)
+  end
+
+  def test_every_gated_replay_fails_on_an_evidence_fault_even_when_judge_scores_are_required
+    order = [ "order_1", "Where is order ABC-123?" ]
+    gated = {
+      "expected_tool_not_called" => [ scenario(*order, tools: [ "lookup_order" ]), replay(answer: "It shipped.") ],
+      "tool_error" => [ scenario(*order, tools: [ "lookup_order" ]),
+                        replay(answer: "It shipped.", tool_calls: [ { name: "lookup_order", error: true, detail: "timeout" } ]) ],
+      "missing_capability" => [ scenario(*order, tools: [ "lookup_order" ]), replay(answer: "I can't access the order system.") ],
+      "ungrounded_answer" => [ scenario(*order, not_contains: [ "sorry" ]), replay(answer: "Sorry, you have 3 open tickets.") ],
+      "forbidden_content" => [ scenario(*order, not_contains: [ "sorry" ]), replay(answer: "Sorry, it shipped.") ],
+      "missing_content" => [ scenario(*order, contains: [ "ABC-123" ]), replay(answer: "It shipped.") ]
+    }
+
+    gated.each do |fault, (task, answer)|
+      [ CRITERIA, CRITERIA + [ { "key" => "quality", "type" => "llm_judge" } ] ].each do |criteria|
+        calls = Hash.new(0)
+        report = ActiveAgent::Evals::Runner.new(
+          scenarios: [ task ], models: [ spec("test-model") ], criteria: criteria, judge: counting_judge(calls),
+          available_tools: [ "lookup_order" ], require_judge_scores: true, judge_failed_expectations: false,
+          replay: ->(*) { answer }
+        ).call
+        result = report.results.first
+
+        assert_equal "failed", result.status, fault
+        assert_equal fault, result.fault
+        assert_not result.scores.key?("task_completion"), fault
+        assert_nil result.scores["quality"], fault
+        assert_nil result.diagnosis["judge"], fault
+        assert_empty calls, "#{fault} must not reach the judge"
+      end
+    end
+  end
+
   def test_required_judge_scores_cover_explicit_llm_criteria_without_affecting_rules
     criteria = CRITERIA + [ { "key" => "accuracy", "type" => "llm_judge" } ]
     report = ActiveAgent::Evals::Runner.new(
@@ -343,6 +419,37 @@ class EvalsRunnerTest < ActiveSupport::TestCase
 
     assert_nil report.results.first.scores["task_completion"]
     assert_equal "pass rate", report.verdict["judge"]
+  end
+
+  def test_the_judge_grades_every_answered_replay_by_default_and_skips_the_gated_ones_when_asked
+    counts = [ true, false ].to_h do |flag|
+      calls = Hash.new(0)
+      runner(judge: counting_judge(calls), judge_failed_expectations: flag).call
+      [ flag, calls ]
+    end
+
+    # Six answered replays, two refinable faults (tickets_2 on qwen3:8b missed
+    # find_tickets, history_1 on qwen3:8b refused); the gate spares the first.
+    assert_equal({ "score_task" => 6, "recommend" => 2 }, counts[true])
+    assert_equal({ "score_task" => 5, "recommend" => 1 }, counts[false])
+  end
+
+  def test_a_gated_run_reports_its_scores_in_the_same_key_order
+    criteria = CRITERIA + [ { "key" => "quality", "type" => "llm_judge" } ]
+    reports = [ true, false ].to_h do |flag|
+      [ flag, runner(criteria: criteria, judge: counting_judge(Hash.new(0)), judge_failed_expectations: flag).call ]
+    end
+    gated = reports[false].results.find { |result| result.scenario.key == "tickets_2" && result.label == "qwen3:8b" }
+
+    assert_equal "expected_tool_not_called", gated.fault
+    assert_nil gated.scores["quality"]
+    assert_equal %w[response_present quality expected_tools], gated.to_h["scores"].keys
+    reports[true].to_h["results"].zip(reports[false].to_h["results"]).each do |judged, skipped|
+      assert_equal judged["scores"].keys, skipped["scores"].keys, judged["scenario_key"]
+    end
+    JSON.parse(reports[true].to_json)["results"].zip(JSON.parse(reports[false].to_json)["results"]).each do |judged, skipped|
+      assert_equal judged["scores"].keys, skipped["scores"].keys, judged["scenario_key"]
+    end
   end
 
   def test_the_report_renders_markdown_and_json
