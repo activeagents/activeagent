@@ -46,7 +46,7 @@ const errorTypeColor = (type) => ERROR_TYPES.find((t) => t.type === type)?.color
 const MAX_DEPLOY_MARKERS = 3;
 
 const INK = 'var(--color-text-primary)';
-const DELTA_COLOR = { success: 'var(--color-success)', error: 'var(--color-error)', muted: 'var(--color-text-muted)' };
+const DELTA_RANK = { success: 'good', error: 'poor', muted: 'none' };
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 const pad = (v) => String(v).padStart(2, '0');
@@ -609,7 +609,7 @@ function buildView(m, colorFor) {
   };
   const signal = (label, value, unit, sub, delta, toneKey, seriesValues, sparkColor) => ({
     label, value, unit, sub,
-    delta, deltaColor: DELTA_COLOR[toneKey],
+    delta, deltaRank: DELTA_RANK[toneKey] || 'none',
     spark: sparklinePoints(seriesValues), sparkColor,
   });
   const signals = [
