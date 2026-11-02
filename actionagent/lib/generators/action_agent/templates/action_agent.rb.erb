@@ -174,7 +174,9 @@ ActionAgent.configure do |config|
   # ==========================================================================
   #
   # How long a running run stays its worker's without progress (an LLM or
-  # tool call). Each claim takes a lease this long, and each call renews it.
+  # tool call) before it is failed as lost. Its result is then discarded if
+  # the worker was only slow; nothing is run again. Schedule
+  # ActionAgent::AgentRunExpiryJob to fail the lost runs nobody looks at.
   #
   # config.run_lease_duration = 30.minutes
 
