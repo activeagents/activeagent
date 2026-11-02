@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Pattern builders for counts and shares** (`activeagent`).
+  `ActiveAgent::Evals::Patterns.number(count)` and
+  `Patterns.share(count, total)` return a regex string for a scenario's
+  `contains` or `not_contains` entry: `number(10)` matches the figure on its
+  own and not the `10` in `2026-10-01`, `10:00`, `10.5`, `110`, `10,000` or `10%`;
+  `share(3, 4)` matches `75%`, `75 %` and `75.0%` and not `175%` or `7.5%`.
+  `Scorer.matches_pattern?` tries an entry as a substring and then as a
+  regex, so the string goes into a suite document or a scenario hash as it
+  is, and a scenario seeded with known data can expect the figure that data
+  implies. A fractional or negative count, a total of zero or a count above
+  the total raise `ArgumentError`.
+
 ## [1.9.6] - 2026-10-29
 
 The dashboard on a phone, and the small finished pieces: the sidebar as a
