@@ -823,6 +823,11 @@ server that needs approval) never reaches that hook, so the provider reports
 it to the agent's `tool_observer` instead, and it is recorded the same way. A
 result the server marks as an error comes back to the model as a result, not
 an exception, and is recorded as a failed call (`replay.failed_tool_calls`).
+An agent that defines its own `tool_observer`, to audit its MCP calls for
+instance, keeps it under capture: the agent's observer runs around the call
+and the capture records the call the observer makes, so the server is called
+once, both see the same result or exception, and a call the observer
+withholds is not recorded as made.
 A server the provider runs itself (Anthropic's or OpenAI's hosted MCP) executes
 on the provider's side and is not recorded.
 

@@ -158,6 +158,115 @@ class EvalsCaptureTest < ActiveSupport::TestCase
     assert_equal 2, client.calls.length
   end
 
+  # An application can define tool_observer on its agent to audit the calls
+  # its MCP servers serve. Capture records those calls through the same hook,
+  # and keeps the agent's own: it runs around the call Capture records.
+  def auditing_observer(log)
+    proc do |name, arguments, &call|
+      log << [ :before, name, arguments ]
+      result = call.call
+      log << [ :after, name, result ]
+      result
+    rescue StandardError => e
+      log << [ :raised, name, e.class ]
+      raise
+    end
+  end
+
+  def capture_observed(question, client, observer, **options)
+    with_mcp_client(client) do
+      Capture.run(EvalsTest::ObservedMCPAgent.with(question: question, observer: observer).ask, **options)
+    end
+  end
+
+  test "an agent's own tool observer sees its MCP calls when nothing captures them" do
+    log = []
+    client = EvalsTest::FakeMCPClient.new
+    response = with_mcp_client(client) do
+      EvalsTest::ObservedMCPAgent.with(question: "fetch https://example.test", observer: auditing_observer(log)).ask.generate_now
+    end
+
+    assert_equal [ [ :before, "get_page", { url: "https://example.test" } ] ], log.select { |entry| entry.first == :before }
+    assert_equal "page <html>Example</html>", response.message.content
+    assert_equal 1, client.calls.length
+  end
+
+  test "Capture keeps an agent's own tool observer, and the call is made once" do
+    log = []
+    client = EvalsTest::FakeMCPClient.new
+    replay = capture_observed("fetch https://example.test", client, auditing_observer(log))
+
+    assert_equal [ :before, :after ], log.map(&:first), "Capture replaced the agent's own tool observer"
+    assert_equal [ :before, "get_page", { url: "https://example.test" } ], log.first
+    assert_includes log.last.last.to_s, "<html>Example</html>"
+    assert_equal [ "get_page" ], replay.tool_names
+    assert_equal({ "url" => "https://example.test" }, replay.tool_calls.first["arguments"])
+    assert_equal 1, client.calls.length
+    assert_equal "page <html>Example</html>", replay.answer
+  end
+
+  test "an MCP error result reaches the agent's own observer and is recorded as failed" do
+    log = []
+    client = EvalsTest::FakeMCPClient.new(EvalsTest::FakeMCPClient::INVALID)
+    replay = capture_observed("fetch https://example.test", client, auditing_observer(log))
+
+    assert_equal [ :before, :after ], log.map(&:first)
+    assert_kind_of ActiveAgent::Providers::MCPBridge::ErrorResult, log.last.last
+    assert_equal [ "get_page" ], replay.failed_tool_calls.map { |call| call["name"] }
+    assert_equal "page failed: Invalid params", replay.answer
+    assert_equal 1, client.calls.length
+  end
+
+  test "an MCP call that raises passes through the agent's own observer" do
+    log = []
+    client = EvalsTest::FakeMCPClient.new(IOError.new("connection lost"))
+    replay = capture_observed("fetch https://example.test", client, auditing_observer(log))
+
+    assert_equal [ [ :before, "get_page", { url: "https://example.test" } ], [ :raised, "get_page", IOError ] ], log
+    assert replay.errored?
+    assert_equal "IOError: connection lost", replay.tool_calls.sole["detail"]
+    assert_raises(IOError) do
+      capture_observed("fetch https://example.test", client, auditing_observer([]), raise_errors: true)
+    end
+  end
+
+  test "a call the agent's own observer stops is not recorded as made" do
+    client = EvalsTest::FakeMCPClient.new
+    stopping = proc { |_name, _arguments, &_call| "withheld" }
+    replay = capture_observed("fetch https://example.test", client, stopping)
+
+    assert_empty client.calls
+    assert_empty replay.tool_calls
+    assert_equal "page withheld", replay.answer
+  end
+
+  test "captures running side by side each keep their own agent's observer" do
+    client = EvalsTest::FakeMCPClient.new
+    logs = { "https://a.test" => [], "https://b.test" => [] }
+    replays = with_mcp_client(client) do
+      logs.map do |url, log|
+        Thread.new do
+          Capture.run(EvalsTest::ObservedMCPAgent.with(question: "fetch #{url}", observer: auditing_observer(log)).ask)
+        end
+      end.map(&:value)
+    end
+
+    assert_equal [ [ "https://a.test" ], [ "https://b.test" ] ],
+                 replays.map { |replay| replay.tool_calls.map { |call| call["arguments"]["url"] } }
+    assert_equal [ [ { url: "https://a.test" } ], [ { url: "https://b.test" } ] ],
+                 logs.values.map { |log| log.select { |entry| entry.first == :before }.map(&:last) }
+    assert_equal 2, client.calls.length
+  end
+
+  test "a model override keeps the agent's own observer" do
+    log = []
+    replay = capture_observed("fetch https://example.test", EvalsTest::FakeMCPClient.new, auditing_observer(log), model: "mock-other")
+
+    assert_equal "mock-other", replay.metadata["model"]
+    assert_equal [ :before, :after ], log.map(&:first)
+    assert_equal [ "get_page" ], replay.tool_names
+  end
+
   test "an agent with no MCP servers is captured as before" do
     replay = Capture.run(EvalsTest::OrdersAgent.with(question: "Where is order ABC-123?").ask)
 

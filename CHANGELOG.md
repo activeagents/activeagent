@@ -196,7 +196,9 @@ finished evaluation run's cached figures are worked out again.
   those calls and `assert_tool_called` could not find them. The provider
   now runs such a call inside the agent's `tool_observer`, which Capture
   sets, so it is recorded once with its arguments, result preview and
-  timing. A result the server marks as an error, which the model receives
+  timing. An observer the agent defines itself keeps running under
+  Capture, around the call that is recorded, so the server is still called
+  once and a call the observer withholds is not recorded as made. A result the server marks as an error, which the model receives
   as a result and not an exception, is recorded as a failed call, so
   `failed_tool_calls` and `assert_tools_succeeded` see it. A server the
   provider runs itself (Anthropic's or OpenAI's hosted MCP) executes on the
