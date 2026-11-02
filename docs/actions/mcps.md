@@ -18,6 +18,7 @@ All providers accept `mcps:`. 🟩 means the provider runs a remote `url:` serve
 |:------------------------------|:--------------:|:------------------:|:------|
 | **Anthropic**                 | 🟩             | 🟦                 | Provider support is beta |
 | **Azure**                     | 🟦             | 🟦                 | |
+| **Cheaper Inference**         | 🟦             | 🟦                 | |
 | **DeepSeek**                  | 🟦             | 🟦                 | Ignores `mcp_servers` rather than rejecting it |
 | **Gemini**                    | 🟦             | 🟦                 | |
 | **Mock**                      | 🟦             | 🟦                 | Accepted, but Mock never emits tool calls |

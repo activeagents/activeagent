@@ -56,7 +56,8 @@ module ActiveAgent
       def all_scenarios
         @all_scenarios ||= @groups.flat_map do |group|
           group["scenarios"].each_with_index.map do |entry, index|
-            Scenario.from_hash(entry.merge("position" => index), group: group["key"], group_name: group["name"])
+            Scenario.from_hash(entry.merge("position" => index), group: group["key"], group_name: group["name"],
+              metadata: entry.except(*Scenario::DOCUMENT_KEYS, "group", "group_name"))
           end
         end
       end

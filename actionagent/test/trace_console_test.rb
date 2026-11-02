@@ -57,4 +57,69 @@ class TraceConsoleTest < ActionDispatch::IntegrationTest
     get "/activeagents/console/traces/metrics"
     assert_includes response.body, "No agent data available yet"
   end
+
+  test "the list defaults to the newest 50 traces and accepts a smaller limit" do
+    create_recent_traces(55)
+
+    get "/activeagents/console/traces"
+    assert_response :success
+    assert_select "section[aria-label='Recent traces'] > details", count: 50
+    assert_select "dl.summary div", text: /Total Traces\s*55/
+
+    get "/activeagents/console/traces", params: { limit: "3" }
+    assert_response :success
+    assert_select "section[aria-label='Recent traces'] > details", count: 3
+    links = css_select("details a").map { |link| link["href"] }
+    expected = ActionAgent::TelemetryTrace.recent.limit(3).map { |trace| "/activeagents/console/traces/#{trace.id}" }
+    assert_equal expected, links
+  end
+
+  test "the list clamps zero negative and oversized limits" do
+    create_recent_traces(1001)
+
+    { "0" => 1, "-1" => 1, "1000" => 1000, "999999999999999999999" => 1000 }.each do |limit, count|
+      get "/activeagents/console/traces", params: { limit: limit }
+      assert_response :success
+      assert_select "section[aria-label='Recent traces'] > details", count: count
+    end
+  end
+
+  test "blank malformed and structured limits fall back to 50 traces" do
+    create_recent_traces(55)
+
+    [ "", "abc", "3oops", "1.5", [ "2" ], { value: "2" } ].each do |limit|
+      get "/activeagents/console/traces", params: { limit: limit }
+      assert_response :success
+      assert_select "section[aria-label='Recent traces'] > details", count: 50
+    end
+  end
+
+  test "the list applies filters before the limit and keeps full summary counts" do
+    matching = @trace
+    create_recent_traces(5, clear: false)
+
+    get "/activeagents/console/traces", params: {
+      limit: "1", agent: "ConsoleAgent", service: "console-test", status: "error",
+      start_date: 1.hour.ago.iso8601, end_date: 1.hour.from_now.iso8601
+    }
+    assert_response :success
+    assert_select "section[aria-label='Recent traces'] > details", count: 1
+    assert_select "details a[href='/activeagents/console/traces/#{matching.id}']", count: 1
+    assert_select "dl.summary div", text: /Total Traces\s*6/
+  end
+
+  private
+
+  def create_recent_traces(count, clear: true)
+    ActionAgent::TelemetryTrace.delete_all if clear
+    now = Time.current
+    ActionAgent::TelemetryTrace.insert_all!(count.times.map do |index|
+      {
+        trace_id: "synthetic-list-#{index}", timestamp: now - index.seconds,
+        agent_class: "ListAgent", agent_action: "respond", service_name: "list-test",
+        status: "OK", spans: [], total_duration_ms: 10,
+        total_input_tokens: 1, total_output_tokens: 1
+      }
+    end)
+  end
 end

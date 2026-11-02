@@ -4,7 +4,7 @@ module ActionAgent
   # Controller for viewing telemetry traces.
   #
   # Provides:
-  # - List view with filtering and pagination
+  # - Bounded list of recent traces with filtering (no pagination)
   # - Detail view with span timeline
   # - Metrics overview
   # - Live updates via Turbo Streams
@@ -76,7 +76,8 @@ module ActionAgent
         )
       end
 
-      traces.limit(params[:limit] || 50)
+      limit = Integer(params[:limit], 10, exception: false) || 50
+      traces.limit(limit.clamp(1, 1000))
     end
 
     def calculate_metrics
