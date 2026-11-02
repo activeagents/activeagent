@@ -55,7 +55,12 @@ module ActiveAgent
         # `chat_options` go to `chat` itself, so they must be keywords
         # `RubyLLM::Chat.new` takes (`protocol:` on RubyLLM 2.x); anything else
         # raises ArgumentError here rather than failing every judge call
-        # later. Configure the chat through `temperature:` or `configure:`:
+        # later. With `verify: true`, a missing key fails here too: the judge's
+        # label, model and provider go through `verify!` with `context`, so a
+        # judge whose provider has no key refuses when it is built rather than
+        # at its first grade, after the agent has already been replayed; the
+        # default stays lazy. Configure the chat through `temperature:` or
+        # `configure:`:
         #
         #   ActiveAgent::Evals::RubyLLM.judge(label: "judge", model: "gpt-5-mini", provider: :openai,
         #                                     temperature: 0,
@@ -74,12 +79,17 @@ module ActiveAgent
         #   `{ "kind", "model", "input_tokens", "output_tokens", "cost" }`, for a
         #   host that meters its judge's spend; an error it raises is logged,
         #   not propagated, so bookkeeping never costs a grade
+        # @param verify [Boolean] run `verify!` on the judge's own model with
+        #   `context` when the judge is built, so a provider with no key
+        #   refuses here rather than at the first grade
         # @param chat_options [Hash] other `chat` keywords, such as `protocol:`
         # @return [Judge]
         # @raise [ArgumentError] when `chat_options` names a keyword `RubyLLM::Chat.new` does not take
+        # @raise [::RubyLLM::ConfigurationError] with `verify: true`, when `context` cannot build the judge's chat
         def judge(label:, model:, provider:, context: ::RubyLLM, correlation: nil, assume_model_exists: true,
-                  temperature: nil, configure: nil, on_usage: nil, **chat_options)
+                  temperature: nil, configure: nil, on_usage: nil, verify: false, **chat_options)
           check_chat_options!(chat_options)
+          verify!(ModelSpec.new(label: label, provider: provider, model: model), context: context) if verify
 
           Judge.new(label: label) do |instructions:, prompt:, kind:|
             complete = lambda do
@@ -94,6 +104,65 @@ module ActiveAgent
 
             correlation ? correlation.judge(kind.to_s, &complete) : complete.call
           end
+        end
+
+        # Checks, before a run spends anything, that each model can be built
+        # on `context`: its provider is one RubyLLM registered, is one of
+        # `providers` when those are given, and is configured, which
+        # `context.chat(model:, provider:, assume_model_exists: true)` settles
+        # while it instantiates the provider. Nothing is sent over the
+        # network: RubyLLM resolves the model locally. The specs are checked
+        # in order, and the first that cannot run raises, naming what to
+        # change: the provider's configuration requirements that `context`
+        # leaves unset, as environment variable names, or RubyLLM's own
+        # message when those are all set and it refused for another reason,
+        # such as a credential it checks beyond them or a deployment it
+        # cannot resolve:
+        #
+        #   context = RubyLLM.context { |config| config.openai_api_key = ENV["OPENAI_API_KEY"] }
+        #   models = ActiveAgent::Evals::ModelSpec.parse_all(%w[gpt-5-mini claude-sonnet-5], default_provider: "openai")
+        #
+        #   ActiveAgent::Evals::RubyLLM.verify!(models, context: context)
+        #   # raises RubyLLM::ConfigurationError: claude-sonnet-5 runs on anthropic, which has no API key. Set ANTHROPIC_API_KEY.
+        #
+        # @param models [Array<ModelSpec>, ModelSpec] the run's models, or anything
+        #   answering `label`, `provider` and `model`; a single spec is wrapped
+        # @param context [#chat] where `chat` is called; defaults to `::RubyLLM`.
+        #   When it also answers `config`, as `::RubyLLM` and a `RubyLLM.context`
+        #   do, a refusal names only the requirements that configuration leaves
+        #   unset
+        # @param providers [Array<String, Symbol>, String, Symbol, nil] the
+        #   providers the host has credentials for; a model on any other provider
+        #   is refused before its chat is built
+        # @return [Array<ModelSpec>] the given models
+        # @raise [::RubyLLM::ConfigurationError] for the first model whose provider
+        #   RubyLLM does not know, is outside `providers`, or cannot be built on
+        #   `context`; in the last case RubyLLM's own error is the cause, and the
+        #   message names what to set or carries RubyLLM's own
+        def verify!(models, context: ::RubyLLM, providers: nil)
+          specs = models.is_a?(Array) ? models : [ models ]
+          configured = Array(providers).map(&:to_s) if providers
+
+          specs.each do |spec|
+            provider = spec.provider.to_s
+            unless ::RubyLLM::Provider.providers.key?(provider.to_sym)
+              raise ::RubyLLM::ConfigurationError,
+                    "#{spec.label} runs on #{provider}, which is not a RubyLLM provider; " \
+                    "RubyLLM knows #{::RubyLLM::Provider.providers.keys.map(&:to_s).sort.join(', ')}"
+            end
+            if configured && !configured.include?(provider)
+              configured_for = configured.empty? ? "no provider has credentials configured" : "credentials are configured for #{configured.join(', ')}"
+              raise ::RubyLLM::ConfigurationError, "#{spec.label} runs on #{provider}; #{configured_for}"
+            end
+
+            begin
+              context.chat(model: spec.model, provider: provider.to_sym, assume_model_exists: true)
+            rescue ::RubyLLM::ConfigurationError => e
+              raise ::RubyLLM::ConfigurationError, refusal(spec, provider, context, e)
+            end
+          end
+
+          specs
         end
 
         # Builds a Replay from the ordered messages of a RubyLLM conversation:
@@ -165,6 +234,32 @@ module ActiveAgent
                 "RubyLLM::Chat.new (ruby_llm #{::RubyLLM::VERSION}) does not take #{unknown.map(&:inspect).join(', ')}; " \
                 "it takes #{accepted.map(&:inspect).join(', ').presence || 'no other keywords'}. " \
                 "Pass temperature: to judge, or configure the chat with configure: ->(chat) { chat.with_... }."
+        end
+
+        # The message for a model whose provider refused to be built: the
+        # requirement names `context` leaves unset, as environment variable
+        # names, called an API key only when each of them is one; RubyLLM's
+        # own message when nothing is left to set.
+        def refusal(spec, provider, context, error)
+          names = unset_requirements(provider, context).map { |name| name.to_s.upcase }
+          return "#{spec.label} runs on #{provider}: #{error.message.strip}" if names.empty?
+
+          state = names.all? { |name| name.end_with?("_API_KEY") } ? "has no API key" : "is not configured"
+          "#{spec.label} runs on #{provider}, which #{state}. Set #{names.join(' and ')}."
+        end
+
+        # The provider's configuration requirements that `context` leaves
+        # unset: all of them when the context exposes no configuration, and
+        # none on a release whose providers do not list them.
+        def unset_requirements(provider, context)
+          provider_class = ::RubyLLM::Provider.providers[provider.to_sym]
+          return [] unless provider_class.respond_to?(:configuration_requirements)
+
+          requirements = provider_class.configuration_requirements
+          return requirements unless context.respond_to?(:config)
+
+          config = context.config
+          requirements.reject { |name| config.respond_to?(name) && config.public_send(name) }
         end
 
         def report_usage(callback, kind, model, response)

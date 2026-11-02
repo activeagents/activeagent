@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Verify RubyLLM models and the judge before a run** (`activeagent`).
+  `ActiveAgent::Evals::RubyLLM.verify!(models, context:)` takes a run's
+  `ModelSpec`s (or one) and, for the first that cannot run, raises
+  `RubyLLM::ConfigurationError` saying why: a provider RubyLLM does not know
+  (the message lists the ones it does), one outside `providers:` (the names
+  a host has keys for), or one its context cannot build —
+  `claude-sonnet-5 runs on anthropic, which has no API key. Set
+  ANTHROPIC_API_KEY.`, naming the provider's `configuration_requirements`
+  the context leaves unset (`which is not configured. Set OLLAMA_API_BASE.`
+  when they are not keys), or carrying RubyLLM's own message when those are
+  all set and it refused for another reason, with RubyLLM's error as the
+  cause. It builds each chat with `assume_model_exists: true`, which is
+  where RubyLLM checks its keys, and sends nothing. `judge(..., verify: true)` runs the same
+  check on the judge's own model when the judge is built, so a judge whose
+  provider has no key refuses before the first scenario is replayed rather
+  than at its first grade; the default stays lazy.
+
 ## [1.9.6] - 2026-10-29
 
 The dashboard on a phone, and the small finished pieces: the sidebar as a
@@ -1386,6 +1407,35 @@ finished must handle. Session Replay is now **Sessions** in the sidebar.
   do for `generate_later`. `InputRequest#arguments` holds the arguments of the
   paused call.
 
+- **`ActiveAgent::Evals::RubyLLM`** — the RubyLLM side of an evaluation,
+  which hosts driving RubyLLM conversations had been writing for themselves.
+  `require "active_agent/evals/ruby_llm"` (it requires `ruby_llm`;
+  `require "active_agent/evals"` alone still does not) gives two helpers, for
+  RubyLLM 1.16 and later and for 2.x:
+  - `RubyLLM.judge(label:, model:, provider:, context:, correlation:)`, a
+    `Judge` that answers from `context.chat(...)` and, with a `Correlation`,
+    traces each call under the kind it serves. `temperature:` and a
+    `configure:` hook set the chat up; any other keyword must be one
+    `RubyLLM::Chat.new` takes, and anything else raises when the judge is
+    built rather than failing every call. `on_usage:` reports each call's
+    model, tokens and cost.
+  - `RubyLLM.replay(messages)`, a `Replay` from a conversation's messages.
+    `acts_as_chat` records of either RubyLLM generation are read through
+    their own `to_llm`, so a 2.x table, or one between 2.x's upgrade and its
+    cleanup, replays the same as `RubyLLM::Message` values. Tool calls keep
+    the order the model made them in, each paired with the result that
+    answers it; one is errored when that result reports an error at its top
+    level — JSON whose `"error"` is a non-empty string, object or array, or
+    `true`; an MCP result with `"isError": true`; or the inspected
+    `{ error: "..." }` RubyLLM 1.x stores for a tool's error Hash with a
+    String error — with the error (JSON-encoded, at most 1,200 bytes) as its
+    detail. `input_tokens` counts the whole prompt, cache reads and writes
+    included. Cost is RubyLLM's own price, left nil when any message is
+    unpriced. The answer is the last reply after the last user message; a
+    conversation that stopped at a tool call or on the user's own message
+    has no answer and says so in its `error` (on RubyLLM 1.x, pass `answer:`
+    for a tool that ends the turn with `halt`).
+
 ### Changed
 
 - **Confirm destructive actions in the dashboard's own dialog**
@@ -2100,34 +2150,6 @@ output in the shape ruby_llm reads. No migrations.
   `json_object`, which ruby_llm has no mode for, and a `json_schema`
   without a schema now raise `ArgumentError` instead of sending a request
   the API rejects (#501).
-- **`ActiveAgent::Evals::RubyLLM`** — the RubyLLM side of an evaluation,
-  which hosts driving RubyLLM conversations had been writing for themselves.
-  `require "active_agent/evals/ruby_llm"` (it requires `ruby_llm`;
-  `require "active_agent/evals"` alone still does not) gives two helpers, for
-  RubyLLM 1.16 and later and for 2.x:
-  - `RubyLLM.judge(label:, model:, provider:, context:, correlation:)`, a
-    `Judge` that answers from `context.chat(...)` and, with a `Correlation`,
-    traces each call under the kind it serves. `temperature:` and a
-    `configure:` hook set the chat up; any other keyword must be one
-    `RubyLLM::Chat.new` takes, and anything else raises when the judge is
-    built rather than failing every call. `on_usage:` reports each call's
-    model, tokens and cost.
-  - `RubyLLM.replay(messages)`, a `Replay` from a conversation's messages.
-    `acts_as_chat` records of either RubyLLM generation are read through
-    their own `to_llm`, so a 2.x table, or one between 2.x's upgrade and its
-    cleanup, replays the same as `RubyLLM::Message` values. Tool calls keep
-    the order the model made them in, each paired with the result that
-    answers it; one is errored when that result reports an error at its top
-    level — JSON whose `"error"` is a non-empty string, object or array, or
-    `true`; an MCP result with `"isError": true`; or the inspected
-    `{ error: "..." }` RubyLLM 1.x stores for a tool's error Hash with a
-    String error — with the error (JSON-encoded, at most 1,200 bytes) as its
-    detail. `input_tokens` counts the whole prompt, cache reads and writes
-    included. Cost is RubyLLM's own price, left nil when any message is
-    unpriced. The answer is the last reply after the last user message; a
-    conversation that stopped at a tool call or on the user's own message
-    has no answer and says so in its `error` (on RubyLLM 1.x, pass `answer:`
-    for a tool that ends the turn with `halt`).
 - **`ActionAgent::ProviderKey.credentials_for(owner)` and
   `.apply_to(config, owner:)`** (`actionagent`) hand an owner's API keys to
   code outside the engine — `{ "openai" => "sk-..." }`, or written through
