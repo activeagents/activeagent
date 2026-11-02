@@ -493,7 +493,8 @@ module ActionAgent
     # Quick test execution (synchronous). A run that pauses for input comes
     # back `awaiting_input` with its requests stored, and AgentResumeJob
     # finishes it once they are answered. The run is created running, under
-    # a lease, as a job's claim would leave it.
+    # a lease, as a job's claim would leave it, and its result is recorded
+    # as a job's is: not over a cancel, nor once the run left its lease.
     def test_execute(input_prompt, action: nil, attachments: [], actor: nil, runtime_sandbox: nil, **params)
       ensure_executable!
       run = create_run(
@@ -502,14 +503,15 @@ module ActionAgent
         **AgentRun.lease_attributes
       )
       run.actor = actor
+      token = run.execution_token
 
       begin
         # Build and execute the agent
         result = AgentExecutionService.call(self, run)
 
-        run.record_result!(result, segment_started_at: run.started_at)
+        run.unless_cancelled(token: token) { run.record_result!(result, segment_started_at: run.started_at) }
       rescue => e
-        run.record_failure!(e)
+        run.unless_cancelled(token: token) { run.record_failure!(e) }
       end
 
       run

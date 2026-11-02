@@ -24,6 +24,8 @@ module ActionAgent
       pause = claim_pause(run, request)
       return unless pause
 
+      token = run.execution_token
+
       segment_started_at = Time.current
       secrets = pause.select { |paused| paused.kind == "secret" }.filter_map(&:answer)
 
@@ -39,13 +41,13 @@ module ActionAgent
           }
         )
 
-        run.unless_cancelled do
+        run.unless_cancelled(token: token) do
           run.record_result!(result, segment_started_at: segment_started_at)
           run.add_log(result[:input_requests].present? ? "Execution paused for input" : "Execution completed successfully", level: :info)
         end
       rescue => e
         message = ActiveAgent::InputRequest.scrub(e.message, secrets)
-        run.unless_cancelled do
+        run.unless_cancelled(token: token) do
           run.record_failure!(e, message: message)
           run.add_log("Execution failed: #{message}", level: :error)
         end
