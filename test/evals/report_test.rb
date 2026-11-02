@@ -37,7 +37,7 @@ class EvalsReportTest < ActiveSupport::TestCase
 
   # A result whose diagnosis comes from the real Diagnosis, so the evidence
   # has the shape the report reads; `judge:` adds the judge's refinement.
-  def result(scenario, spec, replay, score: 1.0, judge: nil)
+  def result(scenario, spec, replay, score: 1.0, judge: nil, trial: 1)
     scores = { "response_present" => replay.answer.present? ? 1.0 : 0.0 }
     diagnosis = Diagnosis.call(scenario: scenario, replay: replay, scores: scores, score: score, available_tools: AVAILABLE)&.to_h
     if diagnosis && judge
@@ -45,7 +45,7 @@ class EvalsReportTest < ActiveSupport::TestCase
       diagnosis["recommendation"] = judge["recommendation"] if judge["recommendation"]
     end
     Result.new(scenario: scenario, spec: spec, replay: replay, scores: scores, score: score,
-               status: replay.errored? ? "errored" : (diagnosis ? "failed" : "passed"), diagnosis: diagnosis)
+               status: replay.errored? ? "errored" : (diagnosis ? "failed" : "passed"), diagnosis: diagnosis, trial: trial)
   end
 
   # Five scenarios in three groups under two models: every fault type once,
@@ -819,5 +819,141 @@ class EvalsReportTest < ActiveSupport::TestCase
     assert_not_includes html, %(class="compare")
     assert_not_includes html, %(name="fix-model")
     assert_not_includes html, %(<div class="intervals">)
+  end
+
+  # --- trials ------------------------------------------------------------------
+
+  # The five-scenario fixture with the inbox scenario replayed twice more
+  # under gpt-5-mini: a second pass, then a wrong tool.
+  def trial_results
+    inbox = scenario("s_inbox", "Is the support inbox receiving email?", group: "desk", tools: [ "inbox_status" ])
+    results + [
+      result(inbox, gpt, replay(answer: "Still healthy.", tool_calls: [ { "name" => "inbox_status" } ], cost: 0.001), trial: 2),
+      result(inbox, gpt, replay(answer: "The inbox is fine.", tool_calls: [ { "name" => "find_tickets" } ]), score: 0.5, trial: 3)
+    ]
+  end
+
+  def trial_report(**options)
+    report(results: trial_results, **options)
+  end
+
+  # Two desk scenarios replayed three times under gpt-5-mini and twice under
+  # llama: gpt passes 2 of 3 inbox replays and 1 of 3 queue replays (a tool
+  # error, then a wrong tool), llama fails both inbox replays and passes
+  # both queue replays.
+  def flaky_report
+    inbox = scenario("s_inbox", "Is the support inbox receiving email?", group: "desk", tools: [ "inbox_status" ])
+    queue = scenario("s_queue", "Is the reply queue backed up?", group: "desk", tools: [ "inbox_status" ])
+    healthy = ->(cost = 0.001) { replay(answer: "All healthy.", tool_calls: [ { "name" => "inbox_status" } ], cost: cost) }
+    wrong_tool = -> { replay(answer: "The inbox is fine.", tool_calls: [ { "name" => "find_tickets" } ], cost: 0.001) }
+    broken_tool = replay(answer: "The check failed.", tool_calls: [ { "name" => "inbox_status", "error" => true, "detail" => "timeout" } ], cost: 0.001)
+    unchecked = -> { replay(answer: "I cannot check that.") }
+    Report.new(models: models, results: [
+      result(inbox, gpt, healthy.call, trial: 1),
+      result(inbox, gpt, healthy.call, trial: 2),
+      result(inbox, gpt, wrong_tool.call, score: 0.5, trial: 3),
+      result(queue, gpt, healthy.call, trial: 1),
+      result(queue, gpt, broken_tool, score: 0.5, trial: 2),
+      result(queue, gpt, wrong_tool.call, score: 0.5, trial: 3),
+      result(inbox, llama, unchecked.call, score: 0.5, trial: 1),
+      result(inbox, llama, unchecked.call, score: 0.5, trial: 2),
+      result(queue, llama, healthy.call(nil), trial: 1),
+      result(queue, llama, healthy.call(nil), trial: 2)
+    ])
+  end
+
+  def test_model_summaries_count_every_replay_with_the_distinct_scenarios_beside_it
+    assert_equal [ 5, 5, 1 ], report.summary_by_model[gpt.label].values_at("scenarios", "unique_scenarios", "passed")
+    assert_equal 1, report.trials
+
+    summary = trial_report.summary_by_model
+    assert_equal [ 7, 5, 2, 28.6 ], summary[gpt.label].values_at("scenarios", "unique_scenarios", "passed", "pass_rate")
+    assert_equal [ 5, 5, 3 ], summary[llama.label].values_at("scenarios", "unique_scenarios", "passed")
+    assert_equal 3, trial_report.trials
+    assert_equal [ 6, 2 ], flaky_report.summary_by_model[gpt.label].values_at("scenarios", "unique_scenarios")
+  end
+
+  def test_the_verdict_counts_replays_of_scenarios_only_when_a_model_replayed_them
+    assert_match(/\APassed 3 of 5 scenarios \(60%\) with a mean score of 80%\.\z/, report.verdict["rationale"])
+    assert_equal "Passed 3 of 6 replays of 2 scenarios (50%) with a mean score of 75% at $0.0060.", flaky_report.verdict["rationale"]
+  end
+
+  def test_the_matrix_cell_runs_the_trials_marks_together_with_their_mean_score_and_commonest_fault
+    rows = flaky_report.to_markdown.lines
+
+    assert_includes rows.find { |line| line.include?("`s_inbox`") }, "| ✅✅❌ 83% expected tool not called |"
+    assert_includes rows.find { |line| line.include?("`s_queue`") }, "| ✅❌❌ 67% tool error | ✅✅ 100% |", "a tie between faults goes to the first trial's"
+    assert_includes report.to_markdown, "| `s_inbox` Is the support inbox receiving email? | ✅ 100% | ✅ 100% | ~$0.0012 |"
+  end
+
+  def test_scenario_markdown_lists_each_trial_as_its_own_row_and_answer
+    markdown = trial_report.scenario_markdown("s_inbox")
+    rows = markdown.lines.select { |line| line.start_with?("| `") }
+
+    assert_equal [ "| `gpt-5-mini` · trial 1 | ✅ passed | 100% | inbox_status | — | $0.0012 |",
+                   "| `gpt-5-mini` · trial 2 | ✅ passed | 100% | inbox_status | — | $0.0010 |",
+                   "| `gpt-5-mini` · trial 3 | ❌ failed | 50% | find_tickets | expected tool not called | — |",
+                   "| `openrouter/meta-llama/llama-3.1-8b` | ✅ passed | 100% | inbox_status, check_async | — | — |" ], rows.map(&:chomp)
+    assert_includes markdown, "**`gpt-5-mini` · trial 3** — ❌ failed\n\nFault: expected tool not called"
+    assert_includes markdown, "**`openrouter/meta-llama/llama-3.1-8b`** — ✅ passed", "a model with one replay keeps its plain name"
+    assert_includes markdown, "> Still healthy."
+    assert_equal 4, markdown.scan("** — ").size, "one answer block per replay"
+    assert_includes trial_report.to_markdown,
+                    "<summary><code>s_inbox</code> Is the support inbox receiving email? — ✅✅❌ gpt-5-mini · ✅ openrouter/meta-llama/llama-3.1-8b</summary>",
+                    "the folded summary runs a replayed model's marks together"
+  end
+
+  def test_to_h_and_the_markdown_name_the_trials_only_when_a_scenario_was_replayed
+    assert_not report.to_h.key?("trials")
+    assert_not_includes report.to_markdown, "replayed"
+
+    hash = trial_report.to_h
+    assert_equal 3, hash["trials"]
+    assert_equal %w[models trials criteria recommendations verdict comparison metadata results], hash.keys
+    assert_equal [ 1, 1, 2, 3 ], hash["results"].select { |entry| entry["scenario_key"] == "s_inbox" }.map { |entry| entry["trial"] }
+    assert_includes trial_report.to_markdown,
+                    "No judge; scored on rules and expectations alone.\n\nEach scenario was replayed 3 times; a model's pass rate counts every replay.\n\n| Model | Passed |"
+  end
+
+  def test_html_renders_a_trials_cell_per_replayed_model_and_names_the_trials_beside_the_scenario_count
+    html = visible(flaky_report.to_html)
+
+    assert_includes html, "<title>Evaluation — 2 scenarios × 2 models · 3 trials per scenario</title>"
+    assert_includes html, %(<div class="micro">Scenario runs</div><div class="value">10</div><div class="sub">2 scenarios × 2 models · 3 trials per scenario</div>)
+    assert_includes html, %(<span class="meta">2 scenarios in 1 group · 3 trials per scenario</span>)
+    assert_includes html, %(<div class="cell"><div class="top"><span class="s">2/3 · 67% passed</span></div>) +
+                          %(<div class="top trial"><span class="muted">1</span><span class="g tone-success">[+]</span><span class="s tone-success">100%</span></div>) +
+                          %(<div class="top trial"><span class="muted">2</span><span class="g tone-success">[+]</span><span class="s tone-success">100%</span></div>) +
+                          %(<div class="top trial"><span class="muted">3</span><span class="g tone-error">[!]</span><span class="s tone-error">50%</span><span class="f">expected tool not called</span></div>) +
+                          %(<div class="cost-line">$0.0030</div></div>)
+    assert_includes html, %(<span class="s tone-error">0/2 · 0% passed</span>)
+    assert_includes html, %(<span class="s tone-success">2/2 · 100% passed</span>)
+    assert_includes html, %(<span class="group-pass">3/6 · 50% passed</span><span class="group-pass">2/4 · 50% passed</span>), "a group counts every replay"
+    assert_includes html, %(<span class="name">gpt-5-mini</span><span class="micro sm">trial 3</span><span class="badge error">failed · 50%</span>)
+    assert_equal 4, html.scan(%(<span class="micro sm">trial 2</span>)).size, "every model replayed every scenario at least twice"
+    assert_equal 2, html.scan(%(<span class="micro sm">trial 3</span>)).size, "only gpt-5-mini replayed them a third time"
+    ids = html.scan(/ id="([^"]*)"/).flatten
+    assert_equal ids.uniq, ids, "every id stays unique across the trials"
+
+    single = report.to_html
+    assert_not_includes single, "trials per scenario"
+    assert_not_includes single, %(class="top trial")
+    assert_not_includes single, ">trial "
+  end
+
+  def test_the_trials_cells_cost_line_sums_the_replays_and_marks_an_estimate_or_a_missing_price
+    inbox = scenario("s_inbox", "Is the support inbox receiving email?", group: "desk", tools: [ "inbox_status" ])
+    healthy = ->(trial, **attributes) { result(inbox, gpt, replay(answer: "All healthy.", tool_calls: [ { "name" => "inbox_status" } ], **attributes), trial: trial) }
+    estimated = Report.new(models: [ gpt ], results: [
+      healthy.call(1, cost: 0.001, metadata: { "cost_source" => "reported" }),
+      healthy.call(2, input_tokens: 100, output_tokens: 10, cost: 0.002,
+                      metadata: { "cost_source" => "estimated", "cost_rate" => RATE, "judge_usage" => { "calls" => 1, "cost" => 0.0005 } })
+    ])
+    partly_priced = Report.new(models: [ gpt ], results: [ healthy.call(1, cost: 0.001), healthy.call(2) ])
+
+    assert_includes estimated.to_html,
+                    %(<div class="cost-line" title="estimated: 100 in × $5.00/M + 10 out × $30.00/M · catalog rate">~$0.0030 · judge $0.000500</div>)
+    assert_includes partly_priced.to_html, %(<div class="cost-line">~$0.0010</div>),
+                    "a replay with no price makes the sum a lower bound, with no token working to show"
   end
 end

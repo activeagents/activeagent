@@ -18,7 +18,7 @@ module ActionAgent
   #                scope (SCOPE_KEYS in its metadata), named for both
   #   scenarios  — one per reported scenario key, updated to the reported prompt
   #   run        — one EvaluationRun per tenant and run_id, with one
-  #                EvaluationScenarioResult per scenario and model
+  #                EvaluationScenarioResult per scenario, model and trial
   #
   # An envelope's `status` is "complete" when absent. A "running" envelope
   # stores the results so far as a running run, and each later delivery under
@@ -71,6 +71,9 @@ module ActionAgent
 
     MAX_BYTES = 2.megabytes
     MAX_RESULTS = 1000
+    # The highest trial number the collector stores for a result (its
+    # `trial`, ActiveAgent::Evals::Result#trial).
+    MAX_TRIALS = 1000
     MAX_MODELS = 50
     MAX_TEXT = MAX_BYTES
     # Scenarios one evaluation may hold, and evaluations one agent may hold,
@@ -613,6 +616,7 @@ module ActionAgent
         recommendation: truncated(result["recommendation"], TEXT_BYTES),
         diagnosis: (result["diagnosis"] || {}).merge(
           "_replay_metadata" => result["metadata"] || {},
+          "_trial" => trial_of(result),
           "_scenario_snapshot" => {
             "key" => result["scenario_key"], "group" => result["group"], "prompt" => result["prompt"],
             "position" => scenario.position, "expectations" => {}
@@ -620,6 +624,12 @@ module ActionAgent
         ).merge(bounded_judge_usage(result["judge_usage"]).then { |usage| usage ? { "_judge_usage" => usage } : {} }),
         error_message: truncated(result["error"], TEXT_BYTES)
       )
+    end
+
+    # Which replay of its scenario under its model a result is: 1 for a
+    # result that names none (an absent or null `trial`).
+    def trial_of(result)
+      result["trial"].nil? ? 1 : result["trial"]
     end
 
     # A judge usage as the engine stores it: the keys the dashboard reads,
@@ -735,7 +745,9 @@ module ActionAgent
         object!(result, "result #{index}")
         %w[scenario_key label provider model].each { |key| string!(result[key], "result.#{key}", 200, required: true) }
         raise Invalid, "result label #{result['label']} is missing from report.models" unless report["models"].key?(result["label"])
-        raise Invalid, "duplicate scenario/model result" unless pairs.add?(result.values_at("scenario_key", "label"))
+        trial = trial_of(result)
+        raise Invalid, "result.trial must be an integer from 1 to #{MAX_TRIALS}" unless trial.is_a?(Integer) && trial.between?(1, MAX_TRIALS)
+        raise Invalid, "duplicate scenario/model result" unless pairs.add?([ result["scenario_key"], result["label"], trial ])
 
         spec = result.values_at("provider", "model")
         raise Invalid, "result label #{result['label']} names more than one provider/model" if label_specs.fetch(result["label"], spec) != spec

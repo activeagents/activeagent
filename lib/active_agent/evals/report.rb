@@ -68,12 +68,20 @@ module ActiveAgent
         @models.size > 1
       end
 
-      # Per model, keyed by label: scenario count, passes, errors, pass rate,
-      # mean score, latency (mean, and the P50 and P95 by nearest rank,
-      # Statistics.percentile), tokens, cost and fault counts. "cost" sums
-      # the replays that carried a cost — "priced" of the "scenarios", of
-      # which "reported" came from the caller and "estimated" from tokens ×
-      # a model rate (Result#cost_source) — and is nil when none did.
+      # How many times each scenario was replayed under each model: the
+      # highest trial number any result carries, 1 for a run with none.
+      def trials
+        @results.map(&:trial).max || 1
+      end
+
+      # Per model, keyed by label: replay count ("scenarios", every trial of
+      # every scenario), distinct scenarios ("unique_scenarios"), passes,
+      # errors, pass rate over every replay, mean score, latency (mean, and
+      # the P50 and P95 by nearest rank, Statistics.percentile), tokens,
+      # cost and fault counts. "cost" sums the replays that carried a cost
+      # — "priced" of the "scenarios", of which "reported" came from the
+      # caller and "estimated" from tokens × a model rate
+      # (Result#cost_source) — and is nil when none did.
       # "judge_cost" and "judge_calls" sum what the judge spent on the
       # cohort's results (Result#judge_usage); the judge's cost never joins
       # the agent's.
@@ -90,6 +98,7 @@ module ActiveAgent
             "provider" => spec.provider,
             "model" => spec.model,
             "scenarios" => cohort.size,
+            "unique_scenarios" => cohort.map { |result| result.scenario.key }.uniq.size,
             "passed" => cohort.count(&:passed?),
             "errored" => cohort.count(&:errored?),
             "pass_rate" => cohort.any? ? (cohort.count(&:passed?) * 100.0 / cohort.size).round(1) : 0.0,
@@ -258,7 +267,7 @@ module ActiveAgent
             cost = " at #{Format.money(stats['cost'], estimated: estimated_cost?(stats))}"
             cost += " (estimated)" if estimated_cost?(stats)
           end
-          rationale = "Passed #{stats['passed']} of #{stats['scenarios']} scenarios" \
+          rationale = "Passed #{stats['passed']} of #{counted_scenarios(stats)}" \
             " (#{Format.percent(stats['scenarios'].to_i.positive? ? stats['passed'].to_f / stats['scenarios'] : nil)})" \
             "#{" with a mean score of #{Format.score(stats['avg_score'])}" if stats['avg_score']}#{cost}."
           judged = @judge&.verdict(summary_by_model, instructions: @instructions)
@@ -286,12 +295,14 @@ module ActiveAgent
         @comparison ||= @recorded_comparison || Comparison.new(results: @results, models: @models).to_h
       end
 
-      # Adds "judge_usage" and "release" only when there is one to add, and
-      # "comparison" only when comparing models, so a single-model report
-      # built the way it always was serializes exactly as before.
+      # Adds "judge_usage" and "release" only when there is one to add,
+      # "comparison" only when comparing models, and "trials" only when a
+      # scenario was replayed more than once, so a single-model, single-trial
+      # report built the way it always was serializes exactly as before.
       def to_h
         {
           "models" => summary_by_model,
+          "trials" => (trials if trials > 1),
           "criteria" => criterion_scores,
           "recommendations" => recommendations,
           "verdict" => verdict,
@@ -337,6 +348,14 @@ module ActiveAgent
       def cost_per_priced(stats)
         priced = stats["priced"].to_i
         stats["cost"].to_f / priced if stats["cost"] && priced.positive?
+      end
+
+      # The denominator a verdict names: "6 scenarios", or "18 replays of 6
+      # scenarios" when the model replayed each more than once.
+      def counted_scenarios(stats)
+        replays = stats["scenarios"].to_i
+        unique = stats["unique_scenarios"].to_i
+        replays > unique ? "#{replays} replays of #{unique} scenarios" : "#{replays} scenarios"
       end
 
       def criterion_keys
@@ -628,15 +647,23 @@ module ActiveAgent
         header = [ "| Scenario | #{labels.map { |label| cell("`#{label}`") }.join(' | ')} | Cost |", "|---|#{labels.map { '---' }.join('|')}|---|" ]
         rows = @results.group_by { |result| result.scenario.key }.map do |key, cohort|
           cells = labels.map do |label|
-            result = cohort.find { |candidate| candidate.label == label }
-            next "—" unless result
-
-            mark = result.passed? ? "✅" : (result.errored? ? "⚠️" : "❌")
-            cell([ mark, (Format.score(result.score) if result.score), result.fault&.tr("_", " ") ].compact.join(" "))
+            mine = cohort.select { |candidate| candidate.label == label }.sort_by(&:trial)
+            mine.empty? ? "—" : cell(matrix_cell_text(mine))
           end
           "| #{cell("`#{key}` #{cohort.first.scenario.prompt.truncate(70)}")} | #{cells.join(' | ')} | #{scenario_cost_cell(key)} |"
         end
         header + rows
+      end
+
+      # "✅ 100%" or "❌ 50% missing capability" for one result; for a
+      # scenario replayed more than once, every trial's mark run together
+      # ("✅✅❌"), the mean of the trials' scores, and the fault seen most
+      # often among them (a tie goes to the first seen).
+      def matrix_cell_text(results)
+        marks = results.map { |result| status_mark(result) }.join
+        scored = results.filter_map(&:score)
+        fault = results.filter_map(&:fault).tally.max_by(&:last)&.first
+        [ marks, (Format.score(scored.sum.fdiv(scored.size)) if scored.any?), fault&.tr("_", " ") ].compact.join(" ")
       end
 
       # "~$0.0243 (judge ~$0.0015)" for a scenario's total across models.

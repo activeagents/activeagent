@@ -30,8 +30,9 @@ module ActiveAgent
       # tool to add, or how to change the instructions.
       DEFAULT_REFINE_FAULTS = %w[missing_capability expected_tool_not_called ungrounded_answer low_quality missing_content].freeze
       DEFAULT_JUDGE_LIMIT = 25
+      DEFAULT_TRIALS = 1
 
-      attr_reader :scenarios, :models, :criteria, :judge, :threshold
+      attr_reader :scenarios, :models, :criteria, :judge, :threshold, :trials
 
       # @param scenarios [Array<Scenario>]
       # @param models [Array<ModelSpec>]
@@ -58,13 +59,23 @@ module ActiveAgent
       #   after `judge_limit`; false skips it. A caller that scores each
       #   scenario in its own Runner (a background job per scenario) shares one
       #   run-wide limit this way, since `judge_limit` counts per instance.
+      # @param trials [Integer] how many times each scenario is replayed under
+      #   each model, 1 or more. Every replay is a Result of its own under the
+      #   scenario's key, told apart by Result#trial, so a flaky scenario
+      #   reads as a pass share rather than one pass or fail.
       def initialize(scenarios:, models:, replay:, criteria: [], judge: nil, judge_task: true, available_tools: {},
                      instructions: nil, agent_name: "The agent", threshold: PASS_THRESHOLD,
                      refine_faults: DEFAULT_REFINE_FAULTS, judge_limit: DEFAULT_JUDGE_LIMIT, on_result: nil,
-                     around_evaluation: nil, require_judge_scores: false, metadata: {}, release: nil, refine_gate: nil)
+                     around_evaluation: nil, require_judge_scores: false, metadata: {}, release: nil, refine_gate: nil,
+                     trials: DEFAULT_TRIALS)
+        unless trials.is_a?(Integer) && trials >= 1
+          raise ArgumentError, "trials must be an Integer of 1 or more, got #{trials.inspect}"
+        end
+
         @scenarios = scenarios
         @models = models
         @replay = replay
+        @trials = trials
         @criteria = criteria
         @judge = judge
         @judge_task = judge_task
@@ -84,10 +95,14 @@ module ActiveAgent
         @scorer = Scorer.new(criteria: criteria, judge: judge)
       end
 
+      # Replays every scenario under every model `trials` times: scenario by
+      # scenario, model by model, trial 1 to `trials`.
       def call
         results = @scenarios.flat_map do |scenario|
-          @models.map do |spec|
-            evaluate_with_context(scenario, spec).tap { |result| @on_result&.call(result) }
+          @models.flat_map do |spec|
+            (1..@trials).map do |trial|
+              evaluate_with_context(scenario, spec, trial: trial).tap { |result| @on_result&.call(result) }
+            end
           end
         end
 
@@ -97,7 +112,8 @@ module ActiveAgent
 
       # Scores and diagnoses one replay. Public so a caller that has already run
       # the agent (a background job per scenario, say) can score without the loop.
-      def evaluate(scenario, spec, replay = nil)
+      # `trial` numbers the Result when the caller replays a scenario more than once.
+      def evaluate(scenario, spec, replay = nil, trial: 1)
         replay ||= run_replay(scenario, spec)
         scores = @scorer.score(scenario, replay)
         if judge_task? && replay.answer.present?
@@ -119,16 +135,17 @@ module ActiveAgent
           scores: scores,
           score: score,
           status: replay.errored? ? "errored" : (diagnosis ? "failed" : "passed"),
-          diagnosis: diagnosis_hash
+          diagnosis: diagnosis_hash,
+          trial: trial
         )
       end
 
       private
 
-      def evaluate_with_context(scenario, spec)
-        return evaluate(scenario, spec) unless @around_evaluation
+      def evaluate_with_context(scenario, spec, trial:)
+        return evaluate(scenario, spec, trial: trial) unless @around_evaluation
 
-        result = @around_evaluation.call(scenario, spec) { evaluate(scenario, spec) }
+        result = @around_evaluation.call(scenario, spec) { evaluate(scenario, spec, trial: trial) }
         # A wrapper written the natural way — do something, yield, do something
         # after — returns that last value rather than the Result. Left alone it
         # reaches on_result and the Report, and fails somewhere far from the

@@ -25,6 +25,7 @@ module ActiveAgent
         lines = [ "# #{markdown_title}", "" ]
         lines << judged_by_line
         lines << ""
+        lines << trials_line << "" if trials > 1
         lines.concat(summary_table)
         lines << ""
         lines.concat(total_lines)
@@ -108,7 +109,10 @@ module ActiveAgent
 
         scenario = cohort.first.scenario
         labels = @models.map(&:label)
-        cohort = cohort.sort_by { |result| labels.index(result.label) || labels.size }
+        cohort = cohort.sort_by { |result| [ labels.index(result.label) || labels.size, result.trial ] }
+        # A model that replayed the scenario more than once names each trial.
+        repeated = cohort.map(&:label).tally.select { |_label, count| count > 1 }
+        name = ->(result) { repeated.key?(result.label) ? "`#{result.label}` · trial #{result.trial}" : "`#{result.label}`" }
         body = []
         body << "**Prompt**" << "" << quoted(scenario.prompt).join("\n") << ""
         expectations = expectation_lines(scenario)
@@ -116,12 +120,12 @@ module ActiveAgent
         body << "| Model | Status | Score | Tools | Fault | Cost |" << "|---|---|---|---|---|---|"
         cohort.each do |result|
           tools = result.replay.tool_calls.map { |call| "#{call['name']}#{' ✗' if call['error']}" }.join(", ")
-          body << "| #{[ "`#{result.label}`", status_text(result), (result.score ? Format.score(result.score) : '—'), tools.presence || '—',
+          body << "| #{[ name.call(result), status_text(result), (result.score ? Format.score(result.score) : '—'), tools.presence || '—',
                          result.fault&.tr('_', ' ') || '—', (result.replay.cost ? answer_cost(result) : '—') ].map { |text| cell(text) }.join(' | ')} |"
         end
         body << ""
         cohort.each do |result|
-          body << "**`#{result.label}`** — #{status_text(result)}"
+          body << "**#{name.call(result)}** — #{status_text(result)}"
           body << ""
           body << "Fault: #{result.fault.tr('_', ' ')} — #{[ result.summary, result.recommendation ].compact.join(' ')}" << "" if result.fault
           body << "Error: #{result.replay.error}" << "" if result.replay.error
@@ -132,7 +136,8 @@ module ActiveAgent
         text = body.join("\n").rstrip
         return "### Scenario `#{scenario.key}`\n\n#{text}" unless details
 
-        marks = cohort.map { |result| "#{status_mark(result)} #{result.label}" }.join(" · ")
+        # A model that replayed the scenario shows one mark per trial, run together.
+        marks = cohort.group_by(&:label).map { |label, replays| "#{replays.map { |result| status_mark(result) }.join} #{label}" }.join(" · ")
         summary = "<code>#{html_text(scenario.key)}</code> #{html_text(scenario.prompt.truncate(80))} — #{html_text(marks)}"
         "<details>\n<summary>#{summary}</summary>\n\n#{text}\n\n</details>"
       end
@@ -151,6 +156,10 @@ module ActiveAgent
       def judged_by_line
         label = @judge_label || @judge&.label
         label ? "Judged by `#{label}`." : "No judge; scored on rules and expectations alone."
+      end
+
+      def trials_line
+        "Each scenario was replayed #{trials} times; a model's pass rate counts every replay."
       end
 
       # "**Best model: gpt-5-mini**" with the verdict's rationale under it

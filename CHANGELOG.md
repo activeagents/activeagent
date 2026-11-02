@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Replay each scenario several times** (`activeagent`, `actionagent`).
+  `Runner.new(trials: 3)` replays every scenario under every model that
+  many times, scenario by scenario and model by model, so a flaky scenario
+  gets a pass share instead of one coin flip. Scenario keys stay as they
+  are; `Result#trial` tells the repeats apart, reads 1 on a result built
+  without one, and lands in `to_h` as `"trial"`. A model's `"scenarios"`
+  count and pass rate cover every replay, with `"unique_scenarios"` beside
+  them, and the verdict then reads "Passed 5 of 6 replays of 2 scenarios";
+  a matrix cell shows one mark per trial with the mean score and the most
+  frequent fault; the Answers section lists every trial; the Markdown,
+  JSON and HTML reports state the trial count only when it is above 1, so
+  a one-trial Markdown or HTML report is exactly what it was, and its JSON
+  differs only by `"trial"` on each result and `"unique_scenarios"` on
+  each model. `Comparison` pools a scenario's replays into its pass share,
+  so its intervals still resample scenarios. The collector accepts the
+  repeats of one scenario × model when each carries its `trial`, stores
+  every one, and rebuilds them into the run's report; the dashboard's own
+  runs replay once.
+
 ## [1.9.6] - 2026-10-29
 
 The dashboard on a phone, and the small finished pieces: the sidebar as a
