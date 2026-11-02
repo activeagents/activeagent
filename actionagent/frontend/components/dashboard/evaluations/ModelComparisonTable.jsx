@@ -1,5 +1,6 @@
 import React from 'react';
 import { Card, MicroLabel, MONO } from '../primitives';
+import ComparisonTable from '../ComparisonTable';
 import { fmtK, fmtMs, splitModelLabel } from '../../../utils/format';
 import { COST_LEGEND, costTitle, fmtPasses, fmtScore, fmtSpend } from '../../../utils/evalFormat.mjs';
 import { plural, typicalFaultText } from '../../../utils/evaluationRuns.mjs';
@@ -10,15 +11,27 @@ import { plural, typicalFaultText } from '../../../utils/evaluationRuns.mjs';
 // interaction, cost (and per interaction), what the judge spent on the
 // cohort when a judge was asked, and the model's typical fault. The
 // scorecards under it carry the same figures per model with bars and fault
-// badges; this is the table you read across. `rows` come from
-// modelComparisonRows. A cost with an estimated part reads "~", and the
-// table carries the legend once when any does.
-const th = { fontFamily: MONO, fontSize: 10, fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase', color: 'var(--color-text-muted)', padding: '8px 12px', textAlign: 'left', verticalAlign: 'bottom', whiteSpace: 'nowrap' };
-const td = { padding: '9px 12px', verticalAlign: 'top', fontSize: 13, color: 'var(--color-text-cell)', borderTop: '1px solid var(--color-border-light)' };
-const num = { ...td, fontFamily: MONO, fontSize: 12, whiteSpace: 'nowrap', textAlign: 'right' };
-const numHead = { ...th, textAlign: 'right' };
+// badges; this is the table you read across, so it is a ComparisonTable:
+// every figure a pill tinted by rank within its column, any header sorts.
+// `rows` come from modelComparisonRows. A cost with an estimated part reads
+// "~", and the table carries the legend once when any does.
 
-export const rateTone = (rate) => (rate == null ? 'var(--color-text-muted)' : rate >= 0.85 ? 'var(--color-success-text)' : rate >= 0.5 ? 'var(--color-warning-text)' : 'var(--color-error)');
+// Pass-rate bands are fixed, not relative: ≥ 85% good, ≥ 50% middling.
+export const PASS_THRESHOLDS = [0.85, 0.5];
+export const rateTone = (rate) => (rate == null ? 'var(--color-text-muted)' : rate >= PASS_THRESHOLDS[0] ? 'var(--color-success-text)' : rate >= PASS_THRESHOLDS[1] ? 'var(--color-warning-text)' : 'var(--color-error)');
+
+export function ModelIdentity({ label, provider, winner, size = 13 }) {
+  const { short, provider: prefix } = splitModelLabel(label, provider || '');
+  return (
+    <span style={{ display: 'inline-grid', gap: 2, minWidth: 0 }}>
+      <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 6, whiteSpace: 'nowrap' }}>
+        <span style={{ fontFamily: MONO, fontSize: size, fontWeight: 600, color: 'var(--color-text-primary)' }} title={label}>{short}</span>
+        {winner && <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: 'var(--color-warning-text)' }} title="the judge's pick">★ pick</span>}
+      </span>
+      {prefix && <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>{prefix}</span>}
+    </span>
+  );
+}
 
 export default function ModelComparisonTable({ rows = [], unit = 'scenario', judgedBy = null, judgeEstimated = false, title = 'Model comparison', testId = 'model-comparison-table' }) {
   if (!rows.length) return null;
@@ -27,11 +40,42 @@ export default function ModelComparisonTable({ rows = [], unit = 'scenario', jud
   const showTokens = rows.some((row) => row.avgTokens != null);
   const showLatency = rows.some((row) => row.avgDurationMs != null);
   const showPercentiles = rows.some((row) => row.p50DurationMs != null);
+  const showFault = rows.some((row) => row.typicalFault);
   const estimatedAnywhere = rows.some((row) => (row.cost != null && row.estimated) || (row.judgeCost != null && judgeEstimated));
+
+  const columns = [
+    { key: 'passRate', label: 'Passed', unit: 'Pass rate', better: 'higher', band: 'threshold', thresholds: PASS_THRESHOLDS, format: (_, row) => fmtPasses(row.passed, row.total) },
+    { key: 'avgScore', label: 'Score', unit: 'Mean', better: 'higher', format: (value) => fmtScore(value) },
+    showLatency && { key: 'avgDurationMs', label: 'Latency', unit: 'Mean', better: 'lower', format: (value) => (value == null ? '—' : fmtMs(value)) },
+    showPercentiles && {
+      key: 'p95DurationMs', label: 'P50 / P95', unit: 'Latency', title: 'Median and 95th percentile latency, nearest rank', better: 'lower', band: 'none',
+      format: (_, row) => (row.p50DurationMs == null ? '—' : `${fmtMs(row.p50DurationMs)} / ${fmtMs(row.p95DurationMs)}`), testId: () => 'model-comparison-percentiles',
+    },
+    showTokens && {
+      key: 'avgTokens', label: 'Tokens', unit: `Per ${unit}`, title: `Average input + output tokens per ${unit}`, better: 'lower',
+      format: (value) => (value == null ? '—' : fmtK(Math.round(value))),
+      cellTitle: (row) => (row.avgInputTokens == null ? undefined : `${Math.round(row.avgInputTokens)} in · ${Math.round(row.avgOutputTokens || 0)} out per ${unit}`),
+    },
+    showCost && {
+      key: 'cost', label: 'Cost', unit: 'Cohort', title: `Cohort spend, and per ${unit}`, better: 'lower',
+      format: (value, row) => fmtSpend(value, { estimated: row.estimated }), testId: () => 'model-comparison-cost',
+      cellTitle: (row) => (row.cost != null && row.estimated ? costTitle() : undefined),
+      sub: (row) => (row.costPerInteraction == null ? null : `${fmtSpend(row.costPerInteraction, { estimated: row.estimated })}/${unit}`),
+    },
+    showJudge && {
+      key: 'judgeCost', label: 'Judge', unit: 'Spend', title: "What the judge spent scoring this model's answers", better: 'lower', band: 'none',
+      format: (value, row) => (value == null && !row.judgeCalls ? '—' : fmtSpend(value, { estimated: judgeEstimated })), testId: () => 'model-comparison-judge',
+      sub: (row) => (row.judgeCalls > 0 ? plural(row.judgeCalls, 'call') : null),
+    },
+    showFault && {
+      key: 'typicalFault', label: 'Typical fault', kind: 'text', sortable: false, align: 'left', width: '30%', value: (row) => row.typicalFault?.name || null,
+      cell: (row) => <span style={{ fontSize: 13, color: row.typicalFault ? 'var(--color-text-cell)' : 'var(--color-text-muted)', textWrap: 'pretty' }}>{typicalFaultText(row)}</span>,
+    },
+  ].filter(Boolean);
 
   return (
     <Card padding={0} style={{ overflow: 'hidden' }} testId={testId}>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, padding: '10px 12px', flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, padding: '10px 14px', flexWrap: 'wrap' }}>
         <MicroLabel>{title}</MicroLabel>
         <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--color-text-muted)' }}>
           {`${rows.length} models · best first${judgedBy ? ` · judged by ${judgedBy}` : ''}`}
@@ -40,73 +84,13 @@ export default function ModelComparisonTable({ rows = [], unit = 'scenario', jud
           <span style={{ marginLeft: 'auto', fontFamily: MONO, fontSize: 11, color: 'var(--color-text-muted)' }} data-testid="model-comparison-legend">{COST_LEGEND}</span>
         )}
       </div>
-      <div style={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr style={{ background: 'var(--color-muted)' }}>
-              <th style={th}>Model</th>
-              <th style={numHead}>Passed</th>
-              <th style={numHead}>Mean score</th>
-              {showLatency && <th style={numHead}>Avg latency</th>}
-              {showPercentiles && <th style={numHead} title="Median and 95th percentile latency, nearest rank">P50 / P95</th>}
-              {showTokens && <th style={numHead} title={`Average input + output tokens per ${unit}`}>Avg tokens</th>}
-              {showCost && <th style={numHead} title={`Cohort spend, and per ${unit}`}>Cost</th>}
-              {showJudge && <th style={numHead} title="What the judge spent scoring this model's answers">Judge</th>}
-              <th style={{ ...th, width: '34%' }}>Typical fault</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => {
-              const { short, provider } = splitModelLabel(row.label, row.provider || '');
-              return (
-                <tr key={row.label} data-testid="model-comparison-row" data-model={row.label}>
-                  <td style={{ ...td, whiteSpace: 'nowrap' }}>
-                    <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 600, color: 'var(--color-text-primary)' }} title={row.label}>{short}</span>
-                    {row.winner && (
-                      <span style={{ marginLeft: 6, fontFamily: MONO, fontSize: 10, fontWeight: 700, color: 'var(--color-warning-text)' }} title="the judge's pick">★ pick</span>
-                    )}
-                    {provider && <span style={{ display: 'block', fontFamily: MONO, fontSize: 11, color: 'var(--color-text-muted)' }}>{provider}</span>}
-                  </td>
-                  <td style={{ ...num, color: rateTone(row.passRate), fontWeight: 600 }}>
-                    {fmtPasses(row.passed, row.total)}
-                  </td>
-                  <td style={num}>{fmtScore(row.avgScore)}</td>
-                  {showLatency && <td style={num}>{row.avgDurationMs == null ? '—' : fmtMs(row.avgDurationMs)}</td>}
-                  {showPercentiles && (
-                    <td style={num} data-testid="model-comparison-percentiles">
-                      {row.p50DurationMs == null ? '—' : `${fmtMs(row.p50DurationMs)} / ${fmtMs(row.p95DurationMs)}`}
-                    </td>
-                  )}
-                  {showTokens && (
-                    <td style={num} title={row.avgInputTokens == null ? undefined : `${Math.round(row.avgInputTokens)} in · ${Math.round(row.avgOutputTokens || 0)} out per ${unit}`}>
-                      {row.avgTokens == null ? '—' : fmtK(Math.round(row.avgTokens))}
-                    </td>
-                  )}
-                  {showCost && (
-                    <td style={num} title={row.cost != null && row.estimated ? costTitle() : undefined} data-testid="model-comparison-cost">
-                      {fmtSpend(row.cost, { estimated: row.estimated })}
-                      {row.costPerInteraction != null && (
-                        <span style={{ display: 'block', fontWeight: 400, color: 'var(--color-text-muted)' }}>{`${fmtSpend(row.costPerInteraction, { estimated: row.estimated })}/${unit}`}</span>
-                      )}
-                    </td>
-                  )}
-                  {showJudge && (
-                    <td style={num} data-testid="model-comparison-judge">
-                      {row.judgeCost == null && !row.judgeCalls ? '—' : fmtSpend(row.judgeCost, { estimated: judgeEstimated })}
-                      {row.judgeCalls > 0 && (
-                        <span style={{ display: 'block', fontWeight: 400, color: 'var(--color-text-muted)' }}>{plural(row.judgeCalls, 'call')}</span>
-                      )}
-                    </td>
-                  )}
-                  <td style={{ ...td, color: row.typicalFault ? 'var(--color-text-cell)' : 'var(--color-text-muted)', textWrap: 'pretty' }}>
-                    {typicalFaultText(row)}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+      <ComparisonTable
+        identity={{ key: 'label', label: 'Model', unit: 'Cohort', render: (row) => <ModelIdentity label={row.label} provider={row.provider} winner={row.winner} /> }}
+        columns={columns}
+        rows={rows}
+        rowKey={(row) => row.label}
+        rowProps={(row) => ({ 'data-testid': 'model-comparison-row', 'data-model': row.label })}
+      />
     </Card>
   );
 }

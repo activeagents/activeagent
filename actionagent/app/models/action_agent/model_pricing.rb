@@ -10,10 +10,15 @@ module ActionAgent
   # Rates come from RubyLLM's model registry (USD per million tokens,
   # maintained upstream per model) when the model is known there — looked
   # up under the provider it ran on when the caller knows it, since
-  # `gpt-5.5` through OpenRouter and `gpt-5.5` at OpenAI are two entries.
-  # The static tables below are the fallback for aliases, self-hosted
-  # models and an install without RubyLLM: exact rows (STATIC_RATES) for
-  # the current frontier models, then name patterns (PRICES), then a
+  # `gpt-5.5` through OpenRouter and `gpt-5.5` at OpenAI are two entries,
+  # and `deepseek-v4-flash` through Ollama Cloud is priced by Ollama, not
+  # by DeepSeek. A model run under Ollama is looked up in the registry's
+  # Ollama Cloud listing by the name the cloud uses, whichever way it was
+  # spelled (`gpt-oss:120b-cloud` through a local server is the cloud's
+  # `gpt-oss:120b`). The static tables below are the fallback for aliases,
+  # self-hosted models and an install without RubyLLM: exact rows
+  # (STATIC_RATES) for the current frontier models and Ollama Cloud's own
+  # price list (OLLAMA_CLOUD_RATES), then name patterns (PRICES), then a
   # conservative blended rate so totals stay meaningful. Costs are always
   # presented as estimates, and every rate says where it came from
   # (`source`), so a figure worked out at a fallback rate can say so.
@@ -33,6 +38,37 @@ module ActionAgent
       "gpt-5" => [ 1.25, 10.00 ],
       "gpt-5-mini" => [ 0.25, 2.00 ],
       "gpt-5-nano" => [ 0.05, 0.40 ]
+    }.freeze
+
+    # Ollama Cloud's price list, by the name the cloud lists each model
+    # under: USD per million input and output tokens. The rows RubyLLM's
+    # registry carries under its `ollama_cloud` provider (RubyLLM 2.1.1,
+    # from models.dev), copied on 2026-10-30 for an install without the
+    # gem; DeepSeek's rows are its off-peak rates. A model the cloud lists
+    # at no price yet is left out, so it prices as any other Ollama model.
+    OLLAMA_CLOUD_RATES = {
+      "deepseek-v4-flash" => [ 0.22, 0.66 ],
+      "deepseek-v4-flash:0731" => [ 0.22, 0.66 ],
+      "deepseek-v4-pro" => [ 0.66, 1.98 ],
+      "deepseek-v4-pro:0813" => [ 0.66, 1.98 ],
+      "deepseek-v4.1-flash" => [ 0.15, 0.60 ],
+      "gemma4:31b" => [ 0.14, 0.40 ],
+      "glm-5.1" => [ 1.00, 3.20 ],
+      "glm-5.2" => [ 1.40, 4.40 ],
+      "glm-5.3" => [ 1.40, 4.40 ],
+      "glm-5.3-flash" => [ 0.15, 0.50 ],
+      "gpt-oss:120b" => [ 0.15, 0.60 ],
+      "gpt-oss:20b" => [ 0.07, 0.30 ],
+      "kimi-k2.6" => [ 0.95, 4.00 ],
+      "kimi-k2.7-code" => [ 0.95, 4.00 ],
+      "kimi-k3" => [ 3.00, 15.00 ],
+      "minimax-m2.7" => [ 0.30, 1.20 ],
+      "minimax-m3" => [ 0.60, 2.40 ],
+      "mistral-large-3:675b" => [ 0.50, 1.50 ],
+      "nemotron-3-nano:30b" => [ 0.06, 0.24 ],
+      "nemotron-3-super" => [ 0.015, 0.60 ],
+      "nemotron-3-ultra" => [ 0.10, 3.00 ],
+      "qwen3.5:397b" => [ 0.60, 3.60 ]
     }.freeze
 
     PRICES = [
@@ -65,10 +101,12 @@ module ActionAgent
     # Fallback blended rate for unknown models ($/1M input, $/1M output)
     DEFAULT_RATE = [ 1.00, 4.00 ].freeze
 
-    # Where a rate came from: RubyLLM's bundled catalog, a registry the host
-    # keeps itself (RubyLLM's model table or a refreshed listing), a row of
-    # STATIC_RATES or PRICES, or DEFAULT_RATE. The last two are a guess at
-    # the model's price rather than its listing.
+    # Where a rate came from: a listing of the model — RubyLLM's bundled
+    # catalog, or Ollama Cloud's price list bundled here (`catalog`), or a
+    # registry the host keeps itself, RubyLLM's model table or a refreshed
+    # listing (`remote`) — else a row of STATIC_RATES or PRICES, or
+    # DEFAULT_RATE. The last two are a guess at the model's price rather
+    # than its listing.
     SOURCES = %w[catalog remote pattern default].freeze
     FALLBACK_SOURCES = %w[pattern default].freeze
 
@@ -82,6 +120,22 @@ module ActionAgent
       "meta-llama" => nil, "mistralai" => "mistral", "mistral" => "mistral", "deepseek" => "deepseek",
       "qwen" => nil, "x-ai" => "xai", "xai" => "xai", "cohere" => nil, "perplexity" => "perplexity"
     }.freeze
+
+    # Provider names as the registry spells them, for the ones a trace's
+    # `llm.provider` tag ("OpenAI::Chat", "Ollama") or a run's provider key
+    # ("open_router") spells otherwise once downcased and cut at "::".
+    PROVIDER_SLUGS = {
+      "open_router" => "openrouter", "open_ai" => "openai", "ollama-cloud" => "ollama_cloud",
+      "azure_openai" => "azure", "azureopenai" => "azure", "azure_open_ai" => "azure"
+    }.freeze
+
+    # The registry's provider for Ollama Cloud's listing, which prices a
+    # model run under Ollama whichever route served it.
+    OLLAMA_CLOUD_PROVIDER = "ollama_cloud"
+    OLLAMA_PROVIDERS = [ "ollama", OLLAMA_CLOUD_PROVIDER ].freeze
+    # A local Ollama server's spellings of a cloud model: the framework's
+    # ActiveAgent::Providers::Ollama::Cloud, kept in step.
+    OLLAMA_CLOUD_MARKERS = %w[-cloud :cloud].freeze
 
     class << self
       # @return [Float, nil] estimated USD cost, nil when there is nothing to price
@@ -119,11 +173,12 @@ module ActionAgent
       def rate_detail(model, provider: nil)
         return { input: DEFAULT_RATE[0], output: DEFAULT_RATE[1], source: "default" } if model.blank?
 
-        key = [ provider.to_s, model.to_s ]
+        slug = provider_slug(provider)
+        key = [ slug.to_s, model.to_s ]
         @rates ||= {}
         return @rates[key] if @rates.key?(key)
 
-        @rates[key] = registry_rate(model.to_s, provider.to_s.presence) || static_rate(model.to_s)
+        @rates[key] = registry_rate(model.to_s, slug) || static_rate(model.to_s, slug)
       end
 
       # Forgets memoized rates — after RubyLLM is loaded, or in tests.
@@ -136,27 +191,65 @@ module ActionAgent
       # and the version of the registry the install has (or none).
       def fingerprint
         registry = defined?(::RubyLLM) && ::RubyLLM.const_defined?(:VERSION) ? ::RubyLLM::VERSION.to_s : "none"
-        tables = [ STATIC_RATES, PRICES.map { |pattern, input, output| [ pattern.source, input, output ] }, DEFAULT_RATE, registry ]
+        tables = [
+          STATIC_RATES, OLLAMA_CLOUD_RATES, PRICES.map { |pattern, input, output| [ pattern.source, input, output ] },
+          DEFAULT_RATE, registry
+        ]
         Digest::SHA256.hexdigest(JSON.generate(tables))[0, 12]
       end
 
-      # "openrouter/anthropic/claude-sonnet-4-5-20250929" → "claude-sonnet-4-5":
-      # the name without a gateway or vendor prefix, a date suffix or a
-      # colon-tagged size, with dots as dashes, so the same model under two
-      # spellings keys one row.
+      # "openrouter/anthropic/claude-sonnet-4-5-20250929" → "claude-sonnet-4-5",
+      # "gpt-oss:120b-cloud" → "gpt-oss:120b": the name without a gateway or
+      # vendor prefix, a date suffix, a colon-tagged size or a local Ollama
+      # server's cloud marker, with dots as dashes, so the same model under
+      # two spellings keys one row.
       def normalize(model)
-        name = model.to_s.strip.downcase
+        name = ollama_canonical(model.to_s.strip.downcase)
         name = name.split("/").last.to_s
         name = name.sub(/-\d{8}\z/, "").sub(/-\d{4}-\d{2}-\d{2}\z/, "")
         name.tr(".", "-")
       end
 
+      # The provider as the registry names it, from how a trace or a run
+      # recorded it: downcased, cut at "::" ("OpenAI::Chat" → "openai"),
+      # and the few other spellings mapped (PROVIDER_SLUGS). nil for none.
+      #
+      # @return [String, nil]
+      def provider_slug(provider)
+        slug = provider.to_s.strip.downcase.split("::").first.to_s
+        return nil if slug.empty?
+
+        PROVIDER_SLUGS.fetch(slug, slug)
+      end
+
+      # Whether +model+ is an Ollama model: run under Ollama (either
+      # provider name), or spelled with a local server's cloud marker.
+      def ollama?(model, provider = nil)
+        OLLAMA_PROVIDERS.include?(provider_slug(provider)) || ollama_cloud_model?(model)
+      end
+
+      # Whether +model+ carries a local Ollama server's cloud marker.
+      def ollama_cloud_model?(model)
+        name = model.to_s.strip
+        OLLAMA_CLOUD_MARKERS.any? { |marker| name.end_with?(marker) }
+      end
+
+      # The name Ollama Cloud lists a model under: "gpt-oss:120b-cloud" →
+      # "gpt-oss:120b", "glm-4.6:cloud" → "glm-4.6"; any other name as given.
+      def ollama_canonical(model)
+        name = model.to_s.strip
+        OLLAMA_CLOUD_MARKERS.each { |marker| return name.delete_suffix(marker) if name.end_with?(marker) }
+        name
+      end
+
       private
 
-      # The registry's rate for the first spelling it knows: the name as
-      # given under the provider it ran on, then bare, then with a gateway
-      # or vendor prefix stripped (under the vendor's own provider), each
-      # with its dots and dashes swapped and its date suffix dropped.
+      # The registry's rate for the first spelling it knows: an Ollama
+      # model under the cloud's listing by the name the cloud uses, then
+      # the name as given under the provider it ran on, then bare, then
+      # with a gateway or vendor prefix stripped (under the vendor's own
+      # provider), each with its dots and dashes swapped and its date
+      # suffix dropped.
       def registry_rate(model, provider)
         return nil unless registry_available?
 
@@ -207,8 +300,14 @@ module ActionAgent
       # [[id, provider], ...] to try in order, without repeats.
       def lookup_candidates(model, provider)
         name = model.strip
-        provider = provider&.downcase
         candidates = []
+
+        if ollama?(name, provider)
+          ollama_names(name).each do |candidate|
+            candidates << [ candidate, OLLAMA_CLOUD_PROVIDER ]
+            candidates << [ candidate, "ollama" ]
+          end
+        end
 
         head, rest = name.split("/", 2)
         if rest.present? && GATEWAY_PREFIXES.include?(head.downcase)
@@ -243,9 +342,21 @@ module ActionAgent
         end.uniq
       end
 
-      # An exact row for the normalised name, else the first pattern the
-      # name as given matches, else the default.
-      def static_rate(model)
+      # The names Ollama Cloud's listing may hold an Ollama model under: the
+      # name the cloud uses, then without a `:latest` tag.
+      def ollama_names(model)
+        canonical = ollama_canonical(model)
+        [ canonical, canonical.delete_suffix(":latest") ].uniq
+      end
+
+      # Ollama Cloud's own row for an Ollama model, else an exact row for
+      # the normalised name, else the first pattern the name as given
+      # matches, else the default.
+      def static_rate(model, provider = nil)
+        if ollama?(model, provider) && (row = ollama_names(model).filter_map { |name| OLLAMA_CLOUD_RATES[name] }.first)
+          return { input: row[0], output: row[1], source: "catalog" }
+        end
+
         if (exact = STATIC_RATES[normalize(model)])
           return { input: exact[0], output: exact[1], source: "pattern" }
         end

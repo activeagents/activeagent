@@ -55,9 +55,11 @@ test('the comparison table shows P50 / P95 beside the mean latency', () => {
     rows: [row('qwen3:4b-instruct', { p50DurationMs: 4020, p95DurationMs: 22200 }), row('phi4-mini:latest')],
   });
 
-  assert.match(html, />Avg latency<\/th><th[^>]*>P50 \/ P95<\/th>/);
-  assert.match(html, /data-testid="model-comparison-percentiles"[^>]*>4\.02s \/ 22\.2s<\/td>/);
-  assert.match(html, /data-testid="model-comparison-percentiles"[^>]*>—<\/td>/, 'a model with none recorded reads as missing');
+  const heads = [...html.matchAll(/<th [^>]*data-key="([^"]+)"/g)].map((match) => match[1]);
+  assert.deepEqual(heads.slice(heads.indexOf('avgDurationMs'), heads.indexOf('avgDurationMs') + 2), ['avgDurationMs', 'p95DurationMs'], 'P50 / P95 sits beside the mean latency');
+  assert.match(html, /data-key="p95DurationMs"[^>]*>(?:(?!<\/th>).)*>P50 \/ P95<\/span>/);
+  assert.match(html, /data-testid="model-comparison-percentiles"[^>]*><span class="aa-pill" data-rank="none"[^>]*>4\.02s \/ 22\.2s<\/span>/);
+  assert.match(html, /data-testid="model-comparison-percentiles"[^>]*><span class="aa-pill" data-rank="none"[^>]*>—<\/span>/, 'a model with none recorded reads as missing');
 });
 
 test('a run that recorded no percentiles has no P50 / P95 column', () => {
