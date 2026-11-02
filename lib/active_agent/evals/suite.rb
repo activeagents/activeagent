@@ -6,13 +6,19 @@ module ActiveAgent
     # layered over earlier ones: a scenario with a key already present replaces
     # it, a new key is appended to its group, and a new group is appended to the
     # suite. That is how an app keeps a shared suite and lets a deployment add or
-    # reword questions.
+    # reword questions. A `pass` block, on the suite and on a group, declares
+    # the bars a run is held to (PassThresholds); later documents override it
+    # key by key at both levels.
     #
     #   suite: support_desk
     #   description: Questions the support team asks every week
+    #   pass:
+    #     threshold: 0.7
+    #     min_pass_rate: 0.8
     #   groups:
     #     - key: open_tickets
     #       name: Open tickets
+    #       pass: { min_pass_rate: 1.0 }
     #       scenarios:
     #         - key: open_tickets_1
     #           prompt: Which open tickets mention a refund?
@@ -23,7 +29,7 @@ module ActiveAgent
     class Suite
       class NotFound < StandardError; end
 
-      attr_reader :name, :description, :groups
+      attr_reader :name, :description, :groups, :pass_thresholds
 
       # Loads the documents at `paths` (missing files are skipped) and raises
       # NotFound when none exist.
@@ -40,6 +46,7 @@ module ActiveAgent
         documents = Array(documents).map(&:deep_stringify_keys)
         @name = documents.filter_map { |doc| doc["suite"] }.last || name
         @description = documents.filter_map { |doc| doc["description"] }.last
+        @pass_thresholds = PassThresholds.from_documents(documents)
         @groups = merge_groups(documents)
       end
 
@@ -80,6 +87,7 @@ module ActiveAgent
             if existing
               existing["name"] = incoming["name"] if incoming["name"].present?
               existing["description"] = incoming["description"] if incoming["description"].present?
+              existing["pass"] = (existing["pass"] || {}).merge(incoming["pass"]) if incoming["pass"].present?
               merge_scenarios(existing, Array(incoming["scenarios"]))
             else
               groups << incoming.merge("scenarios" => Array(incoming["scenarios"]))

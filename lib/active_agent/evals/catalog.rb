@@ -16,11 +16,13 @@ module ActiveAgent
     #     - key: triage
     #       name: Triage agent
     #       agent: TriageAgent            # the agent class, or a dashboard agent's name
+    #       pass: { min_pass_rate: 0.8 }  # optional; the product's bars (PassThresholds)
     #       sets:
     #         - key: smoke
     #           name: Smoke
     #           judge: { kind: rules }    # optional; an evaluation's judge_kind and judge_model
     #           criteria: []              # optional; an evaluation's criteria
+    #           pass: { gated: false }    # optional; the set's own bars
     #           scenarios:
     #             - key: refund_request
     #               prompt: A customer asks for a refund on order 1042.
@@ -47,12 +49,12 @@ module ActiveAgent
 
       # The keys a product, set or scenario may carry. Anything else is kept
       # under `metadata` so a document round-trips.
-      PRODUCT_KEYS = %w[key name description agent sets].freeze
-      SET_KEYS = %w[key name description judge criteria scenarios].freeze
+      PRODUCT_KEYS = %w[key name description agent pass sets].freeze
+      SET_KEYS = %w[key name description judge criteria pass scenarios].freeze
       SCENARIO_KEYS = %w[key prompt expect expectations tools contains not_contains notes tags params production_only position].freeze
       CATALOG_KEYS = %w[catalog name description products suite groups].freeze
 
-      Product = Struct.new(:key, :name, :description, :agent, :metadata, :sets, :position, keyword_init: true) do
+      Product = Struct.new(:key, :name, :description, :agent, :pass, :metadata, :sets, :position, keyword_init: true) do
         def set(key)
           sets.find { |set| set.key == key.to_s }
         end
@@ -62,7 +64,7 @@ module ActiveAgent
         end
       end
 
-      Set = Struct.new(:key, :name, :description, :judge, :criteria, :metadata, :scenarios, :position, keyword_init: true)
+      Set = Struct.new(:key, :name, :description, :judge, :criteria, :pass, :metadata, :scenarios, :position, keyword_init: true)
 
       attr_reader :key, :name, :description, :metadata, :products
 
@@ -136,14 +138,21 @@ module ActiveAgent
 
       # One product's sets as a Suite (every set a group), or one set alone,
       # for code that takes a suite: `Runner.new(scenarios: catalog.suite_for(:triage).scenarios, ...)`.
+      # The product's `pass` is the suite's and each set's its group's.
       def suite_for(product_key, set_key = nil)
         found = product(product_key)
         sets = set_key ? [ set(product_key, set_key) ] : found.sets
         Suite.new([ {
           "suite" => [ key, found.key, set_key ].compact.join("/"),
           "description" => found.description || description,
+          "pass" => found.pass,
           "groups" => sets.map { |entry| set_document(entry) }
         } ])
+      end
+
+      # The bars a product, or one of its sets, declares (PassThresholds).
+      def pass_thresholds(product_key, set_key = nil)
+        suite_for(product_key, set_key).pass_thresholds
       end
 
       # The canonical document: keys in a fixed order, nothing empty, so the
@@ -182,8 +191,9 @@ module ActiveAgent
             "key" => product_key,
             "name" => document["name"].presence || product_key,
             "description" => document["description"],
+            "pass" => document["pass"],
             "sets" => Array(document["groups"])
-          } ]
+          }.compact ]
         }.compact
       end
 
@@ -196,6 +206,7 @@ module ActiveAgent
             existing = products.find { |product| product["key"] == incoming["key"].to_s }
             if existing
               %w[name description agent].each { |field| existing[field] = incoming[field] if incoming[field].present? }
+              merge_pass(existing, incoming["pass"], "product #{existing['key'].inspect}")
               existing.merge!(incoming.except(*PRODUCT_KEYS))
               merge_sets(existing, Array(incoming["sets"]))
             else
@@ -214,6 +225,7 @@ module ActiveAgent
           existing = product["sets"].find { |set| set["key"] == incoming["key"].to_s }
           if existing
             %w[name description judge criteria].each { |field| existing[field] = incoming[field] if incoming[field].present? }
+            merge_pass(existing, incoming["pass"], "set #{existing['key'].inspect} of product #{product['key'].inspect}")
             existing.merge!(incoming.except(*SET_KEYS))
             merge_scenarios(existing, Array(incoming["scenarios"]))
           else
@@ -221,6 +233,12 @@ module ActiveAgent
               .tap { |set| merge_scenarios(set, Array(incoming["scenarios"])) }
           end
         end
+      end
+
+      # A later document's `pass` layers over the existing one key by key.
+      def merge_pass(existing, incoming, place)
+        incoming = pass_block(incoming, place)
+        existing["pass"] = pass_block(existing["pass"], place).merge(incoming) if incoming.any?
       end
 
       def merge_scenarios(set, incoming_scenarios)
@@ -237,25 +255,28 @@ module ActiveAgent
 
       def build_products(documents)
         documents.each_with_index.map do |product, position|
+          sets = product["sets"].each_with_index.map { |set, set_position| build_set(set, set_position, product["key"]) }
           Product.new(
             key: product["key"],
             name: product["name"].presence || product["key"],
             description: product["description"].presence,
             agent: product["agent"].presence&.to_s,
+            pass: validated_pass(product["pass"], PassThresholds::SUITE_KEYS, "product #{product['key'].inspect}"),
             metadata: product.except(*PRODUCT_KEYS),
             position: position,
-            sets: product["sets"].each_with_index.map { |set, set_position| build_set(set, set_position) }
+            sets: sets
           )
         end
       end
 
-      def build_set(set, position)
+      def build_set(set, position, product_key)
         Set.new(
           key: set["key"],
           name: set["name"].presence || set["key"],
           description: set["description"].presence,
           judge: (set["judge"] || {}).to_h.stringify_keys,
           criteria: Array(set["criteria"]).map { |criterion| criterion.to_h.deep_stringify_keys },
+          pass: validated_pass(set["pass"], PassThresholds::GROUP_KEYS, "set #{set['key'].inspect} of product #{product_key.inspect}"),
           metadata: set.except(*SET_KEYS),
           position: position,
           scenarios: set["scenarios"].each_with_index.map do |entry, index|
@@ -264,12 +285,34 @@ module ActiveAgent
         )
       end
 
+      # A `pass` block as a string-keyed Hash, {} when absent, checked the
+      # way PassThresholds reads it (`allowed` is SUITE_KEYS for a product,
+      # GROUP_KEYS for a set) so a block the suite would refuse fails the
+      # catalog as it loads rather than the first run that asks for it; a
+      # refusal names the product or set the block sits on.
+      def validated_pass(value, allowed, place)
+        pass = pass_block(value, place)
+        PassThresholds.validate(pass, allowed, place)
+        pass
+      rescue ArgumentError => e
+        raise InvalidDocument, e.message
+      end
+
+      # A `pass` block as a string-keyed Hash, {} when absent; anything but
+      # a mapping is refused naming the product or set it sits on.
+      def pass_block(value, place)
+        PassThresholds.pass_block(value, place)
+      rescue ArgumentError => e
+        raise InvalidDocument, e.message
+      end
+
       def product_document(product)
         compact({
           "key" => product.key,
           "name" => product.name,
           "description" => product.description,
           "agent" => product.agent,
+          "pass" => product.pass,
           "sets" => product.sets.map { |set| set_document(set) }
         }.merge(product.metadata))
       end
@@ -281,6 +324,7 @@ module ActiveAgent
           "description" => set.description,
           "judge" => set.judge,
           "criteria" => set.criteria,
+          "pass" => set.pass,
           "scenarios" => set.scenarios.map { |scenario| scenario_document(scenario) }
         }.merge(set.metadata))
       end

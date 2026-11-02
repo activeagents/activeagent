@@ -7,6 +7,7 @@ require "test_helper"
 class EvalsStandaloneLoadTest < ActiveSupport::TestCase
   SCRIPT = File.expand_path("support/standalone_correlation_script.rb", __dir__)
   RUBY_LLM_SCRIPT = File.expand_path("support/standalone_ruby_llm_script.rb", __dir__)
+  CATALOG_SCRIPT = File.expand_path("support/standalone_catalog_script.rb", __dir__)
   LIB = File.expand_path("../../lib", __dir__)
 
   def test_the_evaluation_module_and_a_correlated_run_load_without_the_framework
@@ -15,6 +16,10 @@ class EvalsStandaloneLoadTest < ActiveSupport::TestCase
 
   def test_the_ruby_llm_glue_is_an_opt_in_require_on_top_of_the_module
     assert_equal "ok", run_standalone(RUBY_LLM_SCRIPT)
+  end
+
+  def test_a_catalog_and_its_bars_load_without_the_framework
+    assert_equal "ok", run_standalone(CATALOG_SCRIPT)
   end
 
   private

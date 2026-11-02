@@ -502,21 +502,41 @@ module ActiveAgent
         MATRIX
       end
 
+      # A group's row: each model's passes over the row's scenarios, toned
+      # against the group's bar when the suite declared one — the row's own
+      # pass rate at or above it green, below it red, an ungated group
+      # plain, with the bar as the tooltip — and otherwise green when every
+      # scenario passed and red when none did. A row with a group name but
+      # no group key has no bar to read.
       def html_group_row(cohorts)
-        name = group_name(cohorts.first.first.scenario)
+        scenario = cohorts.first.first.scenario
+        name = group_name(scenario)
+        gated = pass_thresholds && scenario.group.present?
+        gates_by_label = gated ? gates.select { |gate| gate.group == scenario.group }.index_by(&:label) : {}
         passes = @models.map do |spec|
           results = cohorts.filter_map { |cohort| cohort.find { |result| result.label == spec.label } }
+          next %(<span class="group-pass">—</span>) if results.empty?
+
           passed = results.count(&:passed?)
-          tone =
-            if results.empty? then ""
-            elsif passed == results.size then " text-success"
-            elsif passed.zero? then " text-error"
-            else ""
-            end
-          %(<span class="group-pass#{tone}">#{results.empty? ? '—' : "#{h(fmt_passes(passed, results.size))} passed"}</span>)
+          tone, title = html_group_tone(passed, results.size, gates_by_label[spec.label])
+          %(<span class="group-pass#{tone}"#{title}>#{h(fmt_passes(passed, results.size))} passed</span>)
         end
         %(<div class="mx group"><span class="group-name">#{h(name)}</span>) +
           %(<span class="count">#{h(plural(cohorts.size, 'scenario'))}</span>#{passes.join}#{html_group_cost(cohorts)}</div>)
+      end
+
+      # [tone class, title attribute] for a group-pass span: the row's own
+      # counts against its gate's bar when there is one, so a group split
+      # across the run tones each row by what that row shows; else from the
+      # counts alone, with no title.
+      def html_group_tone(passed, total, gate)
+        if gate
+          tone = gate.gated ? (passed.to_f / total >= gate.min_pass_rate ? " text-success" : " text-error") : ""
+          [ tone, %( title="#{h(gate.gated ? "pass rate ≥ #{Format.percent(gate.min_pass_rate)}" : 'not gated')}") ]
+        elsif passed == total then [ " text-success", "" ]
+        elsif passed.zero? then [ " text-error", "" ]
+        else [ "", "" ]
+        end
       end
 
       # The group's subtotal — its scenarios' costs summed, judge apart — in

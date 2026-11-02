@@ -14,7 +14,33 @@ module ActiveAgent
       # pass rate itself, no judge having been available to rule on them.
       PASS_RATE_JUDGE = "pass rate"
 
-      attr_reader :results, :models, :judge, :judge_label, :instructions, :metadata, :agent_name, :links, :tool_resolver
+      attr_reader :results, :models, :judge, :judge_label, :instructions, :metadata, :agent_name, :links, :tool_resolver,
+                  :pass_thresholds
+
+      # One group's (or the whole report's, with group nil and name "All")
+      # pass rate under one model against the bar the suite set for it.
+      # `pass_rate` and `min_pass_rate` are 0..1 fractions, so they compare
+      # directly and render with Format.percent; an ungated row is always met.
+      Gate = Struct.new(:group, :name, :label, :passed, :total, :pass_rate, :min_pass_rate, :gated, keyword_init: true) do
+        def met?
+          !gated || pass_rate >= min_pass_rate
+        end
+
+        def to_h
+          super.transform_keys(&:to_s).merge("met" => met?)
+        end
+
+        # "Order support · gpt-5-mini: 1/2 (50%) passed, below 100%" — one
+        # sentence a failing assertion can print.
+        def to_s
+          bar =
+            if !gated then "not gated"
+            elsif met? then "at or above #{Format.percent(min_pass_rate)}"
+            else "below #{Format.percent(min_pass_rate)}"
+            end
+          "#{name} · #{label}: #{Format.passes(passed, total, style: :markdown)} passed, #{bar}"
+        end
+      end
 
       # @param tool_resolver [#call, nil] maps a tool name to the MCP server
       #   that provides it — `{ "key", "name", "status" }` with status
@@ -41,15 +67,22 @@ module ActiveAgent
       # @param comparison [Hash, nil] a comparison already recorded for these
       #   results (Comparison#to_h). A report rebuilt from a persisted run
       #   renders the intervals that run recorded instead of resampling them.
-      def initialize(results:, models:, judge: nil, instructions: nil, threshold: PASS_THRESHOLD, metadata: {},
+      # @param threshold [Float, nil] the score an answer must reach to pass
+      #   a criterion; an explicit value wins over the `pass_thresholds` bar,
+      #   and without either it is PASS_THRESHOLD
+      # @param pass_thresholds [PassThresholds, nil] the bars the suite
+      #   declared: its threshold applies when none is given here, #gates
+      #   and #passed? read them, and `to_h` carries them with the per-group
+      #   summary and the gates.
+      def initialize(results:, models:, judge: nil, instructions: nil, threshold: nil, metadata: {},
                      tool_resolver: nil, agent_name: nil, links: {}, verdict: nil, judge_label: nil,
-                     judge_usage: nil, release: nil, comparison: nil)
+                     judge_usage: nil, release: nil, comparison: nil, pass_thresholds: nil)
         @results = results
         @models = models
         @judge = judge
         @judge_label = judge_label.presence
         @instructions = instructions
-        @threshold = threshold
+        @threshold = threshold || pass_thresholds&.threshold || PASS_THRESHOLD
         @metadata = metadata
         @tool_resolver = tool_resolver
         @agent_name = agent_name.presence || "the agent"
@@ -58,6 +91,7 @@ module ActiveAgent
         @run_judge_usage = judge_usage.is_a?(Hash) ? judge_usage.to_h.stringify_keys.presence : nil
         @release = release.is_a?(Hash) ? release.to_h.stringify_keys.compact.presence : nil
         @recorded_comparison = comparison.is_a?(Hash) ? comparison.to_h.deep_stringify_keys.presence : nil
+        @pass_thresholds = pass_thresholds
       end
 
       # The release of the agent this report scored, `{ "digest",
@@ -109,6 +143,55 @@ module ActiveAgent
             "faults" => cohort.filter_map(&:fault).tally
           } ]
         end
+      end
+
+      # Per group key, in run order, then per model under "models" (keyed by
+      # label, only the models with a result in the group): scenario count,
+      # passes, errors, pass rate as a percent, mean score and fault counts,
+      # counted as summary_by_model counts them. "name" is the group's
+      # display name, or its key. Scenarios with no group are left out.
+      def summary_by_group
+        @summary_by_group ||= begin
+          grouped = @results.select { |result| result.scenario.group.present? }.group_by { |result| result.scenario.group }
+          grouped.to_h do |group, cohort|
+            models = @models.filter_map do |spec|
+              rows = cohort.select { |result| result.label == spec.label }
+              [ spec.label, cohort_summary(rows) ] if rows.any?
+            end
+            [ group, { "name" => group_name(cohort.first.scenario), "models" => models.to_h } ]
+          end
+        end
+      end
+
+      # One Gate per group and model with results there, in summary_by_group
+      # order, then one per model for the whole report (group nil, name
+      # "All") over every gated result of that model, ungrouped results
+      # included; a model with no gated result has no "All" row. Each row
+      # carries the bar `thresholds` sets for its group.
+      def gates(thresholds = pass_thresholds || PassThresholds.default)
+        rows = summary_by_group.flat_map do |group, summary|
+          summary["models"].map do |label, stats|
+            gate(group, summary["name"], label, stats["passed"], stats["scenarios"],
+                 thresholds.min_pass_rate(group), thresholds.gated?(group))
+          end
+        end
+        gated = @results.select { |result| thresholds.gated?(result.scenario.group) }
+        rows + @models.filter_map do |spec|
+          cohort = gated.select { |result| result.label == spec.label }
+          gate(nil, "All", spec.label, cohort.count(&:passed?), cohort.size, thresholds.min_pass_rate(nil), true) if cohort.any?
+        end
+      end
+
+      # Whether every gate is met.
+      def passed?(thresholds = pass_thresholds || PassThresholds.default)
+        gates(thresholds).all?(&:met?)
+      end
+
+      # The results that did not pass — failed and errored — in run order,
+      # narrowed to one group when given.
+      def failures(group: nil)
+        failed = @results.reject(&:passed?)
+        group.nil? ? failed : failed.select { |result| result.scenario.group.to_s == group.to_s }
       end
 
       # Per scenario key, in run order: what every model's answer cost
@@ -286,9 +369,11 @@ module ActiveAgent
         @comparison ||= @recorded_comparison || Comparison.new(results: @results, models: @models).to_h
       end
 
-      # Adds "judge_usage" and "release" only when there is one to add, and
-      # "comparison" only when comparing models, so a single-model report
-      # built the way it always was serializes exactly as before.
+      # Adds "judge_usage" and "release" only when there is one to add,
+      # "comparison" only when comparing models, and "pass_thresholds" with
+      # the per-group summary ("groups") and the "gates" only when the suite
+      # declared its bars, so a single-model report built the way it always
+      # was serializes exactly as before.
       def to_h
         {
           "models" => summary_by_model,
@@ -296,6 +381,9 @@ module ActiveAgent
           "recommendations" => recommendations,
           "verdict" => verdict,
           "comparison" => comparison,
+          "pass_thresholds" => pass_thresholds&.to_h,
+          "groups" => (summary_by_group if pass_thresholds),
+          "gates" => (gates.map(&:to_h) if pass_thresholds),
           "judge" => @judge_label || @judge&.label,
           "judge_usage" => judge_usage,
           "release" => release,
@@ -341,6 +429,25 @@ module ActiveAgent
 
       def criterion_keys
         @results.flat_map { |result| result.scores.keys }.uniq
+      end
+
+      # One model's counts over the results of a group, the way
+      # summary_by_model counts a model's whole cohort.
+      def cohort_summary(cohort)
+        scored = cohort.filter_map(&:score)
+        {
+          "scenarios" => cohort.size,
+          "passed" => cohort.count(&:passed?),
+          "errored" => cohort.count(&:errored?),
+          "pass_rate" => cohort.any? ? (cohort.count(&:passed?) * 100.0 / cohort.size).round(1) : 0.0,
+          "avg_score" => scored.any? ? (scored.sum / scored.size).round(3) : nil,
+          "faults" => cohort.filter_map(&:fault).tally
+        }
+      end
+
+      def gate(group, name, label, passed, total, min_pass_rate, gated)
+        Gate.new(group: group, name: name, label: label, passed: passed, total: total,
+                 pass_rate: passed.to_f / total, min_pass_rate: min_pass_rate, gated: gated)
       end
 
       def stats_for(values)
