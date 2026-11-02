@@ -829,6 +829,14 @@ module ActionAgent
     # @return [ActiveSupport::Duration, nil]
     attr_accessor :input_request_ttl
 
+    # How long a claimed run stays its worker's without news from it. Each
+    # claim (the execution job's, the resume job's, a synchronous test run's)
+    # takes a lease this long under a token of its own, and each LLM or tool
+    # call the run makes renews it. 30 minutes by default. nil takes no
+    # leases, as before migration 033.
+    # @return [ActiveSupport::Duration, nil]
+    attr_accessor :run_lease_duration
+
     # Whether API keys and provider credentials are encrypted at rest with
     # Active Record Encryption. On by default, which requires the host app
     # to have run `rails db:encryption:init`. Turning it off stores those
@@ -1356,6 +1364,7 @@ module ActionAgent
       @agent_polymorphic_name = nil
       @encrypt_credentials = true
       @input_request_ttl = 1.day
+      @run_lease_duration = 30.minutes
       @github_client_id = nil
       @github_client_secret = nil
       @github_oauth_scopes = "repo read:user"
