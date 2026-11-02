@@ -492,12 +492,14 @@ module ActionAgent
 
     # Quick test execution (synchronous). A run that pauses for input comes
     # back `awaiting_input` with its requests stored, and AgentResumeJob
-    # finishes it once they are answered.
+    # finishes it once they are answered. The run is created running, under
+    # a lease, as a job's claim would leave it.
     def test_execute(input_prompt, action: nil, attachments: [], actor: nil, runtime_sandbox: nil, **params)
       ensure_executable!
       run = create_run(
         input_prompt, action: action, attachments: attachments, params: params,
-        actor: actor, runtime_sandbox: runtime_sandbox, status: :running, started_at: Time.current
+        actor: actor, runtime_sandbox: runtime_sandbox, status: :running, started_at: Time.current,
+        **AgentRun.lease_attributes
       )
       run.actor = actor
 

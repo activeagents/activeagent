@@ -46,11 +46,12 @@ module ActionAgent
     # with Rails 7.2, whose deferred transactions cannot write once another
     # writer has committed. Nothing is held over the generation, so a cancel
     # never waits for it. The update skips callbacks, so the status change is
-    # broadcast here.
+    # broadcast here. The claim takes the run's lease (AgentRun.lease_attributes),
+    # so the reloaded run carries this worker's token.
     def claim_pending(run)
       now = Time.current
       claimed = AgentRun.where(id: run.id, status: AgentRun.statuses[:pending])
-        .update_all(status: AgentRun.statuses[:running], started_at: now, updated_at: now)
+        .update_all(status: AgentRun.statuses[:running], started_at: now, updated_at: now, **AgentRun.lease_attributes(now))
       return false if claimed.zero?
 
       run.reload

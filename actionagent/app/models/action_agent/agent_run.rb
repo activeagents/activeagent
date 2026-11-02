@@ -165,6 +165,37 @@ module ActionAgent
       end
     end
 
+    # Whether migration 033's lease columns are installed. A host that
+    # upgraded the gem without running the generator takes no leases and
+    # runs as before, instead of failing every claim on a missing column.
+    def self.execution_leases?
+      (%w[execution_token execution_expires_at] - column_names).empty?
+    end
+
+    # The attributes a claim writes to take a run for one execution segment:
+    # a token of its own, and an expiry ActionAgent.run_lease_duration from
+    # +now+. Empty when leases are off (no columns, or no duration).
+    # @return [Hash]
+    def self.lease_attributes(now = Time.current)
+      duration = ActionAgent.run_lease_duration
+      return {} unless duration && execution_leases?
+
+      { execution_token: SecureRandom.uuid, execution_expires_at: now + duration }
+    end
+
+    # Pushes the lease's expiry out by ActionAgent.run_lease_duration, while
+    # the run is still running under this copy's token. A run that finished,
+    # paused, or was taken under another token is left alone. Returns
+    # whether the lease was renewed.
+    # @return [Boolean]
+    def renew_lease!(now = Time.current)
+      duration = ActionAgent.run_lease_duration
+      return false unless duration && self.class.execution_leases? && execution_token
+
+      self.class.where(id: id, status: self.class.statuses[:running], execution_token: execution_token)
+        .update_all(execution_expires_at: now + duration) == 1
+    end
+
     # Callbacks
     before_validation :set_trace_id, on: :create
     after_update_commit :broadcast_update, if: :saved_change_to_status?
@@ -185,6 +216,7 @@ module ActionAgent
     # a "started" event is pending until a "done"/"error" with the same eid
     # lands. update_column: no validations/callbacks, safe from the run's own
     # execution thread; reads current DB state so add_log interleaves safely.
+    # An event is the run's sign of progress, so it renews the run's lease.
     def append_event(eid:, kind:, label:, status: "done", detail: nil, duration_ms: nil)
       event = {
         "at" => Time.current.iso8601(3),
@@ -197,6 +229,7 @@ module ActionAgent
       event["duration_ms"] = duration_ms if duration_ms
       current = self.class.where(id: id).pick(:logs) || []
       update_column(:logs, current + [ event ])
+      renew_lease!
       event
     end
 
