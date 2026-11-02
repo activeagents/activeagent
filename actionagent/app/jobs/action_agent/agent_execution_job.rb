@@ -12,6 +12,9 @@ module ActionAgent
       # retry of a failed run would re-run the generation.
       return unless claim_pending(run)
 
+      # This worker's lease: only while the run is still running under it is
+      # the result recorded.
+      token = run.execution_token
       run.add_log("Starting execution", level: :info)
 
       begin
@@ -20,12 +23,12 @@ module ActionAgent
         # Build the agent class dynamically based on configuration
         result = execute_agent(agent_record, run)
 
-        run.unless_cancelled do
+        run.unless_cancelled(token: token) do
           run.record_result!(result, segment_started_at: run.started_at)
           run.add_log(result[:input_requests].present? ? "Execution paused for input" : "Execution completed successfully", level: :info)
         end
       rescue => e
-        run.unless_cancelled do
+        run.unless_cancelled(token: token) do
           run.record_failure!(e)
           run.add_log("Execution failed: #{e.message}", level: :error)
         end
