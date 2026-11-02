@@ -37,7 +37,9 @@ module ActionAgent
   # rules (single-user, per-user, or multi-tenant) decide what is visible.
   # The same goes for checkout sandbox runtimes: the caller hands in the live
   # ones it may see (SandboxSession.runtime_server_listings), and they are
-  # listed beside the catalog under their "sandbox:<session_id>" keys.
+  # listed beside the catalog under their "sandbox:<session_id>" keys. The
+  # servers the owner added (MCPServerConfig.listings) are handed in the same
+  # way, under their "custom:<id>" keys.
   class ToolDiscovery
     DEFAULT_WINDOW_HOURS = 24 * 7
     MAX_WINDOW_HOURS = 24 * 90
@@ -543,6 +545,8 @@ module ActionAgent
         # from traffic is real but undocumented here, and the view says so.
         known: !catalog.nil?,
         runtime: runtime,
+        # A server the owner added on the MCP Services page ("custom:<id>").
+        custom: MCPServerConfig.key?(key),
         status: server_status(calls, configured, catalog),
         calls: calls,
         errors: bucket ? bucket[:errors] : 0,

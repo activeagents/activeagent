@@ -55,6 +55,7 @@ module ActionAgent
         },
         estimated_cost: ModelPricing.estimate(
           model: @trace.model,
+          provider: @trace.provider,
           input_tokens: @trace.total_input_tokens,
           output_tokens: @trace.total_output_tokens
         )

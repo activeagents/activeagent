@@ -336,6 +336,7 @@ module ActiveAgent
         exception_handler:,
         stream_broadcaster:,
         tools_function:,
+        tool_observer:,
         action_name: generation_action_name,
         input_request_resume: @_input_request_resume,
         announce_input_requests: !input_requests_silenced?

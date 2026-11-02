@@ -9,10 +9,12 @@ module ActionAgent
     # side, so the UI can't drift stale). Ollama is queried live from the
     # caller's effective host (see ProviderCredentials: their personal key,
     # the host resolver's, the account's, falling back to the platform
-    # config) so locally pulled models appear; OpenRouter is queried from its
-    # public catalog, and Anthropic from its Models API with the caller's
-    # effective key. Live lookups fall back to the curated list on any
-    # failure, and when the caller's credentials cannot be resolved.
+    # config) so locally pulled models appear — or, when the host is Ollama
+    # Cloud, the cloud's models, which the response marks (`cloud`) and
+    # prices (`rates`, per model a price list names); OpenRouter is queried
+    # from its public catalog, and Anthropic from its Models API with the
+    # caller's effective key. Live lookups fall back to the curated list on
+    # any failure, and when the caller's credentials cannot be resolved.
     #
     # When the host app loads RubyLLM, the chat models its registry lists for
     # the provider that take and return text follow: RubyLLM's bundled
@@ -51,7 +53,9 @@ module ActionAgent
           source = "curated"
         end
 
-        render json: { provider: provider, models: (models + registry_models(provider)).uniq, source: source }
+        payload = { provider: provider, models: (models + registry_models(provider)).uniq, source: source }
+        payload.merge!(ollama_detail) if provider == "ollama"
+        render json: payload
       end
 
       private
@@ -101,7 +105,15 @@ module ActionAgent
           return nil
         end
 
+        @ollama_probe = result
         [ result.models, "live" ] if result.models.any?
+      end
+
+      # What the live lookup learned about the caller's Ollama host: whether
+      # it is Ollama Cloud (nil when no host answered), and the rate of
+      # every listed model a price list names, in $ per million tokens.
+      def ollama_detail
+        { cloud: @ollama_probe&.cloud, rates: @ollama_probe&.rates || {} }
       end
 
       # Queries the Anthropic Models API with the caller's effective key
