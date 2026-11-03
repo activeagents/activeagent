@@ -148,7 +148,8 @@ module ActiveAgent
             cached_tokens:         sum_optional(self.cached_tokens,         other.cached_tokens),
             cache_creation_tokens: sum_optional(self.cache_creation_tokens, other.cache_creation_tokens),
             reasoning_tokens:      sum_optional(self.reasoning_tokens,      other.reasoning_tokens),
-            audio_tokens:          sum_optional(self.audio_tokens,          other.audio_tokens)
+            audio_tokens:          sum_optional(self.audio_tokens,          other.audio_tokens),
+            duration_ms:           sum_optional(self.duration_ms,           other.duration_ms)
           )
         end
 
