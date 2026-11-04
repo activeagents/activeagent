@@ -261,11 +261,75 @@ traced through `Correlation#judge` under the kind it serves (`score`,
   called with each chat before it is asked, for any other `with_*` setting.
 - Any other keyword goes to `chat` itself, so it must be one
   `RubyLLM::Chat.new` takes — `protocol:` on RubyLLM 2.x. Anything else raises
-  `ArgumentError` when the judge is built, not on every call.
+  `ArgumentError` when the judge is built, not on every call, and
+  `verify: true` makes a missing key fail there too: the judge's own label,
+  model and provider go through `verify!` (below) with its `context`, so a
+  judge whose provider has no key refuses when it is built rather than at
+  its first grade, after the agent has already been replayed. The default
+  stays lazy.
 - `on_usage:` is called after each answered call with
   `{ "kind", "model", "input_tokens", "output_tokens", "cost" }`, for a host
   that meters what its judge spends. An error it raises is logged, never
   allowed to cost the grade.
+
+**`verify!`** checks, before a run spends anything, that each of its models
+can be built on the context it will run under. `verify!(models, context:)`
+takes the run's `ModelSpec`s (or anything answering `label`, `provider` and
+`model`; a single spec is wrapped), builds
+`context.chat(model:, provider:, assume_model_exists: true)` for each in
+order, and returns them. Building the chat is where RubyLLM resolves the
+model locally and instantiates the provider, which checks its keys, so
+nothing is sent over the network. The first spec that cannot run raises
+`RubyLLM::ConfigurationError`, and the message says what to change:
+
+- A provider RubyLLM has not registered — `claude-sonnet-5 runs on acme,
+  which is not a RubyLLM provider; RubyLLM knows anthropic, azure, bedrock, …`.
+- A provider outside `providers:` — `claude-sonnet-5 runs on anthropic;
+  credentials are configured for openai, ollama`. Pass `providers:` (provider
+  names, as Strings or Symbols) from a host that configures keys for some
+  providers only, and the refusal names the ones it has before any chat is
+  built.
+- A provider the context cannot build — `claude-sonnet-5 runs on anthropic,
+  which has no API key. Set ANTHROPIC_API_KEY.` The names to set are the
+  provider's `configuration_requirements` that the context's configuration
+  leaves unset, upcased; when they are not all keys the refusal reads
+  `qwen3:8b runs on ollama, which is not configured. Set OLLAMA_API_BASE.`
+  When every listed requirement is set and RubyLLM refuses anyway — a
+  credential it checks beyond them, a deployment it cannot resolve — or on a
+  RubyLLM without that reader, the refusal carries RubyLLM's own message:
+  `support-deploy runs on azure: Deployment "support-deploy" points to
+  unknown model …`. RubyLLM's error is the cause either way.
+
+Run it before `Runner.new`, so a run over three models refuses before its
+first replay rather than when the third model's first call raises, with the
+first two already paid for. A judge is lazy — its chat is created on the
+first grade — so build it with `verify: true` too, and one whose provider has
+no key refuses when it is built:
+
+```ruby
+context = RubyLLM.context { |config| config.openai_api_key = ENV["OPENAI_API_KEY"] }
+models = ActiveAgent::Evals::ModelSpec.parse_all(%w[gpt-5-mini gpt-5], default_provider: "openai")
+
+ActiveAgent::Evals::RubyLLM.verify!(models, context: context)   # => models
+judge = ActiveAgent::Evals::RubyLLM.judge(label: "gpt-5", model: "gpt-5", provider: :openai,
+                                          context: context, verify: true)
+
+ActiveAgent::Evals::Runner.new(scenarios: scenarios, models: models, replay: replay, judge: judge).call
+```
+
+With a model on a provider the context has no key for, each call refuses
+before anything runs:
+
+```ruby
+models = ActiveAgent::Evals::ModelSpec.parse_all(%w[gpt-5-mini claude-sonnet-5], default_provider: "openai")
+
+ActiveAgent::Evals::RubyLLM.verify!(models, context: context)
+# raises RubyLLM::ConfigurationError: claude-sonnet-5 runs on anthropic, which has no API key. Set ANTHROPIC_API_KEY.
+
+ActiveAgent::Evals::RubyLLM.judge(label: "claude-opus-5", model: "claude-opus-5", provider: :anthropic,
+                                  context: context, verify: true)
+# raises the same way here, rather than at the judge's first grade
+```
 
 **`replay`** turns an ordered list of messages — `acts_as_chat` records of
 either RubyLLM generation, `RubyLLM::Message` values, an Array or a relation —
