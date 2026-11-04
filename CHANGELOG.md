@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.9.7] - 2026-11-04
+
+Evaluations an application runs in its own test suite, and the dashboard
+pieces around them: a suite declares the pass rate each group of questions
+must reach (`pass`), and `assert_meets_pass_gates` or RSpec's
+`meet_its_pass_gates` holds a run to it; scenarios replay a set number of
+trials; the judge can skip an answer that already failed its expectations;
+`Patterns` builds the regex for a count or a share a seeded scenario
+expects; scenario keys select strictly; named criteria lists layer per
+audience; `ActiveAgent::Evals::RubyLLM.verify!` checks every model's
+credentials before a run; and the publisher builds itself from the
+environment and returns links that open. Alongside them: Ollama Cloud,
+scoring leases, catalog scenario extensions kept, evaluation catalogs
+without Rails, ranked comparison tables, and users' own remote MCP servers.
+
 Upgrading: three dashboard migrations, 030 `add_evaluation_scoring_leases`
 (the scoring lease columns on `evaluation_scenario_results`), 031
 `add_catalog_scenario_metadata` (the `metadata` column on
