@@ -607,8 +607,10 @@ case-insensitive substring and then as a regex (`Scorer.matches_pattern?`),
 so an entry can be a word or a pattern. `ActiveAgent::Evals::Patterns.number(count)`
 and `Patterns.share(count, total)` build the regex for a figure and for a
 percentage: `number(10)` matches the `10` in `10 sessions` or `(10)` and not
-the one in `2026-10-01`, `10.5` or `110`; `share(3, 4)` matches `75%`,
-`75 %` and `75.0%` and not `175%` or `7.5%`. A scenario seeded with known
+the one in `2026-10-01`, `Oct 10`, `10 October`, `1–10`, `10.5` or `110`,
+nor in a ratio such as `10/22`, which reads as a date as often as a count
+(expect `10 of 22`); `share(3, 4)` matches `75%`, `75 %`, `75.0%` and
+`75.00%` and not `175%` or `7.5%`. A scenario seeded with known
 data can then expect the figure that data implies:
 
 ```ruby

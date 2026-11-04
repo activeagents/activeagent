@@ -116,8 +116,9 @@ finished evaluation run's cached figures are worked out again.
   `ActiveAgent::Evals::Patterns.number(count)` and
   `Patterns.share(count, total)` return a regex string for a scenario's
   `contains` or `not_contains` entry: `number(10)` matches the figure on its
-  own and not the `10` in `2026-10-01`, `10:00`, `10.5`, `110`, `10,000` or `10%`;
-  `share(3, 4)` matches `75%`, `75 %` and `75.0%` and not `175%` or `7.5%`.
+  own and not the `10` in `2026-10-01`, `10/1`, `10:00`, `1–10`, `Oct 10`,
+  `10 October`, `10.5`, `110`, `10,000` or `10%`; `share(3, 4)` matches
+  `75%`, `75 %`, `75.0%` and `75.00%` and not `175%` or `7.5%`.
   `Scorer.matches_pattern?` tries an entry as a substring and then as a
   regex, so the string goes into a suite document or a scenario hash as it
   is, and a scenario seeded with known data can expect the figure that data

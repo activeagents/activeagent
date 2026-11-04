@@ -22,19 +22,26 @@ class EvalsPatternsTest < ActiveSupport::TestCase
     assert_no_matches Patterns.number(0), "10"
   end
 
+  def test_a_number_does_not_match_a_day_beside_its_month_a_dashed_range_or_a_ratio
+    assert_no_matches Patterns.number(12), "Oct 12, 2026", "Sept. 12", "October 12", "on 12 October", "12th of October", "12 Oct",
+                      "12–22", "12—22", "12/22"
+    assert_matches Patterns.number(12), "12 decision-tree sessions", "12 marked", "12 may drop off", "Omar saw 12", "12 of 22"
+  end
+
   def test_a_count_is_read_as_a_whole_number_from_its_text
     assert_equal Patterns.number(3), Patterns.number("3")
     assert_raises(ArgumentError) { Patterns.number(10.0) }
   end
 
-  def test_a_share_matches_the_whole_or_one_decimal_percent_with_an_optional_space
-    assert_matches Patterns.share(3, 4), "75%", "75 %", "75.0%", "75.0 %", "(75%)", "75% of"
+  def test_a_share_matches_the_whole_one_or_two_decimal_percent_with_an_optional_space
+    assert_matches Patterns.share(3, 4), "75%", "75 %", "75.0%", "75.0 %", "75.00%", "(75%)", "75% of"
     assert_no_matches Patterns.share(3, 4), "175%", "7.5%", "75.5%", "75", "0.75"
   end
 
-  def test_a_share_rounds_the_whole_percent_half_up_and_the_decimal_to_one_place
-    assert_matches Patterns.share(1, 3), "33%", "33.3%"
-    assert_no_matches Patterns.share(1, 3), "33.33%", "3%"
+  def test_a_share_rounds_the_whole_percent_half_up_and_the_decimals_to_their_places
+    assert_matches Patterns.share(1, 3), "33%", "33.3%", "33.33%"
+    assert_no_matches Patterns.share(1, 3), "33.333%", "33.34%", "3%"
+    assert_matches Patterns.share(12, 22), "55%", "54.5%", "54.55%"
     assert_matches Patterns.share(2, 3), "67%", "66.7%"
     assert_no_matches Patterns.share(2, 3), "66%"
     assert_matches Patterns.share(1, 8), "13%", "12.5%"

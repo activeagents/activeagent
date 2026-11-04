@@ -10,23 +10,38 @@ module ActiveAgent
     #
     #   "expect" => { "contains" => [ Patterns.number(3), Patterns.share(3, 4) ] }
     module Patterns
+      MONTHS = %w[january february march april may june july august september october november december].freeze
+      # A day of the month written beside its month, in any case: "Oct 12",
+      # "Sept. 12" and "October 12" before the figure, "12 Oct" and "12th of
+      # October" after it. A lookbehind takes alternatives of one length only,
+      # so the spellings before the figure are one lookbehind per length.
+      # "may" is left out after the figure, where it is usually the verb.
+      MONTH_BEFORE = MONTHS.flat_map { |month| [ month, month[0, 3], "#{month[0, 3]}." ] }.push("sept", "sept.").uniq
+        .group_by(&:length).sort.map { |_length, spellings| "(?<!(?i:#{spellings.map { |spelling| "\\b#{Regexp.escape("#{spelling} ")}" }.join('|')}))" }
+        .join.freeze
+      MONTH_AFTER = (MONTHS - %w[may]).map { |month| "#{month[0, 3]}(?:#{Regexp.escape(month[3..])})?" }.push("sept").join("|").freeze
+
       module_function
 
       # The integer `count` as a figure on its own: number(10) matches
       # "10 sessions", "(10)" and "10." at a sentence end, not "2026-10-01",
-      # "10:00", "1-10", "110", "10.5", "10,000" or "10%". `count` is read as
-      # a whole number from its text, so 3 and "3" work and 1.5, 10.0, "a" or
-      # a negative count raise ArgumentError.
+      # "10/1", "10:00", "1-10" or "1–10", "110", "10.5", "10,000", "10%",
+      # "Oct 10" or "10 October". A ratio such as "10/22" does not match
+      # either, because "10/12" reads as a date as often as a count; expect
+      # "10 of 22". `count` is read as a whole number from its text, so 3 and
+      # "3" work and 1.5, 10.0, "a" or a negative count raise ArgumentError.
       def number(count)
         count = whole_number(count, "count")
-        "(?<![\\d/:.,-])\\b#{count}\\b(?![/:-])(?![.,]\\d)(?! ?%)"
+        "(?<![\\d/:.,\\-\u2013\u2014])#{MONTH_BEFORE}\\b#{count}\\b(?![/:\\-\u2013\u2014])(?![.,]\\d)(?! ?%)" \
+          "(?!(?i:(?:st|nd|rd|th)?,? (?:of )?(?:#{MONTH_AFTER})\\b))"
       end
 
-      # `count` of `total` as a percentage, whole or to one decimal, with an
-      # optional space before the sign: share(3, 4) matches "75%", "75 %" and
-      # "75.0%", not "175%", "7.5%", "75.5%" or "0.75". The whole percent
-      # rounds half up like Format.whole and the decimal like Float#round(1),
-      # so share(1, 8) matches "13%" and "12.5%". Both arguments are read like
+      # `count` of `total` as a percentage, whole or to one or two decimals,
+      # with an optional space before the sign: share(3, 4) matches "75%",
+      # "75 %", "75.0%" and "75.00%", not "175%", "7.5%", "75.5%" or "0.75".
+      # The whole percent rounds half up like Format.whole and the decimals
+      # like Float#round, so share(1, 8) matches "13%", "12.5%" and "12.50%",
+      # and share(12, 22) matches "55%", "54.5%" and "54.55%". Both arguments are read like
       # `number`'s; a total below one and a count above the total raise
       # ArgumentError.
       def share(count, total)
@@ -35,8 +50,8 @@ module ActiveAgent
         raise ArgumentError, "count must not exceed total" if count > total
 
         percent = count * 100.0 / total
-        decimal = format("%.1f", percent.round(1))
-        "(?<![\\d.,])\\b(?:#{Regexp.escape(decimal)}|#{Format.whole(percent)}) ?%"
+        decimals = [ 2, 1 ].map { |places| Regexp.escape(format("%.#{places}f", percent.round(places))) }
+        "(?<![\\d.,])\\b(?:#{decimals.join('|')}|#{Format.whole(percent)}) ?%"
       end
 
       # `value` as an Integer of at least `minimum`, read from its text so
