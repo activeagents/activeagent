@@ -116,14 +116,21 @@ module ActiveAgent
       # Scenarios across the catalog, narrowed by product key, set key,
       # scenario keys, or any of them; `production_only` scenarios are
       # dropped unless `include_production_only` is true. Each scenario's
-      # group is its set's key and its group_name the set's name.
-      def scenarios(product: nil, set: nil, keys: nil, include_production_only: true)
+      # group is its set's key and its group_name the set's name. With
+      # `strict`, every key in `keys` must name a scenario of the catalog (see
+      # Suite.select), and a key outside the chosen product or set selects
+      # nothing.
+      def scenarios(product: nil, set: nil, keys: nil, include_production_only: true, strict: false)
         selected = products
         selected = selected.select { |entry| entry.key == product.to_s } if product.present?
         selected = selected.flat_map(&:sets)
         selected = selected.select { |entry| entry.key == set.to_s } if set.present?
         selected = selected.flat_map(&:scenarios)
-        selected = selected.select { |scenario| Array(keys).map(&:to_s).include?(scenario.key) } if keys.present?
+        if strict
+          selected = Suite.select(selected, keys: keys, known: all_scenarios, name: key)
+        elsif keys.present?
+          selected = selected.select { |scenario| Array(keys).map(&:to_s).include?(scenario.key) }
+        end
         selected = selected.reject(&:production_only?) unless include_production_only
         selected
       end

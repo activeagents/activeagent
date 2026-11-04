@@ -167,6 +167,16 @@ finished evaluation run's cached figures are worked out again.
   is, and a scenario seeded with known data can expect the figure that data
   implies. A fractional or negative count, a total of zero or a count above
   the total raise `ArgumentError`.
+- **Strict scenario selection by key** (`activeagent`). `Suite#scenarios`
+  and `Catalog#scenarios` take `strict: true` with `keys:`: every key must
+  name a scenario the suite or catalog holds, or the call raises
+  `Suite::NotFound` listing the missing keys in the order given, so a
+  misspelled key from an environment variable or a command line fails the
+  run rather than passing it with zero scenarios. A key the suite holds
+  outside the chosen `groups:` returns an empty selection. `Suite.select`
+  is the same check over any scenarios, with `known:` the wider set the keys
+  must come from, for a runner that takes keys across several suites.
+  Without `strict:` the selection narrows as before.
 
 ### Changed
 

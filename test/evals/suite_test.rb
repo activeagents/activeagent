@@ -96,7 +96,61 @@ class EvalsSuiteTest < ActiveSupport::TestCase
 
     assert_equal [ "reports_1" ], suite.scenarios(groups: %w[reports]).map(&:key)
     assert_equal [ "open_tickets_2" ], suite.scenarios(keys: %w[open_tickets_2]).map(&:key)
+    assert_equal [], suite.scenarios(keys: %w[nope])
     assert_equal %w[open_tickets_1 open_tickets_2], suite.scenarios(include_production_only: false).map(&:key)
+  end
+
+  def test_strict_scenarios_require_every_key_and_keep_the_group_narrowing
+    suite = ActiveAgent::Evals::Suite.new([ YAML.safe_load(CORE) ])
+
+    assert_equal [ "open_tickets_2" ], suite.scenarios(keys: "open_tickets_2", strict: true).map(&:key)
+    assert_equal suite.all_scenarios.map(&:key), suite.scenarios(strict: true).map(&:key), "blank keys select everything"
+    assert_equal suite.all_scenarios.map(&:key), suite.scenarios(keys: "", strict: true).map(&:key)
+    assert_equal [], suite.scenarios(groups: %w[reports], keys: %w[open_tickets_2], strict: true)
+    assert_equal [], suite.scenarios(keys: %w[reports_1], include_production_only: false, strict: true)
+
+    error = assert_raises(ActiveAgent::Evals::Suite::NotFound) { suite.scenarios(keys: %w[nope], strict: true) }
+    assert_equal "no scenario nope in support_desk", error.message
+  end
+
+  def test_select_leaves_the_scenarios_alone_when_keys_are_blank
+    scenarios = ActiveAgent::Evals::Suite.new([ YAML.safe_load(CORE) ]).all_scenarios
+
+    [ nil, "", [], [ "" ] ].each do |keys|
+      assert_same scenarios, ActiveAgent::Evals::Suite.select(scenarios, keys: keys)
+    end
+  end
+
+  def test_select_splits_strings_takes_symbols_and_follows_the_order_of_the_scenarios
+    scenarios = ActiveAgent::Evals::Suite.new([ YAML.safe_load(CORE) ]).all_scenarios
+
+    assert_equal %w[open_tickets_1 reports_1], ActiveAgent::Evals::Suite.select(scenarios, keys: " reports_1 , open_tickets_1 ").map(&:key)
+    assert_equal %w[open_tickets_1 reports_1], ActiveAgent::Evals::Suite.select(scenarios, keys: [ :reports_1, :open_tickets_1 ]).map(&:key)
+    assert_equal %w[open_tickets_2], ActiveAgent::Evals::Suite.select(scenarios, keys: %w[open_tickets_2 open_tickets_2]).map(&:key)
+  end
+
+  def test_select_raises_for_keys_no_known_scenario_has
+    scenarios = ActiveAgent::Evals::Suite.new([ YAML.safe_load(CORE) ]).all_scenarios
+
+    error = assert_raises(ActiveAgent::Evals::Suite::NotFound) { ActiveAgent::Evals::Suite.select(scenarios, keys: %w[nope]) }
+    assert_equal "no scenario nope", error.message
+
+    error = assert_raises(ActiveAgent::Evals::Suite::NotFound) { ActiveAgent::Evals::Suite.select(scenarios, keys: "nope, nope") }
+    assert_equal "no scenario nope", error.message
+
+    error = assert_raises(ActiveAgent::Evals::Suite::NotFound) do
+      ActiveAgent::Evals::Suite.select(scenarios, keys: "reports_1, zzz, open_tickets_1, aaa", name: "support_desk")
+    end
+    assert_equal "no scenario zzz, aaa in support_desk", error.message
+  end
+
+  def test_select_returns_nothing_when_another_suite_holds_the_keys
+    core = ActiveAgent::Evals::Suite.new([ YAML.safe_load(CORE) ])
+    client = ActiveAgent::Evals::Suite.new([ YAML.safe_load(CLIENT) ], name: "client")
+    known = core.all_scenarios + client.all_scenarios
+
+    assert_equal [], ActiveAgent::Evals::Suite.select(core.all_scenarios, keys: %w[client_only_1], known: known)
+    assert_equal %w[client_only_1], ActiveAgent::Evals::Suite.select(client.all_scenarios, keys: %w[client_only_1], known: known).map(&:key)
   end
 
   def test_find_raises_for_an_unknown_key

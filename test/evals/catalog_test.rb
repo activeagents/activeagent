@@ -43,6 +43,16 @@ class ActiveAgentEvalsCatalogTest < ActiveSupport::TestCase
     assert_equal %w[invoice_copy], catalog.scenarios(product: :billing).map(&:key)
   end
 
+  test "strict keys must each name a scenario somewhere in the catalog" do
+    assert_equal %w[refund_request invoice_copy], catalog.scenarios(keys: "invoice_copy, refund_request", strict: true).map(&:key)
+    assert_equal catalog.all_scenarios.map(&:key), catalog.scenarios(strict: true).map(&:key), "blank keys select everything"
+    assert_equal [], catalog.scenarios(product: :triage, keys: [ :invoice_copy ], strict: true)
+    assert_equal [], catalog.scenarios(keys: [ "nope" ])
+
+    error = assert_raises(ActiveAgent::Evals::Suite::NotFound) { catalog.scenarios(keys: %w[refund_request nope], strict: true) }
+    assert_equal "no scenario nope in support_desk", error.message
+  end
+
   test "a product's sets read as a suite of groups" do
     suite = catalog.suite_for(:triage)
     assert_equal "support_desk/triage", suite.name
