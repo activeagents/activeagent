@@ -263,10 +263,12 @@ traced through `Correlation#judge` under the kind it serves (`score`,
   `RubyLLM::Chat.new` takes — `protocol:` on RubyLLM 2.x. Anything else raises
   `ArgumentError` when the judge is built, not on every call, and
   `verify: true` makes a missing key fail there too: the judge's own label,
-  model and provider go through `verify!` (below) with its `context`, so a
-  judge whose provider has no key refuses when it is built rather than at
-  its first grade, after the agent has already been replayed. The default
-  stays lazy.
+  model and provider go through `verify!` (below) with its `context`, and
+  with `providers:` when the judge is given them, so a judge whose provider
+  has no key, or is not one the host has keys for, refuses when it is built
+  rather than at its first grade, after the agent has already been
+  replayed. The default stays lazy; `providers:` without `verify: true`
+  raises `ArgumentError`.
 - `on_usage:` is called after each answered call with
   `{ "kind", "model", "input_tokens", "output_tokens", "cost" }`, for a host
   that meters what its judge spends. An error it raises is logged, never
