@@ -852,7 +852,7 @@ class EvalsReportTest < ActiveSupport::TestCase
                  strict.last(2).map { |gate| [ gate.group, gate.label, gate.passed, gate.total ] }
     assert_not Report.new(results: gated_results, models: models).passed?, "without bars, every scenario has to pass"
     assert Report.new(results: gated_results.select(&:passed?), models: models).passed?
-    assert Report.new(results: [], models: models).passed?, "no results, no gate"
+    assert_not Report.new(results: [], models: models).passed?, "no results, no gate, nothing shown"
   end
 
   def test_failures_list_what_did_not_pass_in_run_order_and_narrow_to_a_group
@@ -878,6 +878,13 @@ class EvalsReportTest < ActiveSupport::TestCase
     assert_equal false, JSON.parse(gated_report.to_json)["gates"].last(2).first["met"]
     assert_equal plain.except("pass_thresholds", "groups", "gates"), gated.except("pass_thresholds", "groups", "gates"),
                  "the bars change nothing else in the hash"
+  end
+
+  def test_to_h_names_the_threshold_the_answers_were_scored_at_when_an_explicit_one_wins
+    report = Report.new(results: gated_results, models: models, threshold: 0.9, pass_thresholds: THRESHOLDS)
+
+    assert_equal 0.9, report.to_h.dig("pass_thresholds", "threshold")
+    assert_equal THRESHOLDS.to_h.except("threshold"), report.to_h["pass_thresholds"].except("threshold")
   end
 
   def test_markdown_tables_the_pass_rate_by_group_and_lists_the_failures
