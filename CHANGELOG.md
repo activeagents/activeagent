@@ -274,8 +274,9 @@ one under its own keys needs them renamed.
   when they are not keys), or carrying RubyLLM's own message when those are
   all set and it refused for another reason, with RubyLLM's error as the
   cause. It builds each chat with `assume_model_exists: true`, which is
-  where RubyLLM checks its keys, and sends nothing. `judge(..., verify: true)` runs the same
-  check on the judge's own model when the judge is built, so a judge whose
+  where RubyLLM checks its keys, and sends nothing. `judge(..., verify: true)`
+  runs the same check on the judge's own model when the judge is built,
+  with the same `providers:` when it is given them, so a judge whose
   provider has no key refuses before the first scenario is replayed rather
   than at its first grade; the default stays lazy.
 - **Named criteria lists on a suite** (`activeagent`). A suite document

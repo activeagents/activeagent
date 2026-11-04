@@ -242,6 +242,30 @@ class EvalsRubyLLMGlueCases < Minitest::Test
     assert_empty context.chats, "the chat options are checked before the provider is"
   end
 
+  def test_judge_verifies_against_the_providers_a_host_has_keys_for
+    context = KeyedContext.new
+
+    error = assert_raises(::RubyLLM::ConfigurationError) do
+      ActiveAgent::Evals::RubyLLM.judge(label: "judge", model: "claude-sonnet-5", provider: :anthropic, context: context,
+                                        verify: true, providers: %i[openai ollama])
+    end
+    assert_equal "judge runs on anthropic; credentials are configured for openai, ollama", error.message
+    assert_empty context.chats, "a provider outside providers: refuses before any chat is built"
+
+    judge = ActiveAgent::Evals::RubyLLM.judge(label: "judge", model: "gpt-5-mini", provider: :openai, context: context,
+                                              verify: true, providers: [ "openai" ])
+    assert_kind_of ActiveAgent::Evals::Judge, judge
+    assert_equal 1, context.chats.size, "a listed provider is still built once to check its key"
+  end
+
+  def test_judge_refuses_providers_without_verify
+    error = assert_raises(ArgumentError) do
+      ActiveAgent::Evals::RubyLLM.judge(label: "judge", model: "gpt-5-mini", provider: :openai, context: KeyedContext.new,
+                                        providers: [ "openai" ])
+    end
+    assert_equal "providers: is checked only with verify: true", error.message
+  end
+
   def test_judge_stays_lazy_unless_asked_to_verify
     context = KeyedContext.new
     judge = ActiveAgent::Evals::RubyLLM.judge(label: "judge", model: "claude-sonnet-5", provider: :anthropic, context: context)

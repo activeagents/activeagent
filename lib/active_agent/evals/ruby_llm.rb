@@ -56,10 +56,11 @@ module ActiveAgent
         # `RubyLLM::Chat.new` takes (`protocol:` on RubyLLM 2.x); anything else
         # raises ArgumentError here rather than failing every judge call
         # later. With `verify: true`, a missing key fails here too: the judge's
-        # label, model and provider go through `verify!` with `context`, so a
-        # judge whose provider has no key refuses when it is built rather than
-        # at its first grade, after the agent has already been replayed; the
-        # default stays lazy. Configure the chat through `temperature:` or
+        # label, model and provider go through `verify!` with `context` and
+        # `providers`, so a judge whose provider has no key, or is not one of
+        # the providers a host has keys for, refuses when it is built rather
+        # than at its first grade, after the agent has already been replayed;
+        # the default stays lazy. Configure the chat through `temperature:` or
         # `configure:`:
         #
         #   ActiveAgent::Evals::RubyLLM.judge(label: "judge", model: "gpt-5-mini", provider: :openai,
@@ -82,14 +83,20 @@ module ActiveAgent
         # @param verify [Boolean] run `verify!` on the judge's own model with
         #   `context` when the judge is built, so a provider with no key
         #   refuses here rather than at the first grade
+        # @param providers [Array<String, Symbol>, nil] with `verify: true`, the
+        #   providers a host has keys for, handed to `verify!` as its
+        #   `providers:`; given without `verify: true` it raises ArgumentError
         # @param chat_options [Hash] other `chat` keywords, such as `protocol:`
         # @return [Judge]
-        # @raise [ArgumentError] when `chat_options` names a keyword `RubyLLM::Chat.new` does not take
-        # @raise [::RubyLLM::ConfigurationError] with `verify: true`, when `context` cannot build the judge's chat
+        # @raise [ArgumentError] when `chat_options` names a keyword `RubyLLM::Chat.new` does not take,
+        #   or `providers:` is given without `verify: true`
+        # @raise [::RubyLLM::ConfigurationError] with `verify: true`, when the judge's provider is not
+        #   among `providers` or `context` cannot build the judge's chat
         def judge(label:, model:, provider:, context: ::RubyLLM, correlation: nil, assume_model_exists: true,
-                  temperature: nil, configure: nil, on_usage: nil, verify: false, **chat_options)
+                  temperature: nil, configure: nil, on_usage: nil, verify: false, providers: nil, **chat_options)
           check_chat_options!(chat_options)
-          verify!(ModelSpec.new(label: label, provider: provider, model: model), context: context) if verify
+          raise ArgumentError, "providers: is checked only with verify: true" if providers && !verify
+          verify!(ModelSpec.new(label: label, provider: provider, model: model), context: context, providers: providers) if verify
 
           Judge.new(label: label) do |instructions:, prompt:, kind:|
             complete = lambda do
