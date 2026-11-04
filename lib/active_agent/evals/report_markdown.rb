@@ -11,9 +11,9 @@ module ActiveAgent
     #
     # Each piece is public on its own, for the pieces people paste one at a
     # time: #fix_item_markdown, #fix_items_markdown (optionally for one
-    # model), #verdict_markdown, #scenario_markdown, #gates_markdown and
-    # #failures_markdown. The whole report is built from them, so a piece
-    # copied alone reads as it does in the report.
+    # model), #verdict_markdown, #scenario_markdown, #gates_markdown,
+    # #failures_markdown and #failure_markdown. The whole report is built
+    # from them, so a piece copied alone reads as it does in the report.
     #
     # Table cells escape `|` and fold line breaks; text set inside the HTML
     # of a `<details>` block escapes `<`, `>` and `&`.
@@ -102,22 +102,25 @@ module ActiveAgent
         lines
       end
 
-      # Every result that did not pass (Report#failures), one line each with
-      # its fault and summary — without a diagnosis, the replay's error for
-      # an errored result and the status alone otherwise — narrowed to one
-      # group when given.
+      # Every result that did not pass (Report#failures), one
+      # #failure_markdown line each, narrowed to one group when given.
       def failures_markdown(group: nil)
         failed = failures(group: group)
         return "_Nothing failed._" if failed.empty?
 
-        failed.map do |result|
-          detail =
-            if result.fault then [ result.fault.tr("_", " "), result.summary.presence ].compact.join(" — ")
-            elsif result.errored? then [ "errored", result.replay.error.presence ].compact.join(" — ")
-            else result.status
-            end
-          "- `#{result.scenario.key}` on `#{result.label}`: #{detail}"
-        end.join("\n")
+        failed.map { |result| failure_markdown(result) }.join("\n")
+      end
+
+      # One result that did not pass, as a line naming its scenario and
+      # model with its fault and summary — without a diagnosis, the replay's
+      # error for an errored result and the status alone otherwise.
+      def failure_markdown(result)
+        detail =
+          if result.fault then [ result.fault.tr("_", " "), result.summary.presence ].compact.join(" — ")
+          elsif result.errored? then [ "errored", result.replay.error.presence ].compact.join(" — ")
+          else result.status
+          end
+        "- `#{result.scenario.key}` on `#{result.label}`: #{detail}"
       end
 
       # The verdict — the best model, why, and who picked it — then the

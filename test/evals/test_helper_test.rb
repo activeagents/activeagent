@@ -2,14 +2,35 @@
 
 require "test_helper"
 require "active_agent/evals/test_helper"
+require_relative "evals_test_support"
 require_relative "support/eval_agents"
 
 # The helper's own tests always run, so they include the helper rather than
 # inherit the TestCase, whose tests are skipped unless evals are switched on.
 class EvalsTestHelperTest < ActiveSupport::TestCase
   include ActiveAgent::Evals::TestHelper
+  include EvalsTestSupport
 
   SUITE = File.expand_path("fixtures/support_suite.yml", __dir__)
+
+  # The support suite with a document of pass bars layered over it: half of
+  # a model's answers must pass, every order answer must, and product help
+  # is reported but not gated.
+  def gated_suite
+    ActiveAgent::Evals::Suite.new([
+      YAML.safe_load_file(SUITE),
+      { "pass" => { "min_pass_rate" => 0.5 },
+        "groups" => [ { "key" => "orders", "pass" => { "min_pass_rate" => 1.0 } }, { "key" => "help", "pass" => { "gated" => false } } ] }
+    ])
+  end
+
+  # Runs every scenario of `suite` through the orders agent, which answers
+  # order_lookup with its tool and declines the other two.
+  def run_support_suite(suite, **options)
+    run_eval_suite(suite, include_production_only: true, **options) do |scenario, _spec|
+      EvalsTest::OrdersAgent.with(question: scenario.prompt).ask
+    end
+  end
 
   def with_env(values)
     saved = values.keys.to_h { |key| [ key, ENV[key] ] }
@@ -107,6 +128,8 @@ class EvalsTestHelperTest < ActiveSupport::TestCase
     assert_equal 1, report.results.size, "the production-only scenario stays out unless asked for"
     assert report.results.first.passed?
     assert_pass_rate report, at_least: 1.0
+    assert_nil report.pass_thresholds, "a suite without a pass block hands the runner no bars"
+    assert_not report.to_h.key?("gates")
   end
 
   test "a suite can run under named models and the gate names the scenarios that fell short" do
@@ -132,6 +155,61 @@ class EvalsTestHelperTest < ActiveSupport::TestCase
 
     assert_equal "Cancel it from the order page: help_cancel", report.results.first.replay.answer
     assert report.results.first.passed?
+  end
+
+  test "assert_meets_pass_gates passes when every gate is met and returns the check" do
+    check = assert_meets_pass_gates passing_report
+
+    assert_instance_of ActiveAgent::Evals::GateCheck, check
+    assert check.met?
+    assert assert_meets_pass_gates(gated_report, LENIENT).met?, "the given bars replace the report's own"
+  end
+
+  test "an unmet pass gate fails with the check's message, or with the message given" do
+    message = failure_message { assert_meets_pass_gates gated_report }
+
+    assert_equal ActiveAgent::Evals::GateCheck.new(gated_report).message, message
+    assert message.start_with?("2 of 7 pass gates not met\n- Order support · gpt-5-mini"), message
+    assert_equal "the support desk suite regressed",
+                 failure_message { assert_meets_pass_gates gated_report, nil, "the support desk suite regressed" }
+  end
+
+  test "run_eval_suite hands the suite's pass block to the runner, so each group is held to its own bar" do
+    suite = gated_suite
+    report = run_support_suite(suite)
+
+    assert_equal suite.pass_thresholds, report.pass_thresholds
+    assert_equal [ [ "orders", 1.0, false ], [ "help", 0.5, true ], [ nil, 0.5, true ] ],
+                 report.gates.map { |gate| [ gate.group, gate.min_pass_rate, gate.met? ] },
+                 "orders misses its own bar; the All row counts the two gated answers and clears the suite's"
+
+    message = failure_message { assert_meets_pass_gates report }
+    assert_equal ActiveAgent::Evals::GateCheck.new(report).message, message
+    assert message.start_with?("1 of 3 pass gates not met\n- Order support · as configured: 1/2 (50%) passed, below 100%"), message
+  end
+
+  test "pass bars given to run_eval_suite replace the suite's" do
+    given = PassThresholds.new(suite: { "min_pass_rate" => 0.5 }, groups: { "help" => { "gated" => false } })
+    report = run_support_suite(gated_suite, pass_thresholds: given)
+
+    assert_equal given, report.pass_thresholds
+    assert_meets_pass_gates report
+  end
+
+  test "a suite-level pass block that only restates the defaults hands the runner no bars" do
+    suite = ActiveAgent::Evals::Suite.new([ YAML.safe_load_file(SUITE), { "pass" => { "threshold" => 0.7, "min_pass_rate" => 1.0 } } ])
+    report = run_support_suite(suite, groups: %w[orders])
+
+    assert_nil report.pass_thresholds
+    assert_not report.to_h.key?("gates")
+  end
+
+  test "a group's pass hands the runner its bars even when it restates a default" do
+    suite = ActiveAgent::Evals::Suite.new([ YAML.safe_load_file(SUITE), { "groups" => [ { "key" => "orders", "pass" => { "gated" => true } } ] } ])
+    report = run_support_suite(suite, groups: %w[orders])
+
+    assert_equal suite.pass_thresholds, report.pass_thresholds
+    assert report.to_h.key?("gates")
   end
 
   test "EVALS switches evals on" do

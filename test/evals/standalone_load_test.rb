@@ -9,6 +9,7 @@ class EvalsStandaloneLoadTest < ActiveSupport::TestCase
   RUBY_LLM_SCRIPT = File.expand_path("support/standalone_ruby_llm_script.rb", __dir__)
   CATALOG_SCRIPT = File.expand_path("support/standalone_catalog_script.rb", __dir__)
   PASS_GATES_SCRIPT = File.expand_path("support/standalone_pass_gates_script.rb", __dir__)
+  ASSERTIONS_SCRIPT = File.expand_path("support/standalone_assertions_script.rb", __dir__)
   LIB = File.expand_path("../../lib", __dir__)
 
   def test_the_evaluation_module_and_a_correlated_run_load_without_the_framework
@@ -25,6 +26,10 @@ class EvalsStandaloneLoadTest < ActiveSupport::TestCase
 
   def test_a_suites_pass_gates_load_without_the_framework
     assert_equal "ok", run_standalone(PASS_GATES_SCRIPT)
+  end
+
+  def test_the_gate_matcher_and_assertion_load_without_the_framework_or_rspec
+    assert_equal "ok", run_standalone(ASSERTIONS_SCRIPT)
   end
 
   private

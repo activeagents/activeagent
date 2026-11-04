@@ -129,6 +129,32 @@ finished evaluation run's cached figures are worked out again.
   `pass_thresholds`, `groups` and `gates`. A report built without pass
   thresholds renders as it did. The command line's `evals run
   --min-pass-rate` stays a gate on the whole run.
+- **The pass-gate assertion, for Minitest and RSpec** (`activeagent`).
+  `TestHelper#assert_meets_pass_gates(report)` passes when every gate of
+  the report is met, each group held to the bar the suite declares for it
+  and ungated groups left out, where `assert_pass_rate` holds every model
+  to one rate the test names; it takes a `PassThresholds` to hold the
+  report to another bar, and returns the check. `run_eval_suite` hands a
+  suite's bars to the runner when it declares any (a `threshold` other
+  than 0.7, a `min_pass_rate` below 1, or any key in a group's `pass`), so
+  the report it returns carries them; a suite with no `pass` block, or
+  only a suite-level one that restates the defaults, runs under the
+  defaults and its report carries no bars, and a `pass_thresholds:` or
+  `threshold:` given to `run_eval_suite` wins over the suite's. In RSpec the
+  assertion works through `expect_with :minitest` like the rest of the
+  helper, and `require "active_agent/evals/rspec"`, with
+  `ActiveAgent::Evals::RSpec` included beside the helper, adds the first
+  eval matcher, `expect(report).to meet_its_pass_gates`; that file loads
+  nothing from rspec, and `require "active_agent/evals"` loads neither it
+  nor the helper. Both fail with one message, `GateCheck#message`: how many
+  of the gates were not met, each unmet gate as its sentence, then the
+  failures to read under a heading per group with an unmet gate (one
+  `Report#failure_markdown(result)` line each, the line `failures_markdown`
+  is built from) — and, for an `All` row that is short, the failures it
+  counts: under `Failures:` when no group row is short with it, else the
+  ones outside the groups already listed under `Other failures:`; an
+  ungated group's failures are never listed. `GateCheck.new(report)`
+  answers `met?`, `unmet` and `gates` for a script that reports on its own.
 
 ### Changed
 
