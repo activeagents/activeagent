@@ -287,8 +287,8 @@ A valid report has:
 - Scope values (`scope`, `environment`, `role` in the report metadata) of 1-100 letters,
   digits, spaces or `. : / @ _ -`, which together with the suite name an evaluation of at
   most 255 characters.
-- One result per scenario and model label, each label naming one provider/model and no two
-  labels the same one.
+- One result per scenario, model label and `trial` (an integer from 1 to 1000; absent or null reads
+  as 1), each label naming one provider/model and no two labels the same one.
 - Token counts and durations that fit a 32-bit integer, and a cost below 1,000,000 — in each
   result and in each `judge_usage`, whose `by_kind` counts are non-negative integers.
 - A `release.digest` of 1-64 letters, digits or `. _ -`, and a `revision` and `label` of at most 200.
@@ -310,7 +310,7 @@ no judge is recorded as scored on rules.
 | Agent | The observed agent for the envelope's `source` and `agent_name`. It is read-only, like the agents trace ingest observes. |
 | Evaluation | That agent's evaluation named for the `suite`, qualified by the report metadata's `scope`, `environment` and `role`, in that order: `orders (eu, support)`. |
 | Scenarios | One per reported scenario key, updated to the prompt and group the report ran. Scenarios the report did not run are left alone. |
-| Run | One complete run per tenant and `run_id`, with one scenario result per scenario and model, pinned to the agent version of `report.release` when the report names one. Each result keeps its `metadata` (`result_id`, `trace_id`, `judge_trace_ids`) and its `judge_usage`; `report.judge_usage.run` is kept on the run. |
+| Run | One complete run per tenant and `run_id`, with one scenario result per scenario, model and trial, pinned to the agent version of `report.release` when the report names one. Each result keeps its `metadata` (`result_id`, `trace_id`, `judge_trace_ids`) and its `judge_usage`; `report.judge_usage.run` is kept on the run. |
 
 On a single-tenant install the agent has no owner, as a traced agent has none, and a
 `run_id` is unique across the install. On a multi-tenant install the tenant is the account

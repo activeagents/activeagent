@@ -328,6 +328,66 @@ class EvalsRunnerTest < ActiveSupport::TestCase
     assert_equal 6, report.results.size
     assert_equal [ %w[tickets_1 gpt-5-mini], %w[tickets_1 qwen3:8b] ], landed.first(2)
     assert_equal %w[gpt-5-mini qwen3:8b], report.models.map(&:label)
+    assert report.results.all? { |result| result.trial == 1 }, "a run with the default replays each scenario once"
+    assert_equal 1, report.trials
+  end
+
+  def test_trials_replay_each_scenario_under_each_model_scenario_by_scenario_model_by_model
+    landed = []
+    report = runner(trials: 3, on_result: ->(result) { landed << [ result.scenario.key, result.label, result.trial ] }).call
+    expected = scenarios.flat_map { |task| models.flat_map { |model| (1..3).map { |trial| [ task.key, model.label, trial ] } } }
+
+    assert_equal 18, report.results.size
+    assert_equal expected, landed
+    assert_equal expected, report.results.map { |result| [ result.scenario.key, result.label, result.trial ] }
+    assert_equal %w[tickets_1 tickets_2 history_1], report.results.map { |result| result.scenario.key }.uniq, "the keys stay as they are"
+    assert_equal 3, report.trials
+    assert_equal [ 9, 3 ], report.summary_by_model["gpt-5-mini"].values_at("scenarios", "unique_scenarios")
+  end
+
+  def test_trials_must_be_a_whole_number_of_one_or_more
+    [ 0, 1.5, "3", nil ].each do |trials|
+      error = assert_raises(ArgumentError) { runner(trials: trials) }
+      assert_equal "trials must be an Integer of 1 or more, got #{trials.inspect}", error.message
+    end
+    assert_equal 1, runner.trials
+  end
+
+  def test_evaluate_numbers_the_result_with_the_trial_it_is_given
+    answer = replay(answer: "12 refund requests match.")
+
+    assert_equal 2, runner.evaluate(scenarios.first, models.first, answer, trial: 2).trial
+    assert_equal 1, runner.evaluate(scenarios.first, models.first, answer).trial
+  end
+
+  def test_the_trial_reaches_the_result_through_a_context_wrapper
+    report = runner(trials: 2, around_evaluation: ->(_scenario, _spec, &evaluate) { evaluate.call }).call
+    by_pair = report.results.group_by { |result| [ result.scenario.key, result.label ] }
+
+    assert_equal 6, by_pair.size
+    assert_equal [ [ 1, 2 ] ] * 6, by_pair.values.map { |results| results.map(&:trial) }, "each scenario × model carries trials 1 and 2"
+  end
+
+  def test_trials_pool_into_a_scenarios_pass_share_in_the_comparison
+    # gpt-5-mini answers tickets_1 well twice and badly the third time; the
+    # share of that scenario it passed is 2 of 3, not three coin flips.
+    seen = Hash.new(0)
+    flaky = lambda do |scenario, spec|
+      seen[[ scenario.key, spec.label ]] += 1
+      next Replay.new(answer: "") if scenario.key == "tickets_1" && spec.provider == "openai" && seen[[ scenario.key, spec.label ]] == 3
+
+      replay_agent(scenario, spec)
+    end
+    report = runner(trials: 3, replay: flaky).call
+    summary = report.summary_by_model["gpt-5-mini"]
+
+    assert_equal [ 9, 3, 8 ], summary.values_at("scenarios", "unique_scenarios", "passed")
+    assert_equal 88.9, summary["pass_rate"], "the model's own pass rate counts every replay"
+    comparison = report.comparison["models"]["gpt-5-mini"]
+    assert_equal 3, comparison["scenarios"], "the comparison counts scenarios, not replays"
+    assert_equal 88.9, comparison["pass_rate"], "(2/3 + 1 + 1) / 3, the same as 8/9 while every scenario has three trials; the scenario count shows the pooling"
+    assert_equal 3, report.comparison["pairs"].first["scenarios"]
+    assert_match(/\APassed 8 of 9 replays of 3 scenarios \(89%\)/, report.verdict["rationale"])
   end
 
   def test_faults_are_assigned_from_the_evidence_and_rolled_up

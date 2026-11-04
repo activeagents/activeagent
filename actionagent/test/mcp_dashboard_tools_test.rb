@@ -350,6 +350,7 @@ class McpDashboardToolsTest < ActionDispatch::IntegrationTest
     assert_equal head.id, result.dig("head_run", "id")
     changes = result["changes"].to_h { |change| [ change["model"], change["change"] ] }
     assert_equal({ "mock/alpha" => "fixed", "mock/beta" => "regressed" }, changes)
+    assert_equal [ 1, 1 ], result["changes"].map { |change| change["trial"] }, "a single-trial run compares as trial 1"
     assert_equal({ "fixed" => 1, "regressed" => 1 }, result["counts"])
   end
 

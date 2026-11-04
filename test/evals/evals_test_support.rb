@@ -57,7 +57,7 @@ module EvalsTestSupport
 
   # A result whose diagnosis comes from the real Diagnosis, so the evidence
   # has the shape the report reads; `judge:` adds the judge's refinement.
-  def result(scenario, spec, replay, score: 1.0, judge: nil)
+  def result(scenario, spec, replay, score: 1.0, judge: nil, trial: 1)
     scores = { "response_present" => replay.answer.present? ? 1.0 : 0.0 }
     diagnosis = Diagnosis.call(scenario: scenario, replay: replay, scores: scores, score: score, available_tools: AVAILABLE)&.to_h
     if diagnosis && judge
@@ -65,7 +65,7 @@ module EvalsTestSupport
       diagnosis["recommendation"] = judge["recommendation"] if judge["recommendation"]
     end
     Result.new(scenario: scenario, spec: spec, replay: replay, scores: scores, score: score,
-               status: replay.errored? ? "errored" : (diagnosis ? "failed" : "passed"), diagnosis: diagnosis)
+               status: replay.errored? ? "errored" : (diagnosis ? "failed" : "passed"), diagnosis: diagnosis, trial: trial)
   end
 
   def grouped(key, prompt, group, name)

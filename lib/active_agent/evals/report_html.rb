@@ -215,7 +215,13 @@ module ActiveAgent
       # --- page ------------------------------------------------------------
 
       def html_title
-        "Evaluation — #{plural(scenario_cohorts.size, 'scenario')} × #{plural(@models.size, 'model')}"
+        with_trials("Evaluation — #{plural(scenario_cohorts.size, 'scenario')} × #{plural(@models.size, 'model')}")
+      end
+
+      # +text+ with "3 trials per scenario" beside it when each scenario was
+      # replayed more than once; +text+ alone otherwise.
+      def with_trials(text)
+        trials > 1 ? "#{text} · #{trials} trials per scenario" : text
       end
 
       def html_styles
@@ -282,7 +288,7 @@ module ActiveAgent
         passed = @results.count(&:passed?)
         ratio = total.positive? ? passed.to_f / total : 0.0
         tiles = [
-          html_tile("Scenario runs", total, "#{plural(scenario_cohorts.size, 'scenario')} × #{plural(@models.size, 'model')}"),
+          html_tile("Scenario runs", total, with_trials("#{plural(scenario_cohorts.size, 'scenario')} × #{plural(@models.size, 'model')}")),
           html_tile("Pass rate", Format.percent(total.positive? ? ratio : nil), "#{passed}/#{total} passed", tone: tone_for(ratio)),
           html_tile("Open faults", total - passed, plural(fix_items.size, "fix item")),
           html_cost_tile,
@@ -496,17 +502,17 @@ module ActiveAgent
 
         <<~MATRIX
           <section class="section">
-          <div class="section-head"><span class="micro">Scenarios</span><span class="meta">#{h(meta)}</span></div>
+          <div class="section-head"><span class="micro">Scenarios</span><span class="meta">#{h(with_trials(meta))}</span></div>
           <div class="matrix"><div class="inner">#{rows.join}</div></div>
           </section>
         MATRIX
       end
 
-      # A group's row: each model's passes over the row's scenarios, toned
-      # against the group's bar when the suite declared one — the row's own
-      # pass rate at or above it green, below it red, an ungated group
-      # plain, with the bar as the tooltip — and otherwise green when every
-      # scenario passed and red when none did. A row with a group name but
+      # A group's row: each model's passes over every replay of the row's
+      # scenarios, toned against the group's bar when the suite declared one —
+      # the row's own pass rate at or above it green, below it red, an ungated
+      # group plain, with the bar as the tooltip — and otherwise green when
+      # every replay passed and red when none did. A row with a group name but
       # no group key has no bar to read.
       def html_group_row(cohorts)
         scenario = cohorts.first.first.scenario
@@ -514,7 +520,7 @@ module ActiveAgent
         gated = pass_thresholds && scenario.group.present?
         gates_by_label = gated ? gates.select { |gate| gate.group == scenario.group }.index_by(&:label) : {}
         passes = @models.map do |spec|
-          results = cohorts.filter_map { |cohort| cohort.find { |result| result.label == spec.label } }
+          results = cohorts.flat_map { |cohort| cohort.select { |result| result.label == spec.label } }
           next %(<span class="group-pass">—</span>) if results.empty?
 
           passed = results.count(&:passed?)
@@ -562,8 +568,11 @@ module ActiveAgent
         scenario = cohort.first.scenario
         expects = scenario.expected_tools.map { |tool| %(<span class="expect">#{h(tool)}</span>) }.join
         cells = @models.map do |spec|
-          result = cohort.find { |candidate| candidate.label == spec.label }
-          result ? html_result_cell(result) : %(<div class="cell"><div class="top"><span class="muted">—</span></div></div>)
+          mine = cohort.select { |candidate| candidate.label == spec.label }.sort_by(&:trial)
+          if mine.empty? then %(<div class="cell"><div class="top"><span class="muted">—</span></div></div>)
+          elsif mine.one? then html_result_cell(mine.first)
+          else html_trials_cell(mine)
+          end
         end
         costs = scenario_costs[scenario.key] || {}
         total_cell = if costs["cost"].nil? && costs["judge_cost"].nil?
@@ -584,6 +593,26 @@ module ActiveAgent
           %(<div class="calls">#{html_calls(result, empty: 'no tools called')}</div>#{html_cell_cost(result)}</div>)
       end
 
+      # The cell of a scenario replayed more than once under one model: how
+      # many replays passed, one line per trial (its number, the glyph, the
+      # score and the fault), and what the replays cost together.
+      def html_trials_cell(results)
+        passed = results.count(&:passed?)
+        tone =
+          if passed == results.size then " tone-success"
+          elsif passed.zero? then " tone-error"
+          else ""
+          end
+        lines = results.map do |result|
+          glyph_tone = result.passed? ? "success" : "error"
+          fault = result.fault ? %(<span class="f">#{h(fault_name(result.fault))}</span>) : ""
+          %(<div class="top trial"><span class="muted">#{result.trial}</span><span class="g tone-#{glyph_tone}">#{result.passed? ? '[+]' : '[!]'}</span>) +
+            %(<span class="s tone-#{glyph_tone}">#{h(fmt_score(result.score))}</span>#{fault}</div>)
+        end
+        %(<div class="cell"><div class="top"><span class="s#{tone}">#{h(fmt_passes(passed, results.size))} passed</span></div>) +
+          %(#{lines.join}#{html_trials_cost(results)}</div>)
+      end
+
       # "~$0.0243 · judge ~$0.0015" under a cell: what this answer cost and
       # what judging it cost. A result with no cost at all shows no line.
       def html_cell_cost(result)
@@ -591,6 +620,25 @@ module ActiveAgent
         return "" if text.nil?
 
         %(<div class="cost-line"#{cost_title_attr([ result ], estimated: result.estimated_cost?)}>#{h(text)}</div>)
+      end
+
+      # The cost line under a trials cell: the replays' costs summed, the
+      # judge's apart. The sum reads as an estimate when any replay's cost
+      # is one, or when a replay went unpriced (a lower bound), and shows its
+      # working in a tooltip only when a replay was priced from tokens.
+      # Nothing when no replay carried a cost.
+      def html_trials_cost(results)
+        costs = results.filter_map { |result| result.replay.cost }
+        judge_costs = results.filter_map { |result| result.judge_usage&.dig("cost") }
+        return "" if costs.empty? && judge_costs.empty?
+
+        priced_from_tokens = results.any?(&:estimated_cost?)
+        estimated = priced_from_tokens || (costs.any? && costs.size < results.size)
+        parts = [ fmt_cost(costs.any? ? costs.sum : nil, estimated: estimated) ]
+        if judge_costs.any?
+          parts << "judge #{fmt_cost(judge_costs.sum, estimated: results.any? { |result| estimated_usage?(result.judge_usage) })}"
+        end
+        %(<div class="cost-line"#{cost_title_attr(results, estimated: priced_from_tokens)}>#{h(parts.join(' · '))}</div>)
       end
 
       def result_cost_text(result)
@@ -639,7 +687,10 @@ module ActiveAgent
         scenario = cohort.first.scenario
         expects = scenario.expected_tools.any? ? %(<span class="exp">expects <b>#{h(scenario.expected_tools.join(' or '))}</b></span>) : ""
         labels = @models.map(&:label)
-        cards = cohort.sort_by { |result| labels.index(result.label) || labels.size }.map { |result| html_result_card(result) }
+        # A model that replayed the scenario more than once numbers its cards.
+        repeated = cohort.map(&:label).tally.select { |_label, count| count > 1 }
+        cards = cohort.sort_by { |result| [ labels.index(result.label) || labels.size, result.trial ] }
+                      .map { |result| html_result_card(result, numbered: repeated.key?(result.label)) }
         md_id = "md-#{anchor(scenario)}"
 
         <<~BLOCK
@@ -652,8 +703,11 @@ module ActiveAgent
         BLOCK
       end
 
-      def html_result_card(result)
+      # +numbered+ names the card's trial, for a model with several cards on
+      # one scenario.
+      def html_result_card(result, numbered: false)
         short, = split_label(result.spec)
+        trial = numbered ? %(<span class="micro sm">trial #{result.trial}</span>) : ""
         status =
           if result.passed? then %(<span class="badge success">passed · #{h(fmt_score(result.score))}</span>)
           elsif result.errored? then %(<span class="badge error">errored</span>)
@@ -670,7 +724,7 @@ module ActiveAgent
 
         <<~CARD
           <div class="result">
-          <div class="head"><span class="name">#{h(short)}</span>#{status}<span class="meta">#{h(result_meta(result))}</span></div>
+          <div class="head"><span class="name">#{h(short)}</span>#{trial}#{status}<span class="meta">#{h(result_meta(result))}</span></div>
           <div class="body"><div class="tools-line"><span class="micro sm">Tools</span>#{html_calls(result, empty: 'none called')}</div>#{fault}#{error}#{answer}</div>
           </div>
         CARD

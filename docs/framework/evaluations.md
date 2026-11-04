@@ -477,6 +477,67 @@ the model's mean cost per priced replay, and the HTML report and the
 dashboard show the same mean per scenario. It reads with a `~` when the
 mean is estimated or covers only some of the model's replays.
 
+### Repeating scenarios
+
+One replay of a scenario is one coin flip: a flaky agent passes it in this
+run and fails it in the next. `Runner.new(trials:)` replays every scenario
+under every model that many times, so a scenario × model gets a pass share
+instead of one verdict:
+
+```ruby
+report = ActiveAgent::Evals::Runner.new(
+  scenarios: scenarios, models: models, replay: replay, trials: 3
+).call
+
+report.trials   # => 3
+report.results
+  .select { |result| result.scenario.key == "order_lookup" && result.label == "gpt-5-mini" }
+  .map { |result| [ result.trial, result.passed? ] }
+# => [[1, true], [2, true], [3, false]]
+```
+
+- **A trial is one replay.** `trials:` is an Integer of 1 or more, 1 by
+  default; a `"3"` or a `1.5` raises `ArgumentError`. The runner takes
+  each scenario in turn and, under each model, replays it from trial 1 to
+  `trials` before moving to the next model; `on_result` sees the results
+  in that order. Scenario keys stay as they are: `Result#trial` tells the
+  repeats apart, reads 1 on a result built without one, and lands in
+  `Result#to_h` as `"trial"`. A host that scores replays through
+  `Runner#evaluate` passes `trial:` itself.
+- **`"scenarios"` counts every replay.** In `Report#summary_by_model` it
+  stays the denominator of `"passed"` and of `pass_rate`, so a model that
+  passed 5 of its 6 replays has a pass rate of 83%, and
+  `"unique_scenarios"` beside it counts the distinct scenario keys. The
+  verdict's rationale then reads *Passed 5 of 6 replays of 2 scenarios
+  (83%)…*; with one trial the two counts are equal and it reads *Passed 5
+  of 6 scenarios (83%)…*.
+- **One mark per trial.** A matrix cell reads `✅✅❌ 78% missing content`:
+  the marks in trial order, the mean of the trials' scores, and the fault
+  most often among them (the first seen, on a tie). The Answers section
+  has one table row and one quoted answer per trial, in model order and
+  then trial order, each naming its model as `gpt-5-mini` · trial 2. The
+  Markdown says so once, under the judge line: *Each scenario was replayed
+  3 times; a model's pass rate counts every replay.* The HTML page adds
+  *3 trials per scenario* beside its scenario count, and its matrix cell
+  reads *2/3 · 67% passed* with a line per trial under it. `Report#to_h` carries
+  `"trials"` only when it is above 1; a one-trial report is the report you
+  get with no `trials:` at all.
+- **The scenario stays the unit of the comparison.** `Comparison` pools a
+  scenario's replays into its pass share — 2 passes in 3 trials contribute
+  0.67 — before resampling, so its `"scenarios"` count is the unique
+  scenarios and the interval resamples scenarios, not replays. Three
+  trials do not turn 42 scenarios into 126; read the interval beside the
+  scenario count.
+
+A published run keeps every replay: each result in the envelope carries
+its `trial`, and the collector tells the repeats of one scenario × model
+apart by it, refusing a second result of the same scenario × model at the
+same trial number (a result with no `trial` is trial 1). The run's
+report and its per-model summary read every replay; the dashboard's
+run-to-run comparison and a scenario's per-model cost entry still read one
+result per scenario × model, so for a replayed scenario they show one of
+its trials. The dashboard's own runs replay once.
+
 ### Is the gap real?
 
 A ranking of pass rates says which model did best on these scenarios, not
@@ -530,7 +591,7 @@ resampling them.
 `Runner.new` takes `on_result:` (each `Result` as it lands) and
 `Runner#evaluate(scenario, spec, replay)` scores a replay you already hold, so
 a dashboard can run replays in background jobs and persist one row per
-scenario × model. `Report#to_h` is JSON-ready. The ActionAgent engine's
+scenario × model × trial. `Report#to_h` is JSON-ready. The ActionAgent engine's
 `ScenarioEvaluationRunner` is the reference integration: it supplies the
 replay (an `AgentRun` with a model override), prices tokens, wraps the owner's
 judge credentials, and stores each result as an `EvaluationScenarioResult`.

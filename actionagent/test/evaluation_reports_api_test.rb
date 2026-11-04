@@ -1146,6 +1146,64 @@ class EvaluationReportsReleaseApiTest < ActionDispatch::IntegrationTest
     assert_not result["diagnosis"].key?("_judge_usage")
   end
 
+  # The one scenario under the one model replayed twice: the base result and
+  # a second trial that failed, with whatever the test changes on it.
+  def trials_envelope(second: {})
+    payload = envelope
+    first = payload["report"]["results"].first
+    payload["report"]["results"] << first.merge(
+      "trial" => 2, "status" => "failed", "score" => 0.2, "answer" => "It shipped at some point.",
+      "fault" => "low_quality", "recommendation" => "Say when it shipped.",
+      "diagnosis" => { "fault" => "low_quality", "summary" => "Vague.", "recommendation" => "Say when it shipped." }
+    ).merge(second)
+    payload["report"]["models"]["gpt-5-mini"] = { "scenarios" => 2, "passed" => 1 }
+    payload
+  end
+
+  test "a scenario replayed more than once is stored once per trial and rebuilt with every replay" do
+    publish(trials_envelope)
+
+    assert_response :created
+    run = ActionAgent::EvaluationRun.find(json_response["id"])
+    rows = run.scenario_results.order(:id).to_a
+    assert_equal [ 1, 2 ], rows.map(&:trial)
+    assert_equal [ 1, 2 ], rows.map { |row| row.diagnosis["_trial"] }, "the trial is kept beside the result's diagnosis"
+    assert_not rows.last.evaluation_diagnosis.key?("_trial")
+    assert_equal [ 2, 1 ], [ run.samples_evaluated, run.samples_passed ]
+    assert_equal 2, run.scores.dig("_models", "gpt-5-mini", "scenarios"), "the stored summary counts every replay"
+    assert_equal 1, run.scores.dig("_models", "gpt-5-mini", "unique_scenarios")
+
+    report = run.to_report
+    assert_equal [ 1, 2 ], report.results.map(&:trial)
+    assert_equal [ "passed", "failed" ], report.results.map(&:status)
+    assert_equal 2, report.trials
+    assert_equal [ 2, 1, 1 ], report.summary_by_model["gpt-5-mini"].values_at("scenarios", "unique_scenarios", "passed")
+    assert_equal 2, report.to_h["trials"]
+  end
+
+  test "the same scenario and model twice is a duplicate unless the trials differ" do
+    publish(trials_envelope(second: { "trial" => 1 }))
+    assert_response :unprocessable_entity
+    assert_match "duplicate scenario/model result", json_response["error"]
+
+    without = trials_envelope
+    without["report"]["results"].each { |result| result.delete("trial") }
+    publish(without)
+    assert_response :unprocessable_entity
+    assert_match "duplicate scenario/model result", json_response["error"]
+    assert_equal 0, ActionAgent::EvaluationRun.count
+  end
+
+  test "a trial that is not a whole number from 1 to 1000 is refused" do
+    [ 0, "2", 1001, 2.0, false ].each do |trial|
+      publish(trials_envelope(second: { "trial" => trial }))
+
+      assert_response :unprocessable_entity, "trial #{trial.inspect}"
+      assert_equal "result.trial must be an integer from 1 to 1000", json_response["error"]
+    end
+    assert_equal 0, ActionAgent::EvaluationRun.count
+  end
+
   test "a report whose judge usage or release is malformed is refused with the field named" do
     publish(envelope(result: { "judge_usage" => { "calls" => -1 } }))
     assert_response :unprocessable_entity

@@ -45,10 +45,19 @@ module ActionAgent
     end
 
     # The diagnosis as the dashboard shows it: without the storage keys —
-    # the replay metadata, the scenario snapshot and the judge usage the
-    # publishing application reported (served as `judge_usage` instead).
+    # the replay metadata, the scenario snapshot, the judge usage the
+    # publishing application reported (served as `judge_usage` instead) and
+    # the trial number.
     def evaluation_diagnosis
-      (diagnosis || {}).except("_replay_metadata", "_scenario_snapshot", "_judge_usage")
+      (diagnosis || {}).except("_replay_metadata", "_scenario_snapshot", "_judge_usage", "_trial")
+    end
+
+    # Which replay of the scenario under the model this is, from 1: a
+    # published run keeps every replay of a scenario the application ran
+    # more than once (EvaluationReportImport). A result with no record is
+    # the first.
+    def trial
+      [ diagnosis&.dig("_trial").to_i, 1 ].max
     end
 
     # A catalog can be refreshed without changing what an earlier run asked
