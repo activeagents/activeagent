@@ -30,6 +30,14 @@ class EvalsGateCheckTest < ActiveSupport::TestCase
     assert_equal gated_report.gates(PassThresholds.default), GateCheck.new(gated_report, PassThresholds.default).gates
   end
 
+  def test_a_report_with_no_results_is_not_met_and_says_it_evaluated_nothing
+    check = GateCheck.new(Report.new(results: [], models: models, pass_thresholds: THRESHOLDS))
+
+    assert_not check.met?
+    assert_empty check.gates
+    assert_equal "no result reached a pass gate; the run evaluated nothing", check.message
+  end
+
   def test_the_message_counts_the_unmet_gates_then_lists_them_and_each_groups_failures
     report = gated_report
     check = GateCheck.new(report)

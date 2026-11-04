@@ -21,7 +21,9 @@ module ActiveAgent
       # @param report [Report] the report whose gates are checked
       # @param thresholds [PassThresholds, nil] the bars to hold the report
       #   to; without them Report#gates decides, taking the report's own,
-      #   else the defaults
+      #   else the defaults. Only their `min_pass_rate` and `gated` apply:
+      #   whether an answer passed was settled at the threshold the Runner
+      #   scored it at, so a different `threshold` here changes nothing.
       def initialize(report, thresholds = nil)
         @report = report
         @bars = [ thresholds ].compact
@@ -54,6 +56,8 @@ module ActiveAgent
       # never listed.
       def message
         all = gates
+        return "no result reached a pass gate; the run evaluated nothing" if all.empty?
+
         unmet = all.reject(&:met?)
         return "every pass gate met" if unmet.empty?
 
