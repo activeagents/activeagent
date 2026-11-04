@@ -182,9 +182,12 @@ module ActiveAgent
         end
       end
 
-      # Whether every gate is met.
+      # Whether every gate is met. A report with no gate, because no result
+      # reached it (a selection that matched nothing, every scenario left
+      # out as production_only), has shown nothing and does not pass.
       def passed?(thresholds = pass_thresholds || PassThresholds.default)
-        gates(thresholds).all?(&:met?)
+        rows = gates(thresholds)
+        rows.any? && rows.all?(&:met?)
       end
 
       # The results that did not pass — failed and errored — in run order,
@@ -381,7 +384,7 @@ module ActiveAgent
           "recommendations" => recommendations,
           "verdict" => verdict,
           "comparison" => comparison,
-          "pass_thresholds" => pass_thresholds&.to_h,
+          "pass_thresholds" => pass_thresholds&.to_h&.merge("threshold" => @threshold),
           "groups" => (summary_by_group if pass_thresholds),
           "gates" => (gates.map(&:to_h) if pass_thresholds),
           "judge" => @judge_label || @judge&.label,
