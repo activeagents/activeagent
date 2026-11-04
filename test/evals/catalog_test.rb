@@ -255,6 +255,62 @@ class ActiveAgentEvalsCatalogTest < ActiveSupport::TestCase
     assert_equal 0.5, both.pass_thresholds("triage", "smoke").min_pass_rate, "the product's bars still apply"
   end
 
+  test "a product's criteria and pass block round-trip side by side and both reach its suite" do
+    document = YAML.safe_load(<<~YAML)
+      catalog: support_desk
+      products:
+        - key: triage
+          agent: TriageAgent
+          criteria:
+            shared:
+              - key: cites_order
+                type: contains
+                config: { pattern: "ABC-" }
+          pass: { threshold: 0.8, min_pass_rate: 0.9 }
+          sets:
+            - key: smoke
+              criteria:
+                - key: response_present
+                  type: response_present
+              pass: { gated: false }
+              scenarios:
+                - key: refund_request
+                  prompt: A customer asks for a refund on order 1042.
+    YAML
+    both = ActiveAgent::Evals::Catalog.new([ document ])
+    yaml = both.to_yaml
+    reparsed = ActiveAgent::Evals::Catalog.parse(yaml)
+
+    assert_equal %w[key name agent criteria pass sets], YAML.safe_load(yaml)["products"].first.keys
+    assert_equal both.to_h, reparsed.to_h
+    assert_equal both.digest, reparsed.digest
+    assert_equal({ "threshold" => 0.8, "min_pass_rate" => 0.9 }, reparsed.product(:triage).pass)
+    assert_equal [ "cites_order" ], reparsed.product(:triage).criteria["shared"].map { |criterion| criterion["key"] }
+    assert_equal({}, reparsed.product(:triage).metadata)
+
+    suite = reparsed.suite_for(:triage)
+    assert_equal [ "shared" ], suite.criteria_names
+    assert_equal [ "cites_order" ], suite.criteria(:shared).map { |criterion| criterion["key"] }
+    assert_equal 0.8, suite.pass_thresholds.threshold
+    assert_equal 0.9, suite.pass_thresholds.min_pass_rate
+    assert_not suite.pass_thresholds.gated?("smoke")
+    assert_equal [ "response_present" ], suite.groups.first["criteria"].map { |criterion| criterion["key"] }
+    assert_equal suite.criteria, reparsed.suite_for(:triage, :smoke).criteria, "one set's suite keeps the product's lists"
+
+    layered = ActiveAgent::Evals::Catalog.new([
+      document,
+      { "products" => [ { "key" => "triage", "pass" => { "min_pass_rate" => 0.5 } } ] },
+      { "products" => [ { "key" => "triage", "criteria" => { "terse" => [ { "key" => "short", "type" => "min_length", "config" => { "chars" => 20 } } ] } } ] }
+    ])
+    assert_equal({ "threshold" => 0.8, "min_pass_rate" => 0.5 }, layered.product(:triage).pass, "a criteria-only document leaves the bars alone")
+    assert_equal %w[shared terse], layered.product(:triage).criteria.keys, "a pass-only document leaves the lists alone"
+
+    from_suite = ActiveAgent::Evals::Catalog.parse("suite: support_tasks\ncriteria: [{ key: short, type: min_length }]\npass: { min_pass_rate: 0.8 }\ngroups: []")
+    assert_equal [ "default" ], from_suite.product(:support_tasks).criteria.keys
+    assert_equal({ "min_pass_rate" => 0.8 }, from_suite.product(:support_tasks).pass)
+    assert_equal({}, from_suite.product(:support_tasks).metadata)
+  end
+
   test "refuses a pass block the suite would refuse, naming the product or set it sits on" do
     error = assert_raises(ActiveAgent::Evals::Catalog::InvalidDocument) do
       ActiveAgent::Evals::Catalog.parse("catalog: x\nproducts: [{ key: triage, pass: { retries: 2 } }]")

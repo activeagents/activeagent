@@ -37,6 +37,13 @@ The pricing tables changed too: a trace recorded under Ollama that priced
 at the default rate before prices at Ollama Cloud's listed rate now, and a
 finished evaluation run's cached figures are worked out again.
 
+A suite's `pass` block is read and checked as the suite loads: a key other
+than `threshold` and `min_pass_rate` (and, on a group, `min_pass_rate` and
+`gated`) raises `ArgumentError` naming it, and in a catalog a product's or
+set's `pass` raises `Catalog::InvalidDocument`. 1.9.6 ignored a suite's
+`pass` and kept a product's as metadata, so a document that already carried
+one under its own keys needs them renamed.
+
 ### Added
 
 - **Ollama Cloud** (`activeagent`). `generate_with :ollama, cloud: true,
@@ -137,13 +144,15 @@ finished evaluation run's cached figures are worked out again.
   place of `threshold:` and hands it to the report, and `Report#gates` is
   then one row per group × model with its pass rate against its bar, plus an
   `All` row per model over its gated results; `Report#passed?` is every gate
-  met, and `Report#failures(group:)` the results that did not pass. The
+  met, and a report with no gate (a selection that matched nothing, or every
+  scenario dropped as `production_only`) does not pass;
+  `Report#failures(group:)` lists the results that did not pass. The
   Markdown report adds a *Pass rate by group* table (`gates_markdown`;
   `failures_markdown(group:)` lists the failures for a test message), the
   HTML page tones each group's pass count by its gate, and `to_h` gains
   `pass_thresholds`, `groups` and `gates`. A report built without pass
-  thresholds renders as it did. The command line's `evals run
-  --min-pass-rate` stays a gate on the whole run.
+  thresholds renders as it did. The command line's
+  `evals run --min-pass-rate` stays a gate on the whole run.
 - **The pass-gate assertion, for Minitest and RSpec** (`activeagent`).
   `TestHelper#assert_meets_pass_gates(report)` passes when every gate of
   the report is met, each group held to the bar the suite declares for it
@@ -187,11 +196,14 @@ finished evaluation run's cached figures are worked out again.
   name a scenario the suite or catalog holds, or the call raises
   `Suite::NotFound` listing the missing keys in the order given, so a
   misspelled key from an environment variable or a command line fails the
-  run rather than passing it with zero scenarios. A key the suite holds
-  outside the chosen `groups:` returns an empty selection. `Suite.select`
-  is the same check over any scenarios, with `known:` the wider set the keys
-  must come from, for a runner that takes keys across several suites.
-  Without `strict:` the selection narrows as before.
+  run, named in the error. A key the suite holds outside the chosen
+  `groups:` returns an empty selection. `Suite.select` is the same check
+  over any scenarios, with `known:` the wider set the keys must come from,
+  for a runner that takes keys across several suites. Without `strict:` the
+  selection narrows as before: the scenario a misspelled key meant is left
+  out without notice, and only when every key misses does a run held to
+  `Report#passed?` (or `assert_meets_pass_gates`) fail, without naming the
+  key.
 - **Skip the judge for a replay that already failed its expectations**
   (`activeagent`). `Runner.new(judge_failed_expectations: false)` asks the
   judge about an answered replay only when every expectation its scenario
@@ -202,9 +214,9 @@ finished evaluation run's cached figures are worked out again.
   `expected_tool_not_called`, `ungrounded_answer`, `forbidden_content` or
   `missing_content`) before it looks at quality — so it fails on whichever
   of those it assigns first, with no `task_completion` score, its
-  `llm_judge` criteria unscored and no judge-written recommendation (a gated
-  refusal or invented figure loses the judge's suggested tool too), and the
-  calls saved stay out of the `judge_limit` budget.
+  `llm_judge` criteria unscored and no judge-written recommendation (a
+  refusal or invented figure the judge skipped loses the judge's suggested
+  tool too), and the calls saved stay out of the `judge_limit` budget.
   `Scorer.new(judge_failed_expectations:)` and
   `Scorer.expectations_met?(scores)` are the pieces underneath, and the
   scores hash keeps its key order either way. The default (`true`) grades
@@ -220,15 +232,17 @@ finished evaluation run's cached figures are worked out again.
   count and pass rate cover every replay, with `"unique_scenarios"` beside
   them, and the verdict then reads "Passed 5 of 6 replays of 2 scenarios";
   a matrix cell shows one mark per trial with the mean score and the most
-  frequent fault; the Answers section lists every trial; the Markdown,
-  JSON and HTML reports state the trial count only when it is above 1, so
-  a one-trial Markdown or HTML report is exactly what it was, and its JSON
-  differs only by `"trial"` on each result and `"unique_scenarios"` on
-  each model. `Comparison` pools a scenario's replays into its pass share,
-  so its intervals still resample scenarios. The collector accepts the
-  repeats of one scenario × model when each carries its `trial`, stores
-  every one, and rebuilds them into the run's report; the dashboard's own
-  runs replay once.
+  frequent fault; the Answers section lists every trial; a failure line
+  (`failure_markdown`, `failures_markdown`, the pass-gate message) names
+  the trial (`gpt-5-mini` · trial 2) when its scenario × model was
+  replayed more than once; the Markdown, JSON and HTML reports state the
+  trial count only when it is above 1, so a one-trial Markdown or HTML
+  report is exactly what it was, and its JSON differs only by `"trial"` on
+  each result and `"unique_scenarios"` on each model. `Comparison` pools a
+  scenario's replays into its pass share, so its intervals still resample
+  scenarios. The collector accepts the repeats of one scenario × model when
+  each carries its `trial`, stores every one, and rebuilds them into the
+  run's report; the dashboard's own runs replay once.
 - **The evaluation publisher reads `run_id` from the report, returns an
   absolute receipt `url` and builds itself from `ENV`** (`activeagent`).
   `ActiveAgent::Evals::Publisher#call` and `#progress` take `run_id:` as

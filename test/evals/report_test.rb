@@ -1085,6 +1085,59 @@ class EvalsReportTest < ActiveSupport::TestCase
                     "the folded summary runs a replayed model's marks together"
   end
 
+  def test_failures_markdown_names_the_trial_of_each_failing_replay
+    assert_equal [ "- `s_inbox` on `gpt-5-mini` · trial 3: expected tool not called — Expected inbox_status to be called; the agent called find_tickets.",
+                   "- `s_queue` on `gpt-5-mini` · trial 2: tool error — Tool inbox_status returned an error while answering.",
+                   "- `s_queue` on `gpt-5-mini` · trial 3: expected tool not called — Expected inbox_status to be called; the agent called find_tickets.",
+                   "- `s_inbox` on `#{llama.label}` · trial 1: missing capability — The agent said it lacks the ability to perform this task.",
+                   "- `s_inbox` on `#{llama.label}` · trial 2: missing capability — The agent said it lacks the ability to perform this task." ],
+                 flaky_report.failures_markdown(group: "desk").lines(chomp: true)
+
+    failures = trial_report.failures_markdown.lines(chomp: true)
+    assert_includes failures, "- `s_inbox` on `gpt-5-mini` · trial 3: expected tool not called — Expected inbox_status to be called; the agent called find_tickets.",
+                    "a replayed scenario names the trial even when only one replay failed"
+    assert_includes failures, "- `s_queue` on `gpt-5-mini`: expected tool not called — Expected inbox_status to be called; the agent called find_tickets.",
+                    "a scenario the model ran once keeps the plain line"
+    assert_equal failures, trial_report.failures.map { |result| trial_report.failure_markdown(result) }, "failures_markdown is built from failure_markdown"
+  end
+
+  def test_a_single_trial_reports_failure_lines_name_no_trial
+    single = report.failures_markdown.lines(chomp: true)
+
+    assert_equal 6, single.size
+    assert_equal "- `s_queue` on `gpt-5-mini`: expected tool not called — Expected inbox_status to be called; the agent called find_tickets.", single.first
+    assert single.all? { |line| line.match?(/\A- `[^`]+` on `[^`]+`: /) }, single.join("\n")
+    assert_not_includes report.failures_markdown, "trial"
+    assert_not_includes gated_report.failures_markdown, "trial"
+  end
+
+  def test_gates_over_replayed_scenarios_count_every_replay_and_passed_follows_the_bars
+    report = replayed_report
+    gates = report.gates
+
+    assert_equal 3, report.trials
+    assert_equal [ [ "orders", 5, 6 ], [ "help", 2, 3 ], [ "experimental", 0, 3 ], [ nil, 9, 12 ] ],
+                 gates.map { |gate| [ gate.group, gate.passed, gate.total ] },
+                 "the All row counts the 12 gated replays, the ungated experimental ones left out"
+    assert_equal [ "Order support · gpt-5-mini: 5/6 (83%) passed, below 100%",
+                   "Product help · gpt-5-mini: 2/3 (67%) passed, below 80%",
+                   "Experimental · gpt-5-mini: 0/3 (0%) passed, not gated",
+                   "All · gpt-5-mini: 9/12 (75%) passed, below 80%" ], gates.map(&:to_s)
+    assert_equal [ 6, 5 ], report.summary_by_group.dig("orders", "models", gpt.label).values_at("scenarios", "passed")
+    assert_equal [ "| Order support | `gpt-5-mini` | 5 of 6 | 83% ❌ | 100% | 92% |",
+                   "| Product help | `gpt-5-mini` | 2 of 3 | 67% ❌ | 80% | 83% |",
+                   "| Experimental | `gpt-5-mini` | 0 of 3 | 0% — | not gated | 50% |",
+                   "| All | `gpt-5-mini` | 9 of 12 | 75% ❌ | 80% | 80% |" ], report.gates_markdown.last(4)
+    assert_equal [ [ 5, 6 ], [ 9, 12 ] ], report.to_h["gates"].values_at(0, 3).map { |gate| gate.values_at("passed", "total") }
+
+    assert_not report.passed?
+    assert report.passed?(LENIENT)
+    groups = { "orders" => { "min_pass_rate" => 0.8 }, "help" => { "min_pass_rate" => 0.6 }, "experimental" => { "gated" => false } }
+    assert report.passed?(PassThresholds.new(suite: { "min_pass_rate" => 0.75 }, groups: groups)), "5/6 clears 80%, 2/3 clears 60%, and 9/12 meets 75%"
+    assert_not report.passed?(PassThresholds.new(suite: { "min_pass_rate" => 0.76 }, groups: groups)),
+               "one more point on the suite's bar and the All row's 9/12 falls short"
+  end
+
   def test_to_h_and_the_markdown_name_the_trials_only_when_a_scenario_was_replayed
     assert_not report.to_h.key?("trials")
     assert report.to_h["results"].none? { |entry| entry.key?("trial") }, "a single-trial report serializes as an earlier gem wrote it"

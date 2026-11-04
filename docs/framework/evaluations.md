@@ -147,7 +147,7 @@ ActiveAgent::Evals::Runner.new(
 
 Such a result fails on whichever of those faults `Diagnosis` assigns first (a
 refusal is `missing_capability`, an invented figure `ungrounded_answer`; when
-such a replay is gated, neither gets the judge's suggested tool) with no
+the judge skips such a replay, neither gets the judge's suggested tool) with no
 `task_completion` score, its `llm_judge` criteria unscored (nil, as with no
 judge) and no judge-written recommendation; `require_judge_scores: true`
 leaves that fault in place rather than reporting `judge_unavailable`. The
@@ -156,13 +156,13 @@ the replays whose verdict a judge can change. A blank answer is never
 graded, and a blank or errored replay (`run_error`) is never refined under
 the default `refine_faults`, with or without the flag.
 
-The flag changes what the averages mean. A gated replay's `score` is the
-mean of the scores it has, without `task_completion` or its `llm_judge`
-criteria, and the report's average task completion (`avg_task_completion`)
-is taken over the replays the judge graded, so it describes the answers
-that met their expectations, not every answer. Pass and fail, pass rates
-and the pass gates are unchanged; compare averages only between runs made
-with the same setting.
+The flag changes what the averages mean. The `score` of a replay the judge
+skipped is the mean of the scores it has, without `task_completion` or its
+`llm_judge` criteria, and the report's average task completion
+(`avg_task_completion`) is taken over the replays the judge graded, so it
+describes the answers that met their expectations, not every answer. Pass
+and fail, pass rates and the pass gates are unchanged; compare averages
+only between runs made with the same setting.
 
 Hosts can correlate the replay and its judge calls with one trace context by
 passing `around_evaluation:` to `Runner.new`. The callable receives the
@@ -593,7 +593,10 @@ report.results
   Markdown says so once, under the judge line: *Each scenario was replayed
   3 times; a model's pass rate counts every replay.* The HTML page adds
   *3 trials per scenario* beside its scenario count, and its matrix cell
-  reads *2/3 · 67% passed* with a line per trial under it. `Report#to_h` carries
+  reads *2/3 · 67% passed* with a line per trial under it. A failure line
+  (`failure_markdown`) names the trial the same way when its scenario ×
+  model was replayed more than once, and so do `failures_markdown` and the
+  pass-gate message built from it. `Report#to_h` carries
   `"trials"` only when it is above 1; a one-trial report is the report you
   get with no `trials:` at all.
 - **The scenario stays the unit of the comparison.** `Comparison` pools a
@@ -768,9 +771,12 @@ no group counts there too). Each gate carries the model's `passed`, `total`
 and `pass_rate` (a 0..1 fraction) beside the
 `min_pass_rate` it is held to and whether the group is `gated`; `met?` is
 true when the rate reaches the bar, and always for an ungated group.
-`Report#passed?` is every gate met. `Report#failures(group:)` lists the
-results that did not pass — failed and errored, in run order — and
-`failures_markdown(group:)` writes them one per line.
+`Report#passed?` is every gate met, and a report with no gate (a selection
+that matched nothing, or every scenario dropped as `production_only`) does
+not pass.
+`Report#failures(group:)` lists the results that did not pass — failed and
+errored, in run order — and `failures_markdown(group:)` writes them one per
+line.
 
 The [test helper](#in-your-test-suite) asserts on the gates.
 `run_eval_suite` hands the suite's bars to the runner when it declares any
@@ -946,17 +952,21 @@ suite.scenarios(keys: "orders_1, orders_2", strict: true)
 ```
 
 Without `strict:`, `keys:` is an Array of keys and narrows quietly: a
-misspelled key, or a key from another suite, selects nothing, and a run
-passes with zero scenarios. With `strict: true`, `keys:` is an Array of
-keys or one comma-separated String, split on commas and stripped, so the
-value can come straight from an environment variable or a command line,
-and every key is checked against the whole suite first: the call raises
-`Suite::NotFound` — `no scenario orders_3, orders_4 in support_bot`, the
-missing keys in the order given — when the suite does not hold one. A key
-the suite holds outside the chosen `groups:` is not an error: the selection
-is empty. A key held only by another suite is an error here; `Suite.select`
-below is for keys spread across suites. The scenarios come back in the
-suite's order, not the keys'.
+misspelled key, or a key from another suite, selects nothing. Beside keys
+that match, the scenario it meant is left out without notice and the run
+can pass without it; when no key matches, the selection is empty and a run
+held to `Report#passed?` (or `assert_meets_pass_gates`) fails without
+saying which key matched nothing. `strict: true` refuses both and names the
+key. With `strict: true`, `keys:` is an Array of keys or one
+comma-separated String, split on commas and stripped, so the value can come
+straight from an environment variable or a command line, and every key is
+checked against the whole suite first: the call raises `Suite::NotFound` —
+`no scenario orders_3, orders_4 in support_desk`, the missing keys in the
+order given — when the suite does not hold one. A key the suite holds
+outside the chosen `groups:` is not an error: the selection is empty. A key
+held only by another suite is an error here; `Suite.select` below is for
+keys spread across suites. The scenarios come back in the suite's order,
+not the keys'.
 
 `Suite.select` is that check for scenarios that do not all sit in one
 suite. It takes the scenarios to choose from, the keys, `known:`, the
