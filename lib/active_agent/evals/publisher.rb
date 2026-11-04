@@ -20,11 +20,20 @@ module ActiveAgent
     # ArgumentError before anything is sent.
     class Publisher
       DEFAULT_ENDPOINT = "https://api.activeagents.ai/v1/evaluations"
+      # The hosted dashboard people sign in to; the hosted collector answers
+      # on the API host, where a dashboard session does not reach.
+      HOSTED_DASHBOARD_URL = "https://activeagents.ai"
       MAX_BYTES = 2 * 1024 * 1024
       DETAIL_LIMIT = 200
 
       # @return [String] the collector URL reports go to
       attr_reader :endpoint
+
+      # @return [String] the address a receipt's "url" path resolves against: the
+      #   dashboard_url given, or by default the endpoint's origin (its scheme,
+      #   host and any non-default port, with no path), except that the hosted
+      #   API host resolves to HOSTED_DASHBOARD_URL
+      attr_reader :dashboard_url
 
       # Raised for every failed delivery. Only a network failure keeps the
       # underlying error as its +cause+, so neither the response nor the
@@ -68,7 +77,14 @@ module ActiveAgent
       # The key is sent as a bearer token and filtered from the collector's
       # explanation, so it is limited to visible ASCII: the sanitizer in
       # +collector_detail+ never alters it, and an echo of it always matches.
-      def initialize(api_key:, endpoint: DEFAULT_ENDPOINT, timeout: 10, open_timeout: 10)
+      #
+      # @param dashboard_url [String, nil] the address people open the dashboard at,
+      #   where a receipt's "url" path resolves; by default the endpoint's origin,
+      #   or HOSTED_DASHBOARD_URL for the hosted collector.
+      #   The receipt's path, which carries the engine's mount, replaces any path on it
+      # @raise [ArgumentError] "Evaluation dashboard_url is not an http(s) URL" when it is anything else, or
+      #   "Evaluation dashboard_url must be an http(s) URL without credentials, query or fragment" when it carries one of those
+      def initialize(api_key:, endpoint: DEFAULT_ENDPOINT, dashboard_url: nil, timeout: 10, open_timeout: 10)
         @uri = URI.parse(endpoint.to_s)
         unless @uri.is_a?(URI::HTTP) && @uri.host && !@uri.userinfo && !@uri.query && !@uri.fragment
           raise ArgumentError, "Evaluation endpoint must be an HTTP(S) URL without credentials, query or fragment"
@@ -77,6 +93,8 @@ module ActiveAgent
           raise ArgumentError, "Evaluation endpoint requires HTTPS except on loopback hosts"
         end
         @endpoint = @uri.to_s
+
+        @dashboard_url = dashboard_url.nil? ? default_dashboard_url(@uri) : checked_dashboard_url(dashboard_url)
 
         @api_key = api_key.to_s.strip
         raise ArgumentError, "Evaluation API key is required" if @api_key.empty?
@@ -93,9 +111,42 @@ module ActiveAgent
         raise ArgumentError, "Evaluation endpoint is not a valid URL"
       end
 
-      # report may be a Report or its saved JSON hash. Full prompts, answers and
-      # tool results are included; applications should make publication opt-in.
-      def call(report:, run_id:, source:, agent_name:, suite:)
+      # Returns a publisher built from +env+: ACTIVEAGENTS_API_KEY is the key,
+      # ACTIVEAGENTS_EVALUATIONS_ENDPOINT the collector (DEFAULT_ENDPOINT when
+      # blank) and ACTIVEAGENTS_DASHBOARD_URL the dashboard a receipt's "url"
+      # path resolves against (the endpoint's origin when blank), so
+      # publishing is one line:
+      #
+      #   Publisher.from_env.call(report: report, source: "support-app", agent_name: "SupportBot", suite: "support_desk")
+      #
+      # @param env [#[]] the environment to read, ENV by default
+      # @raise [ArgumentError] "ACTIVEAGENTS_API_KEY is not set" for a blank key, and what +new+ raises for the other two
+      # @return [Publisher]
+      def self.from_env(env = ENV)
+        api_key = env["ACTIVEAGENTS_API_KEY"].to_s.strip
+        raise ArgumentError, "ACTIVEAGENTS_API_KEY is not set" if api_key.empty?
+
+        endpoint = env["ACTIVEAGENTS_EVALUATIONS_ENDPOINT"].to_s.strip
+        dashboard_url = env["ACTIVEAGENTS_DASHBOARD_URL"].to_s.strip
+        new(api_key: api_key, endpoint: endpoint.empty? ? DEFAULT_ENDPOINT : endpoint, dashboard_url: dashboard_url.empty? ? nil : dashboard_url)
+      end
+
+      # Returns the collector's receipt for the completed +report+, a Report
+      # or its saved JSON hash. Full prompts, answers and tool results are
+      # included; applications should make publication opt-in.
+      #
+      # The receipt's "url" is the run's dashboard page, made absolute: a path
+      # beginning with "/" is joined onto +dashboard_url+. An absolute URL, a
+      # url that is neither (a relative reference without a leading slash, a
+      # network-path reference, or a path that is not a valid URI) and a
+      # receipt without one are left as the collector sent them.
+      #
+      # @param run_id [String, nil] the run's identity, kept across retries; by default
+      #   the one the report's metadata records under "run_id" or :run_id, which
+      #   Correlation#with_run puts there
+      # @raise [ArgumentError] when no run_id is given and the report's metadata records none as a nonempty string
+      def call(report:, run_id: nil, source:, agent_name:, suite:)
+        run_id = resolve_run_id(report, run_id)
         envelope = self.class.envelope(report: report, run_id: run_id, source: source, agent_name: agent_name, suite: suite)
         publish(envelope, accepted: %w[complete], receipt: "completion receipt")
       end
@@ -104,13 +155,18 @@ module ActiveAgent
       # which the collector shows as a running run under +run_id+. Each call
       # replaces the results the previous one sent; +call+ with the finished
       # report under the same run_id completes the run. The receipt's status
-      # is "running", or "complete" when the run already finished.
+      # is "running", or "complete" when the run already finished, and its
+      # "url" is made absolute as +call+ makes it.
       #
       # Raises Error, without sending the report, when the collector does not
       # list "progress" among its capabilities (see +supports_progress?+): a
       # collector that predates progress would store the partial report as
       # complete.
-      def progress(report:, run_id:, source:, agent_name:, suite:)
+      #
+      # @param run_id [String, nil] as for +call+: by default the one the report's metadata records
+      # @raise [ArgumentError] when no run_id is given and the report's metadata records none as a nonempty string
+      def progress(report:, run_id: nil, source:, agent_name:, suite:)
+        run_id = resolve_run_id(report, run_id)
         unless supports_progress?
           raise Error, "Evaluation collector does not accept progress; publish the finished report with call"
         end
@@ -186,8 +242,54 @@ module ActiveAgent
 
       private
 
+      # The run_id a delivery goes under: +run_id+ when given, otherwise the
+      # one the report's metadata records under a String or Symbol key, which
+      # Correlation#with_run puts there. Raises ArgumentError for a report
+      # that is neither a Report nor a hash, as +envelope+ does, and when
+      # neither +run_id+ nor the metadata names a nonempty string.
+      def resolve_run_id(report, run_id)
+        return run_id unless run_id.nil?
+
+        hash = report.to_h if report.respond_to?(:to_h) && !report.nil? && !report.is_a?(Array)
+        raise ArgumentError, "report must be a Report or its saved JSON hash" unless hash.is_a?(Hash)
+
+        metadata = hash["metadata"]
+        recorded = metadata["run_id"] || metadata[:run_id] if metadata.is_a?(Hash)
+        return recorded if recorded.is_a?(String) && !recorded.strip.empty?
+
+        raise ArgumentError, "run_id must be given, or the report's metadata must carry one (Correlation#with_run records it)"
+      end
+
+      # The hosted collector's API host serves no dashboard session, so its
+      # receipts resolve against the hosted dashboard; any other collector is
+      # its own dashboard.
+      def default_dashboard_url(uri)
+        uri.hostname == URI.parse(DEFAULT_ENDPOINT).hostname ? HOSTED_DASHBOARD_URL : origin(uri)
+      end
+
+      # Returns the dashboard_url given as a String, raising ArgumentError
+      # unless it is an http(s) URL with a host and without credentials, a
+      # query or a fragment.
+      def checked_dashboard_url(value)
+        uri = URI.parse(value.to_s)
+        raise ArgumentError, "Evaluation dashboard_url is not an http(s) URL" unless uri.is_a?(URI::HTTP) && !uri.host.to_s.empty?
+        if uri.userinfo || uri.query || uri.fragment
+          raise ArgumentError, "Evaluation dashboard_url must be an http(s) URL without credentials, query or fragment"
+        end
+
+        value.to_s
+      rescue URI::InvalidURIError
+        raise ArgumentError, "Evaluation dashboard_url is not an http(s) URL"
+      end
+
+      # The origin of +uri+: its scheme, host and any non-default port, with no path.
+      def origin(uri)
+        uri.dup.tap { |without_path| without_path.path = "" }.to_s
+      end
+
       # Delivers +envelope+ and returns the collector's receipt, which must name
-      # the envelope's run_id, a stored run, and one of the +accepted+ statuses.
+      # the envelope's run_id, a stored run, and one of the +accepted+ statuses,
+      # with a "url" path made absolute on the dashboard.
       def publish(envelope, accepted:, receipt:)
         body = encode(envelope)
         raise Error, "Evaluation report exceeds the 2 MiB delivery limit; publish a smaller selection" if body.bytesize > MAX_BYTES
@@ -201,8 +303,22 @@ module ActiveAgent
                  answer["id"] && answer["evaluation_id"]
             raise Error.new("Evaluation collector returned an invalid #{receipt}; retain the report and run_id for retry", retryable: true)
           end
-          answer
+          resolve_url(answer)
         end
+      end
+
+      # Returns +receipt+ with a "url" that is a path beginning with "/" joined
+      # onto +dashboard_url+. Any other url (an absolute one, a relative
+      # reference without a leading slash, a network-path reference, a path
+      # that is not a valid URI) and a receipt without one are left as the
+      # collector sent them.
+      def resolve_url(receipt)
+        url = receipt["url"]
+        return receipt unless url.is_a?(String) && url.start_with?("/") && !url.start_with?("//")
+
+        receipt.merge("url" => URI.join(@dashboard_url, url).to_s)
+      rescue URI::InvalidURIError
+        receipt
       end
 
       # The string entries of a JSON object body's +capabilities+ array, or none.

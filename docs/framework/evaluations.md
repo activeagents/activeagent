@@ -217,6 +217,16 @@ Pass the yielded metadata to `Runner.new(metadata:)`: it is the caller's own
 hash, mutated in place, so a run reopened around a later verdict accumulates
 onto the metadata the Report already carries.
 
+That `run_id` is also what a collector stores the run under. With the
+collector and its key in `ACTIVEAGENTS_EVALUATIONS_ENDPOINT` and
+`ACTIVEAGENTS_API_KEY`, one line publishes the report, reading the `run_id`
+from its metadata (see
+[Publishing an externally executed evaluation](/evals/publication)):
+
+```ruby
+ActiveAgent::Evals::Publisher.from_env.call(report: report, source: "support-app", agent_name: "SupportAgent", suite: "support")
+```
+
 The tracer is injected, so the evaluation module takes on no telemetry
 dependency and still loads on its own. Without one, the correlation mints ids
 and merges metadata while the blocks run untraced, which keeps a suite

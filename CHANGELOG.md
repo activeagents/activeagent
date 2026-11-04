@@ -214,6 +214,25 @@ finished evaluation run's cached figures are worked out again.
   repeats of one scenario × model when each carries its `trial`, stores
   every one, and rebuilds them into the run's report; the dashboard's own
   runs replay once.
+- **The evaluation publisher reads `run_id` from the report, returns an
+  absolute receipt `url` and builds itself from `ENV`** (`activeagent`).
+  `ActiveAgent::Evals::Publisher#call` and `#progress` take `run_id:` as
+  optional and read it from the report's `metadata.run_id`, where
+  `Correlation#with_run` records it, from a `Report` or its saved JSON hash;
+  an explicit `run_id:` wins, and a report with neither raises
+  `ArgumentError` before anything is sent. The receipt's `url` comes back
+  absolute: the path a collector sends
+  (`<mount>/evaluations/:evaluation_id/runs/:id` from the engine) is joined
+  onto the publisher's `dashboard_url`, by default the endpoint's origin
+  (`https://activeagents.ai` for the hosted collector on its API host), or
+  the HTTP(S) URL `Publisher.new(dashboard_url:)` is given, so the link opens
+  in a browser; an absolute `url` and a receipt without one are left as they
+  are. `Publisher.from_env` builds the publisher from
+  `ACTIVEAGENTS_EVALUATIONS_ENDPOINT` (the hosted default when blank),
+  `ACTIVEAGENTS_API_KEY` (required) and the new, optional
+  `ACTIVEAGENTS_DASHBOARD_URL`, for a dashboard people reach at another
+  address than the collector's:
+  `Publisher.from_env.call(report: report, source: "support-app", agent_name: "SupportBot", suite: "orders")`.
 
 ### Changed
 
