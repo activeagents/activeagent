@@ -102,6 +102,7 @@ export default defineConfig({
           { text: 'Telemetry', link: '/framework/telemetry' },
           { text: 'User Feedback', link: '/framework/feedback' },
           { text: 'Dev Console (Dashboard Engine)', link: '/framework/dashboard' },
+          { text: 'Hosted Dashboard (activeagents.ai)', link: '/framework/hosted_dashboard' },
           { text: 'Browser Sessions', link: '/framework/browser-sessions' },
           { text: 'Evaluations', link: '/framework/evaluations' },
           { text: 'Self-Hosted Dashboard', link: '/framework/self-hosted-observability' },
