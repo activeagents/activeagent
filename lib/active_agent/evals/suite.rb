@@ -60,16 +60,24 @@ module ActiveAgent
         @criteria_lists.keys
       end
 
-      # The criteria of the named lists concatenated in the order given, a name
-      # given twice contributing once, or of every list when no names are
-      # given. A name no document declared contributes nothing, so a caller can
-      # ask for "shared" plus an audience that has no list of its own, and a
-      # nil or blank name is skipped, so an audience left unset narrows
-      # nothing. The result is ready for Runner.new(criteria:).
+      # The criteria of the named lists in the order given, a name given twice
+      # contributing once, or of every list when no names are given. A
+      # criterion whose key an earlier list already holds replaces it in
+      # place, so an audience's list can restate a shared criterion with its
+      # own bar and the answer is scored on it once. A name no document
+      # declared contributes nothing, so a caller can ask for "shared" plus an
+      # audience that has no list of its own, and a nil or blank name is
+      # skipped, so an audience left unset narrows nothing. The result is
+      # ready for Runner.new(criteria:).
       def criteria(*names)
         names = names.flatten.filter_map { |list_name| list_name.to_s.presence }.uniq
         names = criteria_names if names.empty?
-        names.flat_map { |list_name| @criteria_lists.fetch(list_name, []) }
+        names.each_with_object([]) do |list_name, chosen|
+          @criteria_lists.fetch(list_name, []).each do |criterion|
+            index = chosen.index { |existing| existing["key"] == criterion["key"] }
+            index ? chosen[index] = criterion : chosen << criterion
+          end
+        end
       end
 
       # Scenarios narrowed by group keys, scenario keys, or both; `production_only`

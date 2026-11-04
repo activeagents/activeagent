@@ -117,7 +117,8 @@ finished evaluation run's cached figures are worked out again.
   `{ key, type, config }` hashes `Runner.new(criteria:)` takes, which reads
   as the one list named `default`, or a mapping of name → list, one per
   audience the same questions are graded for. `Suite#criteria(*names)`
-  concatenates the named lists in the order given, ready for the runner;
+  joins the named lists in the order given, a later list's criterion
+  replacing an earlier one with the same key, ready for the runner;
   with no names it returns every list in document order, and a name no
   document declares contributes nothing, so a deployment asks for `shared`
   plus an audience that may have no list of its own. `Suite#criteria_names`

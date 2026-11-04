@@ -615,9 +615,11 @@ suite.scenarios(groups: %w[orders], include_production_only: false)
 list, which reads as the single list named `default`, or as a mapping of
 name → list, one per audience the same questions are graded for.
 `suite.criteria_names` gives the names in document order and
-`suite.criteria(*names)` the named lists concatenated in the order given (a
-name repeated contributes once, a `nil` or blank one is skipped), ready for
-the runner:
+`suite.criteria(*names)` the named lists joined in the order given (a
+name repeated contributes once, a `nil` or blank one is skipped, and a
+criterion whose key an earlier list holds replaces it in place, so an
+audience can restate a shared criterion and the answer is scored on it
+once), ready for the runner:
 `ActiveAgent::Evals::Runner.new(criteria: suite.criteria("shared", "terse"), ...)`.
 With no names it returns every list in document order, and a name no
 document declares contributes nothing, so a deployment can ask for `shared`

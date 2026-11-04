@@ -138,7 +138,7 @@ class EvalsSuiteTest < ActiveSupport::TestCase
     end
   end
 
-  def test_criteria_concatenates_the_named_lists_in_the_order_given
+  def test_criteria_joins_the_named_lists_in_the_order_given
     suite = ActiveAgent::Evals::Suite.new([ YAML.safe_load(CORE), YAML.safe_load(CLIENT) ])
 
     assert_equal %w[short no_filler cites_order no_apology], suite.criteria("terse", "shared").map { |criterion| criterion["key"] }
@@ -148,6 +148,21 @@ class EvalsSuiteTest < ActiveSupport::TestCase
     assert_equal [], suite.criteria("missing")
     assert_equal suite.criteria, suite.criteria(nil)
     assert_equal %w[cites_order no_apology], suite.criteria("shared", nil, "").map { |criterion| criterion["key"] }
+  end
+
+  def test_a_later_list_restating_a_criterion_key_replaces_it_in_place
+    suite = ActiveAgent::Evals::Suite.new([ {
+      "criteria" => {
+        "shared" => [ { "key" => "tone", "type" => "not_contains", "config" => { "pattern" => "sorry" } },
+                      { "key" => "cites_order", "type" => "contains", "config" => { "pattern" => "ABC-" } } ],
+        "patient" => [ { "key" => "tone", "type" => "llm_judge", "config" => { "rubric" => "Warm and plain." } } ]
+      }
+    } ])
+
+    chosen = suite.criteria("shared", "patient")
+    assert_equal %w[tone cites_order], chosen.map { |criterion| criterion["key"] }
+    assert_equal "llm_judge", chosen.first["type"], "the audience's tone wins and is scored once"
+    assert_equal "not_contains", suite.criteria("patient", "shared").first["type"], "the list named last wins"
   end
 
   def test_a_bare_criteria_list_reads_as_the_default_list
