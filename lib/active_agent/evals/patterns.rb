@@ -11,13 +11,25 @@ module ActiveAgent
     #   "expect" => { "contains" => [ Patterns.number(3), Patterns.share(3, 4) ] }
     module Patterns
       MONTHS = %w[january february march april may june july august september october november december].freeze
+
+      # `text` as a pattern that matches it in any case, each letter a
+      # character class: any_case("Oct.") is "[Oo][Cc][Tt]\\.".
+      def self.any_case(text)
+        text.chars.map { |char| char.match?(/[a-z]/i) ? "[#{char.upcase}#{char.downcase}]" : Regexp.escape(char) }.join
+      end
+      private_class_method :any_case
+
       # A day of the month written beside its month, in any case: "Oct 12",
       # "Sept. 12" and "October 12" before the figure, "12 Oct" and "12th of
       # October" after it. A lookbehind takes alternatives of one length only,
-      # so the spellings before the figure are one lookbehind per length.
-      # "may" is left out after the figure, where it is usually the verb.
+      # so the spellings before the figure are one lookbehind per length, and
+      # each letter in it is a character class rather than `(?i:...)`: the
+      # dashes make the pattern UTF-8, where case folding lets "st" match the
+      # one-character ligature "ﬆ", and Ruby 3.2 refuses a lookbehind whose
+      # length that leaves open. "may" is left out after the figure, where it
+      # is usually the verb.
       MONTH_BEFORE = MONTHS.flat_map { |month| [ month, month[0, 3], "#{month[0, 3]}." ] }.push("sept", "sept.").uniq
-        .group_by(&:length).sort.map { |_length, spellings| "(?<!(?i:#{spellings.map { |spelling| "\\b#{Regexp.escape("#{spelling} ")}" }.join('|')}))" }
+        .group_by(&:length).sort.map { |_length, spellings| "(?<!#{spellings.map { |spelling| "\\b#{any_case("#{spelling} ")}" }.join('|')})" }
         .join.freeze
       MONTH_AFTER = (MONTHS - %w[may]).map { |month| "#{month[0, 3]}(?:#{Regexp.escape(month[3..])})?" }.push("sept").join("|").freeze
 
