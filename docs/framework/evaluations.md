@@ -156,6 +156,14 @@ the replays whose verdict a judge can change. A blank answer is never
 graded, and a blank or errored replay (`run_error`) is never refined under
 the default `refine_faults`, with or without the flag.
 
+The flag changes what the averages mean. A gated replay's `score` is the
+mean of the scores it has, without `task_completion` or its `llm_judge`
+criteria, and the report's average task completion (`avg_task_completion`)
+is taken over the replays the judge graded, so it describes the answers
+that met their expectations, not every answer. Pass and fail, pass rates
+and the pass gates are unchanged; compare averages only between runs made
+with the same setting.
+
 Hosts can correlate the replay and its judge calls with one trace context by
 passing `around_evaluation:` to `Runner.new`. The callable receives the
 scenario and model spec, yields the evaluation, and returns its result:
