@@ -112,6 +112,24 @@ finished evaluation run's cached figures are worked out again.
   loads the gem's rake tasks; the empty `activeagent_tasks.rake`
   placeholder is gone.
 
+- **A suite declares its pass gates** (`activeagent`). A suite's `pass`
+  block sets the score every answer must reach (`threshold`) and the share
+  of a model's answers that must pass (`min_pass_rate`), for the suite and
+  for any group with its own bar; `gated: false` keeps a group in the report
+  and out of `Report#passed?`. A catalog's products and sets take the
+  same block, and later documents layer it key by key. `Suite#pass_thresholds`
+  reads it as a `PassThresholds`, `Runner.new(pass_thresholds:)` takes it in
+  place of `threshold:` and hands it to the report, and `Report#gates` is
+  then one row per group × model with its pass rate against its bar, plus an
+  `All` row per model over its gated results; `Report#passed?` is every gate
+  met, and `Report#failures(group:)` the results that did not pass. The
+  Markdown report adds a *Pass rate by group* table (`gates_markdown`;
+  `failures_markdown(group:)` lists the failures for a test message), the
+  HTML page tones each group's pass count by its gate, and `to_h` gains
+  `pass_thresholds`, `groups` and `gates`. A report built without pass
+  thresholds renders as it did. The command line's `evals run
+  --min-pass-rate` stays a gate on the whole run.
+
 ### Changed
 
 - **Every trace cost is priced under its provider** (`actionagent`). The

@@ -15,6 +15,7 @@ require "active_support/core_ext/enumerable"
 
 require_relative "evals/scenario"
 require_relative "evals/scenario_parser"
+require_relative "evals/pass_thresholds"
 require_relative "evals/suite"
 require_relative "evals/catalog"
 require_relative "evals/model_spec"

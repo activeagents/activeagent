@@ -361,6 +361,7 @@ whatever they supply:
 | `links:` | Route templates for the actions — `"mcp"` (`"/mcp/%{key}"`), `"tools"`, `"instructions"`. Without them an action still carries its label and hint, with `"path" => nil` |
 | `verdict:` / `judge_label:` | A verdict already recorded for these results, so a report rebuilt from stored results shows the pick that run made rather than ranking them again |
 | `comparison:` | A comparison already recorded for these results (`Comparison#to_h`), so a rebuilt report renders its intervals rather than resampling them (see [Is the gap real?](#is-the-gap-real)) |
+| `pass_thresholds:` | The suite's `PassThresholds` (`Suite#pass_thresholds`), so a rebuilt report scores at its threshold, gates each group by it and tones the HTML page accordingly (see [Gating a suite](#gating-a-suite)) |
 
 Nothing here needs the dashboard: a CI job that hands `Report.new` a resolver
 over its own MCP configuration gets the same cards in its HTML report, and
@@ -560,6 +561,85 @@ A fanned-out run keys its results by provider and model, so a selection that
 lists one model under two labels (`gpt-5-mini` and `openai/gpt-5-mini`) is
 refused rather than replayed once and reported under one of them.
 
+## Gating a suite
+
+A suite can say what passing means, so the bar is versioned with the
+questions rather than retyped in every script that runs them. Its `pass`
+block (the keys are under [Suites](#suites)) sets the score every answer
+must reach, `threshold`, and the share of a model's answers that must pass,
+`min_pass_rate`, for the suite as a whole and for any group that wants its
+own; a group with `gated: false` is scored and reported but never fails the
+run. `Suite#pass_thresholds` reads the block as a `PassThresholds`, and
+`Runner.new(pass_thresholds:)` takes it in place of `threshold:` (an
+explicit `threshold:` still wins) and hands it on to the report:
+
+```ruby
+suite = ActiveAgent::Evals::Suite.load("config/evals/support_desk.yml")
+thresholds = suite.pass_thresholds
+thresholds.threshold                 # => 0.7
+thresholds.min_pass_rate             # => 0.8, the suite's bar
+thresholds.min_pass_rate("orders")   # => 1.0, that group's own
+thresholds.gated?("experimental")    # => false
+
+report = ActiveAgent::Evals::Runner.new(
+  scenarios: suite.all_scenarios, models: models, replay: replay,
+  pass_thresholds: thresholds
+).call
+```
+
+`Report#gates` is the bar applied: one `Gate` per group × model, in run
+order (the suite's order for a run over its scenarios), then one `All` row
+per model counting every one of its results in a gated group (a scenario in
+no group counts there too). Each gate carries the model's `passed`, `total`
+and `pass_rate` (a 0..1 fraction) beside the
+`min_pass_rate` it is held to and whether the group is `gated`; `met?` is
+true when the rate reaches the bar, and always for an ungated group.
+`Report#passed?` is every gate met. `Report#failures(group:)` lists the
+results that did not pass — failed and errored, in run order — and
+`failures_markdown(group:)` writes them one per line, so a failing
+assertion names the answers to read:
+
+```ruby
+require "test_helper"
+require "active_agent/evals"
+
+class SupportDeskEvalTest < ActiveSupport::TestCase
+  test "the support desk suite clears its pass gates" do
+    suite = ActiveAgent::Evals::Suite.load("config/evals/support_desk.yml")
+    report = ActiveAgent::Evals::Runner.new(
+      scenarios: suite.all_scenarios,
+      models: ActiveAgent::Evals::ModelSpec.parse_all(%w[gpt-5-mini], default_provider: "openai"),
+      pass_thresholds: suite.pass_thresholds,
+      replay: ->(scenario, spec) { SupportAgent.evaluate(scenario.prompt, model: spec.model, provider: spec.provider) }
+    ).call
+
+    unmet = report.gates.reject(&:met?)
+    assert report.passed?, unmet.map { |gate| "#{gate}\n#{report.failures_markdown(group: gate.group)}" }.join("\n\n")
+  end
+end
+```
+
+A gate reads as one sentence — `Orders · gpt-5-mini: 1/2 (50%) passed,
+below 100%`, `All · gpt-5-mini: 1/2 (50%) passed, below 80%` (`at or above
+80%` once it is met), `Experimental · gpt-5-mini: 0/1 (0%) passed, not
+gated` — and `Gate#to_h`
+is the same as data, with `"met"`. A report built without pass thresholds
+answers `gates` and `passed?` against the defaults: every group gated, and
+every answer expected to pass.
+
+With pass thresholds the report shows the gates everywhere it renders:
+`to_markdown` adds a **Pass rate by group** table between the summary and
+the verdict (on its own as `gates_markdown`), one row per gate with its pass
+rate marked ✅ or ❌ and the bar it was held to; the HTML page tones each
+group's pass count by its gate, naming the bar in its tooltip; and `to_h`
+gains `"pass_thresholds"`, `"groups"` (`summary_by_group`, each model's
+counts within each group) and `"gates"`. A report built without them has
+no gates table, no tone and none of the three keys. The command line's
+`evals run --min-pass-rate` stays a gate on the whole run's pass rate
+(see [Command Line](/framework/cli#gating-ci-on-a-pass-rate)); the
+per-group gates travel with the report, in `to_h["gates"]`, for whatever
+reads the JSON.
+
 ## The pieces
 
 | Class | Role |
@@ -567,6 +647,7 @@ refused rather than replayed once and reported under one of them.
 | `Scenario` | One task: prompt, group, expected tools, content that must / must not appear, notes |
 | `ScenarioParser` | Pasted text, JSON, or grouped YAML suites → scenarios. Lines, `# Heading` groups, backticked prompts with notes, `\| tools: a, b \| contains: x` options |
 | `Suite` | A YAML suite with groups; later documents override by key, so a deployment can add or reword tasks |
+| `PassThresholds` | A suite's `pass` block as data: the score every answer must reach, the share of answers that must pass for the suite and for each group, and which groups are gated; layered key by key across documents |
 | `ModelSpec` | `provider/model` or a bare name with provider inference (`claude-*` → anthropic, `gpt-*` → openai, `name:tag` → ollama, `vendor/model` → openrouter) |
 | `Replay` | What your agent produced: answer, tool calls, timing, tokens, cost, error |
 | `Scorer` | Rule criteria (`response_present`, `min_length`, `max_latency_ms`, `token_budget`, `contains`, `not_contains`, `llm_judge`) plus the scenario's expectations |
@@ -579,11 +660,15 @@ refused rather than replayed once and reported under one of them.
 ## Suites
 
 ```yaml
-suite: support_bot
+suite: support_desk
 description: The questions the support team fields every week
+pass:
+  threshold: 0.7        # the score every answer must reach
+  min_pass_rate: 0.8    # the share of a model's answers that must pass
 groups:
   - key: orders
     name: Orders
+    pass: { min_pass_rate: 1.0 }   # this group's own bar
     scenarios:
       - key: orders_1
         prompt: Where is my order?
@@ -594,12 +679,36 @@ groups:
         expect:
           not_contains: ["I cannot"]
         production_only: true   # needs data a local database does not have
+  - key: experimental
+    name: Experimental
+    pass: { gated: false }         # reported, never fails the run
+    scenarios:
+      - key: experimental_1
+        prompt: Draft a reply to a one-star review
 ```
 
 ```ruby
-suite = ActiveAgent::Evals::Suite.load("config/evals/support_bot.yml", "config/evals/acme/support_bot.yml")
+suite = ActiveAgent::Evals::Suite.load("config/evals/support_desk.yml", "config/evals/acme/support_desk.yml")
 suite.scenarios(groups: %w[orders], include_production_only: false)
 ```
+
+`pass` is optional; a suite without one holds every answer to a score of
+0.7 and every model to passing all of them. At the suite level it takes
+`threshold`, the score an answer must reach to pass (the Runner's
+`threshold`), and `min_pass_rate`, the share of a model's answers that must
+pass, `0` to `1`. A group's `pass` takes its own `min_pass_rate`, which
+stands in for the suite's within that group, and `gated`, which at `false`
+keeps the group's results in the report but out of whether the run passes
+(`Report#passed?` and the `All` rows): its gate always counts as met, and
+its answers are left out of the whole-suite rate. Any other key, a rate
+outside `0..1`, or a `gated` that is
+not `true` or `false` raises `ArgumentError` naming the key and the block it
+sits in. Later documents layer over earlier ones key by key, at both
+levels, so a deployment's file that sets `min_pass_rate` for one group
+leaves the suite's threshold and the other groups as the shared document
+had them. A catalog's products and sets take the same block, refused as
+`Catalog::InvalidDocument` (see [Catalogs](#catalogs)).
+`Suite#pass_thresholds` is the result; see [Gating a suite](#gating-a-suite).
 
 The same grouped document can be pasted into `ScenarioParser` as YAML or
 JSON. It retains scenario keys, group keys and display names, expectations,
@@ -607,7 +716,7 @@ notes and production-only flags:
 
 ```ruby
 scenarios = ActiveAgent::Evals::ScenarioParser.scenarios(
-  File.read("config/evals/support_bot.yml"),
+  File.read("config/evals/support_desk.yml"),
   include_production_only: false
 )
 ```
@@ -913,9 +1022,14 @@ Every product, set and scenario has a `key`; a scenario also needs a
 `prompt`. A scenario takes the same `expect`, `notes` and `production_only`
 as a suite's, plus free-form `tags` and `params` that the runner carries
 through to the results. A set may name a `judge` (`kind`, `model`) and
-`criteria`, which become the evaluation's when the set is run. Keys the
-format does not define (`owner_team`, `repository`, …) are kept as
-`metadata` on the catalog, product, set or scenario they sit on. Scenario
+`criteria`, which become the evaluation's when the set is run. A product
+and a set may carry a `pass` block (see [Gating a suite](#gating-a-suite)),
+checked as the catalog loads — a bad one raises `Catalog::InvalidDocument`
+naming the product or set it sits on; `suite_for` makes the product's the
+suite's and each set's its group's, and
+`Catalog#pass_thresholds(:triage, :smoke)` reads them. Keys the format does
+not define (`owner_team`, `repository`, …) are kept as `metadata` on the
+catalog, product, set or scenario they sit on. Scenario
 extensions are opaque data: they do not add scoring rules. They remain at
 their original keys in YAML and JSON exports, including a literal key named
 `metadata`, and are available through `scenario.metadata` in Ruby.

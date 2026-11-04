@@ -31,7 +31,7 @@ module ActiveAgent
       DEFAULT_REFINE_FAULTS = %w[missing_capability expected_tool_not_called ungrounded_answer low_quality missing_content].freeze
       DEFAULT_JUDGE_LIMIT = 25
 
-      attr_reader :scenarios, :models, :criteria, :judge, :threshold
+      attr_reader :scenarios, :models, :criteria, :judge, :threshold, :pass_thresholds
 
       # @param scenarios [Array<Scenario>]
       # @param models [Array<ModelSpec>]
@@ -43,6 +43,12 @@ module ActiveAgent
       # @param available_tools [Hash{String=>String}, Array<String>] the agent's tool roster
       # @param instructions [String, nil] the agent's instructions, for the judge
       # @param agent_name [String] how recommendations refer to the agent
+      # @param threshold [Float, nil] the score an answer must reach to pass;
+      #   an explicit value wins over the `pass_thresholds` bar, and without
+      #   either it is PASS_THRESHOLD
+      # @param pass_thresholds [PassThresholds, nil] the bars the suite
+      #   declared (Suite#pass_thresholds): its threshold applies when none
+      #   is given here, and the Report gates each group by it (Report#gates)
       # @param on_result [#call, nil] called with each Result as it lands
       # @param around_evaluation [#call, nil] called with (scenario, spec) and a
       #   block that returns the Result. Establishes context for replay, scoring
@@ -59,7 +65,7 @@ module ActiveAgent
       #   scenario in its own Runner (a background job per scenario) shares one
       #   run-wide limit this way, since `judge_limit` counts per instance.
       def initialize(scenarios:, models:, replay:, criteria: [], judge: nil, judge_task: true, available_tools: {},
-                     instructions: nil, agent_name: "The agent", threshold: PASS_THRESHOLD,
+                     instructions: nil, agent_name: "The agent", threshold: nil, pass_thresholds: nil,
                      refine_faults: DEFAULT_REFINE_FAULTS, judge_limit: DEFAULT_JUDGE_LIMIT, on_result: nil,
                      around_evaluation: nil, require_judge_scores: false, metadata: {}, release: nil, refine_gate: nil)
         @scenarios = scenarios
@@ -71,7 +77,8 @@ module ActiveAgent
         @available_tools = normalize_tools(available_tools)
         @instructions = instructions
         @agent_name = agent_name
-        @threshold = threshold
+        @threshold = threshold || pass_thresholds&.threshold || PASS_THRESHOLD
+        @pass_thresholds = pass_thresholds
         @refine_faults = refine_faults
         @judge_limit = judge_limit
         @on_result = on_result
@@ -92,7 +99,7 @@ module ActiveAgent
         end
 
         Report.new(results: results, models: @models, judge: @judge, instructions: @instructions,
-                   threshold: @threshold, metadata: @metadata, release: @release)
+                   threshold: @threshold, metadata: @metadata, release: @release, pass_thresholds: @pass_thresholds)
       end
 
       # Scores and diagnoses one replay. Public so a caller that has already run

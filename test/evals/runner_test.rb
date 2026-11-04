@@ -275,6 +275,23 @@ class EvalsRunnerTest < ActiveSupport::TestCase
     assert_equal "pass rate", report.verdict["judge"]
   end
 
+  def test_the_suites_pass_thresholds_set_the_threshold_and_travel_onto_the_report
+    thresholds = ActiveAgent::Evals::PassThresholds.new(suite: { "threshold" => 0.8, "min_pass_rate" => 0.5 }, groups: { "history" => { "gated" => false } })
+    gated = runner(pass_thresholds: thresholds)
+    report = gated.call
+
+    assert_equal 0.8, gated.threshold
+    assert_equal thresholds, gated.pass_thresholds
+    assert_equal thresholds, report.pass_thresholds
+    assert_equal thresholds.to_h, report.to_h["pass_thresholds"]
+    assert_equal %w[tickets tickets history history nil nil], report.gates.map { |gate| gate.group || "nil" }
+    assert report.passed?, "qwen3:8b fails tickets_2 and history_1: 1/2 tickets meets 50%, and history is not gated"
+    assert_equal 0.9, runner(pass_thresholds: thresholds, threshold: 0.9).threshold, "an explicit threshold wins over the pass block"
+    assert_equal ActiveAgent::Evals::PASS_THRESHOLD, runner.threshold
+    assert_nil runner.pass_thresholds
+    assert_not runner.call.to_h.key?("gates")
+  end
+
   def test_criterion_scores_are_cohort_maps_when_comparing_and_flat_otherwise
     comparing = runner.call.criterion_scores
     single = ActiveAgent::Evals::Runner.new(scenarios: scenarios, models: models.first(1), criteria: CRITERIA,

@@ -11,8 +11,9 @@ module ActiveAgent
     #
     # Each piece is public on its own, for the pieces people paste one at a
     # time: #fix_item_markdown, #fix_items_markdown (optionally for one
-    # model), #verdict_markdown and #scenario_markdown. The whole report is
-    # built from them, so a piece copied alone reads as it does in the report.
+    # model), #verdict_markdown, #scenario_markdown, #gates_markdown and
+    # #failures_markdown. The whole report is built from them, so a piece
+    # copied alone reads as it does in the report.
     #
     # Table cells escape `|` and fold line breaks; text set inside the HTML
     # of a `<details>` block escapes `<`, `>` and `&`.
@@ -28,6 +29,7 @@ module ActiveAgent
         lines.concat(summary_table)
         lines << ""
         lines.concat(total_lines)
+        lines.concat(gates_markdown).push("") if pass_thresholds && gates.any?
         lines.concat(verdict_lines)
         lines.concat(comparison_lines)
         lines.concat(matrix_table)
@@ -82,6 +84,40 @@ module ActiveAgent
           lines << items.map { |item| fix_item_markdown(item, heading: sub) }.join("\n\n")
         end
         lines.join("\n")
+      end
+
+      # Pass rate by group: one row per Report#gates row, in that order —
+      # the group, the model, the passes, the pass rate with its mark (✅
+      # met, ❌ not met, — not gated), the bar and the group's mean score
+      # for that model (the whole report's for an "All" row).
+      def gates_markdown(thresholds = pass_thresholds || PassThresholds.default)
+        lines = [ "## Pass rate by group", "", "| Group | Model | Passed | Pass rate | Bar | Mean score |", "|---|---|---|---|---|---|" ]
+        gates(thresholds).each do |gate|
+          stats = gate.group ? summary_by_group.dig(gate.group, "models", gate.label) : summary_by_model[gate.label]
+          mark = gate.gated ? (gate.met? ? "✅" : "❌") : "—"
+          cells = [ cell(gate.name), cell("`#{gate.label}`"), "#{gate.passed} of #{gate.total}", "#{Format.percent(gate.pass_rate)} #{mark}",
+                    gate.gated ? Format.percent(gate.min_pass_rate) : "not gated", Format.score(stats&.dig("avg_score")) ]
+          lines << "| #{cells.join(' | ')} |"
+        end
+        lines
+      end
+
+      # Every result that did not pass (Report#failures), one line each with
+      # its fault and summary — without a diagnosis, the replay's error for
+      # an errored result and the status alone otherwise — narrowed to one
+      # group when given.
+      def failures_markdown(group: nil)
+        failed = failures(group: group)
+        return "_Nothing failed._" if failed.empty?
+
+        failed.map do |result|
+          detail =
+            if result.fault then [ result.fault.tr("_", " "), result.summary.presence ].compact.join(" — ")
+            elsif result.errored? then [ "errored", result.replay.error.presence ].compact.join(" — ")
+            else result.status
+            end
+          "- `#{result.scenario.key}` on `#{result.label}`: #{detail}"
+        end.join("\n")
       end
 
       # The verdict — the best model, why, and who picked it — then the

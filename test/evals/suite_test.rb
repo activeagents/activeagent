@@ -8,9 +8,13 @@ class EvalsSuiteTest < ActiveSupport::TestCase
   CORE = <<~YAML
     suite: support_desk
     description: Questions the support team asks every week
+    pass:
+      threshold: 0.8
+      min_pass_rate: 0.9
     groups:
       - key: open_tickets
         name: Open tickets
+        pass: { min_pass_rate: 1.0 }
         scenarios:
           - key: open_tickets_1
             prompt: Which tickets are waiting on the customer?
@@ -20,6 +24,7 @@ class EvalsSuiteTest < ActiveSupport::TestCase
             prompt: Which open tickets mention a refund?
       - key: reports
         name: Reports
+        pass: { gated: false }
         scenarios:
           - key: reports_1
             prompt: How many tickets were reopened last month?
@@ -29,6 +34,7 @@ class EvalsSuiteTest < ActiveSupport::TestCase
   CLIENT = <<~YAML
     groups:
       - key: open_tickets
+        pass: { min_pass_rate: 0.5 }
         scenarios:
           - key: open_tickets_2
             prompt: Which open tickets mention a late delivery?
@@ -97,5 +103,48 @@ class EvalsSuiteTest < ActiveSupport::TestCase
     suite = ActiveAgent::Evals::Suite.new([ YAML.safe_load(CORE) ])
 
     assert_raises(ActiveAgent::Evals::Suite::NotFound) { suite.find("nope") }
+  end
+
+  def test_the_suite_carries_the_bars_it_declares
+    thresholds = ActiveAgent::Evals::Suite.new([ YAML.safe_load(CORE) ]).pass_thresholds
+
+    assert_equal 0.8, thresholds.threshold
+    assert_equal 0.9, thresholds.min_pass_rate
+    assert_equal 1.0, thresholds.min_pass_rate("open_tickets")
+    assert_equal 0.9, thresholds.min_pass_rate("reports")
+    assert_not thresholds.gated?("reports")
+    assert thresholds.gated?("open_tickets")
+    assert_equal ActiveAgent::Evals::PassThresholds.default, ActiveAgent::Evals::Suite.new([ { "suite" => "bare", "groups" => [] } ]).pass_thresholds
+  end
+
+  def test_a_later_document_lowers_one_groups_bar_and_leaves_the_rest_alone
+    with_files do |core, client|
+      suite = ActiveAgent::Evals::Suite.load(core, client)
+      thresholds = suite.pass_thresholds
+
+      assert_equal 0.8, thresholds.threshold
+      assert_equal 0.9, thresholds.min_pass_rate
+      assert_equal 0.5, thresholds.min_pass_rate("open_tickets")
+      assert_not thresholds.gated?("reports")
+      assert_equal 0.9, thresholds.min_pass_rate("client_only")
+      assert_equal({ "min_pass_rate" => 0.5 }, suite.groups.find { |group| group["key"] == "open_tickets" }["pass"])
+      assert_equal({ "gated" => false }, suite.groups.find { |group| group["key"] == "reports" }["pass"])
+      assert_equal thresholds, ActiveAgent::Evals::Suite.new([ YAML.safe_load(CORE), YAML.safe_load(CLIENT) ]).pass_thresholds
+    end
+  end
+
+  def test_a_group_document_layers_its_pass_block_key_by_key
+    suite = ActiveAgent::Evals::Suite.new([ YAML.safe_load(CORE), { "groups" => [ { "key" => "open_tickets", "pass" => { "gated" => false } } ] } ])
+
+    assert_equal({ "min_pass_rate" => 1.0, "gated" => false }, suite.groups.first["pass"])
+    assert_equal 1.0, suite.pass_thresholds.min_pass_rate("open_tickets")
+    assert_not suite.pass_thresholds.gated?("open_tickets")
+  end
+
+  def test_an_invalid_pass_block_is_refused_when_the_suite_loads
+    error = assert_raises(ArgumentError) { ActiveAgent::Evals::Suite.new([ YAML.safe_load(CORE), { "groups" => [ { "key" => "reports", "pass" => { "retries" => 2 } } ] } ]) }
+
+    assert_includes error.message, '"retries"'
+    assert_includes error.message, "group reports"
   end
 end

@@ -10,6 +10,7 @@ class EvalsReportTest < ActiveSupport::TestCase
   Result = ActiveAgent::Evals::Result
   Diagnosis = ActiveAgent::Evals::Diagnosis
   Report = ActiveAgent::Evals::Report
+  PassThresholds = ActiveAgent::Evals::PassThresholds
 
   AVAILABLE = %w[find_tickets inbox_status index_status].freeze
   LINKS = { "mcp" => "/activeagents/mcp/%{key}", "tools" => "/activeagents/tools", "instructions" => "/activeagents/agents/1/edit" }.freeze
@@ -819,5 +820,254 @@ class EvalsReportTest < ActiveSupport::TestCase
     assert_not_includes html, %(class="compare")
     assert_not_includes html, %(name="fix-model")
     assert_not_includes html, %(<div class="intervals">)
+  end
+
+  # --- pass gates --------------------------------------------------------------
+
+  THRESHOLDS = PassThresholds.new(
+    suite: { "threshold" => 0.7, "min_pass_rate" => 0.8 },
+    groups: { "orders" => { "min_pass_rate" => 1.0 }, "experimental" => { "gated" => false } }
+  )
+
+  def grouped(key, prompt, group, name)
+    Scenario.from_hash({ "key" => key, "prompt" => prompt, "expectations" => { "tools" => [ "inbox_status" ] } }, group: group, group_name: name)
+  end
+
+  # Three named groups and an ungrouped scenario under two models. Orders
+  # passes fully under llama and half under gpt; help has a result under gpt
+  # alone; experimental fails under gpt and errors under llama; the
+  # ungrouped scenario passes under gpt alone.
+  def gated_results
+    lookup = grouped("order_lookup", "Where is order ABC-123?", "orders", "Order support")
+    status = grouped("order_status", "Has order ABC-123 shipped?", "orders", "Order support")
+    cancel = grouped("help_cancel", "How do I cancel my order?", "help", "Product help")
+    experiment = grouped("exp_1", "Draft a reply in the customer's tone.", "experimental", "Experimental")
+    ping = scenario("ping", "Are you there?", group: nil, tools: [ "inbox_status" ])
+    called = [ { "name" => "inbox_status" } ]
+
+    [
+      result(lookup, gpt, replay(answer: "It shipped on Monday.", tool_calls: called)),
+      result(lookup, llama, replay(answer: "Shipped Monday.", tool_calls: called)),
+      result(status, gpt, replay(answer: "Probably.", tool_calls: called), score: 0.5),
+      result(status, llama, replay(answer: "Yes, on Monday.", tool_calls: called)),
+      result(cancel, gpt, replay(answer: "From the order page.", tool_calls: called)),
+      result(experiment, gpt, replay(answer: "Dear customer.", tool_calls: called), score: 0.5),
+      result(experiment, llama, ActiveAgent::Evals::Replay.failed(RuntimeError.new("provider down")), score: nil),
+      result(ping, gpt, replay(answer: "Yes.", tool_calls: called))
+    ]
+  end
+
+  def gated_report(**options)
+    Report.new(results: gated_results, models: models, pass_thresholds: THRESHOLDS, **options)
+  end
+
+  def test_summary_by_group_counts_each_models_results_per_group_in_run_order
+    summary = gated_report.summary_by_group
+
+    assert_equal %w[orders help experimental], summary.keys
+    assert_equal [ "Order support", "Product help", "Experimental" ], summary.values.map { |group| group["name"] }
+    assert_equal({ "scenarios" => 2, "passed" => 1, "errored" => 0, "pass_rate" => 50.0, "avg_score" => 0.75, "faults" => { "low_quality" => 1 } },
+                 summary.dig("orders", "models", gpt.label))
+    assert_equal({ "scenarios" => 2, "passed" => 2, "errored" => 0, "pass_rate" => 100.0, "avg_score" => 1.0, "faults" => {} },
+                 summary.dig("orders", "models", llama.label))
+    assert_equal [ gpt.label ], summary.dig("help", "models").keys, "a model with no result in a group is absent"
+    assert_equal [ 1, 0, 1, 0.0, nil, { "run_error" => 1 } ], summary.dig("experimental", "models", llama.label).values
+    assert_equal "desk", report.summary_by_group.dig("desk", "name"), "a group without a display name reads as its key"
+    assert_equal({}, Report.new(results: [ gated_results.last ], models: models).summary_by_group, "an ungrouped scenario is in no group")
+  end
+
+  def test_gates_cover_each_group_and_model_then_the_whole_report_over_the_gated_results
+    gates = gated_report.gates
+
+    assert_equal [ %w[orders gpt-5-mini], [ "orders", llama.label ], %w[help gpt-5-mini], %w[experimental gpt-5-mini],
+                   [ "experimental", llama.label ], [ nil, "gpt-5-mini" ], [ nil, llama.label ] ],
+                 gates.map { |gate| [ gate.group, gate.label ] }
+    orders_gpt, orders_llama, help_gpt, experimental_gpt, experimental_llama, all_gpt, all_llama = gates
+    counts = ->(gate) { gate.to_h.values_at("name", "passed", "total", "pass_rate", "min_pass_rate", "gated", "met") }
+
+    assert_equal [ "Order support", 1, 2, 0.5, 1.0, true, false ], counts.call(orders_gpt)
+    assert_equal [ "Order support", 2, 2, 1.0, 1.0, true, true ], counts.call(orders_llama)
+    assert_equal [ "Product help", 1, 1, 1.0, 0.8, true, true ], counts.call(help_gpt)
+    assert_equal [ "Experimental", 0, 1, 0.0, 0.8, false, true ], counts.call(experimental_gpt), "an ungated group's gate is always met"
+    assert_equal [ "Experimental", 0, 1, 0.0, 0.8, false, true ], counts.call(experimental_llama)
+    assert_equal [ "All", 3, 4, 0.75, 0.8, true, false ], counts.call(all_gpt),
+                 "the whole-report row leaves out the ungated group and counts the ungrouped scenario"
+    assert_equal [ "All", 2, 2, 1.0, 0.8, true, true ], counts.call(all_llama)
+    assert gates.none? { |gate| gate.total.zero? }
+
+    assert_equal "Order support · gpt-5-mini: 1/2 (50%) passed, below 100%", orders_gpt.to_s
+    assert_equal "Order support · #{llama.label}: 2/2 (100%) passed, at or above 100%", orders_llama.to_s
+    assert_equal "Experimental · gpt-5-mini: 0/1 (0%) passed, not gated", experimental_gpt.to_s
+    assert_equal "All · gpt-5-mini: 3/4 (75%) passed, below 80%", all_gpt.to_s
+    assert_equal({ "group" => "orders", "name" => "Order support", "label" => "gpt-5-mini", "passed" => 1, "total" => 2, "pass_rate" => 0.5,
+                   "min_pass_rate" => 1.0, "gated" => true, "met" => false }, orders_gpt.to_h)
+  end
+
+  def test_passed_asks_every_gate_and_other_bars_can_be_tried_on_the_same_report
+    report = gated_report
+
+    assert_not report.passed?
+    assert_equal [ %w[orders gpt-5-mini], [ nil, "gpt-5-mini" ] ], report.gates.reject(&:met?).map { |gate| [ gate.group, gate.label ] }
+
+    lenient = PassThresholds.new(suite: { "min_pass_rate" => 0.5 }, groups: { "experimental" => { "gated" => false } })
+    assert report.passed?(lenient)
+    assert_equal 0.5, report.gates(lenient).first.min_pass_rate
+
+    strict = report.gates(PassThresholds.default)
+    assert_equal 7, strict.size
+    assert strict.all?(&:gated), "the defaults gate every group"
+    assert_equal [ [ nil, "gpt-5-mini", 3, 5 ], [ nil, llama.label, 2, 3 ] ],
+                 strict.last(2).map { |gate| [ gate.group, gate.label, gate.passed, gate.total ] }
+    assert_not Report.new(results: gated_results, models: models).passed?, "without bars, every scenario has to pass"
+    assert Report.new(results: gated_results.select(&:passed?), models: models).passed?
+    assert_not Report.new(results: [], models: models).passed?, "no results, no gate, nothing shown"
+  end
+
+  def test_failures_list_what_did_not_pass_in_run_order_and_narrow_to_a_group
+    report = gated_report
+
+    assert_equal [ %w[order_status gpt-5-mini], %w[exp_1 gpt-5-mini], [ "exp_1", llama.label ] ],
+                 report.failures.map { |result| [ result.scenario.key, result.label ] }
+    assert_equal [ "exp_1", "exp_1" ], report.failures(group: "experimental").map { |result| result.scenario.key }
+    assert_equal [ "order_status" ], report.failures(group: :orders).map { |result| result.scenario.key }
+    assert_empty report.failures(group: "help")
+  end
+
+  def test_to_h_carries_the_bars_the_groups_and_the_gates_only_when_the_suite_declared_bars
+    plain = Report.new(results: gated_results, models: models).to_h
+    assert_equal %w[models criteria recommendations verdict comparison results], plain.keys
+
+    gated = gated_report.to_h
+    assert_equal %w[models criteria recommendations verdict comparison pass_thresholds groups gates results], gated.keys
+    assert_equal THRESHOLDS.to_h, gated["pass_thresholds"]
+    assert_equal gated_report.summary_by_group, gated["groups"]
+    assert_equal gated_report.gates.map(&:to_h), gated["gates"]
+    assert_equal gated.to_json, JSON.parse(gated_report.to_json).to_json, "the gates serialize as plain JSON"
+    assert_equal false, JSON.parse(gated_report.to_json)["gates"].last(2).first["met"]
+    assert_equal plain.except("pass_thresholds", "groups", "gates"), gated.except("pass_thresholds", "groups", "gates"),
+                 "the bars change nothing else in the hash"
+  end
+
+  def test_to_h_names_the_threshold_the_answers_were_scored_at_when_an_explicit_one_wins
+    report = Report.new(results: gated_results, models: models, threshold: 0.9, pass_thresholds: THRESHOLDS)
+
+    assert_equal 0.9, report.to_h.dig("pass_thresholds", "threshold")
+    assert_equal THRESHOLDS.to_h.except("threshold"), report.to_h["pass_thresholds"].except("threshold")
+  end
+
+  def test_markdown_tables_the_pass_rate_by_group_and_lists_the_failures
+    report = gated_report
+    table = report.gates_markdown
+
+    assert_equal [ "## Pass rate by group", "", "| Group | Model | Passed | Pass rate | Bar | Mean score |", "|---|---|---|---|---|---|" ], table.first(4)
+    assert_equal "| Order support | `gpt-5-mini` | 1 of 2 | 50% ❌ | 100% | 75% |", table[4]
+    assert_equal "| Order support | `#{llama.label}` | 2 of 2 | 100% ✅ | 100% | 100% |", table[5]
+    assert_equal "| Product help | `gpt-5-mini` | 1 of 1 | 100% ✅ | 80% | 100% |", table[6]
+    assert_equal "| Experimental | `gpt-5-mini` | 0 of 1 | 0% — | not gated | 50% |", table[7]
+    assert_equal "| Experimental | `#{llama.label}` | 0 of 1 | 0% — | not gated | — |", table[8]
+    assert_equal "| All | `gpt-5-mini` | 3 of 4 | 75% ❌ | 80% | 80% |", table[9], "an All row's mean score is the model's over every result"
+    assert_equal "| All | `#{llama.label}` | 2 of 2 | 100% ✅ | 80% | 100% |", table[10]
+    assert_equal 11, table.size
+    assert_includes report.gates_markdown(PassThresholds.default), "| Experimental | `gpt-5-mini` | 0 of 1 | 0% ❌ | 100% | 50% |"
+
+    markdown = report.to_markdown
+    assert_includes markdown, "\n## Pass rate by group\n\n| Group |"
+    assert_operator markdown.index("| Model | Passed |"), :<, markdown.index("## Pass rate by group")
+    assert_operator markdown.index("## Pass rate by group"), :<, markdown.index("**Best model")
+    assert_not_includes markdown, "\n\n\n"
+    assert_not_includes Report.new(results: gated_results, models: models).to_markdown, "Pass rate by group"
+    assert_not_includes Report.new(results: [], models: models, pass_thresholds: THRESHOLDS).to_markdown, "Pass rate by group", "no results, no table"
+
+    piped = grouped("pipe_1", "Compare a | b", "pipes", "Pipes | bars\nand more")
+    piped_row = Report.new(results: [ result(piped, gpt, replay(answer: "a | b", tool_calls: [ { "name" => "inbox_status" } ])) ],
+                           models: [ gpt ], pass_thresholds: THRESHOLDS).gates_markdown[4]
+    assert_equal "| Pipes \\| bars and more | `gpt-5-mini` | 1 of 1 | 100% ✅ | 80% | 100% |", piped_row, "a group name is escaped like any cell"
+
+    failures = report.failures_markdown
+    assert_equal 3, failures.lines.size
+    assert failures.start_with?("- `order_status` on `gpt-5-mini`: low quality — Scored 50% against a pass threshold of 70%"), failures
+    assert_includes failures, "- `exp_1` on `#{llama.label}`: run error — The run failed before the agent answered: RuntimeError: provider down"
+    assert_equal 2, report.failures_markdown(group: "experimental").lines.size
+    assert_equal "_Nothing failed._", report.failures_markdown(group: "help")
+
+    undiagnosed = Result.new(scenario: scenario("s_1", "Ping"), spec: gpt, replay: replay(answer: "", error: "timed out"), scores: {}, score: nil, status: "errored")
+    assert_equal "- `s_1` on `gpt-5-mini`: errored — timed out", Report.new(results: [ undiagnosed ], models: [ gpt ]).failures_markdown
+    unexplained = Result.new(scenario: scenario("f_1", "Ping"), spec: gpt, replay: replay(answer: "Pong."), scores: {}, score: 0.2, status: "failed")
+    assert_equal "- `f_1` on `gpt-5-mini`: failed", Report.new(results: [ unexplained ], models: [ gpt ]).failures_markdown,
+                 "a failed result without a diagnosis reads as its status"
+  end
+
+  def test_html_tones_each_group_row_by_its_gate_and_names_the_bar
+    html = gated_report.to_html
+
+    assert_includes html, %(<span class="group-name">Order support</span><span class="count">2 scenarios</span>) +
+                          %(<span class="group-pass text-error" title="pass rate ≥ 100%">1/2 · 50% passed</span>) +
+                          %(<span class="group-pass text-success" title="pass rate ≥ 100%">2/2 · 100% passed</span>)
+    assert_includes html, %(<span class="group-pass text-success" title="pass rate ≥ 80%">1/1 · 100% passed</span><span class="group-pass">—</span>)
+    assert_includes html, %(<span class="group-pass" title="not gated">0/1 · 0% passed</span><span class="group-pass" title="not gated">0/1 · 0% passed</span>)
+
+    untoned = Report.new(results: gated_results, models: models).to_html
+    assert_includes untoned, %(<span class="group-pass">1/2 · 50% passed</span><span class="group-pass text-success">2/2 · 100% passed</span>)
+    assert_includes untoned, %(<span class="group-pass text-error">0/1 · 0% passed</span><span class="group-pass text-error">0/1 · 0% passed</span>)
+    assert_not_includes untoned, "title=\"pass rate", "without bars the group rows read as they always did"
+  end
+
+  def test_a_model_whose_results_all_sit_in_an_ungated_group_has_no_all_row
+    lookup = grouped("order_lookup", "Where is order ABC-123?", "orders", "Order support")
+    experiment = grouped("exp_1", "Draft a reply in the customer's tone.", "experimental", "Experimental")
+    called = [ { "name" => "inbox_status" } ]
+    report = Report.new(results: [
+      result(lookup, gpt, replay(answer: "It shipped on Monday.", tool_calls: called)),
+      result(experiment, gpt, replay(answer: "Dear customer.", tool_calls: called), score: 0.5),
+      result(experiment, llama, replay(answer: "Dear customer.", tool_calls: called), score: 0.5)
+    ], models: models, pass_thresholds: THRESHOLDS)
+    gates = report.gates
+
+    assert_equal [ %w[orders gpt-5-mini], %w[experimental gpt-5-mini], [ "experimental", llama.label ], [ nil, "gpt-5-mini" ] ],
+                 gates.map { |gate| [ gate.group, gate.label ] }
+    assert gates.none? { |gate| gate.total.zero? }
+    assert report.passed?
+    assert_not report.passed?(PassThresholds.default), "gated, the experimental failures count"
+  end
+
+  def test_the_pass_thresholds_set_the_criterion_threshold_unless_one_is_given
+    strict = PassThresholds.new(suite: { "threshold" => 0.9 })
+    scored = Result.new(scenario: scenario("s_1", "Ping"), spec: gpt, replay: replay(answer: "Pong."), scores: { "quality" => 0.8 }, score: 0.8, status: "passed")
+    build = ->(**options) { Report.new(results: [ scored ], models: [ gpt ], **options) }
+
+    assert_equal 1, build.call.criterion_scores.dig("quality", "passed")
+    assert_equal 0, build.call(pass_thresholds: strict).criterion_scores.dig("quality", "passed")
+    assert_equal 1, build.call(pass_thresholds: strict, threshold: 0.7).criterion_scores.dig("quality", "passed"), "an explicit threshold wins"
+    assert_includes build.call(pass_thresholds: strict).to_html, "pass ≥ 90%"
+    assert_includes build.call.to_html, "pass ≥ 70%"
+  end
+
+  def test_html_group_rows_count_their_own_scenarios_when_a_group_is_split_or_has_a_name_but_no_key
+    called = [ { "name" => "inbox_status" } ]
+    first = grouped("order_lookup", "Where is order ABC-123?", "orders", "Order support")
+    other = grouped("help_cancel", "How do I cancel my order?", "help", "Product help")
+    second = grouped("order_status", "Has order ABC-123 shipped?", "orders", "Order support")
+    named = Scenario.from_hash({ "key" => "named_only", "prompt" => "Hello?", "group_name" => "Named only", "expectations" => { "tools" => [ "inbox_status" ] } })
+    results = [
+      result(first, gpt, replay(answer: "It shipped on Monday.", tool_calls: called)),
+      result(other, gpt, replay(answer: "From the order page.", tool_calls: called)),
+      result(second, gpt, replay(answer: "Probably.", tool_calls: called), score: 0.5),
+      result(named, gpt, replay(answer: "Yes.", tool_calls: called))
+    ]
+    rows = Report.new(results: results, models: [ gpt ]).to_html.scan(%r{<div class="mx group">.*?</div>})
+
+    assert_equal 4, rows.size
+    assert_includes rows[0], %(<span class="group-name">Order support</span><span class="count">1 scenario</span><span class="group-pass text-success">1/1 · 100% passed</span>)
+    assert_includes rows[1], %(<span class="group-name">Product help</span><span class="count">1 scenario</span><span class="group-pass text-success">1/1 · 100% passed</span>)
+    assert_includes rows[2], %(<span class="group-name">Order support</span><span class="count">1 scenario</span><span class="group-pass text-error">0/1 · 0% passed</span>)
+    assert_includes rows[3], %(<span class="group-name">Named only</span><span class="count">1 scenario</span><span class="group-pass text-success">1/1 · 100% passed</span>)
+
+    toned = Report.new(results: results, models: [ gpt ], pass_thresholds: THRESHOLDS).to_html
+    assert_includes toned, %(<span class="group-name">Named only</span><span class="count">1 scenario</span><span class="group-pass text-success">1/1 · 100% passed</span>),
+                    "a group with a name and no key has no gate, so its row reads by its counts"
+    toned_rows = toned.scan(%r{<div class="mx group">.*?</div>})
+    assert_includes toned_rows[0], %(<span class="group-pass text-success" title="pass rate ≥ 100%">1/1 · 100% passed</span>),
+                    "a split group's row is toned by its own count against the group's bar"
+    assert_includes toned_rows[2], %(<span class="group-pass text-error" title="pass rate ≥ 100%">0/1 · 0% passed</span>)
   end
 end
