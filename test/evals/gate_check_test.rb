@@ -105,6 +105,31 @@ class EvalsGateCheckTest < ActiveSupport::TestCase
                     "the experimental failures exist, but no All row is short, so they are not listed"
   end
 
+  def test_the_message_counts_every_replay_and_names_the_trial_of_each_failure
+    report = replayed_report
+    low_quality = "low quality — Scored 50% against a pass threshold of 70%, weakest on response_present (100%)."
+
+    assert_equal <<~MESSAGE.chomp, GateCheck.new(report).message
+      3 of 4 pass gates not met
+      - Order support · gpt-5-mini: 5/6 (83%) passed, below 100%
+      - Product help · gpt-5-mini: 2/3 (67%) passed, below 80%
+      - All · gpt-5-mini: 9/12 (75%) passed, below 80%
+
+      Order support failures:
+      - `order_status` on `gpt-5-mini` · trial 2: #{low_quality}
+
+      Product help failures:
+      - `help_cancel` on `gpt-5-mini` · trial 3: #{low_quality}
+
+      Other failures:
+      - `ping` on `gpt-5-mini` · trial 1: #{low_quality}
+    MESSAGE
+    assert GateCheck.new(report, LENIENT).met?
+
+    once = Report.new(results: report.results.select { |result| result.trial == 2 }, models: [ gpt ], pass_thresholds: THRESHOLDS)
+    assert_includes GateCheck.new(once).message, "- `order_status` on `gpt-5-mini`: #{low_quality}", "one result per scenario × model names no trial, whatever its trial number"
+  end
+
   def test_an_unmet_all_row_alone_lists_the_whole_reports_failures
     bars = PassThresholds.new(suite: { "min_pass_rate" => 0.9 }, groups: { "orders" => { "min_pass_rate" => 0.5 } })
     report = Report.new(results: gated_results.select { |result| result.label == gpt.label && result.scenario.group != "experimental" },

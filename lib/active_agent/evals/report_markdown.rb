@@ -114,14 +114,18 @@ module ActiveAgent
 
       # One result that did not pass, as a line naming its scenario and
       # model with its fault and summary — without a diagnosis, the replay's
-      # error for an errored result and the status alone otherwise.
+      # error for an errored result and the status alone otherwise. When the
+      # report holds more than one replay of that scenario × model, the line
+      # names the trial as #scenario_markdown does ("`gpt-5-mini` · trial 2"),
+      # so each line points at one answer.
       def failure_markdown(result)
         detail =
           if result.fault then [ result.fault.tr("_", " "), result.summary.presence ].compact.join(" — ")
           elsif result.errored? then [ "errored", result.replay.error.presence ].compact.join(" — ")
           else result.status
           end
-        "- `#{result.scenario.key}` on `#{result.label}`: #{detail}"
+        trial = " · trial #{result.trial}" if replay_counts[[ result.scenario.key, result.label ]].to_i > 1
+        "- `#{result.scenario.key}` on `#{result.label}`#{trial}: #{detail}"
       end
 
       # The verdict — the best model, why, and who picked it — then the
@@ -190,6 +194,11 @@ module ActiveAgent
 
       def scenario_keys
         @results.map { |result| result.scenario.key }.uniq
+      end
+
+      # How many results the report holds per scenario key × model label.
+      def replay_counts
+        @replay_counts ||= @results.map { |result| [ result.scenario.key, result.label ] }.tally
       end
 
       def judged_by_line

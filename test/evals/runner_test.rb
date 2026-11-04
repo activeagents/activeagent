@@ -428,6 +428,27 @@ class EvalsRunnerTest < ActiveSupport::TestCase
     assert_not runner.call.to_h.key?("gates")
   end
 
+  def test_a_run_with_pass_thresholds_and_judge_failed_expectations_false_gates_as_a_fully_judged_one
+    thresholds = ActiveAgent::Evals::PassThresholds.new(suite: { "threshold" => 0.8, "min_pass_rate" => 0.5 }, groups: { "history" => { "gated" => false } })
+    runs = [ true, false ].to_h do |flag|
+      calls = Hash.new(0)
+      run = runner(pass_thresholds: thresholds, judge: counting_judge(calls), judge_failed_expectations: flag)
+      [ flag, [ run, run.call, calls.dup ] ]
+    end
+    skipping, report, calls = runs[false]
+    judged = runs[true][1]
+
+    assert_equal false, skipping.judge_failed_expectations
+    assert_equal 0.8, skipping.threshold
+    assert_equal thresholds, report.pass_thresholds
+    assert_equal judged.results.map(&:status), report.results.map(&:status)
+    assert_equal judged.gates.map(&:to_h), report.gates.map(&:to_h)
+    assert_equal judged.to_h["gates"], report.to_h["gates"]
+    assert report.passed?, "qwen3:8b fails tickets_2 and history_1 either way: 1/2 tickets meets 50%, and history is not gated"
+    assert_equal({ "score_task" => 5, "recommend" => 1 }, calls, "tickets_2 on qwen3:8b missed find_tickets and is not judged")
+    assert_equal({ "score_task" => 6, "recommend" => 2 }, runs[true][2])
+  end
+
   def test_criterion_scores_are_cohort_maps_when_comparing_and_flat_otherwise
     comparing = runner.call.criterion_scores
     single = ActiveAgent::Evals::Runner.new(scenarios: scenarios, models: models.first(1), criteria: CRITERIA,

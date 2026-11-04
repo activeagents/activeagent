@@ -107,6 +107,32 @@ module EvalsTestSupport
     Report.new(results: gated_results.select(&:passed?), models: models, pass_thresholds: THRESHOLDS)
   end
 
+  # Five scenarios replayed three times under gpt-5-mini alone, in run
+  # order: order_lookup passes every replay and order_status fails its
+  # second, so orders passes 5 of 6; help_cancel fails its third (help 2 of
+  # 3); the experimental scenario fails all three; the ungrouped ping fails
+  # its first.
+  def replayed_results
+    lookup = grouped("order_lookup", "Where is order ABC-123?", "orders", "Order support")
+    status = grouped("order_status", "Has order ABC-123 shipped?", "orders", "Order support")
+    cancel = grouped("help_cancel", "How do I cancel my order?", "help", "Product help")
+    experiment = grouped("exp_1", "Draft a reply in the customer's tone.", "experimental", "Experimental")
+    ping = scenario("ping", "Are you there?", group: nil, tools: [ "inbox_status" ])
+    called = [ { "name" => "inbox_status" } ]
+
+    [ [ lookup, [] ], [ status, [ 2 ] ], [ cancel, [ 3 ] ], [ experiment, [ 1, 2, 3 ] ], [ ping, [ 1 ] ] ].flat_map do |built, failing|
+      (1..3).map do |trial|
+        result(built, gpt, replay(answer: "It shipped on Monday.", tool_calls: called), score: failing.include?(trial) ? 0.5 : 1.0, trial: trial)
+      end
+    end
+  end
+
+  # The replayed results under THRESHOLDS: the orders, help and All gates
+  # are not met.
+  def replayed_report(thresholds = THRESHOLDS)
+    Report.new(results: replayed_results, models: [ gpt ], pass_thresholds: thresholds)
+  end
+
   # A judge that answers every call with `reply` and tallies the calls in
   # `calls` (a `Hash.new(0)`) under the Judge method that made them:
   # "score_task", "score_criterion", "recommend" or "verdict".
