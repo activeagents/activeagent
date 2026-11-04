@@ -177,6 +177,25 @@ finished evaluation run's cached figures are worked out again.
   is the same check over any scenarios, with `known:` the wider set the keys
   must come from, for a runner that takes keys across several suites.
   Without `strict:` the selection narrows as before.
+- **Skip the judge for a replay that already failed its expectations**
+  (`activeagent`). `Runner.new(judge_failed_expectations: false)` asks the
+  judge about an answered replay only when every expectation its scenario
+  declared was met. A replay that called none of its expected tools, printed
+  a forbidden phrase, lacks expected content or had a tool call fail is a
+  failed result whatever a judge would say — `Diagnosis` assigns one of its
+  evidence faults (`tool_error`, `missing_capability`,
+  `expected_tool_not_called`, `ungrounded_answer`, `forbidden_content` or
+  `missing_content`) before it looks at quality — so it fails on whichever
+  of those it assigns first, with no `task_completion` score, its
+  `llm_judge` criteria unscored and no judge-written recommendation (a gated
+  refusal or invented figure loses the judge's suggested tool too), and the
+  calls saved stay out of the `judge_limit` budget.
+  `Scorer.new(judge_failed_expectations:)` and
+  `Scorer.expectations_met?(scores)` are the pieces underneath, and the
+  scores hash keeps its key order either way. The default (`true`) grades
+  every answered replay as it did; a blank answer is never graded, and a
+  blank or errored replay is never refined under the default
+  `refine_faults`, with or without the flag.
 
 ### Changed
 

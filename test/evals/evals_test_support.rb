@@ -106,4 +106,23 @@ module EvalsTestSupport
   def passing_report
     Report.new(results: gated_results.select(&:passed?), models: models, pass_thresholds: THRESHOLDS)
   end
+
+  # A judge that answers every call with `reply` and tallies the calls in
+  # `calls` (a `Hash.new(0)`) under the Judge method that made them:
+  # "score_task", "score_criterion", "recommend" or "verdict".
+  def counting_judge(calls, reply: '{"score": 0.9, "recommendation": "Call the expected tool."}')
+    fake_judge do |_instructions, prompt|
+      calls[judge_call(prompt)] += 1
+      reply
+    end
+  end
+
+  # Which Judge method wrote `prompt`.
+  def judge_call(prompt)
+    if prompt.start_with?("Criterion:") then "score_criterion"
+    elsif prompt.include?("Detected fault") then "recommend"
+    elsif prompt.include?("Results per model") then "verdict"
+    else "score_task"
+    end
+  end
 end
