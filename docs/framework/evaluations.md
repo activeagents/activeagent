@@ -908,6 +908,15 @@ description: The questions the support team fields every week
 pass:
   threshold: 0.7        # the score every answer must reach
   min_pass_rate: 0.8    # the share of a model's answers that must pass
+criteria:
+  shared:
+    - key: cites_order
+      type: contains
+      config: { pattern: "ABC-" }
+  terse:
+    - key: short
+      type: min_length
+      config: { chars: 20 }
 groups:
   - key: orders
     name: Orders
@@ -1000,6 +1009,28 @@ open_tickets, tickets = Ticket.open.count, Ticket.count   # the seed holds 3 of 
 scenario = { "key" => "open_tickets", "prompt" => "How many tickets are open?",
              "expect" => { "contains" => [patterns.number(open_tickets), patterns.share(open_tickets, tickets)] } }
 ```
+
+`criteria` keeps the rubric beside the questions it grades: the
+`{ key, type, config }` hashes `Runner.new(criteria:)` takes, either as one
+list, which reads as the single list named `default`, or as a mapping of
+name → list, one per audience the same questions are graded for.
+`suite.criteria_names` gives the names in document order and
+`suite.criteria(*names)` the named lists joined in the order given (a
+name repeated contributes once, a `nil` or blank one is skipped, and a
+criterion whose key an earlier list holds replaces it in place, so an
+audience can restate a shared criterion and the answer is scored on it
+once), ready for the runner:
+`ActiveAgent::Evals::Runner.new(criteria: suite.criteria("shared", "terse"), ...)`.
+With no names it returns every list in document order, and a name no
+document declares contributes nothing, so a deployment can ask for `shared`
+plus an audience that has no list of its own. Later documents layer each
+named list by criterion key, as they layer scenarios: a criterion whose key
+is already present replaces it in place, a new key is appended to its list,
+and a new name is appended after the others; a later document's bare list
+layers onto `default` the same way. A criterion that is not a mapping or
+has no `key`, or a `criteria` value that is neither a list nor a mapping of
+lists, raises `ArgumentError` naming the suite and the list; the same
+document pasted into `ScenarioParser` raises its `ParseError`.
 
 The same grouped document can be pasted into `ScenarioParser` as YAML or
 JSON. It retains scenario keys, group keys and display names, expectations,
@@ -1288,6 +1319,11 @@ products:
   - key: triage
     name: Triage agent
     agent: TriageAgent            # the agent this product's sets run against
+    criteria:
+      shared:
+        - key: cites_order
+          type: contains
+          config: { pattern: order }
     sets:
       - key: smoke
         name: Smoke
@@ -1325,16 +1361,27 @@ Every product, set and scenario has a `key`; a scenario also needs a
 as a suite's, plus free-form `tags` and `params` that the runner carries
 through to the results. A set may name a `judge` (`kind`, `model`) and
 `criteria`, which become the evaluation's when the set is run. A product
-and a set may carry a `pass` block (see [Gating a suite](#gating-a-suite)),
-checked as the catalog loads — a bad one raises `Catalog::InvalidDocument`
-naming the product or set it sits on; `suite_for` makes the product's the
-suite's and each set's its group's, and
+carries the same named `criteria` mapping a suite does, every criterion
+with a `key`, and a set its own list; a later document layers both by
+criterion key (a key already present replaces that criterion in place, a
+new one is appended), so `catalog.suite_for(:triage).criteria(:shared)`
+reads a product's `shared` list the way `Suite#criteria` does. A set keeps
+a criterion without a `key`, appended as it is and once, however many
+layered documents restate it. The mounted dashboard stores a set's
+criteria; a product's named lists stay in the YAML and do not survive its
+import and export, so the import preview reports a product that carries
+them as changed on every re-import, and a document the dashboard writes
+back from its records leaves them out.
+A product and a set may also carry a `pass` block (see [Gating a
+suite](#gating-a-suite)), checked as the catalog loads — a bad one raises
+`Catalog::InvalidDocument` naming the product or set it sits on;
+`suite_for` makes the product's the suite's and each set's its group's, and
 `Catalog#pass_thresholds(:triage, :smoke)` reads them. Keys the format does
 not define (`owner_team`, `repository`, …) are kept as `metadata` on the
-catalog, product, set or scenario they sit on. Scenario
-extensions are opaque data: they do not add scoring rules. They remain at
-their original keys in YAML and JSON exports, including a literal key named
-`metadata`, and are available through `scenario.metadata` in Ruby.
+catalog, product, set or scenario they sit on. Scenario extensions are
+opaque data: they do not add scoring rules. They remain at their original
+keys in YAML and JSON exports, including a literal key named `metadata`,
+and are available through `scenario.metadata` in Ruby.
 
 ```ruby
 catalog = ActiveAgent::Evals::Catalog.load("config/evals/support_desk.yml")

@@ -20,7 +20,11 @@ class ActiveAgentEvalsCatalogTest < ActiveSupport::TestCase
     assert_equal "TriageAgent", triage.agent
     assert_equal({ "repository" => "example/support" }, triage.metadata)
     assert_equal %w[smoke production], triage.sets.map(&:key)
+    assert_equal %w[shared terse], triage.criteria.keys
+    assert_equal [ { "key" => "short", "type" => "min_length", "config" => { "chars" => 20 } } ], triage.criteria["terse"]
+    assert_equal({}, catalog.product(:billing).criteria)
     assert_equal({ "kind" => "rules" }, catalog.set(:triage, :smoke).judge)
+    assert_equal %w[response_present no_apology], catalog.set(:triage, :smoke).criteria.map { |criterion| criterion["key"] }
     assert_equal 4, catalog.scenario_count
   end
 
@@ -64,6 +68,30 @@ class ActiveAgentEvalsCatalogTest < ActiveSupport::TestCase
     assert_equal %w[refund_request angry_customer], one_set.all_scenarios.map(&:key)
   end
 
+  test "a product's criteria lists reach the suite it reads as" do
+    suite = catalog.suite_for(:triage)
+
+    assert_equal %w[shared terse], suite.criteria_names
+    assert_equal catalog.product(:triage).criteria["shared"], suite.criteria(:shared)
+    assert_equal %w[cites_order short], suite.criteria("shared", "terse").map { |criterion| criterion["key"] }
+    assert_equal [], catalog.suite_for(:billing).criteria
+  end
+
+  test "a suite document's criteria land on its product, a bare list as the default list" do
+    shared = [ { "key" => "cites_order", "type" => "contains", "config" => { "pattern" => "ABC-" } } ]
+    named = ActiveAgent::Evals::Catalog.new([ { "suite" => "support_tasks", "criteria" => { "shared" => shared }, "groups" => [] } ])
+    bare = ActiveAgent::Evals::Catalog.new([ { "suite" => "support_tasks", "criteria" => shared, "groups" => [] } ])
+    layered = ActiveAgent::Evals::Catalog.new([
+      { "suite" => "support_tasks", "criteria" => { "shared" => shared }, "groups" => [] },
+      { "products" => [ { "key" => "support_tasks", "criteria" => shared } ] }
+    ])
+
+    assert_equal({ "shared" => shared }, named.product(:support_tasks).criteria)
+    assert_equal({ "default" => shared }, bare.product(:support_tasks).criteria)
+    assert_equal({ "shared" => shared, "default" => shared }, layered.product(:support_tasks).criteria)
+    assert_equal({}, named.product(:support_tasks).metadata)
+  end
+
   test "a suite document is a catalog of one product whose sets are its groups" do
     suite_catalog = ActiveAgent::Evals::Catalog.load(File.join(FIXTURES, "support_suite.yml"))
     suite = ActiveAgent::Evals::Suite.load(File.join(FIXTURES, "support_suite.yml"))
@@ -93,6 +121,42 @@ class ActiveAgentEvalsCatalogTest < ActiveSupport::TestCase
     assert_equal "Billing agent", layered.product(:billing).name
   end
 
+  test "a product's criteria lists layer by name and key, apart from its metadata" do
+    layered = ActiveAgent::Evals::Catalog.new([
+      YAML.safe_load_file(File.join(FIXTURES, "support_catalog.yml")),
+      { "products" => [ { "key" => "triage", "criteria" => {
+        "shared" => [ { "key" => "cites_order", "type" => "contains", "config" => { "pattern" => "ORD-" } } ],
+        "terse" => [ { "key" => "no_filler", "type" => "not_contains", "config" => { "pattern" => "as an AI" } } ],
+        "agents_team" => [ { "key" => "names_tool", "type" => "contains", "config" => { "pattern" => "lookup_order" } } ]
+      } } ] }
+    ])
+    criteria = layered.product(:triage).criteria
+
+    assert_equal %w[shared terse agents_team], criteria.keys
+    assert_equal [ { "key" => "cites_order", "type" => "contains", "config" => { "pattern" => "ORD-" } } ], criteria["shared"]
+    assert_equal %w[short no_filler], criteria["terse"].map { |criterion| criterion["key"] }
+    assert_equal({ "repository" => "example/support" }, layered.product(:triage).metadata)
+  end
+
+  test "a set's criteria layer by key across documents, a criterion without a key appended once" do
+    base = YAML.safe_load_file(File.join(FIXTURES, "support_catalog.yml"))
+    overlay = { "products" => [ { "key" => "triage", "sets" => [ { "key" => "smoke", "criteria" => [
+      { "key" => "no_apology", "type" => "not_contains", "config" => { "pattern" => "sorry" } },
+      { "key" => "short", "type" => "min_length", "config" => { "chars" => 40 } },
+      { "type" => "response_present" }
+    ] } ] } ] }
+    layered = ActiveAgent::Evals::Catalog.new([ base, overlay ])
+    restated = ActiveAgent::Evals::Catalog.new([ base, overlay, overlay ])
+    criteria = layered.set(:triage, :smoke).criteria
+
+    assert_equal [ "response_present", "no_apology", "short", nil ], criteria.map { |criterion| criterion["key"] }
+    assert_equal({ "pattern" => "sorry" }, criteria[1]["config"])
+    assert_equal({ "type" => "response_present" }, criteria.last)
+    assert_equal criteria, restated.set(:triage, :smoke).criteria
+    assert_equal({}, layered.set(:triage, :smoke).metadata)
+    assert_equal [], ActiveAgent::Evals::Catalog.parse("catalog: x\nproducts: [{ key: p, sets: [{ key: s, criteria: {} }] }]").set(:p, :s).criteria
+  end
+
   test "writes a canonical document that reads back the same, with a stable digest" do
     yaml = catalog.to_yaml
     reparsed = ActiveAgent::Evals::Catalog.parse(yaml)
@@ -104,6 +168,13 @@ class ActiveAgentEvalsCatalogTest < ActiveSupport::TestCase
     assert_includes yaml, "production_only: true"
     assert_not_includes yaml, "production_only: false"
     assert_equal({ "repository" => "example/support" }, reparsed.product(:triage).metadata)
+    assert_equal catalog.product(:triage).criteria, reparsed.product(:triage).criteria
+    assert_equal catalog.set(:triage, :smoke).criteria, reparsed.set(:triage, :smoke).criteria
+
+    plain = ActiveAgent::Evals::Catalog.parse("catalog: x\nproducts: [{ key: p }]")
+    assert_not_includes plain.to_yaml, "criteria"
+    assert_equal plain.digest, ActiveAgent::Evals::Catalog.parse("catalog: x\nproducts: [{ key: p, criteria: [] }]").digest
+    assert_equal plain.digest, ActiveAgent::Evals::Catalog.parse("catalog: x\nproducts: [{ key: p, criteria: {} }]").digest
   end
 
   # The fixture layered twice, then under any `overlays`: the first overlay
@@ -222,5 +293,23 @@ class ActiveAgentEvalsCatalogTest < ActiveSupport::TestCase
     assert_raises(ActiveAgent::Evals::Catalog::NotFound) { catalog.product(:nope) }
     assert_raises(ActiveAgent::Evals::Catalog::NotFound) { catalog.set(:triage, :nope) }
     assert_raises(ActiveAgent::Evals::Catalog::NotFound) { ActiveAgent::Evals::Catalog.load(File.join(FIXTURES, "missing.yml")) }
+  end
+
+  test "refuses malformed criteria, naming the product or set and the list" do
+    refused = {
+      "catalog: x\nproducts: [{ key: p, criteria: oops }]" => /criteria of product "p" are not a list or a mapping of lists/,
+      "catalog: x\nproducts: [{ key: p, criteria: [response_present] }]" => /criterion in list "default" of product "p" is not a mapping/,
+      "catalog: x\nproducts: [{ key: p, criteria: { shared: [{ type: contains }] } }]" => /criterion in list "shared" of product "p" has no key/,
+      "catalog: x\nproducts: [{ key: p, criteria: { shared: { key: a } } }]" => /criteria list "shared" of product "p" is not a list/,
+      "catalog: x\nproducts: [{ key: p, criteria: { shared: } }]" => /criteria list "shared" of product "p" is not a list/,
+      "catalog: x\nproducts: [{ key: p, sets: [{ key: s, criteria: { key: a, type: contains } }] }]" => /criteria of set "s" of product "p" are not a list/,
+      "catalog: x\nproducts: [{ key: p, sets: [{ key: s, criteria: oops }] }]" => /criteria of set "s" of product "p" are not a list/,
+      "catalog: x\nproducts: [{ key: p, sets: [{ key: s, criteria: [contains] }] }]" => /criterion in set "s" of product "p" is not a mapping/
+    }
+
+    refused.each do |document, message|
+      error = assert_raises(ActiveAgent::Evals::Catalog::InvalidDocument, document) { ActiveAgent::Evals::Catalog.parse(document) }
+      assert_match message, error.message
+    end
   end
 end

@@ -249,6 +249,26 @@ finished evaluation run's cached figures are worked out again.
   check on the judge's own model when the judge is built, so a judge whose
   provider has no key refuses before the first scenario is replayed rather
   than at its first grade; the default stays lazy.
+- **Named criteria lists on a suite** (`activeagent`). A suite document
+  carries a top-level `criteria` beside `groups`: a list of the
+  `{ key, type, config }` hashes `Runner.new(criteria:)` takes, which reads
+  as the one list named `default`, or a mapping of name → list, one per
+  audience the same questions are graded for. `Suite#criteria(*names)`
+  joins the named lists in the order given, a later list's criterion
+  replacing an earlier one with the same key, ready for the runner;
+  with no names it returns every list in document order, and a name no
+  document declares contributes nothing, so a deployment asks for `shared`
+  plus an audience that may have no list of its own. `Suite#criteria_names`
+  lists the names. Later documents layer each list by criterion key, as they
+  layer scenarios: a key already present is replaced in place, a new key
+  appended. A catalog product carries the same mapping, which `suite_for`
+  hands its suite and `to_yaml` writes back. A `criteria` value that is
+  neither a list nor a mapping of lists, or a criterion that is not a
+  mapping or has no key, is refused: `ArgumentError` from a suite,
+  `Catalog::InvalidDocument` from a catalog product (a set keeps a criterion
+  without a key; see Changed) and `ScenarioParser::ParseError` from a pasted
+  suite. Earlier releases ignored a suite document's top-level `criteria`;
+  a document that carries one in another shape is refused.
 
 ### Changed
 
@@ -274,6 +294,15 @@ finished evaluation run's cached figures are worked out again.
   score, time, tokens and cost strip, the Metrics overview's change pills and
   the home page's Top Agents list. Under 600px a table stacks each row to
   labelled pills.
+
+- **A set's `criteria` layer across catalog documents** (`activeagent`). A
+  later document's criterion replaces the one with its key in place and a
+  new key is appended, as a product's named lists and a suite's scenarios
+  layer; a later document used to replace the set's whole list. A criterion
+  without a key is still accepted and appended as it is, once: a later
+  document that restates it adds nothing. A criterion's `key` is written as
+  a string, as scenario keys are, so a set criterion keyed by a number reads
+  back with a quoted key and the catalog's digest changes with it.
 
 ### Fixed
 

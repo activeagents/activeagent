@@ -8,13 +8,24 @@ module ActiveAgent
     # suite. That is how an app keeps a shared suite and lets a deployment add or
     # reword questions. A `pass` block, on the suite and on a group, declares
     # the bars a run is held to (PassThresholds); later documents override it
-    # key by key at both levels.
+    # key by key at both levels. Named criteria lists layer the same way by
+    # criterion key, and `criteria("shared", "terse")` hands the chosen lists
+    # to Runner.new(criteria:).
     #
     #   suite: support_desk
     #   description: Questions the support team asks every week
     #   pass:
     #     threshold: 0.7
     #     min_pass_rate: 0.8
+    #   criteria:
+    #     shared:
+    #       - key: cites_order
+    #         type: contains
+    #         config: { pattern: "ABC-" }
+    #     terse:
+    #       - key: short
+    #         type: min_length
+    #         config: { chars: 20 }
     #   groups:
     #     - key: open_tickets
     #       name: Open tickets
@@ -70,6 +81,32 @@ module ActiveAgent
         @description = documents.filter_map { |doc| doc["description"] }.last
         @pass_thresholds = PassThresholds.from_documents(documents)
         @groups = merge_groups(documents)
+        @criteria_lists = merge_criteria_lists(documents)
+      end
+
+      # The names of the suite's criteria lists, in document order.
+      def criteria_names
+        @criteria_lists.keys
+      end
+
+      # The criteria of the named lists in the order given, a name given twice
+      # contributing once, or of every list when no names are given. A
+      # criterion whose key an earlier list already holds replaces it in
+      # place, so an audience's list can restate a shared criterion with its
+      # own bar and the answer is scored on it once. A name no document
+      # declared contributes nothing, so a caller can ask for "shared" plus an
+      # audience that has no list of its own, and a nil or blank name is
+      # skipped, so an audience left unset narrows nothing. The result is
+      # ready for Runner.new(criteria:).
+      def criteria(*names)
+        names = names.flatten.filter_map { |list_name| list_name.to_s.presence }.uniq
+        names = criteria_names if names.empty?
+        names.each_with_object([]) do |list_name, chosen|
+          @criteria_lists.fetch(list_name, []).each do |criterion|
+            index = chosen.index { |existing| existing["key"] == criterion["key"] }
+            index ? chosen[index] = criterion : chosen << criterion
+          end
+        end
       end
 
       # Scenarios narrowed by group keys, scenario keys, or both; `production_only`
@@ -130,6 +167,43 @@ module ActiveAgent
           index = group["scenarios"].index { |existing| existing["key"] == scenario["key"] }
           index ? group["scenarios"][index] = scenario : group["scenarios"] << scenario
         end
+      end
+
+      # Each document's criteria lists layered over the earlier ones by name
+      # and, within a name, by criterion key.
+      def merge_criteria_lists(documents)
+        documents.each_with_object({}) do |document, lists|
+          criteria_lists(document).each do |list_name, incoming|
+            list = (lists[list_name] ||= [])
+            incoming.each do |criterion|
+              index = list.index { |existing| existing["key"] == criterion["key"] }
+              index ? list[index] = criterion : list << criterion
+            end
+          end
+        end
+      end
+
+      # A document's `criteria` as `name => list`; a bare list is the one list
+      # named "default", and an empty one declares no list.
+      def criteria_lists(document)
+        value = document["criteria"]
+        return {} if value.nil? || value == []
+
+        value = { "default" => value } if value.is_a?(Array)
+        raise ArgumentError, "the criteria of suite #{name.inspect} are not a list or a mapping of lists" unless value.is_a?(Hash)
+
+        value.to_h do |list_name, list|
+          raise ArgumentError, "criteria list #{list_name.inspect} of suite #{name.inspect} is not a list" unless list.is_a?(Array)
+
+          [ list_name.to_s, list.map { |criterion| normalize_criterion(criterion, list_name) } ]
+        end
+      end
+
+      def normalize_criterion(criterion, list_name)
+        raise ArgumentError, "a criterion in list #{list_name.inspect} of suite #{name.inspect} is not a mapping" unless criterion.is_a?(Hash)
+        raise ArgumentError, "a criterion in list #{list_name.inspect} of suite #{name.inspect} has no key" if criterion["key"].blank?
+
+        criterion.merge("key" => criterion["key"].to_s)
       end
     end
   end
