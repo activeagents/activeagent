@@ -719,6 +719,7 @@ reads the JSON.
 | `ModelSpec` | `provider/model` or a bare name with provider inference (`claude-*` → anthropic, `gpt-*` → openai, `name:tag` → ollama, `vendor/model` → openrouter) |
 | `Replay` | What your agent produced: answer, tool calls, timing, tokens, cost, error |
 | `Scorer` | Rule criteria (`response_present`, `min_length`, `max_latency_ms`, `token_budget`, `contains`, `not_contains`, `llm_judge`) plus the scenario's expectations |
+| `Patterns` | Regex builders for a `contains` / `not_contains` entry: `number(count)` for a figure on its own, `share(count, total)` for its percentage, whole or one-decimal |
 | `Diagnosis` | One fault per failing result, with an evidence-based recommendation |
 | `Judge` | Prompts and parsing for scoring, refining recommendations, and picking a winner; you supply the completion call |
 | `Runner` | scenarios × models → `Result`s, calling your `replay` and the judge |
@@ -777,6 +778,24 @@ leaves the suite's threshold and the other groups as the shared document
 had them. A catalog's products and sets take the same block, refused as
 `Catalog::InvalidDocument` (see [Catalogs](#catalogs)).
 `Suite#pass_thresholds` is the result; see [Gating a suite](#gating-a-suite).
+
+A `contains` or `not_contains` entry is tried against the answer as a
+case-insensitive substring and then as a regex (`Scorer.matches_pattern?`),
+so an entry can be a word or a pattern. `ActiveAgent::Evals::Patterns.number(count)`
+and `Patterns.share(count, total)` build the regex for a figure and for a
+percentage: `number(10)` matches the `10` in `10 sessions` or `(10)` and not
+the one in `2026-10-01`, `Oct 10`, `10 October`, `1–10`, `10.5` or `110`,
+nor in a ratio such as `10/22`, which reads as a date as often as a count
+(expect `10 of 22`); `share(3, 4)` matches `75%`, `75 %`, `75.0%` and
+`75.00%` and not `175%` or `7.5%`. A scenario seeded with known
+data can then expect the figure that data implies:
+
+```ruby
+patterns = ActiveAgent::Evals::Patterns
+open_tickets, tickets = Ticket.open.count, Ticket.count   # the seed holds 3 of 4
+scenario = { "key" => "open_tickets", "prompt" => "How many tickets are open?",
+             "expect" => { "contains" => [patterns.number(open_tickets), patterns.share(open_tickets, tickets)] } }
+```
 
 The same grouped document can be pasted into `ScenarioParser` as YAML or
 JSON. It retains scenario keys, group keys and display names, expectations,
