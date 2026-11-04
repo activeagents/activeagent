@@ -111,6 +111,24 @@ class EvaluationFixesApiTest < ActionDispatch::IntegrationTest
     assert_equal @project.id, JSON.parse(response.body).dig("project", "id")
   end
 
+  test "a run of several trials compares trial by trial" do
+    @run.scenario_results.create!(scenario: @scenario, model: "mock-model", provider: "mock", status: :passed, score: 1.0,
+      diagnosis: { "_trial" => 2 })
+    fix = ActionAgent::EvaluationFix.new(@run, @item)
+    session = ActionAgent::CodeSession.create!(sandbox_session: @sandbox, prompt: fix.prompt, evaluation_run: @run, fix_item: fix.item,
+      status: :succeeded, finished_at: Time.current, diff: "diff --git a/x b/x")
+    verification = @evaluation.evaluation_runs.create!(status: :complete, completed_at: Time.current)
+    verification.scenario_results.create!(scenario: @scenario, provider: "mock", model: "mock-model", status: :passed, score: 1)
+    verification.scenario_results.create!(scenario: @scenario, provider: "mock", model: "mock-model", status: :failed, score: 0,
+      diagnosis: { "_trial" => 2 })
+    session.update!(verification_run: verification)
+
+    rows = ActionAgent::EvaluationFixComparison.new(session).rows.sort_by { |row| row[:trial] }
+    assert_equal [ [ 1, "fixed" ], [ 2, "regressed" ] ], rows.map { |row| [ row[:trial], row[:change] ] }
+    assert_includes ActionAgent::EvaluationFixComparison.new(session).pull_request_body(mount: "https://dashboard.example/activeagents"),
+                    "| lookup / mock/mock-model (trial 2) | passed | failed |"
+  end
+
   test "verification refuses changed scenario definitions" do
     fix = ActionAgent::EvaluationFix.new(@run, @item)
     session = ActionAgent::CodeSession.create!(sandbox_session: @sandbox, prompt: fix.prompt, evaluation_run: @run,

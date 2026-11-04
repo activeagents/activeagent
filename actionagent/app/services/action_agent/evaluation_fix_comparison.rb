@@ -21,7 +21,7 @@ module ActionAgent
       after = indexed(@session.verification_run)
       (before.keys | after.keys).map do |key|
         first, last = before[key], after[key]
-        { scenario_key: key[0], model: key[1], change: self.class.change(first, last),
+        { scenario_key: key[0], model: key[1], trial: key[2], change: self.class.change(first, last),
           before: first&.status, after: last&.status, before_score: first&.score&.to_f, after_score: last&.score&.to_f,
           score_change: first&.score && last&.score ? (last.score - first.score).to_f.round(3) : nil,
           before_fault: first&.fault, fault: last&.fault }
@@ -45,7 +45,8 @@ module ActionAgent
         "[Verification run](#{mount}/evaluations/#{base.evaluation_id}/runs/#{@session.verification_run_id})", "",
         "| Scenario / model | Before | After | Score change | Fault |", "| --- | --- | --- | --- | --- |" ]
       rows.each do |row|
-        cells = [ "#{row[:scenario_key]} / #{row[:model]}", row[:before], row[:after] || "pending", row[:score_change], row[:fault] || "—" ]
+        trial = " (trial #{row[:trial]})" if row[:trial] > 1
+        cells = [ "#{row[:scenario_key]} / #{row[:model]}#{trial}", row[:before], row[:after] || "pending", row[:score_change], row[:fault] || "—" ]
         lines << "| #{cells.map { |cell| cell.to_s.gsub('|', '\\|').gsub(/[\r\n]/, ' ') }.join(' | ')} |"
       end
       lines += [ "", "## Session summary", @session.result.to_s, "", "Code session ##{@session.id}. Review the diff and full-suite regressions before merging." ]
@@ -54,6 +55,9 @@ module ActionAgent
 
     private
 
+    # Results by scenario key, model and trial, so a run that replayed each
+    # scenario several times compares trial by trial rather than keeping
+    # whichever trial was read last.
     def indexed(run)
       return {} unless run
       item = @session.fix_item || {}
@@ -62,7 +66,7 @@ module ActionAgent
         model = [ result.provider, result.model ].compact_blank.join("/")
         next unless Array(item["scenario_keys"]).include?(key) &&
           (Array(item["models"]).include?(model) || Array(item["models"]).include?(result.model))
-        index[[ key, model ]] = result
+        index[[ key, model, result.trial ]] = result
       end
     end
   end

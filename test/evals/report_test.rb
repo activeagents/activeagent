@@ -905,6 +905,7 @@ class EvalsReportTest < ActiveSupport::TestCase
 
   def test_to_h_and_the_markdown_name_the_trials_only_when_a_scenario_was_replayed
     assert_not report.to_h.key?("trials")
+    assert report.to_h["results"].none? { |entry| entry.key?("trial") }, "a single-trial report serializes as an earlier gem wrote it"
     assert_not_includes report.to_markdown, "replayed"
 
     hash = trial_report.to_h

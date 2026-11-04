@@ -311,7 +311,7 @@ module ActiveAgent
           "judge_usage" => judge_usage,
           "release" => release,
           "metadata" => @metadata.presence,
-          "results" => @results.map(&:to_h)
+          "results" => serialized_results
         }.compact
       end
 
@@ -320,6 +320,14 @@ module ActiveAgent
       end
 
       private
+
+      # Each result's hash; a single-trial report leaves out every "trial",
+      # so it is the JSON an earlier gem wrote and a re-delivery of it under
+      # the same run_id matches the stored digest.
+      def serialized_results
+        hashes = @results.map(&:to_h)
+        trials > 1 ? hashes : hashes.map { |hash| hash.except("trial") }
+      end
 
       # Whether a model summary's cost is an estimate — any replay priced
       # from tokens, or some replay unpriced, which leaves the sum a lower
