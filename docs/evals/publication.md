@@ -157,7 +157,8 @@ store is migrated, and nothing more.
 `Publisher#endpoint` returns the collector URL as a string, for a message that
 names where a report goes, and `Publisher#dashboard_url` the address a
 receipt's `url` path is resolved against: the `dashboard_url` given, else the
-endpoint's origin.
+endpoint's origin, except that the hosted collector at `api.activeagents.ai`
+resolves to `https://activeagents.ai`, where the dashboard is signed in to.
 
 ## Showing a run while it is in progress
 

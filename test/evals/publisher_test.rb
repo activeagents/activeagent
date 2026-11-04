@@ -383,6 +383,8 @@ class EvalsPublisherTest < Minitest::Test
     assert_equal "https://collector.example.test", publisher.dashboard_url
     assert_equal receipt.transform_keys(&:to_s).merge("url" => "https://collector.example.test/evaluations/7/runs/42"), publisher.call(**arguments)
     assert_equal "http://127.0.0.1:3210", Publisher.new(endpoint: "http://127.0.0.1:3210/v1/evaluations", api_key: "test-key").dashboard_url
+    assert_equal "https://activeagents.ai", Publisher.new(api_key: "test-key").dashboard_url
+    assert_equal "https://staging.activeagents.ai", Publisher.new(endpoint: "https://staging.activeagents.ai/v1/evaluations", api_key: "test-key").dashboard_url
   end
 
   def test_a_receipt_path_resolves_against_a_given_dashboard_url
@@ -444,7 +446,7 @@ class EvalsPublisherTest < Minitest::Test
 
     publishing = Publisher.from_env("ACTIVEAGENTS_API_KEY" => "private-test-key", "ACTIVEAGENTS_EVALUATIONS_ENDPOINT" => " ", "ACTIVEAGENTS_DASHBOARD_URL" => "")
     assert_equal Publisher::DEFAULT_ENDPOINT, publishing.endpoint
-    assert_equal "https://api.activeagents.ai", publishing.dashboard_url
+    assert_equal "https://activeagents.ai", publishing.dashboard_url, "the hosted API host serves no dashboard session"
   end
 
   def test_from_env_requires_the_api_key_and_checks_the_other_variables_as_new_does

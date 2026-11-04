@@ -20,6 +20,9 @@ module ActiveAgent
     # ArgumentError before anything is sent.
     class Publisher
       DEFAULT_ENDPOINT = "https://api.activeagents.ai/v1/evaluations"
+      # The hosted dashboard people sign in to; the hosted collector answers
+      # on the API host, where a dashboard session does not reach.
+      HOSTED_DASHBOARD_URL = "https://activeagents.ai"
       MAX_BYTES = 2 * 1024 * 1024
       DETAIL_LIMIT = 200
 
@@ -28,7 +31,8 @@ module ActiveAgent
 
       # @return [String] the address a receipt's "url" path resolves against: the
       #   dashboard_url given, or by default the endpoint's origin (its scheme,
-      #   host and any non-default port, with no path)
+      #   host and any non-default port, with no path), except that the hosted
+      #   API host resolves to HOSTED_DASHBOARD_URL
       attr_reader :dashboard_url
 
       # Raised for every failed delivery. Only a network failure keeps the
@@ -75,7 +79,8 @@ module ActiveAgent
       # +collector_detail+ never alters it, and an echo of it always matches.
       #
       # @param dashboard_url [String, nil] the address people open the dashboard at,
-      #   where a receipt's "url" path resolves; by default the endpoint's origin.
+      #   where a receipt's "url" path resolves; by default the endpoint's origin,
+      #   or HOSTED_DASHBOARD_URL for the hosted collector.
       #   The receipt's path, which carries the engine's mount, replaces any path on it
       # @raise [ArgumentError] "Evaluation dashboard_url is not an http(s) URL" when it is anything else, or
       #   "Evaluation dashboard_url must be an http(s) URL without credentials, query or fragment" when it carries one of those
@@ -89,7 +94,7 @@ module ActiveAgent
         end
         @endpoint = @uri.to_s
 
-        @dashboard_url = dashboard_url.nil? ? origin(@uri) : checked_dashboard_url(dashboard_url)
+        @dashboard_url = dashboard_url.nil? ? default_dashboard_url(@uri) : checked_dashboard_url(dashboard_url)
 
         @api_key = api_key.to_s.strip
         raise ArgumentError, "Evaluation API key is required" if @api_key.empty?
@@ -253,6 +258,13 @@ module ActiveAgent
         return recorded if recorded.is_a?(String) && !recorded.strip.empty?
 
         raise ArgumentError, "run_id must be given, or the report's metadata must carry one (Correlation#with_run records it)"
+      end
+
+      # The hosted collector's API host serves no dashboard session, so its
+      # receipts resolve against the hosted dashboard; any other collector is
+      # its own dashboard.
+      def default_dashboard_url(uri)
+        uri.hostname == URI.parse(DEFAULT_ENDPOINT).hostname ? HOSTED_DASHBOARD_URL : origin(uri)
       end
 
       # Returns the dashboard_url given as a String, raising ArgumentError
