@@ -1127,6 +1127,11 @@ harness (see the [dashboard guide](/framework/dashboard#writing-a-suite-from-you
 
 ## In your test suite
 
+::: tip Guide
+[Evals in Your Test Suite](/framework/evals-in-tests) is the step-by-step
+version of this section, with RSpec, RubyLLM apps, publishing and CI.
+:::
+
 Evals belong next to the tests: the fixtures, factories and sign-in helpers a
 scenario needs are already there. They are ordinary tests under `test/evals`,
 collected by `rails test` like any other, with one difference: each one calls
