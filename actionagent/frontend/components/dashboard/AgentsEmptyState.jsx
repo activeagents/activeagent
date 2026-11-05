@@ -68,6 +68,9 @@ export default function AgentsEmptyState({ endpoint, multiTenant, onRefresh, isL
               </>
             )}
           </p>
+          <a href={DOCS_TELEMETRY_URL} target="_blank" rel="noopener noreferrer" style={{ fontSize: 13, color: 'var(--color-info)' }}>
+            Telemetry docs
+          </a>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 'auto' }}>
             {multiTenant && (
               <Button variant="primary" size="sm" onClick={() => navigateTo('/organization')} testId="empty-telemetry-key">
@@ -77,9 +80,6 @@ export default function AgentsEmptyState({ endpoint, multiTenant, onRefresh, isL
             <Button size="sm" onClick={onRefresh} disabled={isLoading} testId="empty-check-again">
               {isLoading ? 'Checking…' : 'Check for agents'}
             </Button>
-            <a href={DOCS_TELEMETRY_URL} target="_blank" rel="noopener noreferrer" style={{ alignSelf: 'center', fontSize: 13, color: 'var(--color-info)' }}>
-              Telemetry docs
-            </a>
           </div>
         </Way>
 
