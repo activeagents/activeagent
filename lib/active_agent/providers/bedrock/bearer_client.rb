@@ -51,7 +51,8 @@ module ActiveAgent
           )
 
           @messages = ::Anthropic::Resources::Messages.new(client: self)
-          @completions = ::Anthropic::Resources::Completions.new(client: self)
+          # The anthropic gem 2.0 removed Text Completions along with this resource.
+          @completions = ::Anthropic::Resources::Completions.new(client: self) if defined?(::Anthropic::Resources::Completions)
           @beta = ::Anthropic::Resources::Beta.new(client: self)
         end
 
