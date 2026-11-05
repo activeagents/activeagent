@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **An empty agent list shows how agents arrive** (`actionagent`). With no
+  agents, the Agents page offered only Browse Templates and Create From
+  Scratch. It now shows three ways in, telemetry first:
+  - **Connect your app** asks what runs the agents. For ActiveAgent it shows
+    the `config/active_agent.yml` telemetry block. For RubyLLM it shows the
+    `activeagents-telemetry-ruby_llm` Gemfile line and the initializer that
+    subscribes it. Both point at this dashboard's endpoint and read the key
+    from `ACTIVEAGENTS_API_KEY`. The first trace registers the agent, and
+    **Check for agents** reloads the list.
+  - **Link a GitHub repository** opens New project.
+  - **Build one here** keeps the template library and the builder.
+
+### Fixed
+
+- **A self-hosted dashboard shows its own trace endpoint** (`actionagent`).
+  The Organization page's Telemetry card showed the platform's `/v1/traces`.
+  A self-hosted engine takes traces at `<mount>/api/traces`, and the card
+  now shows that. Multi-tenant installs are unchanged.
+- **The agent list's filter arrows sit inside the select** (`actionagent`).
+  The browser's own arrow ignores padding and sat against the right border.
+  The three filters now draw an inset chevron (`aa-select`).
+
 ## [1.9.7] - 2026-11-04
 
 Evaluations an application runs in its own test suite, and the dashboard
