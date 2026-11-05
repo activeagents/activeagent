@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import AgentAvatar from '../AgentAvatar';
 import AgentStatCard, { rateTone } from './AgentStatCard';
+import AgentsEmptyState from './AgentsEmptyState';
 import { Badge, statusTone } from './primitives';
 import { fmtPasses, fmtPercent } from '../../utils/evalFormat.mjs';
+import { currentTelemetryEndpoint } from '../../utils/telemetrySetup.mjs';
 
 // Mirrors Api::AgentsController::LIST_SORTS. Ordering is applied server-side
 // over the scorecards, so these values are sent, not sorted on.
@@ -113,7 +115,7 @@ export default function AgentList({
             <select
               value={filterProvider}
               onChange={(e) => setFilterProvider(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 max-md:w-full max-md:min-w-0 max-md:h-10"
+              className="aa-select pl-3 pr-9 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 max-md:w-full max-md:min-w-0 max-md:h-10"
             >
               <option value="">All Providers</option>
               {meta.providers?.map(p => (
@@ -124,7 +126,7 @@ export default function AgentList({
             <select
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 max-md:w-full max-md:min-w-0 max-md:h-10"
+              className="aa-select pl-3 pr-9 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 max-md:w-full max-md:min-w-0 max-md:h-10"
             >
               <option value="">All Status</option>
               <option value="active">Active</option>
@@ -135,7 +137,7 @@ export default function AgentList({
             <select
               value={sort}
               onChange={(e) => onSortChange?.(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 max-md:w-full max-md:min-w-0 max-md:h-10 max-md:col-span-2"
+              className="aa-select pl-3 pr-9 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 max-md:w-full max-md:min-w-0 max-md:h-10 max-md:col-span-2"
               title="Rank agents by their scorecard"
             >
               {SORTS.map((option) => (
@@ -270,42 +272,22 @@ export default function AgentList({
             );
           })}
         </div>
+      ) : agents.length === 0 ? (
+        <AgentsEmptyState
+          endpoint={currentTelemetryEndpoint()}
+          multiTenant={Boolean(meta.multiTenant)}
+          onRefresh={onRefresh}
+          isLoading={isLoading}
+          onBrowseTemplates={onBrowseTemplates}
+          onNew={onNew}
+        />
       ) : (
         <div className="text-center py-16">
           <div className="inline-block mb-4">
             <AgentAvatar size={100} />
           </div>
-          <h3 className="text-lg font-medium text-gray-900 mb-2">
-            {agents.length === 0 ? 'No agents yet' : 'No matching agents'}
-          </h3>
-          <p className="text-gray-500 mb-6">
-            {agents.length === 0
-              ? 'Create your first AI agent to get started'
-              : 'Try adjusting your search or filters'}
-          </p>
-          {agents.length === 0 && (
-            <div className="flex flex-wrap items-center justify-center gap-4">
-              <button
-                onClick={onBrowseTemplates}
-                className="inline-flex items-center space-x-2 px-6 py-3 border-2 border-red-500 text-red-600 rounded-lg hover:bg-red-50 transition-colors"
-              >
-                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                </svg>
-                <span>Browse Templates</span>
-              </button>
-              <span className="text-gray-400">or</span>
-              <button
-                onClick={onNew}
-                className="inline-flex items-center space-x-2 px-6 py-3 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
-              >
-                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                </svg>
-                <span>Create From Scratch</span>
-              </button>
-            </div>
-          )}
+          <h3 className="text-lg font-medium text-gray-900 mb-2">No matching agents</h3>
+          <p className="text-gray-500 mb-6">Try adjusting your search or filters</p>
         </div>
       )}
     </div>
