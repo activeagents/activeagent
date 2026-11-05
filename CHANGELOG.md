@@ -31,8 +31,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   The browser's own arrow ignores padding and sat against the right border.
   The three filters now draw an inset chevron (`aa-select`).
 
-### Fixed
-
 - **The Anthropic provider loads the `anthropic` gem 2.x** (`activeagent`).
   The provider pinned its client gem to `~> 1.12`, so a bundle holding
   anthropic 2.0 or later raised `LoadError` the moment the provider loaded,
