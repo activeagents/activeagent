@@ -292,10 +292,13 @@ test "the support suite meets its pass gates" do
   publisher = ActiveAgent::Evals::Publisher.from_env if ENV["EVALS_PUBLISH"]
   publisher&.verify!   # a bad key or host fails here, before any model call
 
-  report = run_eval_suite("test/evals/support.yml") { |scenario, _spec| SupportAgent.with(question: scenario.prompt).help }
-  File.write "tmp/evals/support.json", report.to_json   # kept even if the upload fails
+  run_id = "support-#{SecureRandom.uuid}"
+  report = run_eval_suite("test/evals/support.yml", metadata: { "run_id" => run_id }) do |scenario, _spec|
+    SupportAgent.with(question: scenario.prompt).help
+  end
+  File.write "tmp/evals/support.json", report.to_json   # kept even if the upload fails, run_id included
 
-  receipt = publisher&.call(report: report, source: "support-app", agent_name: "SupportAgent", suite: "support")
+  receipt = publisher&.call(report: report, run_id: run_id, source: "support-app", agent_name: "SupportAgent", suite: "support")
   puts "Published: #{receipt["url"]}" if receipt
 
   assert_meets_pass_gates report
@@ -307,6 +310,9 @@ EVALS_PUBLISH=1 bin/rails test:evals
 ```
 
 Publish before the assertion, so a run that misses its gate still shows up.
+The run id goes into the report's metadata, so the saved JSON carries it:
+publishing that file again after a failed upload sends the same run rather
+than a second one.
 The run appears under **Evaluations** in an evaluation named after `suite:`
 (`support` here), on the agent named by `agent_name:`. Each run keeps its
 report, which you can download as HTML, JSON or Markdown. The receipt's
