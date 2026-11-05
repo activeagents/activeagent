@@ -10,7 +10,7 @@ require_relative "concerns/tool_choice_clearing"
 
 # @private
 GEM_LOADERS = {
-  anthropic: [ "anthropic", "~> 1.12", "anthropic" ],
+  anthropic: [ "anthropic", [ ">= 1.12", "< 3" ], "anthropic" ],
   openai:    [ "openai",    "~> 0.34", "openai" ],
   # Keep a tested floor: 1.2 lacks the provider APIs this adapter uses.
   ruby_llm:  [ "ruby_llm",  [ ">= 1.16", "< 3" ], "ruby_llm" ]
