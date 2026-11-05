@@ -3,6 +3,7 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { startCheckout } from '../../utils/checkout';
 import ProviderKeysCard, { useProviderKeyEditor } from './ProviderKeysCard';
 import { fetchTelemetryKey } from '../../utils/telemetryKey.mjs';
+import { currentTelemetryEndpoint, telemetryConfigSnippet } from '../../utils/telemetrySetup.mjs';
 
 const formatNumber = (num) => {
   if (num == null) return '0';
@@ -345,10 +346,7 @@ export default function OrganizationView({ account, user, subscription, agentCou
         <pre
           className={`text-xs rounded-lg p-4 overflow-x-auto mb-4 ${darkMode ? 'bg-black text-gray-300' : 'bg-gray-900 text-gray-100'}`}
         >
-{`telemetry:
-  enabled: true
-  endpoint: ${window.location.origin}/v1/traces
-  api_key: <%= ENV["ACTIVEAGENTS_API_KEY"] %>`}
+{telemetryConfigSnippet(currentTelemetryEndpoint())}
         </pre>
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0 flex-1">
