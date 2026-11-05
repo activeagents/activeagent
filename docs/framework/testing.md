@@ -197,7 +197,10 @@ class SupportAgentEval < ActiveAgent::Evals::TestCase
 end
 ```
 
-See [Evaluations → In your test suite](/framework/evaluations#in-your-test-suite).
+[Evals in Your Test Suite](/framework/evals-in-tests) walks through the setup,
+RSpec, a suite across models, RubyLLM apps, publishing a run to the dashboard
+and CI. The helper reference is
+[Evaluations → In your test suite](/framework/evaluations#in-your-test-suite).
 
 ## Test Base Classes
 

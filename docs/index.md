@@ -50,6 +50,10 @@ features:
     icon: 🧪
     link: /framework/testing
     details: Test with fixtures and VCR cassettes. Mock providers for fast tests.
+  - title: Evals in Your Tests
+    icon: ✅
+    link: /framework/evals-in-tests
+    details: Check what your agents answer and which tools they call, as Minitest or RSpec tests, and publish each run to the dashboard.
   - title: Persistence
     icon: 🗄️
     link: /solid_agent
