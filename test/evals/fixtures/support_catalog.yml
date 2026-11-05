@@ -8,12 +8,30 @@ products:
     description: Routes and answers the support inbox
     agent: TriageAgent
     repository: example/support
+    criteria:
+      shared:
+        - key: cites_order
+          type: contains
+          config:
+            pattern: order
+      terse:
+        - key: short
+          type: min_length
+          config:
+            chars: 20
     sets:
       - key: smoke
         name: Smoke
         description: The questions every release must answer
         judge:
           kind: rules
+        criteria:
+          - key: response_present
+            type: response_present
+          - key: no_apology
+            type: not_contains
+            config:
+              pattern: unfortunately
         scenarios:
           - key: refund_request
             prompt: A customer asks for a refund on order 1042.

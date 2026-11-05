@@ -6,6 +6,23 @@ module EvalsTestSupport
   Scenario = ActiveAgent::Evals::Scenario
   Replay = ActiveAgent::Evals::Replay
   ModelSpec = ActiveAgent::Evals::ModelSpec
+  Result = ActiveAgent::Evals::Result
+  Diagnosis = ActiveAgent::Evals::Diagnosis
+  Report = ActiveAgent::Evals::Report
+  PassThresholds = ActiveAgent::Evals::PassThresholds
+
+  # The tools the diagnosis of a built result knows about.
+  AVAILABLE = %w[find_tickets inbox_status index_status].freeze
+
+  # The bars of the gated report: orders must pass fully, experimental is
+  # reported but not gated, and every other group follows the suite's 80%.
+  THRESHOLDS = PassThresholds.new(
+    suite: { "threshold" => 0.7, "min_pass_rate" => 0.8 },
+    groups: { "orders" => { "min_pass_rate" => 1.0 }, "experimental" => { "gated" => false } }
+  )
+
+  # Bars the gated report clears: half of a model's answers may fail.
+  LENIENT = PassThresholds.new(suite: { "min_pass_rate" => 0.5 }, groups: { "experimental" => { "gated" => false } })
 
   def scenario(key = "s_1", prompt = "Who changed the shipping policy?", group: "history", **expectations)
     Scenario.from_hash({ "key" => key, "prompt" => prompt, "expectations" => expectations.transform_keys(&:to_s) }, group: group)
@@ -22,5 +39,116 @@ module EvalsTestSupport
   # A judge whose completions come from a hash of `instructions fragment => reply`.
   def fake_judge(label: "judge", &block)
     ActiveAgent::Evals::Judge.new(label: label) { |instructions:, prompt:| block.call(instructions, prompt) }
+  end
+
+  # --- a gated report ---------------------------------------------------------
+
+  def models
+    @models ||= [ spec("gpt-5-mini"), spec("openrouter/meta-llama/llama-3.1-8b") ]
+  end
+
+  def gpt
+    models.first
+  end
+
+  def llama
+    models.last
+  end
+
+  # A result whose diagnosis comes from the real Diagnosis, so the evidence
+  # has the shape the report reads; `judge:` adds the judge's refinement.
+  def result(scenario, spec, replay, score: 1.0, judge: nil, trial: 1)
+    scores = { "response_present" => replay.answer.present? ? 1.0 : 0.0 }
+    diagnosis = Diagnosis.call(scenario: scenario, replay: replay, scores: scores, score: score, available_tools: AVAILABLE)&.to_h
+    if diagnosis && judge
+      diagnosis["judge"] = judge
+      diagnosis["recommendation"] = judge["recommendation"] if judge["recommendation"]
+    end
+    Result.new(scenario: scenario, spec: spec, replay: replay, scores: scores, score: score,
+               status: replay.errored? ? "errored" : (diagnosis ? "failed" : "passed"), diagnosis: diagnosis, trial: trial)
+  end
+
+  def grouped(key, prompt, group, name)
+    Scenario.from_hash({ "key" => key, "prompt" => prompt, "expectations" => { "tools" => [ "inbox_status" ] } }, group: group, group_name: name)
+  end
+
+  # Three named groups and an ungrouped scenario under two models. Orders
+  # passes fully under llama and half under gpt; help has a result under gpt
+  # alone; experimental fails under gpt and errors under llama; the
+  # ungrouped scenario passes under gpt alone.
+  def gated_results
+    lookup = grouped("order_lookup", "Where is order ABC-123?", "orders", "Order support")
+    status = grouped("order_status", "Has order ABC-123 shipped?", "orders", "Order support")
+    cancel = grouped("help_cancel", "How do I cancel my order?", "help", "Product help")
+    experiment = grouped("exp_1", "Draft a reply in the customer's tone.", "experimental", "Experimental")
+    ping = scenario("ping", "Are you there?", group: nil, tools: [ "inbox_status" ])
+    called = [ { "name" => "inbox_status" } ]
+
+    [
+      result(lookup, gpt, replay(answer: "It shipped on Monday.", tool_calls: called)),
+      result(lookup, llama, replay(answer: "Shipped Monday.", tool_calls: called)),
+      result(status, gpt, replay(answer: "Probably.", tool_calls: called), score: 0.5),
+      result(status, llama, replay(answer: "Yes, on Monday.", tool_calls: called)),
+      result(cancel, gpt, replay(answer: "From the order page.", tool_calls: called)),
+      result(experiment, gpt, replay(answer: "Dear customer.", tool_calls: called), score: 0.5),
+      result(experiment, llama, ActiveAgent::Evals::Replay.failed(RuntimeError.new("provider down")), score: nil),
+      result(ping, gpt, replay(answer: "Yes.", tool_calls: called))
+    ]
+  end
+
+  # The gated results under THRESHOLDS: orders under gpt and gpt's All row
+  # are the gates not met.
+  def gated_report(**options)
+    Report.new(results: gated_results, models: models, pass_thresholds: THRESHOLDS, **options)
+  end
+
+  # The gated results that passed, under the same bars: every gate met.
+  def passing_report
+    Report.new(results: gated_results.select(&:passed?), models: models, pass_thresholds: THRESHOLDS)
+  end
+
+  # Five scenarios replayed three times under gpt-5-mini alone, in run
+  # order: order_lookup passes every replay and order_status fails its
+  # second, so orders passes 5 of 6; help_cancel fails its third (help 2 of
+  # 3); the experimental scenario fails all three; the ungrouped ping fails
+  # its first.
+  def replayed_results
+    lookup = grouped("order_lookup", "Where is order ABC-123?", "orders", "Order support")
+    status = grouped("order_status", "Has order ABC-123 shipped?", "orders", "Order support")
+    cancel = grouped("help_cancel", "How do I cancel my order?", "help", "Product help")
+    experiment = grouped("exp_1", "Draft a reply in the customer's tone.", "experimental", "Experimental")
+    ping = scenario("ping", "Are you there?", group: nil, tools: [ "inbox_status" ])
+    called = [ { "name" => "inbox_status" } ]
+
+    [ [ lookup, [] ], [ status, [ 2 ] ], [ cancel, [ 3 ] ], [ experiment, [ 1, 2, 3 ] ], [ ping, [ 1 ] ] ].flat_map do |built, failing|
+      (1..3).map do |trial|
+        result(built, gpt, replay(answer: "It shipped on Monday.", tool_calls: called), score: failing.include?(trial) ? 0.5 : 1.0, trial: trial)
+      end
+    end
+  end
+
+  # The replayed results under THRESHOLDS: the orders, help and All gates
+  # are not met.
+  def replayed_report(thresholds = THRESHOLDS)
+    Report.new(results: replayed_results, models: [ gpt ], pass_thresholds: thresholds)
+  end
+
+  # A judge that answers every call with `reply` and tallies the calls in
+  # `calls` (a `Hash.new(0)`) under the Judge method that made them:
+  # "score_task", "score_criterion", "recommend" or "verdict".
+  def counting_judge(calls, reply: '{"score": 0.9, "recommendation": "Call the expected tool."}')
+    fake_judge do |_instructions, prompt|
+      calls[judge_call(prompt)] += 1
+      reply
+    end
+  end
+
+  # Which Judge method wrote `prompt`.
+  def judge_call(prompt)
+    if prompt.start_with?("Criterion:") then "score_criterion"
+    elsif prompt.include?("Detected fault") then "recommend"
+    elsif prompt.include?("Results per model") then "verdict"
+    else "score_task"
+    end
   end
 end

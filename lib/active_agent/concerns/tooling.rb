@@ -26,5 +26,14 @@ module ActiveAgent
         raise_without_input_request_secrets(error)
       end
     end
+
+    # A callback the provider runs the calls it serves from an MCP server
+    # around, which never reach {#tools_function}. It receives the tool name,
+    # its arguments and a block that makes the call, and returns the block's
+    # result. Nil unless a host that records a generation's tool calls (see
+    # Evals::Capture) sets it on the instance.
+    #
+    # @return [Proc, nil]
+    def tool_observer = nil
   end
 end

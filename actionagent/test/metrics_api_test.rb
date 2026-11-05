@@ -346,6 +346,15 @@ class MetricsApiTest < ActionDispatch::IntegrationTest
     assert_equal 0.0, totals["tool_error_rate"]
   end
 
+  test "a model is priced under the provider that served it" do
+    create_trace(at: ago(1), tokens: [ 1_000_000, 0 ], model: "gpt-oss:120b", provider: "Ollama")
+
+    body = metrics
+    assert_in_delta 0.15, body["totals"]["cost"], 0.0001, "Ollama Cloud's rate for the model, not the default guess"
+    assert_in_delta 0.15, body["summary"]["total_cost"], 0.0001
+    assert_in_delta 0.15, body["models"].first["cost"], 0.0001
+  end
+
   # --- rails ----------------------------------------------------------------
 
   test "the tools rail comes from tool spans" do

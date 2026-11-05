@@ -498,6 +498,23 @@ class ActionAgentEvaluationRunReportTest < ActiveSupport::TestCase
 
     assert_equal [], run.fix_items
   end
+
+  test "the report numbers each row by the trial it recorded and orders a model's replays by it" do
+    agent = ActionAgent::Agent.create!(name: "Assistant", provider: "mock", model: "mock-model")
+    run = create_run(agent)
+    scenario = run.evaluation.scenarios.first
+    [ 3, 2 ].each do |trial|
+      run.scenario_results.create!(scenario: scenario, model: "mock-model", provider: "mock", status: :passed, score: 1.0,
+                                   output: "answered", diagnosis: { "_trial" => trial })
+    end
+
+    report = run.to_report
+
+    assert_equal [ 1, 2, 3 ], report.results.map(&:trial), "a row that recorded no trial is the first"
+    assert_equal 3, report.trials
+    assert_equal [ 3, 1, 2 ], report.summary_by_model["mock/mock-model"].values_at("scenarios", "unique_scenarios", "passed")
+    assert_nil report.results.last.diagnosis, "the trial number is storage, not diagnosis"
+  end
 end
 
 # A report rebuilt from a run has to render the verdict that run recorded

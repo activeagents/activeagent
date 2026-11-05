@@ -7,10 +7,17 @@ module ActiveAgent
     #
     # `status` is "errored" when the run raised, "failed" when a fault was
     # assigned, and "passed" otherwise. `diagnosis` is the Diagnosis::Result
-    # hash, with a `"judge"` sub-hash when a Judge refined it.
-    Result = Struct.new(:scenario, :spec, :replay, :scores, :score, :status, :diagnosis, keyword_init: true) do
+    # hash, with a `"judge"` sub-hash when a Judge refined it. `trial` numbers
+    # the replays of one scenario under one model from 1 when the Runner
+    # replays each more than once (Runner.new trials:).
+    Result = Struct.new(:scenario, :spec, :replay, :scores, :score, :status, :diagnosis, :trial, keyword_init: true) do
       def passed?
         status == "passed"
+      end
+
+      # A Result built without a trial is the first.
+      def trial
+        self[:trial] || 1
       end
 
       def failed?
@@ -88,6 +95,7 @@ module ActiveAgent
           "label" => label,
           "provider" => provider,
           "model" => model,
+          "trial" => trial,
           "status" => status,
           "score" => score,
           "scores" => scores,

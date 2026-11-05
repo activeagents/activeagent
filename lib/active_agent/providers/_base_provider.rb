@@ -134,6 +134,7 @@ module ActiveAgent
                     :stream_completion_result,         # Callback (Streams)
                     :stream_finish_reason,             # Callback (Streams)
                     :tools_function,                   # Callback (Tools)
+                    :tool_observer,                    # Callback (Tools, MCP-served calls)
                     :usage_stack,                      # Usage Tracking
                     :stream_usage_index,               # Usage Tracking (Streams)
                     :max_tool_turns, :tool_turns,      # Tool-loop safety
@@ -193,6 +194,7 @@ module ActiveAgent
         self.stream_broadcaster = kwargs.delete(:stream_broadcaster)
         self.streaming          = false
         self.tools_function     = kwargs.delete(:tools_function)
+        self.tool_observer      = kwargs.delete(:tool_observer)
         self.max_tool_turns     = kwargs.delete(:max_tool_turns) || DEFAULT_MAX_TOOL_TURNS
         self.tool_turns         = 0
         self.instrumentation_enabled = kwargs.delete(:instrumentation) != false
@@ -273,6 +275,10 @@ module ActiveAgent
       # Invokes a tool, on an MCP server when one provides it and on the agent's
       # own tool function otherwise.
       #
+      # A call served by an MCP server never reaches the agent's tool function,
+      # so it runs inside the `tool_observer`, when the agent has one, which sees
+      # the call and its result without changing either.
+      #
       # @param name [String] tool name
       # @param kwargs [Hash] tool arguments
       # @return [Object] the tool's result, or an {MCPBridge::ErrorResult} for
@@ -281,11 +287,21 @@ module ActiveAgent
       #   tool needs approval and the provider's tool loop never asked for it
       def call_tool_function(name, **kwargs)
         assert_approval_gate_reached!(name)
-        return mcp_call_tool(name, **kwargs) if mcp_owns_tool?(name)
+        return observe_mcp_tool_call(name, kwargs) { mcp_call_tool(name, **kwargs) } if mcp_owns_tool?(name)
 
         result = isolate_undispatched_tool_call { tools_function.call(name, **kwargs) }
         assert_input_request_supported!(result)
         result
+      end
+
+      # @param name [String]
+      # @param arguments [Hash]
+      # @yieldreturn [Object] the tool's result
+      # @return [Object] the block's result
+      def observe_mcp_tool_call(name, arguments, &call)
+        return yield unless tool_observer
+
+        tool_observer.call(name, arguments, &call)
       end
 
       # @param name [String, nil]

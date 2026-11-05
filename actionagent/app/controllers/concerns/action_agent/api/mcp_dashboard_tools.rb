@@ -842,7 +842,7 @@ module ActionAgent
           change = comparison_change(before, after)
           next if change == "unchanged_pass"
 
-          { scenario_key: key[0], model: key[1], change: change, before: before&.status, after: after&.status,
+          { scenario_key: key[0], model: key[1], trial: key[2], change: change, before: before&.status, after: after&.status,
             fault: after&.fault, result_id: after&.id }
         end
 
@@ -1012,8 +1012,10 @@ module ActionAgent
       end
 
       # The run's results keyed by [scenario key, model].
+      # Results by scenario key, model and trial: a run that replayed each
+      # scenario several times compares trial by trial.
       def comparison_rows(run)
-        run.scenario_results.includes(:scenario).index_by { |result| [ result.evaluated_scenario["key"], result.model ] }
+        run.scenario_results.includes(:scenario).index_by { |result| [ result.evaluated_scenario["key"], result.model, result.trial ] }
       end
 
       # One of: removed, added_pass, added_fail, unchanged_pass, regressed,

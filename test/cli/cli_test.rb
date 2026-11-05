@@ -370,6 +370,23 @@ class ActiveAgentCLITest < Minitest::Test
     assert_includes err, "agent_name must be a nonempty string"
   end
 
+  def test_evals_import_run_id_option_overrides_the_report_and_is_required_without_one
+    path = File.join(@dir, "report.json")
+    File.write(path, envelope["report"].to_json)
+    stub_request(:post, REPORTS).with { |request| JSON.parse(request.body)["run_id"] == "run-9" }
+      .to_return(status: 201, body: { run_id: "run-9", status: "complete", id: 5, evaluation_id: 3, url: "/activeagents/evaluations/3/runs/5" }.to_json)
+
+    code, out, = cli("evals", "import", path, "--run-id", "run-9", "--source", "app", "--agent", "Bot", "--suite", "orders", "--json")
+    assert_equal 0, code, out
+    assert_equal "https://dashboard.example.test/activeagents/evaluations/3/runs/5", JSON.parse(out)["url"]
+
+    File.write(path, envelope["report"].except("metadata").to_json)
+    code, _, err = cli("evals", "import", path, "--source", "app", "--agent", "Bot", "--suite", "orders")
+    assert_equal CLI::EXIT_USAGE, code
+    assert_includes err, "run_id must be given"
+    assert_includes err, "--run-id"
+  end
+
   def test_evals_import_reports_a_rejection
     path = File.join(@dir, "report.json")
     File.write(path, envelope.to_json)

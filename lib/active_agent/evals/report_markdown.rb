@@ -11,8 +11,9 @@ module ActiveAgent
     #
     # Each piece is public on its own, for the pieces people paste one at a
     # time: #fix_item_markdown, #fix_items_markdown (optionally for one
-    # model), #verdict_markdown and #scenario_markdown. The whole report is
-    # built from them, so a piece copied alone reads as it does in the report.
+    # model), #verdict_markdown, #scenario_markdown, #gates_markdown,
+    # #failures_markdown and #failure_markdown. The whole report is built
+    # from them, so a piece copied alone reads as it does in the report.
     #
     # Table cells escape `|` and fold line breaks; text set inside the HTML
     # of a `<details>` block escapes `<`, `>` and `&`.
@@ -25,9 +26,11 @@ module ActiveAgent
         lines = [ "# #{markdown_title}", "" ]
         lines << judged_by_line
         lines << ""
+        lines << trials_line << "" if trials > 1
         lines.concat(summary_table)
         lines << ""
         lines.concat(total_lines)
+        lines.concat(gates_markdown).push("") if pass_thresholds && gates.any?
         lines.concat(verdict_lines)
         lines.concat(comparison_lines)
         lines.concat(matrix_table)
@@ -84,6 +87,47 @@ module ActiveAgent
         lines.join("\n")
       end
 
+      # Pass rate by group: one row per Report#gates row, in that order —
+      # the group, the model, the passes, the pass rate with its mark (✅
+      # met, ❌ not met, — not gated), the bar and the group's mean score
+      # for that model (the whole report's for an "All" row).
+      def gates_markdown(thresholds = pass_thresholds || PassThresholds.default)
+        lines = [ "## Pass rate by group", "", "| Group | Model | Passed | Pass rate | Bar | Mean score |", "|---|---|---|---|---|---|" ]
+        gates(thresholds).each do |gate|
+          stats = gate.group ? summary_by_group.dig(gate.group, "models", gate.label) : summary_by_model[gate.label]
+          mark = gate.gated ? (gate.met? ? "✅" : "❌") : "—"
+          cells = [ cell(gate.name), cell("`#{gate.label}`"), "#{gate.passed} of #{gate.total}", "#{Format.percent(gate.pass_rate)} #{mark}",
+                    gate.gated ? Format.percent(gate.min_pass_rate) : "not gated", Format.score(stats&.dig("avg_score")) ]
+          lines << "| #{cells.join(' | ')} |"
+        end
+        lines
+      end
+
+      # Every result that did not pass (Report#failures), one
+      # #failure_markdown line each, narrowed to one group when given.
+      def failures_markdown(group: nil)
+        failed = failures(group: group)
+        return "_Nothing failed._" if failed.empty?
+
+        failed.map { |result| failure_markdown(result) }.join("\n")
+      end
+
+      # One result that did not pass, as a line naming its scenario and
+      # model with its fault and summary — without a diagnosis, the replay's
+      # error for an errored result and the status alone otherwise. When the
+      # report holds more than one replay of that scenario × model, the line
+      # names the trial as #scenario_markdown does ("`gpt-5-mini` · trial 2"),
+      # so each line points at one answer.
+      def failure_markdown(result)
+        detail =
+          if result.fault then [ result.fault.tr("_", " "), result.summary.presence ].compact.join(" — ")
+          elsif result.errored? then [ "errored", result.replay.error.presence ].compact.join(" — ")
+          else result.status
+          end
+        trial = " · trial #{result.trial}" if replay_counts[[ result.scenario.key, result.label ]].to_i > 1
+        "- `#{result.scenario.key}` on `#{result.label}`#{trial}: #{detail}"
+      end
+
       # The verdict — the best model, why, and who picked it — then the
       # per-model table and, comparing models, the comparison with its
       # intervals.
@@ -108,7 +152,10 @@ module ActiveAgent
 
         scenario = cohort.first.scenario
         labels = @models.map(&:label)
-        cohort = cohort.sort_by { |result| labels.index(result.label) || labels.size }
+        cohort = cohort.sort_by { |result| [ labels.index(result.label) || labels.size, result.trial ] }
+        # A model that replayed the scenario more than once names each trial.
+        repeated = cohort.map(&:label).tally.select { |_label, count| count > 1 }
+        name = ->(result) { repeated.key?(result.label) ? "`#{result.label}` · trial #{result.trial}" : "`#{result.label}`" }
         body = []
         body << "**Prompt**" << "" << quoted(scenario.prompt).join("\n") << ""
         expectations = expectation_lines(scenario)
@@ -116,12 +163,12 @@ module ActiveAgent
         body << "| Model | Status | Score | Tools | Fault | Cost |" << "|---|---|---|---|---|---|"
         cohort.each do |result|
           tools = result.replay.tool_calls.map { |call| "#{call['name']}#{' ✗' if call['error']}" }.join(", ")
-          body << "| #{[ "`#{result.label}`", status_text(result), (result.score ? Format.score(result.score) : '—'), tools.presence || '—',
+          body << "| #{[ name.call(result), status_text(result), (result.score ? Format.score(result.score) : '—'), tools.presence || '—',
                          result.fault&.tr('_', ' ') || '—', (result.replay.cost ? answer_cost(result) : '—') ].map { |text| cell(text) }.join(' | ')} |"
         end
         body << ""
         cohort.each do |result|
-          body << "**`#{result.label}`** — #{status_text(result)}"
+          body << "**#{name.call(result)}** — #{status_text(result)}"
           body << ""
           body << "Fault: #{result.fault.tr('_', ' ')} — #{[ result.summary, result.recommendation ].compact.join(' ')}" << "" if result.fault
           body << "Error: #{result.replay.error}" << "" if result.replay.error
@@ -132,7 +179,8 @@ module ActiveAgent
         text = body.join("\n").rstrip
         return "### Scenario `#{scenario.key}`\n\n#{text}" unless details
 
-        marks = cohort.map { |result| "#{status_mark(result)} #{result.label}" }.join(" · ")
+        # A model that replayed the scenario shows one mark per trial, run together.
+        marks = cohort.group_by(&:label).map { |label, replays| "#{replays.map { |result| status_mark(result) }.join} #{label}" }.join(" · ")
         summary = "<code>#{html_text(scenario.key)}</code> #{html_text(scenario.prompt.truncate(80))} — #{html_text(marks)}"
         "<details>\n<summary>#{summary}</summary>\n\n#{text}\n\n</details>"
       end
@@ -148,9 +196,18 @@ module ActiveAgent
         @results.map { |result| result.scenario.key }.uniq
       end
 
+      # How many results the report holds per scenario key × model label.
+      def replay_counts
+        @replay_counts ||= @results.map { |result| [ result.scenario.key, result.label ] }.tally
+      end
+
       def judged_by_line
         label = @judge_label || @judge&.label
         label ? "Judged by `#{label}`." : "No judge; scored on rules and expectations alone."
+      end
+
+      def trials_line
+        "Each scenario was replayed #{trials} times; a model's pass rate counts every replay."
       end
 
       # "**Best model: gpt-5-mini**" with the verdict's rationale under it

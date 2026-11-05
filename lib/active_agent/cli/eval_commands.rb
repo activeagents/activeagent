@@ -138,11 +138,12 @@ module ActiveAgent
 
       # Posts a saved report to the collector. FILE is a version-1 envelope
       # (what `evals report --format json` writes) or a bare Report#to_h
-      # hash, whose identities then come from the options.
+      # hash, whose identities then come from the options; the publisher
+      # reads the run_id from the report's metadata when neither names one.
       def evals_import(argv)
         identities = {}
         argv = parse(argv, "evals import FILE [--run-id ID --source NAME --agent NAME --suite NAME]") do |p|
-          p.on("--run-id ID", "The report's run_id (kept across retries)") { |v| identities["run_id"] = v }
+          p.on("--run-id ID", "The report's run_id, kept across retries; by default the one its metadata records") { |v| identities["run_id"] = v }
           p.on("--source NAME", "The application that ran it") { |v| identities["source"] = v }
           p.on("--agent NAME", "The agent's name") { |v| identities["agent_name"] = v }
           p.on("--suite NAME", "The suite's name") { |v| identities["suite"] = v }
@@ -156,7 +157,6 @@ module ActiveAgent
           raise Error.new("#{path} is a version #{envelope["version"].inspect} envelope; this CLI sends version 1", exit_code: EXIT_USAGE)
         end
         envelope = envelope.merge(identities)
-        envelope["run_id"] ||= envelope["report"].is_a?(Hash) ? envelope["report"].dig("metadata", "run_id") : nil
 
         receipt = client.publisher.call(report: envelope["report"], run_id: envelope["run_id"], source: envelope["source"],
                                         agent_name: envelope["agent_name"], suite: envelope["suite"])
