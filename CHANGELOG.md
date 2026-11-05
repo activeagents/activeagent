@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **The Anthropic provider loads the `anthropic` gem 2.x** (`activeagent`).
+  The provider pinned its client gem to `~> 1.12`, so a bundle holding
+  anthropic 2.0 or later raised `LoadError` the moment the provider loaded,
+  although the provider builds its requests as hashes and the 2.0 SDK
+  (role-union `MessageParam`, one-value enums as constants, Text Completions
+  removed) breaks none of them. The provider and the gemspec's development
+  dependency now accept anthropic 1.12 through 2.x, and CI runs the provider
+  tests against 2.3 beside the 1.12, 1.14 and 1.55 legs. Two 2.0 changes do
+  reach the code: Text Completions went away with
+  `Anthropic::Resources::Completions`, which the Bedrock bearer client now
+  sets up only when it exists, and the client sends its key as
+  `Authorization: Bearer` instead of `x-api-key`. The 2.0 SDK also dropped
+  the `?beta=true` query string from its beta Messages requests, so the test
+  suite matches recorded cassettes with or without it.
+
 ## [1.9.7] - 2026-11-04
 
 Evaluations an application runs in its own test suite, and the dashboard
@@ -335,21 +352,6 @@ one under its own keys needs them renamed.
   back with a quoted key and the catalog's digest changes with it.
 
 ### Fixed
-
-- **The Anthropic provider loads the `anthropic` gem 2.x** (`activeagent`).
-  The provider pinned its client gem to `~> 1.12`, so a bundle holding
-  anthropic 2.0 or later raised `LoadError` the moment the provider loaded,
-  although the provider builds its requests as hashes and the 2.0 SDK
-  (role-union `MessageParam`, one-value enums as constants, Text Completions
-  removed) breaks none of them. The provider and the gemspec's development
-  dependency now accept anthropic 1.12 through 2.x, and CI runs the provider
-  tests against 2.3 beside the 1.12, 1.14 and 1.55 legs. Two 2.0 changes do
-  reach the code: Text Completions went away with
-  `Anthropic::Resources::Completions`, which the Bedrock bearer client now
-  sets up only when it exists, and the client sends its key as
-  `Authorization: Bearer` instead of `x-api-key`. The 2.0 SDK also dropped
-  the `?beta=true` query string from its beta Messages requests, so the test
-  suite matches recorded cassettes with or without it.
 
 - **The dashboard engine loads in a host without Action Cable**
   (`actionagent`). The engine's class body camelizes its inflection
