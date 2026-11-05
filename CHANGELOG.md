@@ -86,7 +86,7 @@ one under its own keys needs them renamed.
   `service: "CheaperInference"` generates and embeds through
   `https://api.cheaperinference.com/v1`, with the key from
   `CHEAPER_INFERENCE_API_KEY`; a thin subclass of the OpenAI provider, like
-  Opper. Contributed in #629.
+  Opper. Contributed in #629 and landed in #666.
 
 - **Your own MCP servers** (`actionagent`). A dashboard user adds a remote
   MCP server by URL on the MCP Services page (*Your MCP servers*), with
@@ -95,7 +95,7 @@ one under its own keys needs them renamed.
   beside the catalog as `custom:<id>`. Agent runs and scenario evaluation runs
   call its tools, and evaluation fix items attribute them to it. Each server
   belongs to an owner like a provider key (`MCPServerConfig`, install
-  migration 029), and every lookup, including a run's, is scoped to that
+  migration 032), and every lookup, including a run's, is scoped to that
   owner. Header values are encrypted at rest, never returned to the browser
   (names with masked values; a blank value on update keeps the stored one),
   and scrubbed from recorded output. Writes and tests ask for
