@@ -115,7 +115,7 @@ export default function AgentList({
             <select
               value={filterProvider}
               onChange={(e) => setFilterProvider(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 max-md:w-full max-md:min-w-0 max-md:h-10"
+              className="aa-select pl-3 pr-9 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 max-md:w-full max-md:min-w-0 max-md:h-10"
             >
               <option value="">All Providers</option>
               {meta.providers?.map(p => (
@@ -126,7 +126,7 @@ export default function AgentList({
             <select
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 max-md:w-full max-md:min-w-0 max-md:h-10"
+              className="aa-select pl-3 pr-9 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 max-md:w-full max-md:min-w-0 max-md:h-10"
             >
               <option value="">All Status</option>
               <option value="active">Active</option>
@@ -137,7 +137,7 @@ export default function AgentList({
             <select
               value={sort}
               onChange={(e) => onSortChange?.(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 max-md:w-full max-md:min-w-0 max-md:h-10 max-md:col-span-2"
+              className="aa-select pl-3 pr-9 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 max-md:w-full max-md:min-w-0 max-md:h-10 max-md:col-span-2"
               title="Rank agents by their scorecard"
             >
               {SORTS.map((option) => (

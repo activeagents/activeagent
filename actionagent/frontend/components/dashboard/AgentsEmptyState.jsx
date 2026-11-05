@@ -1,10 +1,24 @@
-import React from 'react';
+import React, { useState } from 'react';
 import AgentAvatar from '../AgentAvatar';
-import { Button, Card, MicroLabel, MONO } from './primitives';
+import { Button, Card, MicroLabel, MONO, SegmentedControl } from './primitives';
 import { navigateTo } from '../../utils/dashboardPath';
-import { telemetryConfigSnippet } from '../../utils/telemetrySetup.mjs';
+import { rubyLlmTelemetrySnippet, telemetryConfigSnippet } from '../../utils/telemetrySetup.mjs';
 
-const DOCS_TELEMETRY_URL = 'https://docs.activeagents.ai/framework/telemetry';
+// The two runtimes an app reports from: the activeagent framework, whose
+// telemetry is built in, and RubyLLM, which reports through the
+// activeagents-telemetry-ruby_llm adapter.
+const RUNTIMES = {
+  activeagent: {
+    label: 'ActiveAgent',
+    docsUrl: 'https://docs.activeagents.ai/framework/telemetry',
+    docsLabel: 'ActiveAgent telemetry docs',
+  },
+  ruby_llm: {
+    label: 'RubyLLM',
+    docsUrl: 'https://docs.activeagents.ai/framework/ruby_llm_dashboard',
+    docsLabel: 'RubyLLM setup guide',
+  },
+};
 
 const codeStyle = {
   fontFamily: MONO, fontSize: 12, padding: '1px 4px', borderRadius: 4,
@@ -19,9 +33,9 @@ const preStyle = {
 
 const bodyStyle = { margin: 0, fontSize: 13, lineHeight: 1.5, color: 'var(--color-text-secondary)' };
 
-function Way({ label, title, children, testId }) {
+function Way({ label, title, children, testId, className }) {
   return (
-    <Card testId={testId} style={{ display: 'flex', flexDirection: 'column', gap: 12, textAlign: 'left', minWidth: 0 }}>
+    <Card testId={testId} className={className} style={{ display: 'flex', flexDirection: 'column', gap: 12, textAlign: 'left', minWidth: 0 }}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
         <MicroLabel>{label}</MicroLabel>
         <h4 style={{ margin: 0, fontSize: 15, fontWeight: 600, color: 'var(--color-text-primary)' }}>{title}</h4>
@@ -32,10 +46,15 @@ function Way({ label, title, children, testId }) {
 }
 
 // The agent list before there is an agent. Most agents arrive from an app
-// that already runs ActiveAgent: its first trace registers them
+// that already runs ActiveAgent or RubyLLM: its first trace registers them
 // (AgentRegistrar), so reporting telemetry comes first. A GitHub repository
 // booted as a project is the second way in, and building one here the third.
-export default function AgentsEmptyState({ endpoint, multiTenant, onRefresh, isLoading, onBrowseTemplates, onNew }) {
+// The telemetry card carries the setup, so it takes two columns and both
+// rows; the other two stack beside it.
+export default function AgentsEmptyState({ endpoint, multiTenant, onRefresh, isLoading, onBrowseTemplates, onNew, initialRuntime = 'activeagent' }) {
+  const [runtime, setRuntime] = useState(initialRuntime);
+  const docs = RUNTIMES[runtime];
+
   return (
     <div className="py-10 max-md:py-6" data-testid="agents-empty-state">
       <div className="text-center">
@@ -49,12 +68,32 @@ export default function AgentsEmptyState({ endpoint, multiTenant, onRefresh, isL
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 max-w-6xl mx-auto">
-        <Way label="From your app" title="Connect your app" testId="empty-connect-telemetry">
-          <p style={bodyStyle}>
-            Already running ActiveAgent? Add this to <code style={codeStyle}>config/active_agent.yml</code> and
-            every agent action that runs shows up here on its first trace.
-          </p>
-          <pre style={preStyle}>{telemetryConfigSnippet(endpoint)}</pre>
+        <Way label="From your app" title="Connect your app" testId="empty-connect-telemetry" className="lg:col-span-2 lg:row-span-2">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <span style={{ fontSize: 13, color: 'var(--color-text-cell)' }}>What runs your agents?</span>
+            <SegmentedControl
+              options={Object.entries(RUNTIMES).map(([value, { label }]) => ({ value, label }))}
+              value={runtime}
+              onChange={setRuntime}
+            />
+          </div>
+          {runtime === 'ruby_llm' ? (
+            <>
+              <p style={bodyStyle}>
+                Add the RubyLLM adapter and subscribe it. Every chat turn reports as a trace; unnamed chats arrive as{' '}
+                <code style={codeStyle}>RubyLLM::Chat</code> until you name them.
+              </p>
+              <pre style={preStyle} data-testid="empty-ruby-llm-snippet">{rubyLlmTelemetrySnippet(endpoint)}</pre>
+            </>
+          ) : (
+            <>
+              <p style={bodyStyle}>
+                Add this to <code style={codeStyle}>config/active_agent.yml</code> and every agent action that runs
+                shows up here on its first trace.
+              </p>
+              <pre style={preStyle} data-testid="empty-activeagent-snippet">{telemetryConfigSnippet(endpoint)}</pre>
+            </>
+          )}
           <p style={bodyStyle}>
             {multiTenant ? (
               <>
@@ -68,8 +107,8 @@ export default function AgentsEmptyState({ endpoint, multiTenant, onRefresh, isL
               </>
             )}
           </p>
-          <a href={DOCS_TELEMETRY_URL} target="_blank" rel="noopener noreferrer" style={{ fontSize: 13, color: 'var(--color-info)' }}>
-            Telemetry docs
+          <a href={docs.docsUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: 13, color: 'var(--color-info)' }}>
+            {docs.docsLabel}
           </a>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 'auto' }}>
             {multiTenant && (

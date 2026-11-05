@@ -26,3 +26,15 @@
 @utility aa-text-secondary { color: var(--color-text-secondary); }
 @utility aa-text-muted { color: var(--color-text-muted); }
 @utility aa-text-cell { color: var(--color-text-cell); }
+
+/* A select with the dashboard's own chevron. The native arrow ignores
+   padding and sits against the right border, so it is replaced by one inset
+   as far as the text is; pair with pr-9 to keep the label clear of it. */
+@utility aa-select {
+  appearance: none;
+  background-color: var(--color-card);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%239ca3af' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  background-size: 1rem;
+}

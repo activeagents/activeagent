@@ -85,3 +85,23 @@ test('the check button says so while the list reloads', () => {
   const html = render(props({ isLoading: true }));
   assert.match(html, /data-testid="empty-check-again"[^>]*disabled=""[^>]*>Checking…</);
 });
+
+test('asks which runtime runs the agents, ActiveAgent first', () => {
+  const html = render(props());
+  assert.match(html, /What runs your agents\?/);
+  assert.match(html, /aria-pressed="true"[^>]*>ActiveAgent</);
+  assert.match(html, /aria-pressed="false"[^>]*>RubyLLM</);
+  assert.match(html, /data-testid="empty-activeagent-snippet"/);
+  assert.match(html, /href="https:\/\/docs\.activeagents\.ai\/framework\/telemetry"/);
+});
+
+test('for RubyLLM, shows the adapter gem and initializer and links its guide', () => {
+  const html = render(props({ initialRuntime: 'ruby_llm' }));
+  assert.match(html, /aria-pressed="true"[^>]*>RubyLLM</);
+  assert.doesNotMatch(html, /data-testid="empty-activeagent-snippet"/);
+  assert.match(html, /data-testid="empty-ruby-llm-snippet"/);
+  assert.match(html, /gem &quot;activeagents-telemetry-ruby_llm&quot;/);
+  assert.match(html, /ActiveAgents::Telemetry::RubyLLM\.subscribe!/);
+  assert.match(html, /config\.endpoint = &quot;https:\/\/activeagents\.ai\/v1\/traces&quot;/);
+  assert.match(html, /href="https:\/\/docs\.activeagents\.ai\/framework\/ruby_llm_dashboard"/);
+});

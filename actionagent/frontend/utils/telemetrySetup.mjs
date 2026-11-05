@@ -29,3 +29,19 @@ export function currentTelemetryEndpoint() {
     multiTenant: Boolean(dashboard.meta?.multiTenant),
   });
 }
+
+// The Gemfile line and initializer for an app whose agents run on RubyLLM:
+// the activeagents-telemetry-ruby_llm adapter reports each chat turn. The
+// service name and environment default to the Rails app's.
+export function rubyLlmTelemetrySnippet(endpoint) {
+  return `# Gemfile
+gem "activeagents-telemetry-ruby_llm"
+
+# config/initializers/ruby_llm_telemetry.rb
+ActiveAgents::Telemetry.configure do |config|
+  config.endpoint = "${endpoint}"
+  config.api_key  = ENV["ACTIVEAGENTS_API_KEY"]
+end
+
+ActiveAgents::Telemetry::RubyLLM.subscribe!`;
+}
