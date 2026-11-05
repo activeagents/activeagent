@@ -215,3 +215,8 @@ See **[Generation](/agents/generation)** for background jobs, callbacks, and res
 - **[Retries](/framework/retries)** - Error handling and retry strategies
 - **[Instrumentation](/framework/instrumentation)** - Logging and monitoring
 - **[Testing](/framework/testing)** - Test your agents with fixtures and VCR
+
+**Observability & Evaluations:**
+- **[Hosted Dashboard](/framework/hosted_dashboard)** - Join a workspace on activeagents.ai, create a key, publish evaluation runs
+- **[Evaluations](/framework/evaluations)** - Replay scenarios across models and score the answers
+- **[Command Line](/framework/cli)** - Read evaluations and traces from a terminal

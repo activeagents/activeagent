@@ -35,7 +35,7 @@ A collector is either the hosted platform or a Rails app that mounts the
 
 | Collector | Endpoint | Key |
 |---|---|---|
-| The hosted platform, when it offers one | `https://api.activeagents.ai/v1/evaluations` (the publisher's default) | An account API key |
+| The hosted platform ([setup](/framework/hosted_dashboard)) | `https://api.activeagents.ai/v1/evaluations` (the publisher's default) | A workspace API key (Settings → API Keys), or the workspace telemetry key |
 | A full install of the `actionagent` engine (not one generated with `--traces-only`) | `<mount>/api/evaluation_reports`, e.g. `https://ops.example.com/activeagents/api/evaluation_reports` | The install's `ActionAgent.ingest_api_key`, or the tenant's key on a multi-tenant install |
 
 A self-hosted collector authenticates exactly as the engine's trace ingest
