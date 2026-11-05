@@ -136,16 +136,18 @@ publisher = ActiveAgent::Evals::Publisher.new(
 publisher.verify!
 
 suite = ActiveAgent::Evals::Suite.load("config/evals/support_desk.yml")
-models = ActiveAgent::Evals::ModelSpec.parse_all(%w[gpt-5-mini claude-haiku-4-5])
+models = ActiveAgent::Evals::ModelSpec.parse_all(%w[gpt-5-mini claude-haiku-4-5], default_provider: "")
 
+run_id = "support-desk-#{Time.now.utc.strftime("%Y%m%d%H%M%S")}"
 report = ActiveAgent::Evals::Runner.new(
   scenarios: suite.scenarios(keys: ENV["EVAL_KEYS"]&.split(",")),
   models: models,
-  replay: ->(scenario, spec) { SupportAgent.evaluate(scenario.prompt, model: spec.model, provider: spec.provider) }
+  replay: ->(scenario, spec) { SupportAgent.evaluate(scenario.prompt, model: spec.model, provider: spec.provider) },
+  metadata: { "run_id" => run_id }
 ).call
 
 File.write("tmp/support_desk.json", report.to_json) # keep it: a failed upload can be retried from this file
-receipt = publisher.call(report: report, run_id: "support-desk-#{Time.now.utc.strftime("%Y%m%d%H%M%S")}",
+receipt = publisher.call(report: report, run_id: run_id,
                          source: "support-app", agent_name: "SupportAgent", suite: "support_desk")
 puts receipt["url"]
 ```
@@ -160,8 +162,9 @@ an `ActiveAgent::Evals::Replay`
 (see [the minimal example](/framework/evaluations#minimal-example)).
 The run appears under **Evaluations** in the workspace, on the agent named by
 `agent_name:`, and every later publish of the same suite adds a run beside it.
-Publishing the same `run_id` again with the same report is a no-op, so a
-failed upload is retried from the saved JSON without replaying.
+The run id is in the saved JSON's metadata, and publishing the same `run_id`
+again with the same report is a no-op, so a failed upload is retried by
+publishing `JSON.parse(File.read("tmp/support_desk.json"))` without replaying.
 
 ## Publish from your test suite
 
@@ -182,13 +185,15 @@ require "test_helper"
 
 class SupportDeskEval < ActiveAgent::Evals::TestCase
   test "the support desk suite meets its pass gates" do
-    report = run_eval_suite "config/evals/support_desk.yml", models: %w[gpt-5-mini] do |scenario, _spec|
+    run_id = "support-desk-#{SecureRandom.hex(4)}"
+    report = run_eval_suite "config/evals/support_desk.yml", models: %w[gpt-5-mini],
+                            metadata: { "run_id" => run_id } do |scenario, _spec|
       SupportAgent.with(question: scenario.prompt).help
     end
 
     if ENV["ACTIVEAGENTS_API_KEY"].present?
       ActiveAgent::Evals::Publisher.from_env.call(
-        report: report, run_id: "support-desk-#{SecureRandom.hex(4)}",
+        report: report, run_id: run_id,
         source: "support-app", agent_name: "SupportAgent", suite: "support_desk"
       )
     end
