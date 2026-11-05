@@ -70,8 +70,9 @@ export default function AgentsEmptyState({ endpoint, multiTenant, onRefresh, isL
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 max-w-6xl mx-auto">
         <Way label="From your app" title="Connect your app" testId="empty-connect-telemetry" className="lg:col-span-2 lg:row-span-2">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <span style={{ fontSize: 13, color: 'var(--color-text-cell)' }}>What runs your agents?</span>
+            <span id="empty-runtime-label" style={{ fontSize: 13, color: 'var(--color-text-cell)' }}>What runs your agents?</span>
             <SegmentedControl
+              labelledBy="empty-runtime-label"
               options={Object.entries(RUNTIMES).map(([value, { label }]) => ({ value, label }))}
               value={runtime}
               onChange={setRuntime}
@@ -88,8 +89,8 @@ export default function AgentsEmptyState({ endpoint, multiTenant, onRefresh, isL
           ) : (
             <>
               <p style={bodyStyle}>
-                Add this to <code style={codeStyle}>config/active_agent.yml</code> and every agent action that runs
-                shows up here on its first trace.
+                Add this to <code style={codeStyle}>config/active_agent.yml</code>, under each environment that should
+                report, and every agent action that runs shows up here on its first trace.
               </p>
               <pre style={preStyle} data-testid="empty-activeagent-snippet">{telemetryConfigSnippet(endpoint)}</pre>
             </>
@@ -103,7 +104,8 @@ export default function AgentsEmptyState({ endpoint, multiTenant, onRefresh, isL
             ) : (
               <>
                 Set <code style={codeStyle}>ACTIVEAGENTS_API_KEY</code> to the dashboard&apos;s{' '}
-                <code style={codeStyle}>ingest_api_key</code>, when it has one.
+                <code style={codeStyle}>ingest_api_key</code>, or to any value when it has none: telemetry sends
+                nothing without a key.
               </>
             )}
           </p>

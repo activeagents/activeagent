@@ -11,13 +11,16 @@ export function telemetryEndpoint({ origin, mountPath, multiTenant }) {
   return multiTenant ? `${origin}/v1/traces` : `${origin}${mountedPath(mountPath, '/api/traces')}`;
 }
 
-// The telemetry block for config/active_agent.yml. The key is read from the
-// environment, never written into the file.
+// The telemetry block for config/active_agent.yml, under `production:`: the
+// file is read per environment, so a top-level block is ignored once the file
+// has environment sections. The key is read from the environment, never
+// written into the file.
 export function telemetryConfigSnippet(endpoint) {
-  return `telemetry:
-  enabled: true
-  endpoint: ${endpoint}
-  api_key: <%= ENV["ACTIVEAGENTS_API_KEY"] %>`;
+  return `production:
+  telemetry:
+    enabled: true
+    endpoint: ${endpoint}
+    api_key: <%= ENV["ACTIVEAGENTS_API_KEY"] %>`;
 }
 
 // The endpoint for the dashboard on this page.

@@ -341,7 +341,7 @@ export default function OrganizationView({ account, user, subscription, agentCou
         </h3>
         <p className={`text-sm mb-4 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
           Send traces from your own ActiveAgent app to this workspace. Add this to your{' '}
-          <code className={`px-1 rounded text-xs ${darkMode ? 'bg-gray-800 text-gray-300' : 'bg-gray-100 text-gray-700'}`}>config/active_agent.yml</code>:
+          <code className={`px-1 rounded text-xs ${darkMode ? 'bg-gray-800 text-gray-300' : 'bg-gray-100 text-gray-700'}`}>config/active_agent.yml</code>, under each environment that should report:
         </p>
         <pre
           className={`text-xs rounded-lg p-4 overflow-x-auto mb-4 ${darkMode ? 'bg-black text-gray-300' : 'bg-gray-900 text-gray-100'}`}

@@ -21,9 +21,9 @@ test('a self-hosted dashboard takes traces at the engine mount', () => {
   );
 });
 
-test('the snippet reads the key from the environment', () => {
+test('the snippet sits under an environment and reads the key from the environment', () => {
   const snippet = telemetryConfigSnippet('https://activeagents.ai/v1/traces');
-  assert.match(snippet, /^telemetry:\n  enabled: true\n/);
+  assert.match(snippet, /^production:\n  telemetry:\n    enabled: true\n/);
   assert.match(snippet, /endpoint: https:\/\/activeagents\.ai\/v1\/traces/);
   assert.match(snippet, /api_key: <%= ENV\["ACTIVEAGENTS_API_KEY"\] %>/);
 });

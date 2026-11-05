@@ -78,7 +78,14 @@ test('a self-hosted dashboard names the ingest key instead', () => {
   const html = render(props({ multiTenant: false, endpoint: 'http://localhost:3000/activeagents/api/traces' }));
   assert.doesNotMatch(html, /data-testid="empty-telemetry-key"/);
   assert.match(html, /ingest_api_key/);
+  assert.match(html, /any value when it has none/);
   assert.match(html, /endpoint: http:\/\/localhost:3000\/activeagents\/api\/traces/);
+});
+
+test('the runtime picker is named by its question', () => {
+  const html = render(props());
+  assert.match(html, /id="empty-runtime-label"/);
+  assert.match(html, /role="group" aria-labelledby="empty-runtime-label"/);
 });
 
 test('the check button says so while the list reloads', () => {
