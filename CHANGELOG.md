@@ -20,6 +20,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     **Check for agents** reloads the list.
   - **Link a GitHub repository** opens New project.
   - **Build one here** keeps the template library and the builder.
+- **Runcrate as an OpenAI-compatible provider** (`activeagent`).
+  `service: "Runcrate"` generates and embeds through
+  `https://api.runcrate.ai/v1` (open-weight models such as
+  `deepseek-ai/DeepSeek-V4.1-Flash` and `Qwen/Qwen3-Embedding-8B`), with the
+  key from `RUNCRATE_API_KEY`; a thin subclass of the OpenAI provider, like
+  Cheaper Inference.
 
 ### Fixed
 
@@ -169,13 +175,6 @@ one under its own keys needs them renamed.
   `https://api.cheaperinference.com/v1`, with the key from
   `CHEAPER_INFERENCE_API_KEY`; a thin subclass of the OpenAI provider, like
   Opper. Contributed in #629 and landed in #666.
-
-- **Runcrate as an OpenAI-compatible provider** (`activeagent`).
-  `service: "Runcrate"` generates and embeds through
-  `https://api.runcrate.ai/v1` (open-weight models such as
-  `deepseek-ai/DeepSeek-V4.1-Flash` and `Qwen/Qwen3-Embedding-8B`), with the
-  key from `RUNCRATE_API_KEY`; a thin subclass of the OpenAI provider, like
-  Cheaper Inference.
 
 - **Your own MCP servers** (`actionagent`). A dashboard user adds a remote
   MCP server by URL on the MCP Services page (*Your MCP servers*), with
