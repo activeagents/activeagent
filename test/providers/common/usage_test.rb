@@ -258,6 +258,25 @@ module ActiveAgent
           assert_equal 1000, usage.provider_details[:cache_creation][:ephemeral_5m_input_tokens]
           assert_equal 2, usage.provider_details[:server_tool_use][:web_fetch_requests]
         end
+
+        test "+ sums duration_ms across tool-call rounds" do
+          first = Usage.from_ollama("prompt_eval_count" => 10, "eval_count" => 5, "total_duration" => 2_000_000_000)
+          second = Usage.from_ollama("prompt_eval_count" => 20, "eval_count" => 8, "total_duration" => 3_000_000_000)
+
+          combined = first + second
+
+          assert_equal 30, combined.input_tokens
+          assert_equal 5000, combined.duration_ms
+        end
+
+        test "+ keeps duration_ms when only one side reports it" do
+          timed = Usage.new(input_tokens: 1, output_tokens: 1, duration_ms: 1500)
+          untimed = Usage.new(input_tokens: 2, output_tokens: 2)
+
+          assert_equal 1500, (timed + untimed).duration_ms
+          assert_equal 1500, (untimed + timed).duration_ms
+          assert_nil (untimed + untimed).duration_ms
+        end
       end
     end
   end
