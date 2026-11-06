@@ -197,6 +197,7 @@ module ActiveAgent
         when :message_start
           api_message = Anthropic::Transforms.gem_to_hash(api_response_chunk.message)
           self.message_stack.push(api_message)
+          record_stream_usage(api_message[:usage])
           broadcast_stream_update(message_stack.last)
 
         # -> Content Block Create
@@ -238,6 +239,15 @@ module ActiveAgent
           delta = Anthropic::Transforms.gem_to_hash(api_response_chunk.delta)
           self.message_stack.last.merge!(delta)
           self.stream_finish_reason = delta[:stop_reason] if delta[:stop_reason]
+
+          # message_delta carries the cumulative output tokens (and, on newer
+          # API versions, refreshed input counts); layer them over the usage
+          # message_start reported so the turn keeps a single running total.
+          delta_usage = Anthropic::Transforms.gem_to_hash(api_response_chunk.usage)&.compact
+          if delta_usage.present?
+            message_stack.last[:usage] = (message_stack.last[:usage] || {}).merge(delta_usage)
+            record_stream_usage(message_stack.last[:usage])
+          end
 
         # Message Completed [Full Message]
         when :message_stop
