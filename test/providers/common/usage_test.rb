@@ -70,10 +70,16 @@ module ActiveAgent
 
           assert_equal 2095, usage.input_tokens
           assert_equal 503, usage.output_tokens
-          assert_equal 2598, usage.total_tokens # Calculated
+          assert_equal 6149, usage.total_tokens # input + output + cache read + cache creation
           assert_equal 1500, usage.cached_tokens
           assert_equal 2051, usage.cache_creation_tokens
           assert_equal "standard", usage.service_tier
+        end
+
+        test "Anthropic total_tokens equals input plus output when nothing is cached" do
+          usage = Usage.from_anthropic({ "input_tokens" => 100, "output_tokens" => 25 })
+
+          assert_equal 125, usage.total_tokens
         end
 
         test "normalizes Ollama usage and converts nanoseconds to milliseconds" do
