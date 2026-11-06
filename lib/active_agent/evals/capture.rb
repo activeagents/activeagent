@@ -19,8 +19,10 @@ module ActiveAgent
     # (`mcp_strategy: :client`, or a provider with no MCP of its own) is
     # dispatched before that proc, so the provider reports it through the
     # agent's `tool_observer` instead, with a failure the server reported
-    # marked as one. A tool a provider runs on its own side (Anthropic's or
-    # OpenAI's hosted MCP) never reaches this process and is not recorded.
+    # marked as one. An observer the agent defines itself still runs, around
+    # the call that is recorded. A tool a provider runs on its own side
+    # (Anthropic's or OpenAI's hosted MCP) never reaches this process and is
+    # not recorded.
     #
     # `model:` and `provider:` replay the same action under another model,
     # the way a comparison run does. A model is an option on the agent
@@ -190,9 +192,15 @@ module ActiveAgent
       # the provider runs that call inside the agent's `tool_observer`, which
       # records it the same way. The two paths are disjoint, so a call is
       # recorded once, and the observer sees the call without making it again.
+      #
+      # An observer the agent already has is kept, as tools_function's `base`
+      # is: it runs around the call this records, so it sees the same name,
+      # arguments, result and exception, and a call it does not make is not
+      # recorded as made.
       def record_tool_calls(agent)
         calls = @tool_calls
         base = agent.tools_function
+        observer = agent.tool_observer
         capture = self.class
 
         agent.define_singleton_method(:tools_function) do
@@ -203,7 +211,10 @@ module ActiveAgent
         end
 
         agent.define_singleton_method(:tool_observer) do
-          proc { |name, arguments, &call| capture.record_call(calls, name, arguments.presence, &call) }
+          record = proc { |name, arguments, &call| capture.record_call(calls, name, arguments.presence, &call) }
+          next record unless observer
+
+          proc { |name, arguments, &call| observer.call(name, arguments) { record.call(name, arguments, &call) } }
         end
       end
 

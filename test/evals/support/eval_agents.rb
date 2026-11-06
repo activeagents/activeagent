@@ -128,4 +128,11 @@ module EvalsTest
       { status: "shipped", number: number }
     end
   end
+
+  # An MCPAgent with a tool_observer of its own, as an application defines
+  # one to audit its MCP calls. The observer is the proc passed as
+  # params[:observer], so each test, and each generation, has its own.
+  class ObservedMCPAgent < MCPAgent
+    def tool_observer = params[:observer]
+  end
 end
