@@ -21,6 +21,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Link a GitHub repository** opens New project.
   - **Build one here** keeps the template library and the builder.
 
+### Added
+
+- **A Jev judge for scenario evaluations** (`activeagent`; refs #658).
+  `require "active_agent/evals/jev"` and `ActiveAgent::Evals::Jev.judge(label:,
+  api_key:, text_judge:)` build a `Judge` whose bounded decisions — the score
+  of an answer, as the expected level over five described levels, and the
+  winner of a verdict, as a choice over the compared models described by
+  their results — are answered by a System One model: TypeSafe AI's hosted
+  Jev, or OpenJevX, the open re-implementation that runs on a laptop CPU
+  (`base_url: Jev::OPENJEVX_BASE_URL`, no key). The language tasks
+  (recommendations, the verdict's rationale) are left to an ordinary
+  `text_judge` or skipped without one, and `on_usage:` reports each call's
+  input tokens. Standard-library `Net::HTTP` only, no new gem. The wire
+  format is the protocol as OpenJevX serves it, isolated in `Jev::Client`;
+  an opt-in test (`OPENJEVX_URL`) runs the judge against a local server.
+
 ### Fixed
 
 - **A self-hosted dashboard shows its own trace endpoint** (`actionagent`).
