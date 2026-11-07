@@ -23,6 +23,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The dashboard keeps a catalog's pass bars** (`actionagent`). A
+  product's and a set's `pass` blocks (`min_pass_rate`, `threshold`,
+  `gated`) parsed in `ActiveAgent::Evals::Catalog`, but neither
+  `ScenarioProduct` nor `ScenarioSet` kept them: an import dropped the
+  bars, the export left them out, the stored catalog's `pass_thresholds`
+  fell back to the defaults (every group gated at 100%), and the import
+  preview reported the product and its sets as `update` on every re-import
+  of an unchanged file. The bars are now stored and exported as imported,
+  and both import modes take the document's. Existing installs add the
+  columns with `bin/rails generate action_agent:install --skip` and
+  `bin/rails db:migrate` (`add_catalog_pass_bars`); imports keep working,
+  without the bars, until it runs. Bars dropped by an earlier version come
+  back when the original document is imported again.
 - **The dashboard keeps a catalog product's named criteria lists**
   (`actionagent`). A product's `criteria: { shared: [...], strict: [...] }`
   parsed and round-tripped in `ActiveAgent::Evals::Catalog`, but

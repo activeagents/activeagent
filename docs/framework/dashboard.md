@@ -903,6 +903,14 @@ need the `add_catalog_product_criteria` migration (the same
 imports keep working and leave the lists out. Lists dropped by an earlier
 version come back when the original document is imported again.
 
+A product's and a set's `pass` bars are stored the same way, so the stored
+catalog's `pass_thresholds` answer as the document's do and an unchanged
+document previews as unchanged. Both import modes take the document's
+bars, so a set imported without `pass` loses its stored one. Existing
+installs need the `add_catalog_pass_bars` migration; until it runs,
+imports keep working and leave the bars out. Bars dropped by an earlier
+version come back when the original document is imported again.
+
 **Permissions and gates.** Importing, re-importing, deleting, syncing,
 materializing and running a set change evaluation scenarios, so each needs
 the `replace_scenarios` [permission](#permissions); reading needs none.

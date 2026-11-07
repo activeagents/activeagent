@@ -183,6 +183,8 @@ module ActionAgent
         )
         # Until add_catalog_product_criteria runs, imports keep working without the lists.
         product.criteria = entry.criteria if product.has_attribute?(:criteria)
+        # Until add_catalog_pass_bars runs, imports keep working without the bars.
+        product.pass = entry.pass if product.has_attribute?(:pass)
         product.position = position_for(product, entry.position, offset)
         product.save!
         replace_sets(product, entry)
@@ -199,6 +201,7 @@ module ActionAgent
           name: set_entry.name, description: set_entry.description, judge: set_entry.judge,
           criteria: set_entry.criteria, metadata: set_entry.metadata
         )
+        set.pass = set_entry.pass if set.has_attribute?(:pass)
         set.position = position_for(set, set_entry.position, offset)
         set.save!
         replace_scenarios(set, set_entry)
