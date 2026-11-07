@@ -891,6 +891,26 @@ bin/rails db:migrate
 This also installs the column on a fresh dashboard. Fields discarded by an
 earlier version can only be restored by importing the original document again.
 
+A product's named `criteria` lists are stored the same way. They come back
+in every export that includes the product, so a re-imported unchanged
+document previews as unchanged and keeps its digest. Like a set's
+`criteria`, the lists are a field of the product: replace and merge mode
+both take the document's, so a narrowed export merges back unchanged.
+A set still runs on its own
+`criteria`: the product's lists are kept, not scored. Existing installs
+need the `add_catalog_product_criteria` migration (the same
+`action_agent:install --skip` and `db:migrate` as above); until it runs,
+imports keep working and leave the lists out. Lists dropped by an earlier
+version come back when the original document is imported again.
+
+A product's and a set's `pass` bars are stored the same way, so the stored
+catalog's `pass_thresholds` answer as the document's do and an unchanged
+document previews as unchanged. Both import modes take the document's
+bars, so a set imported without `pass` loses its stored one. Existing
+installs need the `add_catalog_pass_bars` migration; until it runs,
+imports keep working and leave the bars out. Bars dropped by an earlier
+version come back when the original document is imported again.
+
 **Permissions and gates.** Importing, re-importing, deleting, syncing,
 materializing and running a set change evaluation scenarios, so each needs
 the `replace_scenarios` [permission](#permissions); reading needs none.

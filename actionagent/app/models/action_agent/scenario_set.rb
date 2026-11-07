@@ -37,6 +37,14 @@ module ActionAgent
       value.is_a?(Hash) ? value : {}
     end
 
+    # The bars the catalog's `pass:` declares (ActiveAgent::Evals::PassThresholds);
+    # a stored value that is not a mapping reads as none.
+    # @return [Hash{String => Object}]
+    def pass
+      value = self[:pass]
+      value.is_a?(Hash) ? value : {}
+    end
+
     # The evaluation's name: the catalog, product and set keys.
     def evaluation_name
       "#{catalog.key}/#{product.key}/#{key}".first(EvaluationReportImport::MAX_EVALUATION_NAME)
@@ -117,6 +125,7 @@ module ActionAgent
         "description" => description,
         "judge" => judge.presence,
         "criteria" => criteria.presence,
+        "pass" => pass.presence,
         "scenarios" => scenarios.map(&:to_document)
       }.merge(metadata).compact
     end

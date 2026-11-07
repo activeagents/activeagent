@@ -89,6 +89,73 @@ class ScenarioCatalogsApiTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "key: add_item"
   end
 
+  test "a product's named criteria lists come back from the export and preview as unchanged" do
+    document = <<~YAML
+      catalog: checkout
+      products:
+        - key: cart
+          agent: Cart
+          criteria:
+            shared:
+              - { key: answered, type: response_present }
+            strict:
+              - { key: answered, type: response_present }
+              - { key: polite, type: not_contains, config: { pattern: unfortunately } }
+          sets:
+            - key: uat
+              scenarios:
+                - key: add_item
+                  prompt: Add two of item 7 to the cart.
+    YAML
+    post "/activeagents/api/scenario_catalogs", params: { document: document }, as: :json
+    assert_response :created
+    id = body["catalogs"].sole["id"]
+
+    get "/activeagents/api/scenario_catalogs/#{id}/export"
+    assert_response :success
+    exported = ActiveAgent::Evals::Catalog.parse(response.body)
+    assert_equal ActiveAgent::Evals::Catalog.parse(document).digest, exported.digest
+    assert_equal %w[shared strict], exported.product(:cart).criteria.keys
+
+    post "/activeagents/api/scenario_catalogs/preview", params: { document: document }, as: :json
+    assert_response :success
+    assert_empty body["previews"].sole["changes"]
+  end
+
+  test "a product's and a set's pass bars come back from the export and preview as unchanged" do
+    document = <<~YAML
+      catalog: checkout
+      products:
+        - key: cart
+          agent: Cart
+          pass: { min_pass_rate: 0.8 }
+          sets:
+            - key: critical
+              pass: { min_pass_rate: 1.0 }
+              scenarios:
+                - key: add_item
+                  prompt: Add two of item 7 to the cart.
+            - key: informational
+              pass: { gated: false }
+              scenarios:
+                - key: eta
+                  prompt: When does the cart ship?
+    YAML
+    post "/activeagents/api/scenario_catalogs", params: { document: document }, as: :json
+    assert_response :created
+    id = body["catalogs"].sole["id"]
+
+    get "/activeagents/api/scenario_catalogs/#{id}/export"
+    assert_response :success
+    exported = ActiveAgent::Evals::Catalog.parse(response.body)
+    assert_equal ActiveAgent::Evals::Catalog.parse(document).digest, exported.digest
+    assert_equal ActiveAgent::Evals::Catalog.parse(document).pass_thresholds(:cart), exported.pass_thresholds(:cart)
+
+    post "/activeagents/api/scenario_catalogs/preview", params: { document: document }, as: :json
+    assert_response :success
+    assert_empty body["previews"].sole["changes"]
+  end
+
   test "an invalid document is refused with the reason" do
     post "/activeagents/api/scenario_catalogs", params: { document: "catalog: x\nproducts: [{ name: nameless }]" }, as: :json
 
