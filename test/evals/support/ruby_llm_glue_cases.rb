@@ -1,15 +1,18 @@
 # frozen_string_literal: true
 
-# The RubyLLM glue: a judge that asks a RubyLLM-shaped chat, and a replay built
-# from the messages a RubyLLM conversation produced. No network — the chat is a
-# stand-in that records what it was asked and answers from a script. What real
-# RubyLLM messages and records replay to is ruby_llm_conversation_test.rb.
+# The RubyLLM glue: a judge that asks a RubyLLM-shaped chat, a preflight that
+# builds a chat per model, and a replay built from the messages a RubyLLM
+# conversation produced. No network — the chat is a stand-in that records what
+# it was asked and answers from a script, and WebMock refuses every connection
+# the case that builds a chat on the real gem could open. What real RubyLLM
+# messages and records replay to is ruby_llm_conversation_test.rb.
 #
 # These cases load the real ruby_llm gem, so ruby_llm_test.rb runs them in a
 # process of their own:
 #
 #   ruby -Ilib -Itest test/evals/support/ruby_llm_glue_cases.rb
 require "minitest/autorun"
+require "webmock/minitest"
 require "active_agent/evals/ruby_llm"
 require_relative "../evals_test_support"
 
@@ -51,6 +54,24 @@ class EvalsRubyLLMGlueCases < Minitest::Test
     def chat(**options)
       @chats << options
       Chat.new(self, options)
+    end
+  end
+
+  # Stands in for a context holding an OpenAI key only: `chat` records what it
+  # was asked, refuses Anthropic the way RubyLLM's provider does, and builds a
+  # chat for anyone else.
+  class KeyedContext
+    attr_reader :chats
+
+    def initialize
+      @chats = []
+    end
+
+    def chat(**options)
+      @chats << options
+      raise ::RubyLLM::ConfigurationError, "Anthropic provider is not configured" if options[:provider] == :anthropic
+
+      Object.new
     end
   end
 
@@ -195,6 +216,213 @@ class EvalsRubyLLMGlueCases < Minitest::Test
     judge = ActiveAgent::Evals::RubyLLM.judge(label: "judge", model: "m", provider: :openai, context: context)
 
     assert_nil judge.score_task(scenario: scenario, answer: "Alice changed it.")
+  end
+
+  def test_judge_can_verify_its_provider_when_it_is_built
+    context = KeyedContext.new
+
+    error = assert_raises(::RubyLLM::ConfigurationError) do
+      ActiveAgent::Evals::RubyLLM.judge(label: "judge", model: "claude-sonnet-5", provider: :anthropic, context: context,
+                                        verify: true)
+    end
+
+    assert_equal missing_key_message("judge", :anthropic, error.cause), error.message
+    assert_equal [ { model: "claude-sonnet-5", provider: :anthropic, assume_model_exists: true } ], context.chats,
+      "the chat was built once, to verify it, and never asked"
+
+    judge = ActiveAgent::Evals::RubyLLM.judge(label: "judge", model: "gpt-5-mini", provider: :openai, context: context,
+                                              verify: true)
+    assert_kind_of ActiveAgent::Evals::Judge, judge
+
+    context = KeyedContext.new
+    assert_raises(ArgumentError) do
+      ActiveAgent::Evals::RubyLLM.judge(label: "judge", model: "claude-sonnet-5", provider: :anthropic, context: context,
+                                        verify: true, max_tokens: 50)
+    end
+    assert_empty context.chats, "the chat options are checked before the provider is"
+  end
+
+  def test_judge_verifies_against_the_providers_a_host_has_keys_for
+    context = KeyedContext.new
+
+    error = assert_raises(::RubyLLM::ConfigurationError) do
+      ActiveAgent::Evals::RubyLLM.judge(label: "judge", model: "claude-sonnet-5", provider: :anthropic, context: context,
+                                        verify: true, providers: %i[openai ollama])
+    end
+    assert_equal "judge runs on anthropic; credentials are configured for openai, ollama", error.message
+    assert_empty context.chats, "a provider outside providers: refuses before any chat is built"
+
+    judge = ActiveAgent::Evals::RubyLLM.judge(label: "judge", model: "gpt-5-mini", provider: :openai, context: context,
+                                              verify: true, providers: [ "openai" ])
+    assert_kind_of ActiveAgent::Evals::Judge, judge
+    assert_equal 1, context.chats.size, "a listed provider is still built once to check its key"
+  end
+
+  def test_judge_refuses_providers_without_verify
+    error = assert_raises(ArgumentError) do
+      ActiveAgent::Evals::RubyLLM.judge(label: "judge", model: "gpt-5-mini", provider: :openai, context: KeyedContext.new,
+                                        providers: [ "openai" ])
+    end
+    assert_equal "providers: is checked only with verify: true", error.message
+  end
+
+  def test_judge_stays_lazy_unless_asked_to_verify
+    context = KeyedContext.new
+    judge = ActiveAgent::Evals::RubyLLM.judge(label: "judge", model: "claude-sonnet-5", provider: :anthropic, context: context)
+
+    assert_empty context.chats, "no chat is built until the first grade"
+    assert_nil judge.score_task(scenario: scenario, answer: "Alice changed it."), "the missing key fails the first grade"
+    assert_equal 1, context.chats.size
+  end
+
+  # --- verify! ---------------------------------------------------------------
+
+  def test_verify_builds_a_chat_per_model_in_order_and_returns_them
+    context = KeyedContext.new
+    specs = [ spec("gpt-5-mini"), spec("gpt-5") ]
+
+    assert_same specs, ActiveAgent::Evals::RubyLLM.verify!(specs, context: context)
+    assert_equal [ { model: "gpt-5-mini", provider: :openai, assume_model_exists: true },
+                   { model: "gpt-5", provider: :openai, assume_model_exists: true } ], context.chats
+  end
+
+  def test_verify_refuses_the_first_model_whose_provider_has_no_key
+    context = KeyedContext.new
+
+    error = assert_raises(::RubyLLM::ConfigurationError) do
+      ActiveAgent::Evals::RubyLLM.verify!([ spec("gpt-5-mini"), spec("claude-sonnet-5"), spec("gpt-5") ], context: context)
+    end
+
+    assert_equal missing_key_message("claude-sonnet-5", :anthropic, error.cause), error.message
+    assert_kind_of ::RubyLLM::ConfigurationError, error.cause
+    assert_equal "Anthropic provider is not configured", error.cause.message
+    assert_equal %i[openai anthropic], context.chats.map { |chat| chat[:provider] }, "the models after it are not built"
+  end
+
+  def test_verify_refuses_a_provider_ruby_llm_does_not_know_before_building_a_chat
+    context = KeyedContext.new
+    acme = ModelSpec.new(label: "acme/gpt-5-mini", provider: "acme", model: "gpt-5-mini")
+
+    error = assert_raises(::RubyLLM::ConfigurationError) { ActiveAgent::Evals::RubyLLM.verify!([ acme ], context: context) }
+
+    known = ::RubyLLM::Provider.providers.keys.map(&:to_s).sort.join(", ")
+    assert_equal "acme/gpt-5-mini runs on acme, which is not a RubyLLM provider; RubyLLM knows #{known}", error.message
+    assert_empty context.chats
+  end
+
+  def test_verify_refuses_a_provider_outside_the_configured_ones_before_building_a_chat
+    context = KeyedContext.new
+
+    error = assert_raises(::RubyLLM::ConfigurationError) do
+      ActiveAgent::Evals::RubyLLM.verify!([ spec("claude-sonnet-5") ], context: context, providers: [ "openai" ])
+    end
+    assert_equal "claude-sonnet-5 runs on anthropic; credentials are configured for openai", error.message
+    assert_empty context.chats
+
+    error = assert_raises(::RubyLLM::ConfigurationError) do
+      ActiveAgent::Evals::RubyLLM.verify!([ spec("claude-sonnet-5") ], context: context, providers: %i[openai ollama])
+    end
+    assert_equal "claude-sonnet-5 runs on anthropic; credentials are configured for openai, ollama", error.message
+
+    ActiveAgent::Evals::RubyLLM.verify!([ spec("gpt-5-mini") ], context: context, providers: %i[openai ollama])
+    assert_equal [ :openai ], context.chats.map { |chat| chat[:provider] }, "a configured provider's chat is built"
+
+    ActiveAgent::Evals::RubyLLM.verify!([ spec("gpt-5-mini") ], context: context, providers: "openai")
+    assert_equal 2, context.chats.size, "one provider name is taken on its own"
+  end
+
+  def test_verify_takes_a_single_spec
+    context = KeyedContext.new
+
+    assert_equal [ spec("gpt-5-mini") ], ActiveAgent::Evals::RubyLLM.verify!(spec("gpt-5-mini"), context: context)
+    assert_equal 1, context.chats.size
+  end
+
+  # The real gem: a chat built with assume_model_exists: true sends nothing
+  # (WebMock would refuse it), and a provider the context has no key for is
+  # refused while RubyLLM instantiates it. RubyLLM reads no API keys from the
+  # environment, so the key is written onto a context's configuration.
+  def test_verify_against_ruby_llm_itself_sends_nothing_and_refuses_a_provider_without_a_key
+    context = ::RubyLLM.context { |config| config.openai_api_key = "sk-placeholder" }
+    specs = [ spec("gpt-5-mini") ]
+
+    assert_same specs, ActiveAgent::Evals::RubyLLM.verify!(specs, context: context)
+
+    deepseek = ModelSpec.new(label: "deepseek-chat", provider: "deepseek", model: "deepseek-chat")
+    error = assert_raises(::RubyLLM::ConfigurationError) { ActiveAgent::Evals::RubyLLM.verify!([ deepseek ]) }
+
+    assert_equal missing_key_message("deepseek-chat", :deepseek, error.cause), error.message
+    assert_kind_of ::RubyLLM::ConfigurationError, error.cause
+  end
+
+  # A refusal names only the requirements the context's configuration leaves
+  # unset, joined with "and", and calls them an API key only when each one
+  # is. With every listed requirement set, RubyLLM 2's own message says what
+  # the provider still wants, and RubyLLM 1 builds the chat.
+  def test_verify_names_the_requirements_the_context_leaves_unset
+    with_provider(:aardvark, requirements: %i[aardvark_api_base aardvark_api_key]) do
+      aardvark = ModelSpec.new(label: "aardvark-1", provider: "aardvark", model: "aardvark-1")
+
+      error = assert_raises(::RubyLLM::ConfigurationError) { ActiveAgent::Evals::RubyLLM.verify!(aardvark) }
+      assert_equal "aardvark-1 runs on aardvark, which is not configured. Set AARDVARK_API_BASE and AARDVARK_API_KEY.",
+        error.message
+
+      context = ::RubyLLM.context { |config| config.aardvark_api_base = "https://aardvark.example" }
+      error = assert_raises(::RubyLLM::ConfigurationError) { ActiveAgent::Evals::RubyLLM.verify!(aardvark, context: context) }
+      assert_equal "aardvark-1 runs on aardvark, which has no API key. Set AARDVARK_API_KEY.", error.message
+
+      context = ::RubyLLM.context do |config|
+        config.aardvark_api_base = "https://aardvark.example"
+        config.aardvark_api_key = "key-placeholder"
+      end
+      if provider_configured_beyond_requirements?
+        error = assert_raises(::RubyLLM::ConfigurationError) { ActiveAgent::Evals::RubyLLM.verify!(aardvark, context: context) }
+        assert_equal "aardvark-1 runs on aardvark: #{error.cause.message.strip}", error.message
+        assert_match(/Aardvark provider is not configured/, error.cause.message)
+      else
+        assert_equal [ aardvark ], ActiveAgent::Evals::RubyLLM.verify!(aardvark, context: context)
+      end
+    end
+  end
+
+  # A provider that lists no requirements and refuses anyway, as RubyLLM 2
+  # lets one do, leaves nothing to name, so the refusal carries RubyLLM's own
+  # message; RubyLLM 1 builds it. Registered last, it also leads the sorted
+  # list an unknown provider's refusal gives.
+  def test_verify_relays_ruby_llms_message_when_a_provider_lists_nothing_to_set
+    with_provider(:aardvark) do
+      aardvark = ModelSpec.new(label: "aardvark-1", provider: "aardvark", model: "aardvark-1")
+      if provider_configured_beyond_requirements?
+        error = assert_raises(::RubyLLM::ConfigurationError) { ActiveAgent::Evals::RubyLLM.verify!(aardvark) }
+        assert_equal "aardvark-1 runs on aardvark: #{error.cause.message.strip}", error.message
+        assert_match(/Aardvark provider is not configured/, error.cause.message)
+      else
+        assert_equal [ aardvark ], ActiveAgent::Evals::RubyLLM.verify!(aardvark)
+      end
+
+      acme = ModelSpec.new(label: "acme-1", provider: "acme", model: "acme-1")
+      error = assert_raises(::RubyLLM::ConfigurationError) { ActiveAgent::Evals::RubyLLM.verify!(acme) }
+      assert_includes error.message, "RubyLLM knows aardvark, "
+    end
+  end
+
+  # Azure resolves a deployment name before it checks its keys: with the base
+  # and key set, a deployment naming an unknown model is RubyLLM's refusal to
+  # relay, not a key to set.
+  def test_verify_relays_a_refusal_that_is_not_about_credentials
+    skip "ruby_llm #{::RubyLLM::VERSION} has no azure_deployments" unless ::RubyLLM.config.respond_to?(:azure_deployments)
+
+    context = ::RubyLLM.context do |config|
+      config.azure_api_base = "https://support.example"
+      config.azure_api_key = "key-placeholder"
+      config.azure_deployments = { "support-deploy" => "no-such-model" }
+    end
+    deployment = ModelSpec.new(label: "support-deploy", provider: "azure", model: "support-deploy")
+
+    error = assert_raises(::RubyLLM::ConfigurationError) { ActiveAgent::Evals::RubyLLM.verify!(deployment, context: context) }
+
+    assert_equal "support-deploy runs on azure: #{error.cause.message.strip}", error.message
+    assert_match(/unknown model "no-such-model"/, error.cause.message)
   end
 
   # --- replay ----------------------------------------------------------------
@@ -437,6 +665,43 @@ class EvalsRubyLLMGlueCases < Minitest::Test
   end
 
   private
+
+  # The refusal for a provider whose key is unset: the names to set when the
+  # installed ruby_llm lists the provider's requirements (each provider
+  # verified this way lists its one key), RubyLLM's own message otherwise.
+  def missing_key_message(label, provider, cause)
+    provider_class = ::RubyLLM::Provider.providers.fetch(provider)
+    names = provider_class.configuration_requirements.map { |name| name.to_s.upcase } if provider_class.respond_to?(:configuration_requirements)
+    return "#{label} runs on #{provider}: #{cause.message.strip}" if names.nil? || names.empty?
+
+    "#{label} runs on #{provider}, which has no API key. Set #{names.join(' and ')}."
+  end
+
+  # Registers a RubyLLM provider under `name` for the block, one RubyLLM
+  # never finds configured, and removes it after. `requirements` are both
+  # its configuration requirements and the options its configuration takes.
+  def with_provider(name, requirements: [])
+    skip "ruby_llm #{::RubyLLM::VERSION} registers no providers at runtime" unless ::RubyLLM::Provider.respond_to?(:register)
+
+    provider_class = Class.new(::RubyLLM::Provider) do
+      define_singleton_method(:configuration_requirements) { requirements }
+      define_singleton_method(:configuration_options) { requirements }
+      define_singleton_method(:configured?) { |_config| false }
+      define_singleton_method(:display_name) { name.to_s.capitalize }
+      define_method(:api_base) { "https://#{name}.example" }
+    end
+    ::RubyLLM::Provider.register(name, provider_class)
+    yield
+  ensure
+    ::RubyLLM::Provider.providers.delete(name)
+  end
+
+  # Whether building a chat asks the provider class's configured? as well as
+  # its configuration_requirements: RubyLLM 2 does, so a provider can refuse
+  # with every listed requirement set; RubyLLM 1 checks the requirements alone.
+  def provider_configured_beyond_requirements?
+    Gem::Version.new(::RubyLLM::VERSION) >= Gem::Version.new("2")
+  end
 
   # The cached-token keyword each RubyLLM generation's Message takes.
   def cached_tokens(count)

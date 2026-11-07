@@ -70,10 +70,16 @@ module ActiveAgent
 
           assert_equal 2095, usage.input_tokens
           assert_equal 503, usage.output_tokens
-          assert_equal 2598, usage.total_tokens # Calculated
+          assert_equal 6149, usage.total_tokens # input + output + cache read + cache creation
           assert_equal 1500, usage.cached_tokens
           assert_equal 2051, usage.cache_creation_tokens
           assert_equal "standard", usage.service_tier
+        end
+
+        test "Anthropic total_tokens equals input plus output when nothing is cached" do
+          usage = Usage.from_anthropic({ "input_tokens" => 100, "output_tokens" => 25 })
+
+          assert_equal 125, usage.total_tokens
         end
 
         test "normalizes Ollama usage and converts nanoseconds to milliseconds" do
@@ -257,6 +263,25 @@ module ActiveAgent
 
           assert_equal 1000, usage.provider_details[:cache_creation][:ephemeral_5m_input_tokens]
           assert_equal 2, usage.provider_details[:server_tool_use][:web_fetch_requests]
+        end
+
+        test "+ sums duration_ms across tool-call rounds" do
+          first = Usage.from_ollama("prompt_eval_count" => 10, "eval_count" => 5, "total_duration" => 2_000_000_000)
+          second = Usage.from_ollama("prompt_eval_count" => 20, "eval_count" => 8, "total_duration" => 3_000_000_000)
+
+          combined = first + second
+
+          assert_equal 30, combined.input_tokens
+          assert_equal 5000, combined.duration_ms
+        end
+
+        test "+ keeps duration_ms when only one side reports it" do
+          timed = Usage.new(input_tokens: 1, output_tokens: 1, duration_ms: 1500)
+          untimed = Usage.new(input_tokens: 2, output_tokens: 2)
+
+          assert_equal 1500, (timed + untimed).duration_ms
+          assert_equal 1500, (untimed + timed).duration_ms
+          assert_nil (untimed + untimed).duration_ms
         end
       end
     end

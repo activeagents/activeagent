@@ -5,12 +5,30 @@ require_relative "evals_test_support"
 require "tmpdir"
 
 class EvalsSuiteTest < ActiveSupport::TestCase
+  include EvalsTestSupport
+
   CORE = <<~YAML
     suite: support_desk
     description: Questions the support team asks every week
+    pass:
+      threshold: 0.8
+      min_pass_rate: 0.9
+    criteria:
+      shared:
+        - key: cites_order
+          type: contains
+          config: { pattern: "ABC-" }
+        - key: no_apology
+          type: not_contains
+          config: { pattern: sorry }
+      terse:
+        - key: short
+          type: min_length
+          config: { chars: 20 }
     groups:
       - key: open_tickets
         name: Open tickets
+        pass: { min_pass_rate: 1.0 }
         scenarios:
           - key: open_tickets_1
             prompt: Which tickets are waiting on the customer?
@@ -20,6 +38,7 @@ class EvalsSuiteTest < ActiveSupport::TestCase
             prompt: Which open tickets mention a refund?
       - key: reports
         name: Reports
+        pass: { gated: false }
         scenarios:
           - key: reports_1
             prompt: How many tickets were reopened last month?
@@ -27,8 +46,22 @@ class EvalsSuiteTest < ActiveSupport::TestCase
   YAML
 
   CLIENT = <<~YAML
+    criteria:
+      shared:
+        - key: cites_order
+          type: contains
+          config: { pattern: "ORD-" }
+      terse:
+        - key: no_filler
+          type: not_contains
+          config: { pattern: "as an AI" }
+      agents_team:
+        - key: names_tool
+          type: contains
+          config: { pattern: find_tickets }
     groups:
       - key: open_tickets
+        pass: { min_pass_rate: 0.5 }
         scenarios:
           - key: open_tickets_2
             prompt: Which open tickets mention a late delivery?
@@ -90,12 +123,203 @@ class EvalsSuiteTest < ActiveSupport::TestCase
 
     assert_equal [ "reports_1" ], suite.scenarios(groups: %w[reports]).map(&:key)
     assert_equal [ "open_tickets_2" ], suite.scenarios(keys: %w[open_tickets_2]).map(&:key)
+    assert_equal [], suite.scenarios(keys: %w[nope])
     assert_equal %w[open_tickets_1 open_tickets_2], suite.scenarios(include_production_only: false).map(&:key)
+  end
+
+  def test_strict_scenarios_require_every_key_and_keep_the_group_narrowing
+    suite = ActiveAgent::Evals::Suite.new([ YAML.safe_load(CORE) ])
+
+    assert_equal [ "open_tickets_2" ], suite.scenarios(keys: "open_tickets_2", strict: true).map(&:key)
+    assert_equal suite.all_scenarios.map(&:key), suite.scenarios(strict: true).map(&:key), "blank keys select everything"
+    assert_equal suite.all_scenarios.map(&:key), suite.scenarios(keys: "", strict: true).map(&:key)
+    assert_equal [], suite.scenarios(groups: %w[reports], keys: %w[open_tickets_2], strict: true)
+    assert_equal [], suite.scenarios(keys: %w[reports_1], include_production_only: false, strict: true)
+
+    error = assert_raises(ActiveAgent::Evals::Suite::NotFound) { suite.scenarios(keys: %w[nope], strict: true) }
+    assert_equal "no scenario nope in support_desk", error.message
+  end
+
+  def test_select_leaves_the_scenarios_alone_when_keys_are_blank
+    scenarios = ActiveAgent::Evals::Suite.new([ YAML.safe_load(CORE) ]).all_scenarios
+
+    [ nil, "", [], [ "" ] ].each do |keys|
+      assert_same scenarios, ActiveAgent::Evals::Suite.select(scenarios, keys: keys)
+    end
+  end
+
+  def test_select_splits_strings_takes_symbols_and_follows_the_order_of_the_scenarios
+    scenarios = ActiveAgent::Evals::Suite.new([ YAML.safe_load(CORE) ]).all_scenarios
+
+    assert_equal %w[open_tickets_1 reports_1], ActiveAgent::Evals::Suite.select(scenarios, keys: " reports_1 , open_tickets_1 ").map(&:key)
+    assert_equal %w[open_tickets_1 reports_1], ActiveAgent::Evals::Suite.select(scenarios, keys: [ :reports_1, :open_tickets_1 ]).map(&:key)
+    assert_equal %w[open_tickets_2], ActiveAgent::Evals::Suite.select(scenarios, keys: %w[open_tickets_2 open_tickets_2]).map(&:key)
+  end
+
+  def test_select_raises_for_keys_no_known_scenario_has
+    scenarios = ActiveAgent::Evals::Suite.new([ YAML.safe_load(CORE) ]).all_scenarios
+
+    error = assert_raises(ActiveAgent::Evals::Suite::NotFound) { ActiveAgent::Evals::Suite.select(scenarios, keys: %w[nope]) }
+    assert_equal "no scenario nope", error.message
+
+    error = assert_raises(ActiveAgent::Evals::Suite::NotFound) { ActiveAgent::Evals::Suite.select(scenarios, keys: "nope, nope") }
+    assert_equal "no scenario nope", error.message
+
+    error = assert_raises(ActiveAgent::Evals::Suite::NotFound) do
+      ActiveAgent::Evals::Suite.select(scenarios, keys: "reports_1, zzz, open_tickets_1, aaa", name: "support_desk")
+    end
+    assert_equal "no scenario zzz, aaa in support_desk", error.message
+  end
+
+  def test_select_returns_nothing_when_another_suite_holds_the_keys
+    core = ActiveAgent::Evals::Suite.new([ YAML.safe_load(CORE) ])
+    client = ActiveAgent::Evals::Suite.new([ YAML.safe_load(CLIENT) ], name: "client")
+    known = core.all_scenarios + client.all_scenarios
+
+    assert_equal [], ActiveAgent::Evals::Suite.select(core.all_scenarios, keys: %w[client_only_1], known: known)
+    assert_equal %w[client_only_1], ActiveAgent::Evals::Suite.select(client.all_scenarios, keys: %w[client_only_1], known: known).map(&:key)
   end
 
   def test_find_raises_for_an_unknown_key
     suite = ActiveAgent::Evals::Suite.new([ YAML.safe_load(CORE) ])
 
     assert_raises(ActiveAgent::Evals::Suite::NotFound) { suite.find("nope") }
+  end
+
+  def test_the_suite_carries_the_bars_it_declares
+    thresholds = ActiveAgent::Evals::Suite.new([ YAML.safe_load(CORE) ]).pass_thresholds
+
+    assert_equal 0.8, thresholds.threshold
+    assert_equal 0.9, thresholds.min_pass_rate
+    assert_equal 1.0, thresholds.min_pass_rate("open_tickets")
+    assert_equal 0.9, thresholds.min_pass_rate("reports")
+    assert_not thresholds.gated?("reports")
+    assert thresholds.gated?("open_tickets")
+    assert_equal ActiveAgent::Evals::PassThresholds.default, ActiveAgent::Evals::Suite.new([ { "suite" => "bare", "groups" => [] } ]).pass_thresholds
+  end
+
+  def test_a_later_document_lowers_one_groups_bar_and_leaves_the_rest_alone
+    with_files do |core, client|
+      suite = ActiveAgent::Evals::Suite.load(core, client)
+      thresholds = suite.pass_thresholds
+
+      assert_equal 0.8, thresholds.threshold
+      assert_equal 0.9, thresholds.min_pass_rate
+      assert_equal 0.5, thresholds.min_pass_rate("open_tickets")
+      assert_not thresholds.gated?("reports")
+      assert_equal 0.9, thresholds.min_pass_rate("client_only")
+      assert_equal({ "min_pass_rate" => 0.5 }, suite.groups.find { |group| group["key"] == "open_tickets" }["pass"])
+      assert_equal({ "gated" => false }, suite.groups.find { |group| group["key"] == "reports" }["pass"])
+      assert_equal thresholds, ActiveAgent::Evals::Suite.new([ YAML.safe_load(CORE), YAML.safe_load(CLIENT) ]).pass_thresholds
+    end
+  end
+
+  def test_a_group_document_layers_its_pass_block_key_by_key
+    suite = ActiveAgent::Evals::Suite.new([ YAML.safe_load(CORE), { "groups" => [ { "key" => "open_tickets", "pass" => { "gated" => false } } ] } ])
+
+    assert_equal({ "min_pass_rate" => 1.0, "gated" => false }, suite.groups.first["pass"])
+    assert_equal 1.0, suite.pass_thresholds.min_pass_rate("open_tickets")
+    assert_not suite.pass_thresholds.gated?("open_tickets")
+  end
+
+  def test_an_invalid_pass_block_is_refused_when_the_suite_loads
+    error = assert_raises(ArgumentError) { ActiveAgent::Evals::Suite.new([ YAML.safe_load(CORE), { "groups" => [ { "key" => "reports", "pass" => { "retries" => 2 } } ] } ]) }
+
+    assert_includes error.message, '"retries"'
+    assert_includes error.message, "group reports"
+  end
+
+  def test_criteria_lists_layer_by_name_and_key_across_documents
+    with_files do |core, client|
+      suite = ActiveAgent::Evals::Suite.load(core, client)
+
+      assert_equal %w[shared terse agents_team], suite.criteria_names
+      assert_equal %w[cites_order no_apology], suite.criteria("shared").map { |criterion| criterion["key"] }
+      assert_equal({ "pattern" => "ORD-" }, suite.criteria("shared").first["config"])
+      assert_equal %w[short no_filler], suite.criteria("terse").map { |criterion| criterion["key"] }
+      assert_equal [ { "key" => "names_tool", "type" => "contains", "config" => { "pattern" => "find_tickets" } } ], suite.criteria(:agents_team)
+    end
+  end
+
+  def test_criteria_joins_the_named_lists_in_the_order_given
+    suite = ActiveAgent::Evals::Suite.new([ YAML.safe_load(CORE), YAML.safe_load(CLIENT) ])
+
+    assert_equal %w[short no_filler cites_order no_apology], suite.criteria("terse", "shared").map { |criterion| criterion["key"] }
+    assert_equal %w[cites_order no_apology short no_filler names_tool], suite.criteria.map { |criterion| criterion["key"] }
+    assert_equal %w[cites_order no_apology], suite.criteria("shared", "shared").map { |criterion| criterion["key"] }
+    assert_equal %w[cites_order no_apology], suite.criteria("shared", "missing").map { |criterion| criterion["key"] }
+    assert_equal [], suite.criteria("missing")
+    assert_equal suite.criteria, suite.criteria(nil)
+    assert_equal %w[cites_order no_apology], suite.criteria("shared", nil, "").map { |criterion| criterion["key"] }
+  end
+
+  def test_a_later_list_restating_a_criterion_key_replaces_it_in_place
+    suite = ActiveAgent::Evals::Suite.new([ {
+      "criteria" => {
+        "shared" => [ { "key" => "tone", "type" => "not_contains", "config" => { "pattern" => "sorry" } },
+                      { "key" => "cites_order", "type" => "contains", "config" => { "pattern" => "ABC-" } } ],
+        "patient" => [ { "key" => "tone", "type" => "llm_judge", "config" => { "rubric" => "Warm and plain." } } ]
+      }
+    } ])
+
+    chosen = suite.criteria("shared", "patient")
+    assert_equal %w[tone cites_order], chosen.map { |criterion| criterion["key"] }
+    assert_equal "llm_judge", chosen.first["type"], "the audience's tone wins and is scored once"
+    assert_equal "not_contains", suite.criteria("patient", "shared").first["type"], "the list named last wins"
+  end
+
+  def test_a_bare_criteria_list_reads_as_the_default_list
+    suite = ActiveAgent::Evals::Suite.new([ { "criteria" => [ { "key" => "short", "type" => "min_length", "config" => { "chars" => 20 } } ] } ])
+    layered = ActiveAgent::Evals::Suite.new([ YAML.safe_load(CORE), { "criteria" => [ { "key" => "polite", "type" => "not_contains", "config" => { "pattern" => "no way" } } ] } ])
+
+    assert_equal [ "default" ], suite.criteria_names
+    assert_equal [ { "key" => "short", "type" => "min_length", "config" => { "chars" => 20 } } ], suite.criteria("default")
+    assert_equal %w[shared terse default], layered.criteria_names
+    assert_equal [ "polite" ], layered.criteria("default").map { |criterion| criterion["key"] }
+    assert_equal [], ActiveAgent::Evals::Suite.new([ { "criteria" => [] } ]).criteria_names
+    assert_equal [], ActiveAgent::Evals::Suite.new([ { "criteria" => {} } ]).criteria_names
+  end
+
+  def test_a_symbol_keyed_document_reads_as_string_keyed_criteria
+    suite = ActiveAgent::Evals::Suite.new([ { suite: :support_desk, criteria: { shared: [ { key: :cites_order, type: "contains", config: { pattern: "ABC-" } } ] } } ])
+
+    assert_equal [ "shared" ], suite.criteria_names
+    assert_equal [ { "key" => "cites_order", "type" => "contains", "config" => { "pattern" => "ABC-" } } ], suite.criteria(:shared)
+  end
+
+  def test_malformed_criteria_name_the_suite_and_the_list
+    [ { "type" => "contains" }, { "key" => nil, "type" => "contains" }, { "key" => "", "type" => "contains" } ].each do |keyless|
+      error = assert_raises(ArgumentError, keyless.inspect) do
+        ActiveAgent::Evals::Suite.new([ { "suite" => "support_desk", "criteria" => { "shared" => [ keyless ] } } ])
+      end
+      assert_match(/a criterion in list "shared" of suite "support_desk" has no key/, error.message)
+    end
+
+    error = assert_raises(ArgumentError) do
+      ActiveAgent::Evals::Suite.new([ { "suite" => "support_desk", "criteria" => { "shared" => [ "response_present" ] } } ])
+    end
+    assert_match(/a criterion in list "shared" of suite "support_desk" is not a mapping/, error.message)
+
+    error = assert_raises(ArgumentError) { ActiveAgent::Evals::Suite.new([ { "suite" => "support_desk", "criteria" => "oops" } ]) }
+    assert_match(/support_desk/, error.message)
+
+    [ { "key" => "cites_order" }, nil ].each do |not_a_list|
+      error = assert_raises(ArgumentError) do
+        ActiveAgent::Evals::Suite.new([ { "suite" => "support_desk", "criteria" => { "shared" => not_a_list } } ])
+      end
+      assert_match(/criteria list "shared" of suite "support_desk" is not a list/, error.message)
+    end
+
+    error = assert_raises(ArgumentError) { ActiveAgent::Evals::Suite.new([ { "criteria" => "oops" } ]) }
+    assert_match(/suite nil/, error.message)
+  end
+
+  def test_criteria_feed_the_runner_and_the_scorer
+    suite = ActiveAgent::Evals::Suite.new([ YAML.safe_load(CORE), YAML.safe_load(CLIENT) ])
+    runner = ActiveAgent::Evals::Runner.new(scenarios: [], models: [], replay: ->(*) { }, criteria: suite.criteria("shared", "terse"))
+    scores = ActiveAgent::Evals::Scorer.new(criteria: suite.criteria("shared")).score(scenario, replay(answer: "Order ORD-42 shipped on Monday."))
+
+    assert_equal %w[cites_order no_apology short no_filler], runner.criteria.map { |criterion| criterion["key"] }
+    assert_equal({ "cites_order" => 1.0, "no_apology" => 1.0 }, scores)
   end
 end

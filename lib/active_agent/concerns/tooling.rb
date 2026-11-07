@@ -30,8 +30,10 @@ module ActiveAgent
     # A callback the provider runs the calls it serves from an MCP server
     # around, which never reach {#tools_function}. It receives the tool name,
     # its arguments and a block that makes the call, and returns the block's
-    # result. Nil unless a host that records a generation's tool calls (see
-    # Evals::Capture) sets it on the instance.
+    # result. Nil unless the agent defines one, to audit its MCP calls say,
+    # or a host that records a generation's tool calls sets it on the
+    # instance. Evals::Capture keeps an agent's own observer and records the
+    # call that observer makes.
     #
     # @return [Proc, nil]
     def tool_observer = nil

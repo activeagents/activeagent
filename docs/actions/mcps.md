@@ -29,6 +29,7 @@ All providers accept `mcps:`. 🟩 means the provider runs a remote `url:` serve
 | **Opper**                     | 🟦             | 🟦                 | |
 | **Requesty**                  | 🟦             | 🟦                 | |
 | **RubyLLM**                   | 🟦             | 🟦                 | |
+| **Runcrate**                  | 🟦             | 🟦                 | |
 
 ## MCP Format
 

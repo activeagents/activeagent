@@ -128,6 +128,42 @@ the aggregate across scored criteria; `avg_task_completion` in each model's
 summary reports the judge's task-completion mean separately. Invalid judge
 scores are unscorable, and unusable recommendation fields are discarded.
 
+A replay that called none of its expected tools, printed a forbidden phrase,
+lacks content the scenario expects or had a tool call fail is a failed result
+whatever the judge says: `Diagnosis` assigns one of its evidence faults
+(`tool_error`, `missing_capability`, `expected_tool_not_called`,
+`ungrounded_answer`, `forbidden_content` or `missing_content`; see
+[Faults](#faults)) before it looks at quality. The judge grades every
+answered replay all the same by default; `judge_failed_expectations: false`
+skips it for every answered replay whose expectation scores fall short of
+1.0:
+
+```ruby
+ActiveAgent::Evals::Runner.new(
+  scenarios:, models:, replay:, judge: judge, instructions: instructions,
+  judge_failed_expectations: false
+).call
+```
+
+Such a result fails on whichever of those faults `Diagnosis` assigns first (a
+refusal is `missing_capability`, an invented figure `ungrounded_answer`; when
+the judge skips such a replay, neither gets the judge's suggested tool) with no
+`task_completion` score, its `llm_judge` criteria unscored (nil, as with no
+judge) and no judge-written recommendation; `require_judge_scores: true`
+leaves that fault in place rather than reporting `judge_unavailable`. The
+calls it saves also stay out of the `judge_limit` budget, which then goes to
+the replays whose verdict a judge can change. A blank answer is never
+graded, and a blank or errored replay (`run_error`) is never refined under
+the default `refine_faults`, with or without the flag.
+
+The flag changes what the averages mean. The `score` of a replay the judge
+skipped is the mean of the scores it has, without `task_completion` or its
+`llm_judge` criteria, and the report's average task completion
+(`avg_task_completion`) is taken over the replays the judge graded, so it
+describes the answers that met their expectations, not every answer. Pass
+and fail, pass rates and the pass gates are unchanged; compare averages
+only between runs made with the same setting.
+
 Hosts can correlate the replay and its judge calls with one trace context by
 passing `around_evaluation:` to `Runner.new`. The callable receives the
 scenario and model spec, yields the evaluation, and returns its result:
@@ -181,6 +217,16 @@ Pass the yielded metadata to `Runner.new(metadata:)`: it is the caller's own
 hash, mutated in place, so a run reopened around a later verdict accumulates
 onto the metadata the Report already carries.
 
+That `run_id` is also what a collector stores the run under. With the
+collector and its key in `ACTIVEAGENTS_EVALUATIONS_ENDPOINT` and
+`ACTIVEAGENTS_API_KEY`, one line publishes the report, reading the `run_id`
+from its metadata (see
+[Publishing an externally executed evaluation](/evals/publication)):
+
+```ruby
+ActiveAgent::Evals::Publisher.from_env.call(report: report, source: "support-app", agent_name: "SupportAgent", suite: "support")
+```
+
 The tracer is injected, so the evaluation module takes on no telemetry
 dependency and still loads on its own. Without one, the correlation mints ids
 and merges metadata while the blocks run untraced, which keeps a suite
@@ -215,11 +261,77 @@ traced through `Correlation#judge` under the kind it serves (`score`,
   called with each chat before it is asked, for any other `with_*` setting.
 - Any other keyword goes to `chat` itself, so it must be one
   `RubyLLM::Chat.new` takes — `protocol:` on RubyLLM 2.x. Anything else raises
-  `ArgumentError` when the judge is built, not on every call.
+  `ArgumentError` when the judge is built, not on every call, and
+  `verify: true` makes a missing key fail there too: the judge's own label,
+  model and provider go through `verify!` (below) with its `context`, and
+  with `providers:` when the judge is given them, so a judge whose provider
+  has no key, or is not one the host has keys for, refuses when it is built
+  rather than at its first grade, after the agent has already been
+  replayed. The default stays lazy; `providers:` without `verify: true`
+  raises `ArgumentError`.
 - `on_usage:` is called after each answered call with
   `{ "kind", "model", "input_tokens", "output_tokens", "cost" }`, for a host
   that meters what its judge spends. An error it raises is logged, never
   allowed to cost the grade.
+
+**`verify!`** checks, before a run spends anything, that each of its models
+can be built on the context it will run under. `verify!(models, context:)`
+takes the run's `ModelSpec`s (or anything answering `label`, `provider` and
+`model`; a single spec is wrapped), builds
+`context.chat(model:, provider:, assume_model_exists: true)` for each in
+order, and returns them. Building the chat is where RubyLLM resolves the
+model locally and instantiates the provider, which checks its keys, so
+nothing is sent over the network. The first spec that cannot run raises
+`RubyLLM::ConfigurationError`, and the message says what to change:
+
+- A provider RubyLLM has not registered — `claude-sonnet-5 runs on acme,
+  which is not a RubyLLM provider; RubyLLM knows anthropic, azure, bedrock, …`.
+- A provider outside `providers:` — `claude-sonnet-5 runs on anthropic;
+  credentials are configured for openai, ollama`. Pass `providers:` (provider
+  names, as Strings or Symbols) from a host that configures keys for some
+  providers only, and the refusal names the ones it has before any chat is
+  built.
+- A provider the context cannot build — `claude-sonnet-5 runs on anthropic,
+  which has no API key. Set ANTHROPIC_API_KEY.` The names to set are the
+  provider's `configuration_requirements` that the context's configuration
+  leaves unset, upcased; when they are not all keys the refusal reads
+  `qwen3:8b runs on ollama, which is not configured. Set OLLAMA_API_BASE.`
+  When every listed requirement is set and RubyLLM refuses anyway — a
+  credential it checks beyond them, a deployment it cannot resolve — or on a
+  RubyLLM without that reader, the refusal carries RubyLLM's own message:
+  `support-deploy runs on azure: Deployment "support-deploy" points to
+  unknown model …`. RubyLLM's error is the cause either way.
+
+Run it before `Runner.new`, so a run over three models refuses before its
+first replay rather than when the third model's first call raises, with the
+first two already paid for. A judge is lazy — its chat is created on the
+first grade — so build it with `verify: true` too, and one whose provider has
+no key refuses when it is built:
+
+```ruby
+context = RubyLLM.context { |config| config.openai_api_key = ENV["OPENAI_API_KEY"] }
+models = ActiveAgent::Evals::ModelSpec.parse_all(%w[gpt-5-mini gpt-5], default_provider: "openai")
+
+ActiveAgent::Evals::RubyLLM.verify!(models, context: context)   # => models
+judge = ActiveAgent::Evals::RubyLLM.judge(label: "gpt-5", model: "gpt-5", provider: :openai,
+                                          context: context, verify: true)
+
+ActiveAgent::Evals::Runner.new(scenarios: scenarios, models: models, replay: replay, judge: judge).call
+```
+
+With a model on a provider the context has no key for, each call refuses
+before anything runs:
+
+```ruby
+models = ActiveAgent::Evals::ModelSpec.parse_all(%w[gpt-5-mini claude-sonnet-5], default_provider: "openai")
+
+ActiveAgent::Evals::RubyLLM.verify!(models, context: context)
+# raises RubyLLM::ConfigurationError: claude-sonnet-5 runs on anthropic, which has no API key. Set ANTHROPIC_API_KEY.
+
+ActiveAgent::Evals::RubyLLM.judge(label: "claude-opus-5", model: "claude-opus-5", provider: :anthropic,
+                                  context: context, verify: true)
+# raises the same way here, rather than at the judge's first grade
+```
 
 **`replay`** turns an ordered list of messages — `acts_as_chat` records of
 either RubyLLM generation, `RubyLLM::Message` values, an Array or a relation —
@@ -361,6 +473,7 @@ whatever they supply:
 | `links:` | Route templates for the actions — `"mcp"` (`"/mcp/%{key}"`), `"tools"`, `"instructions"`. Without them an action still carries its label and hint, with `"path" => nil` |
 | `verdict:` / `judge_label:` | A verdict already recorded for these results, so a report rebuilt from stored results shows the pick that run made rather than ranking them again |
 | `comparison:` | A comparison already recorded for these results (`Comparison#to_h`), so a rebuilt report renders its intervals rather than resampling them (see [Is the gap real?](#is-the-gap-real)) |
+| `pass_thresholds:` | The suite's `PassThresholds` (`Suite#pass_thresholds`), so a rebuilt report scores at its threshold, gates each group by it and tones the HTML page accordingly (see [Gating a suite](#gating-a-suite)) |
 
 Nothing here needs the dashboard: a CI job that hands `Report.new` a resolver
 over its own MCP configuration gets the same cards in its HTML report, and
@@ -414,7 +527,10 @@ and the same per model label; and `Report#judge_usage` sums every result's
 judge calls with the run-level part (`"run"`). The judge's cost is the
 evaluation's own overhead and never joins the agent's: it is not part of
 the verdict's ranking, nor of the prompt the judge is asked to rule with.
-`Report#to_h` carries `judge_usage` only when there is one.
+`Report#to_h` carries `judge_usage` only when there is one. A run that
+passes `Runner.new(judge_failed_expectations: false)` keeps that overhead
+off the replays that already failed one of their scenario's expectations
+(see [Adding a judge](#adding-a-judge)).
 
 `Report.new(release:)` (or `Runner.new(release:)`) names the release of the
 agent the run scored, `{ "digest", "revision", "label" }`, from
@@ -436,6 +552,70 @@ the Markdown summary's `Cost / 1,000` is what 1,000 scenario runs cost at
 the model's mean cost per priced replay, and the HTML report and the
 dashboard show the same mean per scenario. It reads with a `~` when the
 mean is estimated or covers only some of the model's replays.
+
+### Repeating scenarios
+
+One replay of a scenario is one coin flip: a flaky agent passes it in this
+run and fails it in the next. `Runner.new(trials:)` replays every scenario
+under every model that many times, so a scenario × model gets a pass share
+instead of one verdict:
+
+```ruby
+report = ActiveAgent::Evals::Runner.new(
+  scenarios: scenarios, models: models, replay: replay, trials: 3
+).call
+
+report.trials   # => 3
+report.results
+  .select { |result| result.scenario.key == "order_lookup" && result.label == "gpt-5-mini" }
+  .map { |result| [ result.trial, result.passed? ] }
+# => [[1, true], [2, true], [3, false]]
+```
+
+- **A trial is one replay.** `trials:` is an Integer of 1 or more, 1 by
+  default; a `"3"` or a `1.5` raises `ArgumentError`. The runner takes
+  each scenario in turn and, under each model, replays it from trial 1 to
+  `trials` before moving to the next model; `on_result` sees the results
+  in that order. Scenario keys stay as they are: `Result#trial` tells the
+  repeats apart, reads 1 on a result built without one, and lands in
+  `Result#to_h` as `"trial"`. A host that scores replays through
+  `Runner#evaluate` passes `trial:` itself.
+- **`"scenarios"` counts every replay.** In `Report#summary_by_model` it
+  stays the denominator of `"passed"` and of `pass_rate`, so a model that
+  passed 5 of its 6 replays has a pass rate of 83%, and
+  `"unique_scenarios"` beside it counts the distinct scenario keys. The
+  verdict's rationale then reads *Passed 5 of 6 replays of 2 scenarios
+  (83%)…*; with one trial the two counts are equal and it reads *Passed 5
+  of 6 scenarios (83%)…*.
+- **One mark per trial.** A matrix cell reads `✅✅❌ 78% missing content`:
+  the marks in trial order, the mean of the trials' scores, and the fault
+  most often among them (the first seen, on a tie). The Answers section
+  has one table row and one quoted answer per trial, in model order and
+  then trial order, each naming its model as `gpt-5-mini` · trial 2. The
+  Markdown says so once, under the judge line: *Each scenario was replayed
+  3 times; a model's pass rate counts every replay.* The HTML page adds
+  *3 trials per scenario* beside its scenario count, and its matrix cell
+  reads *2/3 · 67% passed* with a line per trial under it. A failure line
+  (`failure_markdown`) names the trial the same way when its scenario ×
+  model was replayed more than once, and so do `failures_markdown` and the
+  pass-gate message built from it. `Report#to_h` carries
+  `"trials"` only when it is above 1; a one-trial report is the report you
+  get with no `trials:` at all.
+- **The scenario stays the unit of the comparison.** `Comparison` pools a
+  scenario's replays into its pass share — 2 passes in 3 trials contribute
+  0.67 — before resampling, so its `"scenarios"` count is the unique
+  scenarios and the interval resamples scenarios, not replays. Three
+  trials do not turn 42 scenarios into 126; read the interval beside the
+  scenario count.
+
+A published run keeps every replay: each result in the envelope carries
+its `trial`, and the collector tells the repeats of one scenario × model
+apart by it, refusing a second result of the same scenario × model at the
+same trial number (a result with no `trial` is trial 1). The run's
+report and its per-model summary read every replay; the dashboard's
+run-to-run comparison and a scenario's per-model cost entry still read one
+result per scenario × model, so for a replayed scenario they show one of
+its trials. The dashboard's own runs replay once.
 
 ### Is the gap real?
 
@@ -490,7 +670,7 @@ resampling them.
 `Runner.new` takes `on_result:` (each `Result` as it lands) and
 `Runner#evaluate(scenario, spec, replay)` scores a replay you already hold, so
 a dashboard can run replays in background jobs and persist one row per
-scenario × model. `Report#to_h` is JSON-ready. The ActionAgent engine's
+scenario × model × trial. `Report#to_h` is JSON-ready. The ActionAgent engine's
 `ScenarioEvaluationRunner` is the reference integration: it supplies the
 replay (an `AgentRun` with a model override), prices tokens, wraps the owner's
 judge credentials, and stores each result as an `EvaluationScenarioResult`.
@@ -560,6 +740,155 @@ A fanned-out run keys its results by provider and model, so a selection that
 lists one model under two labels (`gpt-5-mini` and `openai/gpt-5-mini`) is
 refused rather than replayed once and reported under one of them.
 
+## Gating a suite
+
+A suite can say what passing means, so the bar is versioned with the
+questions rather than retyped in every script that runs them. Its `pass`
+block (the keys are under [Suites](#suites)) sets the score every answer
+must reach, `threshold`, and the share of a model's answers that must pass,
+`min_pass_rate`, for the suite as a whole and for any group that wants its
+own; a group with `gated: false` is scored and reported but never fails the
+run. `Suite#pass_thresholds` reads the block as a `PassThresholds`, and
+`Runner.new(pass_thresholds:)` takes it in place of `threshold:` (an
+explicit `threshold:` still wins) and hands it on to the report:
+
+```ruby
+suite = ActiveAgent::Evals::Suite.load("config/evals/support_desk.yml")
+thresholds = suite.pass_thresholds
+thresholds.threshold                 # => 0.7
+thresholds.min_pass_rate             # => 0.8, the suite's bar
+thresholds.min_pass_rate("orders")   # => 1.0, that group's own
+thresholds.gated?("experimental")    # => false
+
+report = ActiveAgent::Evals::Runner.new(
+  scenarios: suite.all_scenarios, models: models, replay: replay,
+  pass_thresholds: thresholds
+).call
+```
+
+`Report#gates` is the bar applied: one `Gate` per group × model, in run
+order (the suite's order for a run over its scenarios), then one `All` row
+per model counting every one of its results in a gated group (a scenario in
+no group counts there too). Each gate carries the model's `passed`, `total`
+and `pass_rate` (a 0..1 fraction) beside the
+`min_pass_rate` it is held to and whether the group is `gated`; `met?` is
+true when the rate reaches the bar, and always for an ungated group.
+`Report#passed?` is every gate met, and a report with no gate (a selection
+that matched nothing, or every scenario dropped as `production_only`) does
+not pass.
+`Report#failures(group:)` lists the results that did not pass — failed and
+errored, in run order — and `failures_markdown(group:)` writes them one per
+line.
+
+The [test helper](#in-your-test-suite) asserts on the gates.
+`run_eval_suite` hands the suite's bars to the runner when it declares any
+(a `threshold` other than 0.7, a `min_pass_rate` below 1, or any key in a
+group's `pass`, even one that restates a default), so the report it
+returns carries them; a suite-level block that only restates the
+defaults, with no group `pass`, runs and renders as a suite without one.
+`assert_meets_pass_gates report` passes when every
+gate is met, each group held to its own bar and ungated groups left out:
+
+```ruby
+# test/evals/support_desk_test.rb
+require "test_helper"
+
+class SupportDeskEval < ActiveAgent::Evals::TestCase
+  test "the support desk suite clears its pass gates" do
+    report = run_eval_suite "config/evals/support_desk.yml", models: %w[gpt-5-mini claude-haiku-4-5] do |scenario, _spec|
+      SupportAgent.with(question: scenario.prompt).help
+    end
+
+    assert_meets_pass_gates report
+  end
+end
+```
+
+In RSpec the helper's assertions work through `expect_with :minitest`, as
+under [RSpec](#rspec), and `ActiveAgent::Evals::RSpec`, included beside the
+helper, adds the matcher `meet_its_pass_gates`. Its file,
+`active_agent/evals/rspec`, loads nothing from rspec, and
+`require "active_agent/evals"` loads neither it nor the helper. The setup
+is the one under [RSpec](#rspec), so the eval runs only when `EVALS` is on:
+
+```ruby
+# spec/rails_helper.rb
+require "active_agent/evals/test_helper"
+require "active_agent/evals/rspec"
+
+RSpec.configure do |config|
+  config.expect_with :rspec, :minitest
+  config.define_derived_metadata(file_path: %r{/spec/evals/}) { |metadata| metadata[:eval] = true }
+  config.include ActiveAgent::Evals::TestHelper, eval: true
+  config.include ActiveAgent::Evals::RSpec, eval: true
+  config.filter_run_excluding eval: true unless ActiveAgent::Evals::TestHelper.enabled?
+end
+
+# spec/evals/support_desk_spec.rb
+RSpec.describe "the support desk suite" do
+  it "clears its pass gates" do
+    report = run_eval_suite "config/evals/support_desk.yml", models: %w[gpt-5-mini] do |scenario, _spec|
+      SupportAgent.with(question: scenario.prompt).help
+    end
+
+    assert_meets_pass_gates report
+    # or, as a matcher:
+    expect(report).to meet_its_pass_gates
+  end
+end
+```
+
+Both fail with one message. Its first line counts the gates missed — `2 of
+5 pass gates not met` — and each unmet gate follows as its sentence, one
+per line, in `gates` order. After a blank line come the failures to read:
+for each group with an unmet gate, a heading (`Orders failures:`)
+and that group's `failures_markdown`, one line per answer that failed or
+errored, with its fault and summary. An `All` row that is missed adds the
+failures it counts, those in gated groups and in no group: under
+`Failures:` when no group row is missed with it, and otherwise the ones
+outside the groups already listed under `Other failures:`, when there are
+any. An ungated group's failures count toward no gate and are never
+listed. Both take a `PassThresholds` to hold the report to a bar other
+than its own — `assert_meets_pass_gates(report, thresholds)`,
+`meet_its_pass_gates(thresholds)` — and a script that prints the message
+itself builds it as `ActiveAgent::Evals::GateCheck.new(report).message`,
+with `met?` and `unmet` beside it.
+
+Outside a test suite, a script hands the suite's bars to the runner
+itself and prints the same message:
+
+```ruby
+suite = ActiveAgent::Evals::Suite.load("config/evals/support_desk.yml")
+report = ActiveAgent::Evals::Runner.new(
+  scenarios: suite.all_scenarios, models: models, replay: replay,
+  pass_thresholds: suite.pass_thresholds
+).call
+
+check = ActiveAgent::Evals::GateCheck.new(report)
+abort check.message unless check.met?
+```
+
+A gate reads as one sentence — `Orders · gpt-5-mini: 1/2 (50%) passed,
+below 100%`, `All · gpt-5-mini: 1/2 (50%) passed, below 80%` (`at or above
+80%` once it is met), `Experimental · gpt-5-mini: 0/1 (0%) passed, not
+gated` — and `Gate#to_h`
+is the same as data, with `"met"`. A report built without pass thresholds
+answers `gates` and `passed?` against the defaults: every group gated, and
+every answer expected to pass.
+
+With pass thresholds the report shows the gates everywhere it renders:
+`to_markdown` adds a **Pass rate by group** table between the summary and
+the verdict (on its own as `gates_markdown`), one row per gate with its pass
+rate marked ✅ or ❌ and the bar it was held to; the HTML page tones each
+group's pass count by its gate, naming the bar in its tooltip; and `to_h`
+gains `"pass_thresholds"`, `"groups"` (`summary_by_group`, each model's
+counts within each group) and `"gates"`. A report built without them has
+no gates table, no tone and none of the three keys. The command line's
+`evals run --min-pass-rate` stays a gate on the whole run's pass rate
+(see [Command Line](/framework/cli#gating-ci-on-a-pass-rate)); the
+per-group gates travel with the report, in `to_h["gates"]`, for whatever
+reads the JSON.
+
 ## The pieces
 
 | Class | Role |
@@ -567,9 +896,12 @@ refused rather than replayed once and reported under one of them.
 | `Scenario` | One task: prompt, group, expected tools, content that must / must not appear, notes |
 | `ScenarioParser` | Pasted text, JSON, or grouped YAML suites → scenarios. Lines, `# Heading` groups, backticked prompts with notes, `\| tools: a, b \| contains: x` options |
 | `Suite` | A YAML suite with groups; later documents override by key, so a deployment can add or reword tasks |
+| `PassThresholds` | A suite's `pass` block as data: the score every answer must reach, the share of answers that must pass for the suite and for each group, and which groups are gated; layered key by key across documents |
+| `GateCheck` | A report held to its pass gates: `met?`, the `unmet` gates and the `message` a failing assertion prints — each unmet gate as its sentence, then the failures to read per group. `TestHelper#assert_meets_pass_gates` and the RSpec matcher `meet_its_pass_gates` are built on it, each loaded by its own require |
 | `ModelSpec` | `provider/model` or a bare name with provider inference (`claude-*` → anthropic, `gpt-*` → openai, `name:tag` → ollama, `vendor/model` → openrouter) |
 | `Replay` | What your agent produced: answer, tool calls, timing, tokens, cost, error |
 | `Scorer` | Rule criteria (`response_present`, `min_length`, `max_latency_ms`, `token_budget`, `contains`, `not_contains`, `llm_judge`) plus the scenario's expectations |
+| `Patterns` | Regex builders for a `contains` / `not_contains` entry: `number(count)` for a figure on its own, `share(count, total)` for its percentage, whole or one-decimal |
 | `Diagnosis` | One fault per failing result, with an evidence-based recommendation |
 | `Judge` | Prompts and parsing for scoring, refining recommendations, and picking a winner; you supply the completion call |
 | `Runner` | scenarios × models → `Result`s, calling your `replay` and the judge |
@@ -579,11 +911,24 @@ refused rather than replayed once and reported under one of them.
 ## Suites
 
 ```yaml
-suite: support_bot
+suite: support_desk
 description: The questions the support team fields every week
+pass:
+  threshold: 0.7        # the score every answer must reach
+  min_pass_rate: 0.8    # the share of a model's answers that must pass
+criteria:
+  shared:
+    - key: cites_order
+      type: contains
+      config: { pattern: "ABC-" }
+  terse:
+    - key: short
+      type: min_length
+      config: { chars: 20 }
 groups:
   - key: orders
     name: Orders
+    pass: { min_pass_rate: 1.0 }   # this group's own bar
     scenarios:
       - key: orders_1
         prompt: Where is my order?
@@ -594,12 +939,110 @@ groups:
         expect:
           not_contains: ["I cannot"]
         production_only: true   # needs data a local database does not have
+  - key: experimental
+    name: Experimental
+    pass: { gated: false }         # reported, never fails the run
+    scenarios:
+      - key: experimental_1
+        prompt: Draft a reply to a one-star review
 ```
 
 ```ruby
-suite = ActiveAgent::Evals::Suite.load("config/evals/support_bot.yml", "config/evals/acme/support_bot.yml")
+suite = ActiveAgent::Evals::Suite.load("config/evals/support_desk.yml", "config/evals/acme/support_desk.yml")
 suite.scenarios(groups: %w[orders], include_production_only: false)
+suite.scenarios(keys: "orders_1, orders_2", strict: true)
 ```
+
+Without `strict:`, `keys:` is an Array of keys and narrows quietly: a
+misspelled key, or a key from another suite, selects nothing. Beside keys
+that match, the scenario it meant is left out without notice and the run
+can pass without it; when no key matches, the selection is empty and a run
+held to `Report#passed?` (or `assert_meets_pass_gates`) fails without
+saying which key matched nothing. `strict: true` refuses both and names the
+key. With `strict: true`, `keys:` is an Array of keys or one
+comma-separated String, split on commas and stripped, so the value can come
+straight from an environment variable or a command line, and every key is
+checked against the whole suite first: the call raises `Suite::NotFound` —
+`no scenario orders_3, orders_4 in support_desk`, the missing keys in the
+order given — when the suite does not hold one. A key the suite holds
+outside the chosen `groups:` is not an error: the selection is empty. A key
+held only by another suite is an error here; `Suite.select` below is for
+keys spread across suites. The scenarios come back in the suite's order,
+not the keys'.
+
+`Suite.select` is that check for scenarios that do not all sit in one
+suite. It takes the scenarios to choose from, the keys, `known:`, the
+wider set every key must come from, and `name:`, what the error names
+after `in`. A key missing from `known` raises, and a key `known` holds but
+the scenarios do not is left out. A runner that takes keys from the
+environment across several suites checks them once against all of them and
+skips a suite that holds none:
+
+```ruby
+known = suites.flat_map(&:all_scenarios)
+suites.each do |suite|
+  scenarios = ActiveAgent::Evals::Suite.select(suite.all_scenarios, keys: ENV["EVAL_KEYS"], known: known, name: "evals")
+  ActiveAgent::Evals::Runner.new(scenarios:, models:, replay:).call unless scenarios.empty?
+end
+```
+
+`pass` is optional; a suite without one holds every answer to a score of
+0.7 and every model to passing all of them. At the suite level it takes
+`threshold`, the score an answer must reach to pass (the Runner's
+`threshold`), and `min_pass_rate`, the share of a model's answers that must
+pass, `0` to `1`. A group's `pass` takes its own `min_pass_rate`, which
+stands in for the suite's within that group, and `gated`, which at `false`
+keeps the group's results in the report but out of whether the run passes
+(`Report#passed?` and the `All` rows): its gate always counts as met, and
+its answers are left out of the whole-suite rate. Any other key, a rate
+outside `0..1`, or a `gated` that is
+not `true` or `false` raises `ArgumentError` naming the key and the block it
+sits in. Later documents layer over earlier ones key by key, at both
+levels, so a deployment's file that sets `min_pass_rate` for one group
+leaves the suite's threshold and the other groups as the shared document
+had them. A catalog's products and sets take the same block, refused as
+`Catalog::InvalidDocument` (see [Catalogs](#catalogs)).
+`Suite#pass_thresholds` is the result; see [Gating a suite](#gating-a-suite).
+
+A `contains` or `not_contains` entry is tried against the answer as a
+case-insensitive substring and then as a regex (`Scorer.matches_pattern?`),
+so an entry can be a word or a pattern. `ActiveAgent::Evals::Patterns.number(count)`
+and `Patterns.share(count, total)` build the regex for a figure and for a
+percentage: `number(10)` matches the `10` in `10 sessions` or `(10)` and not
+the one in `2026-10-01`, `Oct 10`, `10 October`, `1–10`, `10.5` or `110`,
+nor in a ratio such as `10/22`, which reads as a date as often as a count
+(expect `10 of 22`); `share(3, 4)` matches `75%`, `75 %`, `75.0%` and
+`75.00%` and not `175%` or `7.5%`. A scenario seeded with known
+data can then expect the figure that data implies:
+
+```ruby
+patterns = ActiveAgent::Evals::Patterns
+open_tickets, tickets = Ticket.open.count, Ticket.count   # the seed holds 3 of 4
+scenario = { "key" => "open_tickets", "prompt" => "How many tickets are open?",
+             "expect" => { "contains" => [patterns.number(open_tickets), patterns.share(open_tickets, tickets)] } }
+```
+
+`criteria` keeps the rubric beside the questions it grades: the
+`{ key, type, config }` hashes `Runner.new(criteria:)` takes, either as one
+list, which reads as the single list named `default`, or as a mapping of
+name → list, one per audience the same questions are graded for.
+`suite.criteria_names` gives the names in document order and
+`suite.criteria(*names)` the named lists joined in the order given (a
+name repeated contributes once, a `nil` or blank one is skipped, and a
+criterion whose key an earlier list holds replaces it in place, so an
+audience can restate a shared criterion and the answer is scored on it
+once), ready for the runner:
+`ActiveAgent::Evals::Runner.new(criteria: suite.criteria("shared", "terse"), ...)`.
+With no names it returns every list in document order, and a name no
+document declares contributes nothing, so a deployment can ask for `shared`
+plus an audience that has no list of its own. Later documents layer each
+named list by criterion key, as they layer scenarios: a criterion whose key
+is already present replaces it in place, a new key is appended to its list,
+and a new name is appended after the others; a later document's bare list
+layers onto `default` the same way. A criterion that is not a mapping or
+has no `key`, or a `criteria` value that is neither a list nor a mapping of
+lists, raises `ArgumentError` naming the suite and the list; the same
+document pasted into `ScenarioParser` raises its `ParseError`.
 
 The same grouped document can be pasted into `ScenarioParser` as YAML or
 JSON. It retains scenario keys, group keys and display names, expectations,
@@ -607,7 +1050,7 @@ notes and production-only flags:
 
 ```ruby
 scenarios = ActiveAgent::Evals::ScenarioParser.scenarios(
-  File.read("config/evals/support_bot.yml"),
+  File.read("config/evals/support_desk.yml"),
   include_production_only: false
 )
 ```
@@ -683,6 +1126,11 @@ The MCP facade's `scenarios_merge` tool does exactly this for a coding
 harness (see the [dashboard guide](/framework/dashboard#writing-a-suite-from-your-harness)).
 
 ## In your test suite
+
+::: tip Guide
+[Evals in Your Test Suite](/framework/evals-in-tests) is the step-by-step
+version of this section, with RSpec, RubyLLM apps, publishing and CI.
+:::
 
 Evals belong next to the tests: the fixtures, factories and sign-in helpers a
 scenario needs are already there. They are ordinary tests under `test/evals`,
@@ -799,6 +1247,12 @@ does; `default_provider:` and `providers:` resolve bare model names as
 `instructions:`, `available_tools:`). A model below the gate fails with its
 pass rate and the scenarios that fell short.
 
+When the suite's `pass` block sets bars other than the defaults,
+`run_eval_suite` hands them to the runner, and `assert_meets_pass_gates
+report` holds each group to its own bar, and each model's gated answers to
+the suite's, rather than every model to one rate the test names (see
+[Gating a suite](#gating-a-suite)).
+
 `run_eval` also takes `model:` and `provider:` to replay one action under
 another model, and a block for an agent run some other way:
 
@@ -823,6 +1277,11 @@ server that needs approval) never reaches that hook, so the provider reports
 it to the agent's `tool_observer` instead, and it is recorded the same way. A
 result the server marks as an error comes back to the model as a result, not
 an exception, and is recorded as a failed call (`replay.failed_tool_calls`).
+An agent that defines its own `tool_observer`, to audit its MCP calls for
+instance, keeps it under capture: the agent's observer runs around the call
+and the capture records the call the observer makes, so the server is called
+once, both see the same result or exception, and a call the observer
+withholds is not recorded as made.
 A server the provider runs itself (Anthropic's or OpenAI's hosted MCP) executes
 on the provider's side and is not recorded.
 
@@ -839,11 +1298,13 @@ rspec spec/evals` and the release job read the same way:
 ```ruby
 # spec/rails_helper.rb
 require "active_agent/evals/test_helper"
+require "active_agent/evals/rspec"
 
 RSpec.configure do |config|
   config.expect_with :rspec, :minitest
   config.define_derived_metadata(file_path: %r{/spec/evals/}) { |metadata| metadata[:eval] = true }
   config.include ActiveAgent::Evals::TestHelper, eval: true
+  config.include ActiveAgent::Evals::RSpec, eval: true
   config.filter_run_excluding eval: true unless ActiveAgent::Evals::TestHelper.enabled?
 end
 
@@ -859,7 +1320,10 @@ RSpec.describe SupportAgent do
 end
 ```
 
-Matchers (`expect(replay).to have_called_tool(...)`) are a follow-up.
+`meet_its_pass_gates` (`require "active_agent/evals/rspec"`) is the first
+matcher: `expect(report).to meet_its_pass_gates` holds a suite's report to
+its [pass gates](#gating-a-suite). Replay matchers such as
+`expect(replay).to have_called_tool(...)` are a follow-up.
 
 ## Catalogs
 
@@ -877,6 +1341,11 @@ products:
   - key: triage
     name: Triage agent
     agent: TriageAgent            # the agent this product's sets run against
+    criteria:
+      shared:
+        - key: cites_order
+          type: contains
+          config: { pattern: order }
     sets:
       - key: smoke
         name: Smoke
@@ -913,22 +1382,46 @@ Every product, set and scenario has a `key`; a scenario also needs a
 `prompt`. A scenario takes the same `expect`, `notes` and `production_only`
 as a suite's, plus free-form `tags` and `params` that the runner carries
 through to the results. A set may name a `judge` (`kind`, `model`) and
-`criteria`, which become the evaluation's when the set is run. Keys the
-format does not define (`owner_team`, `repository`, …) are kept as
-`metadata` on the catalog, product, set or scenario they sit on. Scenario
-extensions are opaque data: they do not add scoring rules. They remain at
-their original keys in YAML and JSON exports, including a literal key named
-`metadata`, and are available through `scenario.metadata` in Ruby.
+`criteria`, which become the evaluation's when the set is run. A product
+carries the same named `criteria` mapping a suite does, every criterion
+with a `key`, and a set its own list; a later document layers both by
+criterion key (a key already present replaces that criterion in place, a
+new one is appended), so `catalog.suite_for(:triage).criteria(:shared)`
+reads a product's `shared` list the way `Suite#criteria` does. A set keeps
+a criterion without a `key`, appended as it is and once, however many
+layered documents restate it. The mounted dashboard stores a set's
+criteria; a product's named lists stay in the YAML and do not survive its
+import and export, so the import preview reports a product that carries
+them as changed on every re-import, and a document the dashboard writes
+back from its records leaves them out.
+A product and a set may also carry a `pass` block (see [Gating a
+suite](#gating-a-suite)), checked as the catalog loads — a bad one raises
+`Catalog::InvalidDocument` naming the product or set it sits on;
+`suite_for` makes the product's the suite's and each set's its group's, and
+`Catalog#pass_thresholds(:triage, :smoke)` reads them. Keys the format does
+not define (`owner_team`, `repository`, …) are kept as `metadata` on the
+catalog, product, set or scenario they sit on. Scenario extensions are
+opaque data: they do not add scoring rules. They remain at their original
+keys in YAML and JSON exports, including a literal key named `metadata`,
+and are available through `scenario.metadata` in Ruby.
 
 ```ruby
 catalog = ActiveAgent::Evals::Catalog.load("config/evals/support_desk.yml")
 catalog.products.map(&:key)                      # => ["triage", "billing"]
 catalog.set(:triage, :smoke).scenarios.size      # => 2
 catalog.scenarios(product: :triage, include_production_only: false)
+catalog.scenarios(keys: %w[refund_request invoice_copy], strict: true)
 
 suite = catalog.suite_for(:triage, :smoke)       # a Suite named "support_desk/triage/smoke"
 ActiveAgent::Evals::Runner.new(suite.all_scenarios, ...)
 ```
+
+`Catalog#scenarios` takes the same `keys:` and `strict:` as
+`Suite#scenarios`. With `strict: true` every key must name a scenario
+somewhere in the catalog, whatever `product:` or `set:` narrows to, or the
+call raises `Suite::NotFound` naming the catalog (`no scenario invoice_dispute
+in support_desk`); a key that sits outside the chosen product or set
+selects nothing.
 
 `Catalog.load` takes several paths and `Catalog.new` several documents:
 later ones layer over earlier ones by key, so a team-wide catalog can be

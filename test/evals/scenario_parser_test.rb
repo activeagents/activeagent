@@ -53,6 +53,27 @@ class EvalsScenarioParserTest < ActiveSupport::TestCase
     end
   end
 
+  def test_a_suite_whose_criteria_the_suite_refuses_raises_a_parse_error
+    groups = "groups: [{ key: orders, scenarios: [{ key: orders_1, prompt: Where is my order }] }]"
+
+    assert_equal [ "orders_1" ], parse("suite: support\ncriteria: [{ key: short, type: min_length, config: { chars: 20 } }]\n#{groups}").map { |entry| entry["key"] }
+    [ "criteria: [response_present]", "criteria: see the team notes", "criteria: { shared: { key: short } }" ].each do |criteria|
+      error = assert_raises(ActiveAgent::Evals::ScenarioParser::ParseError, criteria) { parse("suite: support\n#{criteria}\n#{groups}") }
+      assert_match(/suite "support"/, error.message)
+    end
+    assert_raises(ActiveAgent::Evals::ScenarioParser::ParseError) do
+      parse({ "suite" => "support", "criteria" => [ "response_present" ], "groups" => YAML.safe_load(groups)["groups"] }.to_json)
+    end
+  end
+
+  def test_a_suite_whose_pass_block_the_suite_refuses_raises_a_parse_error
+    groups = "groups: [{ key: orders, scenarios: [{ key: orders_1, prompt: Where is my order }] }]"
+
+    assert_equal [ "orders_1" ], parse("suite: support\npass: { min_pass_rate: 0.8 }\n#{groups}").map { |entry| entry["key"] }
+    error = assert_raises(ActiveAgent::Evals::ScenarioParser::ParseError) { parse("suite: support\npass: { retries: 2 }\n#{groups}") }
+    assert_match(/"retries"/, error.message)
+  end
+
   def parse(text)
     ActiveAgent::Evals::ScenarioParser.parse(text)
   end

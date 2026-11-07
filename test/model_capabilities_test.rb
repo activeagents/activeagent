@@ -32,6 +32,22 @@ class ModelCapabilitiesTest < ActiveSupport::TestCase
     assert_equal({ model: "claude-sonnet-5", max_tokens: 512 }, parameters)
   end
 
+  test "sanitize! strips top_k for thinking-first Claude models" do
+    parameters = { model: "claude-opus-4-7", top_k: 40, max_tokens: 512 }
+
+    removed = ActiveAgent::ModelCapabilities.sanitize!(parameters)
+
+    assert_equal [ :top_k ], removed
+    assert_equal({ model: "claude-opus-4-7", max_tokens: 512 }, parameters)
+  end
+
+  test "sanitize! keeps top_k for conventional Claude models" do
+    parameters = { model: "claude-haiku-4-5", top_k: 40 }
+
+    assert_empty ActiveAgent::ModelCapabilities.sanitize!(parameters)
+    assert_equal 40, parameters[:top_k]
+  end
+
   test "sanitize! leaves conventional models untouched" do
     parameters = { model: "gpt-4o-mini", temperature: 0.7 }
 

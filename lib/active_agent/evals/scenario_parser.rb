@@ -138,10 +138,18 @@ module ActiveAgent
           end
         end
 
-        Suite.new([ document ]).all_scenarios.map do |item|
+        suite_from(document).all_scenarios.map do |item|
           scenario(prompt: item.prompt, group: item.group, group_name: item.group_name, key: item.key,
                    notes: item.notes, expectations: item.expectations, production_only: item.production_only?)
         end
+      end
+
+      # The document as a Suite; a `criteria` block the Suite refuses is a
+      # ParseError, as every other fault in a pasted document is.
+      def suite_from(document)
+        Suite.new([ document ])
+      rescue ArgumentError => e
+        raise ParseError, e.message
       end
 
       def scenario_from_hash(entry)

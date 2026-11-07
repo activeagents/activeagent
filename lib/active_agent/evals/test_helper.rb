@@ -33,7 +33,8 @@ module ActiveAgent
     # the assertions read it. `assert_eval_passes` scores the replay the way
     # a dashboard run would and fails with the fault and the fix.
     # `run_eval_suite` replays a YAML suite across models and returns the
-    # Report, for `assert_pass_rate` and `report.to_html`.
+    # Report, for `assert_pass_rate`, `assert_meets_pass_gates` and
+    # `report.to_html`.
     #
     # Assertions a product promises — "never queries the settings table" —
     # are the app's to write, over `replay.tool_calls`.
@@ -145,6 +146,15 @@ module ActiveAgent
       # returns a Generation (which is then captured under that model) or
       # anything `run_eval`'s block form accepts.
       #
+      # A suite that declares bars (Suite#pass_thresholds differs from
+      # PassThresholds.default: a `threshold` other than 0.7, a
+      # `min_pass_rate` below 1, or any key in a group's `pass`, even one that
+      # restates a default) hands them to the Runner: its threshold scores
+      # the answers, and the Report carries the bars for
+      # `assert_meets_pass_gates` and renders its gates. A suite with no
+      # `pass` block, or only a suite-level one that restates the defaults,
+      # runs under the defaults, and its Report carries no bars.
+      #
       # @param suite [Suite, String, Pathname, Array] a Suite or the YAML path(s) to load
       # @param models [Array<String>, String, nil] candidate models; nil runs the agent as configured
       # @param default_provider [String, nil] the provider a bare model name runs under
@@ -152,7 +162,9 @@ module ActiveAgent
       # @param groups [Array<String>, nil] narrow to these suite groups
       # @param keys [Array<String>, nil] narrow to these scenario keys
       # @param include_production_only [Boolean] replay scenarios a local environment cannot answer
-      # @param runner_options [Hash] the rest goes to Runner.new (criteria, judge, available_tools, instructions, ...)
+      # @param runner_options [Hash] the rest goes to Runner.new (criteria, judge, available_tools,
+      #   instructions, ...); `pass_thresholds:` replaces the suite's bars, and `threshold:` wins over
+      #   the suite's threshold
       # @return [Report]
       def run_eval_suite(suite, models: nil, default_provider: nil, providers: ModelSpec::DEFAULT_PROVIDERS,
                          groups: nil, keys: nil, include_production_only: false, **runner_options, &replay)
@@ -161,6 +173,9 @@ module ActiveAgent
         suite = Suite.load(*Array(suite)) unless suite.is_a?(Suite)
         scenarios = suite.scenarios(groups: groups, keys: keys, include_production_only: include_production_only)
         specs = models.present? ? ModelSpec.parse_all(models, default_provider: default_provider.to_s, providers: providers) : [ AS_CONFIGURED ]
+        unless runner_options.key?(:pass_thresholds) || suite.pass_thresholds == PassThresholds.default
+          runner_options = runner_options.merge(pass_thresholds: suite.pass_thresholds)
+        end
 
         Runner.new(
           scenarios: scenarios, models: specs,
@@ -180,6 +195,27 @@ module ActiveAgent
           scenarios.zero? || stats["passed"].to_f / scenarios < at_least
         end
         assert short.empty?, message || pass_rate_failure_message(report, short, at_least)
+      end
+
+      # Passes when every gate of the report is met: under `thresholds` when
+      # given, else under the bars the report carries (Report#pass_thresholds),
+      # else the defaults, every group gated and every answer expected to
+      # pass. Fails with GateCheck#message — the unmet gates, then the
+      # failures to read per group — or with `message` when one is given.
+      # Where `assert_pass_rate` holds every model to one bar the test names,
+      # this holds each group to the bar the suite declares for it, and each
+      # model's gated answers to the suite's, leaving ungated groups out.
+      # Unlike `assert_pass_rate`, it takes the message third, after the
+      # thresholds.
+      #
+      # @param report [Report]
+      # @param thresholds [PassThresholds, nil] bars to hold the report to in place of its own
+      # @param message [String, nil] the failure message, in place of the check's
+      # @return [GateCheck]
+      def assert_meets_pass_gates(report, thresholds = nil, message = nil)
+        check = GateCheck.new(report, thresholds)
+        assert check.met?, message || check.message
+        check
       end
 
       private

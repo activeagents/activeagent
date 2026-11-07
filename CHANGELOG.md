@@ -7,23 +7,105 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-Upgrading: four dashboard migrations, 030 `add_evaluation_scoring_leases`
+Upgrading: one dashboard migration, 033 `add_agent_run_execution_leases`
+(the lease columns on `agent_runs`): run `bin/rails generate
+action_agent:install --skip` and `bin/rails db:migrate`. Until it runs,
+agent runs take no leases, so a run whose worker dies stays running as
+before.
+
+### Added
+
+- **An empty agent list shows how agents arrive** (`actionagent`). With no
+  agents, the Agents page offered only Browse Templates and Create From
+  Scratch. It now shows three ways in, telemetry first:
+  - **Connect your app** asks what runs the agents. For ActiveAgent it shows
+    the `config/active_agent.yml` telemetry block. For RubyLLM it shows the
+    `activeagents-telemetry-ruby_llm` Gemfile line and the initializer that
+    subscribes it. Both point at this dashboard's endpoint and read the key
+    from `ACTIVEAGENTS_API_KEY`. The first trace registers the agent, and
+    **Check for agents** reloads the list.
+  - **Link a GitHub repository** opens New project.
+  - **Build one here** keeps the template library and the builder.
+
+### Fixed
+
+- **A run whose worker died is failed as lost instead of running forever**
+  (`actionagent`). Since a run is claimed once, a worker that died after
+  its claim left the run `running` for good: a redelivered job leaves a
+  running run alone. Each claim (the execution job's, the resume job's,
+  `Agent#test_execute`'s) now takes a lease (migration 033,
+  `config.run_lease_duration`, 30 minutes by default) that each LLM or
+  tool call renews. A running run whose lease ran out is failed with
+  `error_class` `ActionAgent::AgentRun::WorkerLost` when its page or the
+  run list is read, or when `ActionAgent::AgentRunExpiryJob` runs (not
+  scheduled by default). Nothing is executed again: the run's provider and
+  tool calls may already have taken effect. A worker that was only slow
+  has its result discarded, as a cancelled run's is, and a result now
+  only lands while the run holds its worker's lease, so whatever ended
+  the run first is kept. `test_execute` records its result the same way,
+  so a cancel during a synchronous test run is no longer overwritten. A
+  run with no lease, such as one running when the migration is installed,
+  is never failed as lost.
+
+- **A self-hosted dashboard shows its own trace endpoint** (`actionagent`).
+  The Organization page's Telemetry card showed the platform's `/v1/traces`.
+  A self-hosted engine takes traces at `<mount>/api/traces`, and the card
+  now shows that. Multi-tenant installs are unchanged.
+- **The agent list's filter arrows sit inside the select** (`actionagent`).
+  The browser's own arrow ignores padding and sat against the right border.
+  The three filters now draw an inset chevron (`aa-select`).
+
+- **The Anthropic provider loads the `anthropic` gem 2.x** (`activeagent`).
+  The provider pinned its client gem to `~> 1.12`, so a bundle holding
+  anthropic 2.0 or later raised `LoadError` the moment the provider loaded,
+  although the provider builds its requests as hashes and the 2.0 SDK
+  (role-union `MessageParam`, one-value enums as constants, Text Completions
+  removed) breaks none of them. The provider and the gemspec's development
+  dependency now accept anthropic 1.12 through 2.x, and CI runs the provider
+  tests against 2.3 beside the 1.12, 1.14 and 1.55 legs. Two 2.0 changes do
+  reach the code: Text Completions went away with
+  `Anthropic::Resources::Completions`, which the Bedrock bearer client now
+  sets up only when it exists, and the client sends its key as
+  `Authorization: Bearer` instead of `x-api-key`. The 2.0 SDK also dropped
+  the `?beta=true` query string from its beta Messages requests, so the test
+  suite matches recorded cassettes with or without it.
+
+## [1.9.7] - 2026-11-04
+
+Evaluations an application runs in its own test suite, and the dashboard
+pieces around them: a suite declares the pass rate each group of questions
+must reach (`pass`), and `assert_meets_pass_gates` or RSpec's
+`meet_its_pass_gates` holds a run to it; scenarios replay a set number of
+trials; the judge can skip an answer that already failed its expectations;
+`Patterns` builds the regex for a count or a share a seeded scenario
+expects; scenario keys select strictly; named criteria lists layer per
+audience; `ActiveAgent::Evals::RubyLLM.verify!` checks every model's
+credentials before a run; and the publisher builds itself from the
+environment and returns links that open. Alongside them: Ollama Cloud,
+scoring leases, catalog scenario extensions kept, evaluation catalogs
+without Rails, ranked comparison tables, and users' own remote MCP servers.
+
+Upgrading: three dashboard migrations, 030 `add_evaluation_scoring_leases`
 (the scoring lease columns on `evaluation_scenario_results`), 031
 `add_catalog_scenario_metadata` (the `metadata` column on
-`catalog_scenarios`), 032 `create_active_agent_mcp_server_configs` (the
-table behind a user's own MCP servers) and 033
-`add_agent_run_execution_leases` (the lease columns on `agent_runs`): run
-`bin/rails generate action_agent:install --skip` and `bin/rails
-db:migrate`. Until they run, fanned-out runs keep scoring with the claim
-1.9.3 uses, catalog imports keep working but still drop scenario
-extensions (extensions discarded before the upgrade need the original
-document imported again), the MCP Services page cannot list or save
-servers of your own, and agent runs take no leases, so a run whose worker
-dies stays running as before.
+`catalog_scenarios`) and 032 `create_active_agent_mcp_server_configs` (the
+table behind a user's own MCP servers): run `bin/rails generate
+action_agent:install --skip` and `bin/rails db:migrate`. Until they run,
+fanned-out runs keep scoring with the claim 1.9.3 uses, catalog imports
+keep working but still drop scenario extensions (extensions discarded
+before the upgrade need the original document imported again), and
+the MCP Services page cannot list or save servers of your own.
 
 The pricing tables changed too: a trace recorded under Ollama that priced
 at the default rate before prices at Ollama Cloud's listed rate now, and a
 finished evaluation run's cached figures are worked out again.
+
+A suite's `pass` block is read and checked as the suite loads: a key other
+than `threshold` and `min_pass_rate` (and, on a group, `min_pass_rate` and
+`gated`) raises `ArgumentError` naming it, and in a catalog a product's or
+set's `pass` raises `Catalog::InvalidDocument`. 1.9.6 ignored a suite's
+`pass` and kept a product's as metadata, so a document that already carried
+one under its own keys needs them renamed.
 
 ### Added
 
@@ -67,7 +149,14 @@ finished evaluation run's cached figures are worked out again.
   `service: "CheaperInference"` generates and embeds through
   `https://api.cheaperinference.com/v1`, with the key from
   `CHEAPER_INFERENCE_API_KEY`; a thin subclass of the OpenAI provider, like
-  Opper. Contributed in #629.
+  Opper. Contributed in #629 and landed in #666.
+
+- **Runcrate as an OpenAI-compatible provider** (`activeagent`).
+  `service: "Runcrate"` generates and embeds through
+  `https://api.runcrate.ai/v1` (open-weight models such as
+  `deepseek-ai/DeepSeek-V4.1-Flash` and `Qwen/Qwen3-Embedding-8B`), with the
+  key from `RUNCRATE_API_KEY`; a thin subclass of the OpenAI provider, like
+  Cheaper Inference.
 
 - **Your own MCP servers** (`actionagent`). A dashboard user adds a remote
   MCP server by URL on the MCP Services page (*Your MCP servers*), with
@@ -76,7 +165,7 @@ finished evaluation run's cached figures are worked out again.
   beside the catalog as `custom:<id>`. Agent runs and scenario evaluation runs
   call its tools, and evaluation fix items attribute them to it. Each server
   belongs to an owner like a provider key (`MCPServerConfig`, install
-  migration 029), and every lookup, including a run's, is scoped to that
+  migration 032), and every lookup, including a run's, is scoped to that
   owner. Header values are encrypted at rest, never returned to the browser
   (names with masked values; a blank value on update keeps the stored one),
   and scrubbed from recorded output. Writes and tests ask for
@@ -115,6 +204,172 @@ finished evaluation run's cached figures are worked out again.
   loads the gem's rake tasks; the empty `activeagent_tasks.rake`
   placeholder is gone.
 
+- **A suite declares its pass gates** (`activeagent`). A suite's `pass`
+  block sets the score every answer must reach (`threshold`) and the share
+  of a model's answers that must pass (`min_pass_rate`), for the suite and
+  for any group with its own bar; `gated: false` keeps a group in the report
+  and out of `Report#passed?`. A catalog's products and sets take the
+  same block, and later documents layer it key by key. `Suite#pass_thresholds`
+  reads it as a `PassThresholds`, `Runner.new(pass_thresholds:)` takes it in
+  place of `threshold:` and hands it to the report, and `Report#gates` is
+  then one row per group × model with its pass rate against its bar, plus an
+  `All` row per model over its gated results; `Report#passed?` is every gate
+  met, and a report with no gate (a selection that matched nothing, or every
+  scenario dropped as `production_only`) does not pass;
+  `Report#failures(group:)` lists the results that did not pass. The
+  Markdown report adds a *Pass rate by group* table (`gates_markdown`;
+  `failures_markdown(group:)` lists the failures for a test message), the
+  HTML page tones each group's pass count by its gate, and `to_h` gains
+  `pass_thresholds`, `groups` and `gates`. A report built without pass
+  thresholds renders as it did. The command line's
+  `evals run --min-pass-rate` stays a gate on the whole run.
+- **The pass-gate assertion, for Minitest and RSpec** (`activeagent`).
+  `TestHelper#assert_meets_pass_gates(report)` passes when every gate of
+  the report is met, each group held to the bar the suite declares for it
+  and ungated groups left out, where `assert_pass_rate` holds every model
+  to one rate the test names; it takes a `PassThresholds` to hold the
+  report to another bar, and returns the check. `run_eval_suite` hands a
+  suite's bars to the runner when it declares any (a `threshold` other
+  than 0.7, a `min_pass_rate` below 1, or any key in a group's `pass`), so
+  the report it returns carries them; a suite with no `pass` block, or
+  only a suite-level one that restates the defaults, runs under the
+  defaults and its report carries no bars, and a `pass_thresholds:` or
+  `threshold:` given to `run_eval_suite` wins over the suite's. In RSpec the
+  assertion works through `expect_with :minitest` like the rest of the
+  helper, and `require "active_agent/evals/rspec"`, with
+  `ActiveAgent::Evals::RSpec` included beside the helper, adds the first
+  eval matcher, `expect(report).to meet_its_pass_gates`; that file loads
+  nothing from rspec, and `require "active_agent/evals"` loads neither it
+  nor the helper. Both fail with one message, `GateCheck#message`: how many
+  of the gates were not met, each unmet gate as its sentence, then the
+  failures to read under a heading per group with an unmet gate (one
+  `Report#failure_markdown(result)` line each, the line `failures_markdown`
+  is built from) — and, for an `All` row that is short, the failures it
+  counts: under `Failures:` when no group row is short with it, else the
+  ones outside the groups already listed under `Other failures:`; an
+  ungated group's failures are never listed. `GateCheck.new(report)`
+  answers `met?`, `unmet` and `gates` for a script that reports on its own.
+- **Pattern builders for counts and shares** (`activeagent`).
+  `ActiveAgent::Evals::Patterns.number(count)` and
+  `Patterns.share(count, total)` return a regex string for a scenario's
+  `contains` or `not_contains` entry: `number(10)` matches the figure on its
+  own and not the `10` in `2026-10-01`, `10/1`, `10:00`, `1–10`, `Oct 10`,
+  `10 October`, `10.5`, `110`, `10,000` or `10%`; `share(3, 4)` matches
+  `75%`, `75 %`, `75.0%` and `75.00%` and not `175%` or `7.5%`.
+  `Scorer.matches_pattern?` tries an entry as a substring and then as a
+  regex, so the string goes into a suite document or a scenario hash as it
+  is, and a scenario seeded with known data can expect the figure that data
+  implies. A fractional or negative count, a total of zero or a count above
+  the total raise `ArgumentError`.
+- **Strict scenario selection by key** (`activeagent`). `Suite#scenarios`
+  and `Catalog#scenarios` take `strict: true` with `keys:`: every key must
+  name a scenario the suite or catalog holds, or the call raises
+  `Suite::NotFound` listing the missing keys in the order given, so a
+  misspelled key from an environment variable or a command line fails the
+  run, named in the error. A key the suite holds outside the chosen
+  `groups:` returns an empty selection. `Suite.select` is the same check
+  over any scenarios, with `known:` the wider set the keys must come from,
+  for a runner that takes keys across several suites. Without `strict:` the
+  selection narrows as before: the scenario a misspelled key meant is left
+  out without notice, and only when every key misses does a run held to
+  `Report#passed?` (or `assert_meets_pass_gates`) fail, without naming the
+  key.
+- **Skip the judge for a replay that already failed its expectations**
+  (`activeagent`). `Runner.new(judge_failed_expectations: false)` asks the
+  judge about an answered replay only when every expectation its scenario
+  declared was met. A replay that called none of its expected tools, printed
+  a forbidden phrase, lacks expected content or had a tool call fail is a
+  failed result whatever a judge would say — `Diagnosis` assigns one of its
+  evidence faults (`tool_error`, `missing_capability`,
+  `expected_tool_not_called`, `ungrounded_answer`, `forbidden_content` or
+  `missing_content`) before it looks at quality — so it fails on whichever
+  of those it assigns first, with no `task_completion` score, its
+  `llm_judge` criteria unscored and no judge-written recommendation (a
+  refusal or invented figure the judge skipped loses the judge's suggested
+  tool too), and the calls saved stay out of the `judge_limit` budget.
+  `Scorer.new(judge_failed_expectations:)` and
+  `Scorer.expectations_met?(scores)` are the pieces underneath, and the
+  scores hash keeps its key order either way. The default (`true`) grades
+  every answered replay as it did; a blank answer is never graded, and a
+  blank or errored replay is never refined under the default
+  `refine_faults`, with or without the flag.
+- **Replay each scenario several times** (`activeagent`, `actionagent`).
+  `Runner.new(trials: 3)` replays every scenario under every model that
+  many times, scenario by scenario and model by model, so a flaky scenario
+  gets a pass share instead of one coin flip. Scenario keys stay as they
+  are; `Result#trial` tells the repeats apart, reads 1 on a result built
+  without one, and lands in `to_h` as `"trial"`. A model's `"scenarios"`
+  count and pass rate cover every replay, with `"unique_scenarios"` beside
+  them, and the verdict then reads "Passed 5 of 6 replays of 2 scenarios";
+  a matrix cell shows one mark per trial with the mean score and the most
+  frequent fault; the Answers section lists every trial; a failure line
+  (`failure_markdown`, `failures_markdown`, the pass-gate message) names
+  the trial (`gpt-5-mini` · trial 2) when its scenario × model was
+  replayed more than once; the Markdown, JSON and HTML reports state the
+  trial count only when it is above 1, so a one-trial Markdown or HTML
+  report is exactly what it was, and its JSON differs only by `"trial"` on
+  each result and `"unique_scenarios"` on each model. `Comparison` pools a
+  scenario's replays into its pass share, so its intervals still resample
+  scenarios. The collector accepts the repeats of one scenario × model when
+  each carries its `trial`, stores every one, and rebuilds them into the
+  run's report; the dashboard's own runs replay once.
+- **The evaluation publisher reads `run_id` from the report, returns an
+  absolute receipt `url` and builds itself from `ENV`** (`activeagent`).
+  `ActiveAgent::Evals::Publisher#call` and `#progress` take `run_id:` as
+  optional and read it from the report's `metadata.run_id`, where
+  `Correlation#with_run` records it, from a `Report` or its saved JSON hash;
+  an explicit `run_id:` wins, and a report with neither raises
+  `ArgumentError` before anything is sent. The receipt's `url` comes back
+  absolute: the path a collector sends
+  (`<mount>/evaluations/:evaluation_id/runs/:id` from the engine) is joined
+  onto the publisher's `dashboard_url`, by default the endpoint's origin
+  (`https://activeagents.ai` for the hosted collector on its API host), or
+  the HTTP(S) URL `Publisher.new(dashboard_url:)` is given, so the link opens
+  in a browser; an absolute `url` and a receipt without one are left as they
+  are. `Publisher.from_env` builds the publisher from
+  `ACTIVEAGENTS_EVALUATIONS_ENDPOINT` (the hosted default when blank),
+  `ACTIVEAGENTS_API_KEY` (required) and the new, optional
+  `ACTIVEAGENTS_DASHBOARD_URL`, for a dashboard people reach at another
+  address than the collector's:
+  `Publisher.from_env.call(report: report, source: "support-app", agent_name: "SupportBot", suite: "orders")`.
+- **Verify RubyLLM models and the judge before a run** (`activeagent`).
+  `ActiveAgent::Evals::RubyLLM.verify!(models, context:)` takes a run's
+  `ModelSpec`s (or one) and, for the first that cannot run, raises
+  `RubyLLM::ConfigurationError` saying why: a provider RubyLLM does not know
+  (the message lists the ones it does), one outside `providers:` (the names
+  a host has keys for), or one its context cannot build —
+  `claude-sonnet-5 runs on anthropic, which has no API key. Set
+  ANTHROPIC_API_KEY.`, naming the provider's `configuration_requirements`
+  the context leaves unset (`which is not configured. Set OLLAMA_API_BASE.`
+  when they are not keys), or carrying RubyLLM's own message when those are
+  all set and it refused for another reason, with RubyLLM's error as the
+  cause. It builds each chat with `assume_model_exists: true`, which is
+  where RubyLLM checks its keys, and sends nothing. `judge(..., verify: true)`
+  runs the same check on the judge's own model when the judge is built,
+  with the same `providers:` when it is given them, so a judge whose
+  provider has no key refuses before the first scenario is replayed rather
+  than at its first grade; the default stays lazy.
+- **Named criteria lists on a suite** (`activeagent`). A suite document
+  carries a top-level `criteria` beside `groups`: a list of the
+  `{ key, type, config }` hashes `Runner.new(criteria:)` takes, which reads
+  as the one list named `default`, or a mapping of name → list, one per
+  audience the same questions are graded for. `Suite#criteria(*names)`
+  joins the named lists in the order given, a later list's criterion
+  replacing an earlier one with the same key, ready for the runner;
+  with no names it returns every list in document order, and a name no
+  document declares contributes nothing, so a deployment asks for `shared`
+  plus an audience that may have no list of its own. `Suite#criteria_names`
+  lists the names. Later documents layer each list by criterion key, as they
+  layer scenarios: a key already present is replaced in place, a new key
+  appended. A catalog product carries the same mapping, which `suite_for`
+  hands its suite and `to_yaml` writes back. A `criteria` value that is
+  neither a list nor a mapping of lists, or a criterion that is not a
+  mapping or has no key, is refused: `ArgumentError` from a suite,
+  `Catalog::InvalidDocument` from a catalog product (a set keeps a criterion
+  without a key; see Changed) and `ScenarioParser::ParseError` from a pasted
+  suite. Earlier releases ignored a suite document's top-level `criteria`;
+  a document that carries one in another shape is refused.
+
 ### Changed
 
 - **Every trace cost is priced under its provider** (`actionagent`). The
@@ -140,25 +395,16 @@ finished evaluation run's cached figures are worked out again.
   the home page's Top Agents list. Under 600px a table stacks each row to
   labelled pills.
 
-### Fixed
+- **A set's `criteria` layer across catalog documents** (`activeagent`). A
+  later document's criterion replaces the one with its key in place and a
+  new key is appended, as a product's named lists and a suite's scenarios
+  layer; a later document used to replace the set's whole list. A criterion
+  without a key is still accepted and appended as it is, once: a later
+  document that restates it adds nothing. A criterion's `key` is written as
+  a string, as scenario keys are, so a set criterion keyed by a number reads
+  back with a quoted key and the catalog's digest changes with it.
 
-- **A run whose worker died is failed as lost instead of running forever**
-  (`actionagent`). Since a run is claimed once, a worker that died after
-  its claim left the run `running` for good: a redelivered job leaves a
-  running run alone. Each claim (the execution job's, the resume job's,
-  `Agent#test_execute`'s) now takes a lease (migration 033,
-  `config.run_lease_duration`, 30 minutes by default) that each LLM or
-  tool call renews. A running run whose lease ran out is failed with
-  `error_class` `ActionAgent::AgentRun::WorkerLost` when its page or the
-  run list is read, or when `ActionAgent::AgentRunExpiryJob` runs (not
-  scheduled by default). Nothing is executed again: the run's provider and
-  tool calls may already have taken effect. A worker that was only slow
-  has its result discarded, as a cancelled run's is, and a result now
-  only lands while the run holds its worker's lease, so whatever ended
-  the run first is kept. `test_execute` records its result the same way,
-  so a cancel during a synchronous test run is no longer overwritten. A
-  run with no lease, such as one running when the migration is installed,
-  is never failed as lost.
+### Fixed
 
 - **The dashboard engine loads in a host without Action Cable**
   (`actionagent`). The engine's class body camelizes its inflection
@@ -217,7 +463,9 @@ finished evaluation run's cached figures are worked out again.
   those calls and `assert_tool_called` could not find them. The provider
   now runs such a call inside the agent's `tool_observer`, which Capture
   sets, so it is recorded once with its arguments, result preview and
-  timing. A result the server marks as an error, which the model receives
+  timing. An observer the agent defines itself keeps running under
+  Capture, around the call that is recorded, so the server is still called
+  once and a call the observer withholds is not recorded as made. A result the server marks as an error, which the model receives
   as a result and not an exception, is recorded as a failed call, so
   `failed_tool_calls` and `assert_tools_succeeded` see it. A server the
   provider runs itself (Anthropic's or OpenAI's hosted MCP) executes on the
@@ -235,6 +483,21 @@ finished evaluation run's cached figures are worked out again.
   followed by a write is refused once another worker has committed. Nothing
   is held over the generation, so a cancel does not wait for one. A run
   whose worker died after the claim stays running and is not run again.
+
+- **A late cancel leaves a finished run as it finished** (`actionagent`).
+  `AgentRun#cancel!` checked the status of its own copy of the run and
+  then wrote `cancelled` unconditionally. A cancel request that loaded the
+  run while it was running, and wrote after the worker had recorded its
+  result, turned a complete run into a cancelled one that still carried
+  its output, and replaced a failed run's error with "Cancelled by user".
+  The cancel now moves the run to `cancelled` in one conditional update,
+  as the execution job claims a pending run, and only from pending,
+  running or awaiting input. A run that finished first keeps its status,
+  output, error and completion time; `cancel!` returns false and reloads
+  the copy, so the API answers with the status the run ended in. A cancel
+  is broadcast once, where the callback and the method each sent it
+  before. Cancelling still does not stop a provider call already in
+  flight; it keeps that call's result from being recorded.
 
 ## [1.9.6] - 2026-10-29
 
@@ -1617,6 +1880,35 @@ finished must handle. Session Replay is now **Sessions** in the sidebar.
   do for `generate_later`. `InputRequest#arguments` holds the arguments of the
   paused call.
 
+- **`ActiveAgent::Evals::RubyLLM`** — the RubyLLM side of an evaluation,
+  which hosts driving RubyLLM conversations had been writing for themselves.
+  `require "active_agent/evals/ruby_llm"` (it requires `ruby_llm`;
+  `require "active_agent/evals"` alone still does not) gives two helpers, for
+  RubyLLM 1.16 and later and for 2.x:
+  - `RubyLLM.judge(label:, model:, provider:, context:, correlation:)`, a
+    `Judge` that answers from `context.chat(...)` and, with a `Correlation`,
+    traces each call under the kind it serves. `temperature:` and a
+    `configure:` hook set the chat up; any other keyword must be one
+    `RubyLLM::Chat.new` takes, and anything else raises when the judge is
+    built rather than failing every call. `on_usage:` reports each call's
+    model, tokens and cost.
+  - `RubyLLM.replay(messages)`, a `Replay` from a conversation's messages.
+    `acts_as_chat` records of either RubyLLM generation are read through
+    their own `to_llm`, so a 2.x table, or one between 2.x's upgrade and its
+    cleanup, replays the same as `RubyLLM::Message` values. Tool calls keep
+    the order the model made them in, each paired with the result that
+    answers it; one is errored when that result reports an error at its top
+    level — JSON whose `"error"` is a non-empty string, object or array, or
+    `true`; an MCP result with `"isError": true`; or the inspected
+    `{ error: "..." }` RubyLLM 1.x stores for a tool's error Hash with a
+    String error — with the error (JSON-encoded, at most 1,200 bytes) as its
+    detail. `input_tokens` counts the whole prompt, cache reads and writes
+    included. Cost is RubyLLM's own price, left nil when any message is
+    unpriced. The answer is the last reply after the last user message; a
+    conversation that stopped at a tool call or on the user's own message
+    has no answer and says so in its `error` (on RubyLLM 1.x, pass `answer:`
+    for a tool that ends the turn with `halt`).
+
 ### Changed
 
 - **Confirm destructive actions in the dashboard's own dialog**
@@ -2331,34 +2623,6 @@ output in the shape ruby_llm reads. No migrations.
   `json_object`, which ruby_llm has no mode for, and a `json_schema`
   without a schema now raise `ArgumentError` instead of sending a request
   the API rejects (#501).
-- **`ActiveAgent::Evals::RubyLLM`** — the RubyLLM side of an evaluation,
-  which hosts driving RubyLLM conversations had been writing for themselves.
-  `require "active_agent/evals/ruby_llm"` (it requires `ruby_llm`;
-  `require "active_agent/evals"` alone still does not) gives two helpers, for
-  RubyLLM 1.16 and later and for 2.x:
-  - `RubyLLM.judge(label:, model:, provider:, context:, correlation:)`, a
-    `Judge` that answers from `context.chat(...)` and, with a `Correlation`,
-    traces each call under the kind it serves. `temperature:` and a
-    `configure:` hook set the chat up; any other keyword must be one
-    `RubyLLM::Chat.new` takes, and anything else raises when the judge is
-    built rather than failing every call. `on_usage:` reports each call's
-    model, tokens and cost.
-  - `RubyLLM.replay(messages)`, a `Replay` from a conversation's messages.
-    `acts_as_chat` records of either RubyLLM generation are read through
-    their own `to_llm`, so a 2.x table, or one between 2.x's upgrade and its
-    cleanup, replays the same as `RubyLLM::Message` values. Tool calls keep
-    the order the model made them in, each paired with the result that
-    answers it; one is errored when that result reports an error at its top
-    level — JSON whose `"error"` is a non-empty string, object or array, or
-    `true`; an MCP result with `"isError": true`; or the inspected
-    `{ error: "..." }` RubyLLM 1.x stores for a tool's error Hash with a
-    String error — with the error (JSON-encoded, at most 1,200 bytes) as its
-    detail. `input_tokens` counts the whole prompt, cache reads and writes
-    included. Cost is RubyLLM's own price, left nil when any message is
-    unpriced. The answer is the last reply after the last user message; a
-    conversation that stopped at a tool call or on the user's own message
-    has no answer and says so in its `error` (on RubyLLM 1.x, pass `answer:`
-    for a tool that ends the turn with `halt`).
 - **`ActionAgent::ProviderKey.credentials_for(owner)` and
   `.apply_to(config, owner:)`** (`actionagent`) hand an owner's API keys to
   code outside the engine — `{ "openai" => "sk-..." }`, or written through

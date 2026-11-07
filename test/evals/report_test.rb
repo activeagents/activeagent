@@ -7,11 +7,6 @@ require "cgi"
 class EvalsReportTest < ActiveSupport::TestCase
   include EvalsTestSupport
 
-  Result = ActiveAgent::Evals::Result
-  Diagnosis = ActiveAgent::Evals::Diagnosis
-  Report = ActiveAgent::Evals::Report
-
-  AVAILABLE = %w[find_tickets inbox_status index_status].freeze
   LINKS = { "mcp" => "/activeagents/mcp/%{key}", "tools" => "/activeagents/tools", "instructions" => "/activeagents/agents/1/edit" }.freeze
   SERVERS = {
     "index_status" => { "key" => "help_desk_status", "name" => "Help Desk Status", "status" => "enabled" },
@@ -19,33 +14,8 @@ class EvalsReportTest < ActiveSupport::TestCase
     "refund_order" => { "key" => "order_desk", "name" => "Order Desk", "status" => "available" }
   }.freeze
 
-  def models
-    @models ||= [ spec("gpt-5-mini"), spec("openrouter/meta-llama/llama-3.1-8b") ]
-  end
-
-  def gpt
-    models.first
-  end
-
-  def llama
-    models.last
-  end
-
   def resolver
     ->(name) { SERVERS[name] }
-  end
-
-  # A result whose diagnosis comes from the real Diagnosis, so the evidence
-  # has the shape the report reads; `judge:` adds the judge's refinement.
-  def result(scenario, spec, replay, score: 1.0, judge: nil)
-    scores = { "response_present" => replay.answer.present? ? 1.0 : 0.0 }
-    diagnosis = Diagnosis.call(scenario: scenario, replay: replay, scores: scores, score: score, available_tools: AVAILABLE)&.to_h
-    if diagnosis && judge
-      diagnosis["judge"] = judge
-      diagnosis["recommendation"] = judge["recommendation"] if judge["recommendation"]
-    end
-    Result.new(scenario: scenario, spec: spec, replay: replay, scores: scores, score: score,
-               status: replay.errored? ? "errored" : (diagnosis ? "failed" : "passed"), diagnosis: diagnosis)
   end
 
   # Five scenarios in three groups under two models: every fault type once,
@@ -819,5 +789,407 @@ class EvalsReportTest < ActiveSupport::TestCase
     assert_not_includes html, %(class="compare")
     assert_not_includes html, %(name="fix-model")
     assert_not_includes html, %(<div class="intervals">)
+  end
+
+  # --- pass gates --------------------------------------------------------------
+
+  def test_summary_by_group_counts_each_models_results_per_group_in_run_order
+    summary = gated_report.summary_by_group
+
+    assert_equal %w[orders help experimental], summary.keys
+    assert_equal [ "Order support", "Product help", "Experimental" ], summary.values.map { |group| group["name"] }
+    assert_equal({ "scenarios" => 2, "passed" => 1, "errored" => 0, "pass_rate" => 50.0, "avg_score" => 0.75, "faults" => { "low_quality" => 1 } },
+                 summary.dig("orders", "models", gpt.label))
+    assert_equal({ "scenarios" => 2, "passed" => 2, "errored" => 0, "pass_rate" => 100.0, "avg_score" => 1.0, "faults" => {} },
+                 summary.dig("orders", "models", llama.label))
+    assert_equal [ gpt.label ], summary.dig("help", "models").keys, "a model with no result in a group is absent"
+    assert_equal [ 1, 0, 1, 0.0, nil, { "run_error" => 1 } ], summary.dig("experimental", "models", llama.label).values
+    assert_equal "desk", report.summary_by_group.dig("desk", "name"), "a group without a display name reads as its key"
+    assert_equal({}, Report.new(results: [ gated_results.last ], models: models).summary_by_group, "an ungrouped scenario is in no group")
+  end
+
+  def test_gates_cover_each_group_and_model_then_the_whole_report_over_the_gated_results
+    gates = gated_report.gates
+
+    assert_equal [ %w[orders gpt-5-mini], [ "orders", llama.label ], %w[help gpt-5-mini], %w[experimental gpt-5-mini],
+                   [ "experimental", llama.label ], [ nil, "gpt-5-mini" ], [ nil, llama.label ] ],
+                 gates.map { |gate| [ gate.group, gate.label ] }
+    orders_gpt, orders_llama, help_gpt, experimental_gpt, experimental_llama, all_gpt, all_llama = gates
+    counts = ->(gate) { gate.to_h.values_at("name", "passed", "total", "pass_rate", "min_pass_rate", "gated", "met") }
+
+    assert_equal [ "Order support", 1, 2, 0.5, 1.0, true, false ], counts.call(orders_gpt)
+    assert_equal [ "Order support", 2, 2, 1.0, 1.0, true, true ], counts.call(orders_llama)
+    assert_equal [ "Product help", 1, 1, 1.0, 0.8, true, true ], counts.call(help_gpt)
+    assert_equal [ "Experimental", 0, 1, 0.0, 0.8, false, true ], counts.call(experimental_gpt), "an ungated group's gate is always met"
+    assert_equal [ "Experimental", 0, 1, 0.0, 0.8, false, true ], counts.call(experimental_llama)
+    assert_equal [ "All", 3, 4, 0.75, 0.8, true, false ], counts.call(all_gpt),
+                 "the whole-report row leaves out the ungated group and counts the ungrouped scenario"
+    assert_equal [ "All", 2, 2, 1.0, 0.8, true, true ], counts.call(all_llama)
+    assert gates.none? { |gate| gate.total.zero? }
+
+    assert_equal "Order support · gpt-5-mini: 1/2 (50%) passed, below 100%", orders_gpt.to_s
+    assert_equal "Order support · #{llama.label}: 2/2 (100%) passed, at or above 100%", orders_llama.to_s
+    assert_equal "Experimental · gpt-5-mini: 0/1 (0%) passed, not gated", experimental_gpt.to_s
+    assert_equal "All · gpt-5-mini: 3/4 (75%) passed, below 80%", all_gpt.to_s
+    assert_equal({ "group" => "orders", "name" => "Order support", "label" => "gpt-5-mini", "passed" => 1, "total" => 2, "pass_rate" => 0.5,
+                   "min_pass_rate" => 1.0, "gated" => true, "met" => false }, orders_gpt.to_h)
+  end
+
+  def test_passed_asks_every_gate_and_other_bars_can_be_tried_on_the_same_report
+    report = gated_report
+
+    assert_not report.passed?
+    assert_equal [ %w[orders gpt-5-mini], [ nil, "gpt-5-mini" ] ], report.gates.reject(&:met?).map { |gate| [ gate.group, gate.label ] }
+
+    lenient = PassThresholds.new(suite: { "min_pass_rate" => 0.5 }, groups: { "experimental" => { "gated" => false } })
+    assert report.passed?(lenient)
+    assert_equal 0.5, report.gates(lenient).first.min_pass_rate
+
+    strict = report.gates(PassThresholds.default)
+    assert_equal 7, strict.size
+    assert strict.all?(&:gated), "the defaults gate every group"
+    assert_equal [ [ nil, "gpt-5-mini", 3, 5 ], [ nil, llama.label, 2, 3 ] ],
+                 strict.last(2).map { |gate| [ gate.group, gate.label, gate.passed, gate.total ] }
+    assert_not Report.new(results: gated_results, models: models).passed?, "without bars, every scenario has to pass"
+    assert Report.new(results: gated_results.select(&:passed?), models: models).passed?
+    assert_not Report.new(results: [], models: models).passed?, "no results, no gate, nothing shown"
+  end
+
+  def test_failures_list_what_did_not_pass_in_run_order_and_narrow_to_a_group
+    report = gated_report
+
+    assert_equal [ %w[order_status gpt-5-mini], %w[exp_1 gpt-5-mini], [ "exp_1", llama.label ] ],
+                 report.failures.map { |result| [ result.scenario.key, result.label ] }
+    assert_equal [ "exp_1", "exp_1" ], report.failures(group: "experimental").map { |result| result.scenario.key }
+    assert_equal [ "order_status" ], report.failures(group: :orders).map { |result| result.scenario.key }
+    assert_empty report.failures(group: "help")
+  end
+
+  def test_to_h_carries_the_bars_the_groups_and_the_gates_only_when_the_suite_declared_bars
+    plain = Report.new(results: gated_results, models: models).to_h
+    assert_equal %w[models criteria recommendations verdict comparison results], plain.keys
+
+    gated = gated_report.to_h
+    assert_equal %w[models criteria recommendations verdict comparison pass_thresholds groups gates results], gated.keys
+    assert_equal THRESHOLDS.to_h, gated["pass_thresholds"]
+    assert_equal gated_report.summary_by_group, gated["groups"]
+    assert_equal gated_report.gates.map(&:to_h), gated["gates"]
+    assert_equal gated.to_json, JSON.parse(gated_report.to_json).to_json, "the gates serialize as plain JSON"
+    assert_equal false, JSON.parse(gated_report.to_json)["gates"].last(2).first["met"]
+    assert_equal plain.except("pass_thresholds", "groups", "gates"), gated.except("pass_thresholds", "groups", "gates"),
+                 "the bars change nothing else in the hash"
+  end
+
+  def test_to_h_names_the_threshold_the_answers_were_scored_at_when_an_explicit_one_wins
+    report = Report.new(results: gated_results, models: models, threshold: 0.9, pass_thresholds: THRESHOLDS)
+
+    assert_equal 0.9, report.to_h.dig("pass_thresholds", "threshold")
+    assert_equal THRESHOLDS.to_h.except("threshold"), report.to_h["pass_thresholds"].except("threshold")
+  end
+
+  def test_markdown_tables_the_pass_rate_by_group_and_lists_the_failures
+    report = gated_report
+    table = report.gates_markdown
+
+    assert_equal [ "## Pass rate by group", "", "| Group | Model | Passed | Pass rate | Bar | Mean score |", "|---|---|---|---|---|---|" ], table.first(4)
+    assert_equal "| Order support | `gpt-5-mini` | 1 of 2 | 50% ❌ | 100% | 75% |", table[4]
+    assert_equal "| Order support | `#{llama.label}` | 2 of 2 | 100% ✅ | 100% | 100% |", table[5]
+    assert_equal "| Product help | `gpt-5-mini` | 1 of 1 | 100% ✅ | 80% | 100% |", table[6]
+    assert_equal "| Experimental | `gpt-5-mini` | 0 of 1 | 0% — | not gated | 50% |", table[7]
+    assert_equal "| Experimental | `#{llama.label}` | 0 of 1 | 0% — | not gated | — |", table[8]
+    assert_equal "| All | `gpt-5-mini` | 3 of 4 | 75% ❌ | 80% | 80% |", table[9], "an All row's mean score is the model's over every result"
+    assert_equal "| All | `#{llama.label}` | 2 of 2 | 100% ✅ | 80% | 100% |", table[10]
+    assert_equal 11, table.size
+    assert_includes report.gates_markdown(PassThresholds.default), "| Experimental | `gpt-5-mini` | 0 of 1 | 0% ❌ | 100% | 50% |"
+
+    markdown = report.to_markdown
+    assert_includes markdown, "\n## Pass rate by group\n\n| Group |"
+    assert_operator markdown.index("| Model | Passed |"), :<, markdown.index("## Pass rate by group")
+    assert_operator markdown.index("## Pass rate by group"), :<, markdown.index("**Best model")
+    assert_not_includes markdown, "\n\n\n"
+    assert_not_includes Report.new(results: gated_results, models: models).to_markdown, "Pass rate by group"
+    assert_not_includes Report.new(results: [], models: models, pass_thresholds: THRESHOLDS).to_markdown, "Pass rate by group", "no results, no table"
+
+    piped = grouped("pipe_1", "Compare a | b", "pipes", "Pipes | bars\nand more")
+    piped_row = Report.new(results: [ result(piped, gpt, replay(answer: "a | b", tool_calls: [ { "name" => "inbox_status" } ])) ],
+                           models: [ gpt ], pass_thresholds: THRESHOLDS).gates_markdown[4]
+    assert_equal "| Pipes \\| bars and more | `gpt-5-mini` | 1 of 1 | 100% ✅ | 80% | 100% |", piped_row, "a group name is escaped like any cell"
+
+    failures = report.failures_markdown
+    assert_equal 3, failures.lines.size
+    assert failures.start_with?("- `order_status` on `gpt-5-mini`: low quality — Scored 50% against a pass threshold of 70%"), failures
+    assert_includes failures, "- `exp_1` on `#{llama.label}`: run error — The run failed before the agent answered: RuntimeError: provider down"
+    assert_equal 2, report.failures_markdown(group: "experimental").lines.size
+    assert_equal "_Nothing failed._", report.failures_markdown(group: "help")
+
+    undiagnosed = Result.new(scenario: scenario("s_1", "Ping"), spec: gpt, replay: replay(answer: "", error: "timed out"), scores: {}, score: nil, status: "errored")
+    assert_equal "- `s_1` on `gpt-5-mini`: errored — timed out", Report.new(results: [ undiagnosed ], models: [ gpt ]).failures_markdown
+    unexplained = Result.new(scenario: scenario("f_1", "Ping"), spec: gpt, replay: replay(answer: "Pong."), scores: {}, score: 0.2, status: "failed")
+    assert_equal "- `f_1` on `gpt-5-mini`: failed", Report.new(results: [ unexplained ], models: [ gpt ]).failures_markdown,
+                 "a failed result without a diagnosis reads as its status"
+  end
+
+  def test_html_tones_each_group_row_by_its_gate_and_names_the_bar
+    html = gated_report.to_html
+
+    assert_includes html, %(<span class="group-name">Order support</span><span class="count">2 scenarios</span>) +
+                          %(<span class="group-pass text-error" title="pass rate ≥ 100%">1/2 · 50% passed</span>) +
+                          %(<span class="group-pass text-success" title="pass rate ≥ 100%">2/2 · 100% passed</span>)
+    assert_includes html, %(<span class="group-pass text-success" title="pass rate ≥ 80%">1/1 · 100% passed</span><span class="group-pass">—</span>)
+    assert_includes html, %(<span class="group-pass" title="not gated">0/1 · 0% passed</span><span class="group-pass" title="not gated">0/1 · 0% passed</span>)
+
+    untoned = Report.new(results: gated_results, models: models).to_html
+    assert_includes untoned, %(<span class="group-pass">1/2 · 50% passed</span><span class="group-pass text-success">2/2 · 100% passed</span>)
+    assert_includes untoned, %(<span class="group-pass text-error">0/1 · 0% passed</span><span class="group-pass text-error">0/1 · 0% passed</span>)
+    assert_not_includes untoned, "title=\"pass rate", "without bars the group rows read as they always did"
+  end
+
+  def test_a_model_whose_results_all_sit_in_an_ungated_group_has_no_all_row
+    lookup = grouped("order_lookup", "Where is order ABC-123?", "orders", "Order support")
+    experiment = grouped("exp_1", "Draft a reply in the customer's tone.", "experimental", "Experimental")
+    called = [ { "name" => "inbox_status" } ]
+    report = Report.new(results: [
+      result(lookup, gpt, replay(answer: "It shipped on Monday.", tool_calls: called)),
+      result(experiment, gpt, replay(answer: "Dear customer.", tool_calls: called), score: 0.5),
+      result(experiment, llama, replay(answer: "Dear customer.", tool_calls: called), score: 0.5)
+    ], models: models, pass_thresholds: THRESHOLDS)
+    gates = report.gates
+
+    assert_equal [ %w[orders gpt-5-mini], %w[experimental gpt-5-mini], [ "experimental", llama.label ], [ nil, "gpt-5-mini" ] ],
+                 gates.map { |gate| [ gate.group, gate.label ] }
+    assert gates.none? { |gate| gate.total.zero? }
+    assert report.passed?
+    assert_not report.passed?(PassThresholds.default), "gated, the experimental failures count"
+  end
+
+  def test_the_pass_thresholds_set_the_criterion_threshold_unless_one_is_given
+    strict = PassThresholds.new(suite: { "threshold" => 0.9 })
+    scored = Result.new(scenario: scenario("s_1", "Ping"), spec: gpt, replay: replay(answer: "Pong."), scores: { "quality" => 0.8 }, score: 0.8, status: "passed")
+    build = ->(**options) { Report.new(results: [ scored ], models: [ gpt ], **options) }
+
+    assert_equal 1, build.call.criterion_scores.dig("quality", "passed")
+    assert_equal 0, build.call(pass_thresholds: strict).criterion_scores.dig("quality", "passed")
+    assert_equal 1, build.call(pass_thresholds: strict, threshold: 0.7).criterion_scores.dig("quality", "passed"), "an explicit threshold wins"
+    assert_includes build.call(pass_thresholds: strict).to_html, "pass ≥ 90%"
+    assert_includes build.call.to_html, "pass ≥ 70%"
+  end
+
+  def test_html_group_rows_count_their_own_scenarios_when_a_group_is_split_or_has_a_name_but_no_key
+    called = [ { "name" => "inbox_status" } ]
+    first = grouped("order_lookup", "Where is order ABC-123?", "orders", "Order support")
+    other = grouped("help_cancel", "How do I cancel my order?", "help", "Product help")
+    second = grouped("order_status", "Has order ABC-123 shipped?", "orders", "Order support")
+    named = Scenario.from_hash({ "key" => "named_only", "prompt" => "Hello?", "group_name" => "Named only", "expectations" => { "tools" => [ "inbox_status" ] } })
+    results = [
+      result(first, gpt, replay(answer: "It shipped on Monday.", tool_calls: called)),
+      result(other, gpt, replay(answer: "From the order page.", tool_calls: called)),
+      result(second, gpt, replay(answer: "Probably.", tool_calls: called), score: 0.5),
+      result(named, gpt, replay(answer: "Yes.", tool_calls: called))
+    ]
+    rows = Report.new(results: results, models: [ gpt ]).to_html.scan(%r{<div class="mx group">.*?</div>})
+
+    assert_equal 4, rows.size
+    assert_includes rows[0], %(<span class="group-name">Order support</span><span class="count">1 scenario</span><span class="group-pass text-success">1/1 · 100% passed</span>)
+    assert_includes rows[1], %(<span class="group-name">Product help</span><span class="count">1 scenario</span><span class="group-pass text-success">1/1 · 100% passed</span>)
+    assert_includes rows[2], %(<span class="group-name">Order support</span><span class="count">1 scenario</span><span class="group-pass text-error">0/1 · 0% passed</span>)
+    assert_includes rows[3], %(<span class="group-name">Named only</span><span class="count">1 scenario</span><span class="group-pass text-success">1/1 · 100% passed</span>)
+
+    toned = Report.new(results: results, models: [ gpt ], pass_thresholds: THRESHOLDS).to_html
+    assert_includes toned, %(<span class="group-name">Named only</span><span class="count">1 scenario</span><span class="group-pass text-success">1/1 · 100% passed</span>),
+                    "a group with a name and no key has no gate, so its row reads by its counts"
+    toned_rows = toned.scan(%r{<div class="mx group">.*?</div>})
+    assert_includes toned_rows[0], %(<span class="group-pass text-success" title="pass rate ≥ 100%">1/1 · 100% passed</span>),
+                    "a split group's row is toned by its own count against the group's bar"
+    assert_includes toned_rows[2], %(<span class="group-pass text-error" title="pass rate ≥ 100%">0/1 · 0% passed</span>)
+  end
+
+  # --- trials ------------------------------------------------------------------
+
+  # The five-scenario fixture with the inbox scenario replayed twice more
+  # under gpt-5-mini: a second pass, then a wrong tool.
+  def trial_results
+    inbox = scenario("s_inbox", "Is the support inbox receiving email?", group: "desk", tools: [ "inbox_status" ])
+    results + [
+      result(inbox, gpt, replay(answer: "Still healthy.", tool_calls: [ { "name" => "inbox_status" } ], cost: 0.001), trial: 2),
+      result(inbox, gpt, replay(answer: "The inbox is fine.", tool_calls: [ { "name" => "find_tickets" } ]), score: 0.5, trial: 3)
+    ]
+  end
+
+  def trial_report(**options)
+    report(results: trial_results, **options)
+  end
+
+  # Two desk scenarios replayed three times under gpt-5-mini and twice under
+  # llama: gpt passes 2 of 3 inbox replays and 1 of 3 queue replays (a tool
+  # error, then a wrong tool), llama fails both inbox replays and passes
+  # both queue replays.
+  def flaky_report
+    inbox = scenario("s_inbox", "Is the support inbox receiving email?", group: "desk", tools: [ "inbox_status" ])
+    queue = scenario("s_queue", "Is the reply queue backed up?", group: "desk", tools: [ "inbox_status" ])
+    healthy = ->(cost = 0.001) { replay(answer: "All healthy.", tool_calls: [ { "name" => "inbox_status" } ], cost: cost) }
+    wrong_tool = -> { replay(answer: "The inbox is fine.", tool_calls: [ { "name" => "find_tickets" } ], cost: 0.001) }
+    broken_tool = replay(answer: "The check failed.", tool_calls: [ { "name" => "inbox_status", "error" => true, "detail" => "timeout" } ], cost: 0.001)
+    unchecked = -> { replay(answer: "I cannot check that.") }
+    Report.new(models: models, results: [
+      result(inbox, gpt, healthy.call, trial: 1),
+      result(inbox, gpt, healthy.call, trial: 2),
+      result(inbox, gpt, wrong_tool.call, score: 0.5, trial: 3),
+      result(queue, gpt, healthy.call, trial: 1),
+      result(queue, gpt, broken_tool, score: 0.5, trial: 2),
+      result(queue, gpt, wrong_tool.call, score: 0.5, trial: 3),
+      result(inbox, llama, unchecked.call, score: 0.5, trial: 1),
+      result(inbox, llama, unchecked.call, score: 0.5, trial: 2),
+      result(queue, llama, healthy.call(nil), trial: 1),
+      result(queue, llama, healthy.call(nil), trial: 2)
+    ])
+  end
+
+  def test_model_summaries_count_every_replay_with_the_distinct_scenarios_beside_it
+    assert_equal [ 5, 5, 1 ], report.summary_by_model[gpt.label].values_at("scenarios", "unique_scenarios", "passed")
+    assert_equal 1, report.trials
+
+    summary = trial_report.summary_by_model
+    assert_equal [ 7, 5, 2, 28.6 ], summary[gpt.label].values_at("scenarios", "unique_scenarios", "passed", "pass_rate")
+    assert_equal [ 5, 5, 3 ], summary[llama.label].values_at("scenarios", "unique_scenarios", "passed")
+    assert_equal 3, trial_report.trials
+    assert_equal [ 6, 2 ], flaky_report.summary_by_model[gpt.label].values_at("scenarios", "unique_scenarios")
+  end
+
+  def test_the_verdict_counts_replays_of_scenarios_only_when_a_model_replayed_them
+    assert_match(/\APassed 3 of 5 scenarios \(60%\) with a mean score of 80%\.\z/, report.verdict["rationale"])
+    assert_equal "Passed 3 of 6 replays of 2 scenarios (50%) with a mean score of 75% at $0.0060.", flaky_report.verdict["rationale"]
+  end
+
+  def test_the_matrix_cell_runs_the_trials_marks_together_with_their_mean_score_and_commonest_fault
+    rows = flaky_report.to_markdown.lines
+
+    assert_includes rows.find { |line| line.include?("`s_inbox`") }, "| ✅✅❌ 83% expected tool not called |"
+    assert_includes rows.find { |line| line.include?("`s_queue`") }, "| ✅❌❌ 67% tool error | ✅✅ 100% |", "a tie between faults goes to the first trial's"
+    assert_includes report.to_markdown, "| `s_inbox` Is the support inbox receiving email? | ✅ 100% | ✅ 100% | ~$0.0012 |"
+  end
+
+  def test_scenario_markdown_lists_each_trial_as_its_own_row_and_answer
+    markdown = trial_report.scenario_markdown("s_inbox")
+    rows = markdown.lines.select { |line| line.start_with?("| `") }
+
+    assert_equal [ "| `gpt-5-mini` · trial 1 | ✅ passed | 100% | inbox_status | — | $0.0012 |",
+                   "| `gpt-5-mini` · trial 2 | ✅ passed | 100% | inbox_status | — | $0.0010 |",
+                   "| `gpt-5-mini` · trial 3 | ❌ failed | 50% | find_tickets | expected tool not called | — |",
+                   "| `openrouter/meta-llama/llama-3.1-8b` | ✅ passed | 100% | inbox_status, check_async | — | — |" ], rows.map(&:chomp)
+    assert_includes markdown, "**`gpt-5-mini` · trial 3** — ❌ failed\n\nFault: expected tool not called"
+    assert_includes markdown, "**`openrouter/meta-llama/llama-3.1-8b`** — ✅ passed", "a model with one replay keeps its plain name"
+    assert_includes markdown, "> Still healthy."
+    assert_equal 4, markdown.scan("** — ").size, "one answer block per replay"
+    assert_includes trial_report.to_markdown,
+                    "<summary><code>s_inbox</code> Is the support inbox receiving email? — ✅✅❌ gpt-5-mini · ✅ openrouter/meta-llama/llama-3.1-8b</summary>",
+                    "the folded summary runs a replayed model's marks together"
+  end
+
+  def test_failures_markdown_names_the_trial_of_each_failing_replay
+    assert_equal [ "- `s_inbox` on `gpt-5-mini` · trial 3: expected tool not called — Expected inbox_status to be called; the agent called find_tickets.",
+                   "- `s_queue` on `gpt-5-mini` · trial 2: tool error — Tool inbox_status returned an error while answering.",
+                   "- `s_queue` on `gpt-5-mini` · trial 3: expected tool not called — Expected inbox_status to be called; the agent called find_tickets.",
+                   "- `s_inbox` on `#{llama.label}` · trial 1: missing capability — The agent said it lacks the ability to perform this task.",
+                   "- `s_inbox` on `#{llama.label}` · trial 2: missing capability — The agent said it lacks the ability to perform this task." ],
+                 flaky_report.failures_markdown(group: "desk").lines(chomp: true)
+
+    failures = trial_report.failures_markdown.lines(chomp: true)
+    assert_includes failures, "- `s_inbox` on `gpt-5-mini` · trial 3: expected tool not called — Expected inbox_status to be called; the agent called find_tickets.",
+                    "a replayed scenario names the trial even when only one replay failed"
+    assert_includes failures, "- `s_queue` on `gpt-5-mini`: expected tool not called — Expected inbox_status to be called; the agent called find_tickets.",
+                    "a scenario the model ran once keeps the plain line"
+    assert_equal failures, trial_report.failures.map { |result| trial_report.failure_markdown(result) }, "failures_markdown is built from failure_markdown"
+  end
+
+  def test_a_single_trial_reports_failure_lines_name_no_trial
+    single = report.failures_markdown.lines(chomp: true)
+
+    assert_equal 6, single.size
+    assert_equal "- `s_queue` on `gpt-5-mini`: expected tool not called — Expected inbox_status to be called; the agent called find_tickets.", single.first
+    assert single.all? { |line| line.match?(/\A- `[^`]+` on `[^`]+`: /) }, single.join("\n")
+    assert_not_includes report.failures_markdown, "trial"
+    assert_not_includes gated_report.failures_markdown, "trial"
+  end
+
+  def test_gates_over_replayed_scenarios_count_every_replay_and_passed_follows_the_bars
+    report = replayed_report
+    gates = report.gates
+
+    assert_equal 3, report.trials
+    assert_equal [ [ "orders", 5, 6 ], [ "help", 2, 3 ], [ "experimental", 0, 3 ], [ nil, 9, 12 ] ],
+                 gates.map { |gate| [ gate.group, gate.passed, gate.total ] },
+                 "the All row counts the 12 gated replays, the ungated experimental ones left out"
+    assert_equal [ "Order support · gpt-5-mini: 5/6 (83%) passed, below 100%",
+                   "Product help · gpt-5-mini: 2/3 (67%) passed, below 80%",
+                   "Experimental · gpt-5-mini: 0/3 (0%) passed, not gated",
+                   "All · gpt-5-mini: 9/12 (75%) passed, below 80%" ], gates.map(&:to_s)
+    assert_equal [ 6, 5 ], report.summary_by_group.dig("orders", "models", gpt.label).values_at("scenarios", "passed")
+    assert_equal [ "| Order support | `gpt-5-mini` | 5 of 6 | 83% ❌ | 100% | 92% |",
+                   "| Product help | `gpt-5-mini` | 2 of 3 | 67% ❌ | 80% | 83% |",
+                   "| Experimental | `gpt-5-mini` | 0 of 3 | 0% — | not gated | 50% |",
+                   "| All | `gpt-5-mini` | 9 of 12 | 75% ❌ | 80% | 80% |" ], report.gates_markdown.last(4)
+    assert_equal [ [ 5, 6 ], [ 9, 12 ] ], report.to_h["gates"].values_at(0, 3).map { |gate| gate.values_at("passed", "total") }
+
+    assert_not report.passed?
+    assert report.passed?(LENIENT)
+    groups = { "orders" => { "min_pass_rate" => 0.8 }, "help" => { "min_pass_rate" => 0.6 }, "experimental" => { "gated" => false } }
+    assert report.passed?(PassThresholds.new(suite: { "min_pass_rate" => 0.75 }, groups: groups)), "5/6 clears 80%, 2/3 clears 60%, and 9/12 meets 75%"
+    assert_not report.passed?(PassThresholds.new(suite: { "min_pass_rate" => 0.76 }, groups: groups)),
+               "one more point on the suite's bar and the All row's 9/12 falls short"
+  end
+
+  def test_to_h_and_the_markdown_name_the_trials_only_when_a_scenario_was_replayed
+    assert_not report.to_h.key?("trials")
+    assert report.to_h["results"].none? { |entry| entry.key?("trial") }, "a single-trial report serializes as an earlier gem wrote it"
+    assert_not_includes report.to_markdown, "replayed"
+
+    hash = trial_report.to_h
+    assert_equal 3, hash["trials"]
+    assert_equal %w[models trials criteria recommendations verdict comparison metadata results], hash.keys
+    assert_equal [ 1, 1, 2, 3 ], hash["results"].select { |entry| entry["scenario_key"] == "s_inbox" }.map { |entry| entry["trial"] }
+    assert_includes trial_report.to_markdown,
+                    "No judge; scored on rules and expectations alone.\n\nEach scenario was replayed 3 times; a model's pass rate counts every replay.\n\n| Model | Passed |"
+  end
+
+  def test_html_renders_a_trials_cell_per_replayed_model_and_names_the_trials_beside_the_scenario_count
+    html = visible(flaky_report.to_html)
+
+    assert_includes html, "<title>Evaluation — 2 scenarios × 2 models · 3 trials per scenario</title>"
+    assert_includes html, %(<div class="micro">Scenario runs</div><div class="value">10</div><div class="sub">2 scenarios × 2 models · 3 trials per scenario</div>)
+    assert_includes html, %(<span class="meta">2 scenarios in 1 group · 3 trials per scenario</span>)
+    assert_includes html, %(<div class="cell"><div class="top"><span class="s">2/3 · 67% passed</span></div>) +
+                          %(<div class="top trial"><span class="muted">1</span><span class="g tone-success">[+]</span><span class="s tone-success">100%</span></div>) +
+                          %(<div class="top trial"><span class="muted">2</span><span class="g tone-success">[+]</span><span class="s tone-success">100%</span></div>) +
+                          %(<div class="top trial"><span class="muted">3</span><span class="g tone-error">[!]</span><span class="s tone-error">50%</span><span class="f">expected tool not called</span></div>) +
+                          %(<div class="cost-line">$0.0030</div></div>)
+    assert_includes html, %(<span class="s tone-error">0/2 · 0% passed</span>)
+    assert_includes html, %(<span class="s tone-success">2/2 · 100% passed</span>)
+    assert_includes html, %(<span class="group-pass">3/6 · 50% passed</span><span class="group-pass">2/4 · 50% passed</span>), "a group counts every replay"
+    assert_includes html, %(<span class="name">gpt-5-mini</span><span class="micro sm">trial 3</span><span class="badge error">failed · 50%</span>)
+    assert_equal 4, html.scan(%(<span class="micro sm">trial 2</span>)).size, "every model replayed every scenario at least twice"
+    assert_equal 2, html.scan(%(<span class="micro sm">trial 3</span>)).size, "only gpt-5-mini replayed them a third time"
+    ids = html.scan(/ id="([^"]*)"/).flatten
+    assert_equal ids.uniq, ids, "every id stays unique across the trials"
+
+    single = report.to_html
+    assert_not_includes single, "trials per scenario"
+    assert_not_includes single, %(class="top trial")
+    assert_not_includes single, ">trial "
+  end
+
+  def test_the_trials_cells_cost_line_sums_the_replays_and_marks_an_estimate_or_a_missing_price
+    inbox = scenario("s_inbox", "Is the support inbox receiving email?", group: "desk", tools: [ "inbox_status" ])
+    healthy = ->(trial, **attributes) { result(inbox, gpt, replay(answer: "All healthy.", tool_calls: [ { "name" => "inbox_status" } ], **attributes), trial: trial) }
+    estimated = Report.new(models: [ gpt ], results: [
+      healthy.call(1, cost: 0.001, metadata: { "cost_source" => "reported" }),
+      healthy.call(2, input_tokens: 100, output_tokens: 10, cost: 0.002,
+                      metadata: { "cost_source" => "estimated", "cost_rate" => RATE, "judge_usage" => { "calls" => 1, "cost" => 0.0005 } })
+    ])
+    partly_priced = Report.new(models: [ gpt ], results: [ healthy.call(1, cost: 0.001), healthy.call(2) ])
+
+    assert_includes estimated.to_html,
+                    %(<div class="cost-line" title="estimated: 100 in × $5.00/M + 10 out × $30.00/M · catalog rate">~$0.0030 · judge $0.000500</div>)
+    assert_includes partly_priced.to_html, %(<div class="cost-line">~$0.0010</div>),
+                    "a replay with no price makes the sum a lower bound, with no token working to show"
   end
 end

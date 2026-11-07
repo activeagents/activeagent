@@ -14,7 +14,33 @@ module ActiveAgent
       # pass rate itself, no judge having been available to rule on them.
       PASS_RATE_JUDGE = "pass rate"
 
-      attr_reader :results, :models, :judge, :judge_label, :instructions, :metadata, :agent_name, :links, :tool_resolver
+      attr_reader :results, :models, :judge, :judge_label, :instructions, :metadata, :agent_name, :links, :tool_resolver,
+                  :pass_thresholds
+
+      # One group's (or the whole report's, with group nil and name "All")
+      # pass rate under one model against the bar the suite set for it.
+      # `pass_rate` and `min_pass_rate` are 0..1 fractions, so they compare
+      # directly and render with Format.percent; an ungated row is always met.
+      Gate = Struct.new(:group, :name, :label, :passed, :total, :pass_rate, :min_pass_rate, :gated, keyword_init: true) do
+        def met?
+          !gated || pass_rate >= min_pass_rate
+        end
+
+        def to_h
+          super.transform_keys(&:to_s).merge("met" => met?)
+        end
+
+        # "Order support · gpt-5-mini: 1/2 (50%) passed, below 100%" — one
+        # sentence a failing assertion can print.
+        def to_s
+          bar =
+            if !gated then "not gated"
+            elsif met? then "at or above #{Format.percent(min_pass_rate)}"
+            else "below #{Format.percent(min_pass_rate)}"
+            end
+          "#{name} · #{label}: #{Format.passes(passed, total, style: :markdown)} passed, #{bar}"
+        end
+      end
 
       # @param tool_resolver [#call, nil] maps a tool name to the MCP server
       #   that provides it — `{ "key", "name", "status" }` with status
@@ -41,15 +67,22 @@ module ActiveAgent
       # @param comparison [Hash, nil] a comparison already recorded for these
       #   results (Comparison#to_h). A report rebuilt from a persisted run
       #   renders the intervals that run recorded instead of resampling them.
-      def initialize(results:, models:, judge: nil, instructions: nil, threshold: PASS_THRESHOLD, metadata: {},
+      # @param threshold [Float, nil] the score an answer must reach to pass
+      #   a criterion; an explicit value wins over the `pass_thresholds` bar,
+      #   and without either it is PASS_THRESHOLD
+      # @param pass_thresholds [PassThresholds, nil] the bars the suite
+      #   declared: its threshold applies when none is given here, #gates
+      #   and #passed? read them, and `to_h` carries them with the per-group
+      #   summary and the gates.
+      def initialize(results:, models:, judge: nil, instructions: nil, threshold: nil, metadata: {},
                      tool_resolver: nil, agent_name: nil, links: {}, verdict: nil, judge_label: nil,
-                     judge_usage: nil, release: nil, comparison: nil)
+                     judge_usage: nil, release: nil, comparison: nil, pass_thresholds: nil)
         @results = results
         @models = models
         @judge = judge
         @judge_label = judge_label.presence
         @instructions = instructions
-        @threshold = threshold
+        @threshold = threshold || pass_thresholds&.threshold || PASS_THRESHOLD
         @metadata = metadata
         @tool_resolver = tool_resolver
         @agent_name = agent_name.presence || "the agent"
@@ -58,6 +91,7 @@ module ActiveAgent
         @run_judge_usage = judge_usage.is_a?(Hash) ? judge_usage.to_h.stringify_keys.presence : nil
         @release = release.is_a?(Hash) ? release.to_h.stringify_keys.compact.presence : nil
         @recorded_comparison = comparison.is_a?(Hash) ? comparison.to_h.deep_stringify_keys.presence : nil
+        @pass_thresholds = pass_thresholds
       end
 
       # The release of the agent this report scored, `{ "digest",
@@ -68,12 +102,20 @@ module ActiveAgent
         @models.size > 1
       end
 
-      # Per model, keyed by label: scenario count, passes, errors, pass rate,
-      # mean score, latency (mean, and the P50 and P95 by nearest rank,
-      # Statistics.percentile), tokens, cost and fault counts. "cost" sums
-      # the replays that carried a cost — "priced" of the "scenarios", of
-      # which "reported" came from the caller and "estimated" from tokens ×
-      # a model rate (Result#cost_source) — and is nil when none did.
+      # How many times each scenario was replayed under each model: the
+      # highest trial number any result carries, 1 for a run with none.
+      def trials
+        @results.map(&:trial).max || 1
+      end
+
+      # Per model, keyed by label: replay count ("scenarios", every trial of
+      # every scenario), distinct scenarios ("unique_scenarios"), passes,
+      # errors, pass rate over every replay, mean score, latency (mean, and
+      # the P50 and P95 by nearest rank, Statistics.percentile), tokens,
+      # cost and fault counts. "cost" sums the replays that carried a cost
+      # — "priced" of the "scenarios", of which "reported" came from the
+      # caller and "estimated" from tokens × a model rate
+      # (Result#cost_source) — and is nil when none did.
       # "judge_cost" and "judge_calls" sum what the judge spent on the
       # cohort's results (Result#judge_usage); the judge's cost never joins
       # the agent's.
@@ -90,6 +132,7 @@ module ActiveAgent
             "provider" => spec.provider,
             "model" => spec.model,
             "scenarios" => cohort.size,
+            "unique_scenarios" => cohort.map { |result| result.scenario.key }.uniq.size,
             "passed" => cohort.count(&:passed?),
             "errored" => cohort.count(&:errored?),
             "pass_rate" => cohort.any? ? (cohort.count(&:passed?) * 100.0 / cohort.size).round(1) : 0.0,
@@ -109,6 +152,58 @@ module ActiveAgent
             "faults" => cohort.filter_map(&:fault).tally
           } ]
         end
+      end
+
+      # Per group key, in run order, then per model under "models" (keyed by
+      # label, only the models with a result in the group): scenario count,
+      # passes, errors, pass rate as a percent, mean score and fault counts,
+      # counted as summary_by_model counts them. "name" is the group's
+      # display name, or its key. Scenarios with no group are left out.
+      def summary_by_group
+        @summary_by_group ||= begin
+          grouped = @results.select { |result| result.scenario.group.present? }.group_by { |result| result.scenario.group }
+          grouped.to_h do |group, cohort|
+            models = @models.filter_map do |spec|
+              rows = cohort.select { |result| result.label == spec.label }
+              [ spec.label, cohort_summary(rows) ] if rows.any?
+            end
+            [ group, { "name" => group_name(cohort.first.scenario), "models" => models.to_h } ]
+          end
+        end
+      end
+
+      # One Gate per group and model with results there, in summary_by_group
+      # order, then one per model for the whole report (group nil, name
+      # "All") over every gated result of that model, ungrouped results
+      # included; a model with no gated result has no "All" row. Each row
+      # carries the bar `thresholds` sets for its group.
+      def gates(thresholds = pass_thresholds || PassThresholds.default)
+        rows = summary_by_group.flat_map do |group, summary|
+          summary["models"].map do |label, stats|
+            gate(group, summary["name"], label, stats["passed"], stats["scenarios"],
+                 thresholds.min_pass_rate(group), thresholds.gated?(group))
+          end
+        end
+        gated = @results.select { |result| thresholds.gated?(result.scenario.group) }
+        rows + @models.filter_map do |spec|
+          cohort = gated.select { |result| result.label == spec.label }
+          gate(nil, "All", spec.label, cohort.count(&:passed?), cohort.size, thresholds.min_pass_rate(nil), true) if cohort.any?
+        end
+      end
+
+      # Whether every gate is met. A report with no gate, because no result
+      # reached it (a selection that matched nothing, every scenario left
+      # out as production_only), has shown nothing and does not pass.
+      def passed?(thresholds = pass_thresholds || PassThresholds.default)
+        rows = gates(thresholds)
+        rows.any? && rows.all?(&:met?)
+      end
+
+      # The results that did not pass — failed and errored — in run order,
+      # narrowed to one group when given.
+      def failures(group: nil)
+        failed = @results.reject(&:passed?)
+        group.nil? ? failed : failed.select { |result| result.scenario.group.to_s == group.to_s }
       end
 
       # Per scenario key, in run order: what every model's answer cost
@@ -258,7 +353,7 @@ module ActiveAgent
             cost = " at #{Format.money(stats['cost'], estimated: estimated_cost?(stats))}"
             cost += " (estimated)" if estimated_cost?(stats)
           end
-          rationale = "Passed #{stats['passed']} of #{stats['scenarios']} scenarios" \
+          rationale = "Passed #{stats['passed']} of #{counted_scenarios(stats)}" \
             " (#{Format.percent(stats['scenarios'].to_i.positive? ? stats['passed'].to_f / stats['scenarios'] : nil)})" \
             "#{" with a mean score of #{Format.score(stats['avg_score'])}" if stats['avg_score']}#{cost}."
           judged = @judge&.verdict(summary_by_model, instructions: @instructions)
@@ -286,21 +381,28 @@ module ActiveAgent
         @comparison ||= @recorded_comparison || Comparison.new(results: @results, models: @models).to_h
       end
 
-      # Adds "judge_usage" and "release" only when there is one to add, and
-      # "comparison" only when comparing models, so a single-model report
-      # built the way it always was serializes exactly as before.
+      # Adds "judge_usage" and "release" only when there is one to add,
+      # "comparison" only when comparing models, "trials" only when a scenario
+      # was replayed more than once, and "pass_thresholds" with the per-group
+      # summary ("groups") and the "gates" only when the suite declared its
+      # bars, so a single-model, single-trial report built the way it always
+      # was serializes exactly as before.
       def to_h
         {
           "models" => summary_by_model,
+          "trials" => (trials if trials > 1),
           "criteria" => criterion_scores,
           "recommendations" => recommendations,
           "verdict" => verdict,
           "comparison" => comparison,
+          "pass_thresholds" => pass_thresholds&.to_h&.merge("threshold" => @threshold),
+          "groups" => (summary_by_group if pass_thresholds),
+          "gates" => (gates.map(&:to_h) if pass_thresholds),
           "judge" => @judge_label || @judge&.label,
           "judge_usage" => judge_usage,
           "release" => release,
           "metadata" => @metadata.presence,
-          "results" => @results.map(&:to_h)
+          "results" => serialized_results
         }.compact
       end
 
@@ -309,6 +411,14 @@ module ActiveAgent
       end
 
       private
+
+      # Each result's hash; a single-trial report leaves out every "trial",
+      # so it is the JSON an earlier gem wrote and a re-delivery of it under
+      # the same run_id matches the stored digest.
+      def serialized_results
+        hashes = @results.map(&:to_h)
+        trials > 1 ? hashes : hashes.map { |hash| hash.except("trial") }
+      end
 
       # Whether a model summary's cost is an estimate — any replay priced
       # from tokens, or some replay unpriced, which leaves the sum a lower
@@ -339,8 +449,35 @@ module ActiveAgent
         stats["cost"].to_f / priced if stats["cost"] && priced.positive?
       end
 
+      # The denominator a verdict names: "6 scenarios", or "18 replays of 6
+      # scenarios" when the model replayed each more than once.
+      def counted_scenarios(stats)
+        replays = stats["scenarios"].to_i
+        unique = stats["unique_scenarios"].to_i
+        replays > unique ? "#{replays} replays of #{unique} scenarios" : "#{replays} scenarios"
+      end
+
       def criterion_keys
         @results.flat_map { |result| result.scores.keys }.uniq
+      end
+
+      # One model's counts over the results of a group, the way
+      # summary_by_model counts a model's whole cohort.
+      def cohort_summary(cohort)
+        scored = cohort.filter_map(&:score)
+        {
+          "scenarios" => cohort.size,
+          "passed" => cohort.count(&:passed?),
+          "errored" => cohort.count(&:errored?),
+          "pass_rate" => cohort.any? ? (cohort.count(&:passed?) * 100.0 / cohort.size).round(1) : 0.0,
+          "avg_score" => scored.any? ? (scored.sum / scored.size).round(3) : nil,
+          "faults" => cohort.filter_map(&:fault).tally
+        }
+      end
+
+      def gate(group, name, label, passed, total, min_pass_rate, gated)
+        Gate.new(group: group, name: name, label: label, passed: passed, total: total,
+                 pass_rate: passed.to_f / total, min_pass_rate: min_pass_rate, gated: gated)
       end
 
       def stats_for(values)
@@ -628,15 +765,23 @@ module ActiveAgent
         header = [ "| Scenario | #{labels.map { |label| cell("`#{label}`") }.join(' | ')} | Cost |", "|---|#{labels.map { '---' }.join('|')}|---|" ]
         rows = @results.group_by { |result| result.scenario.key }.map do |key, cohort|
           cells = labels.map do |label|
-            result = cohort.find { |candidate| candidate.label == label }
-            next "—" unless result
-
-            mark = result.passed? ? "✅" : (result.errored? ? "⚠️" : "❌")
-            cell([ mark, (Format.score(result.score) if result.score), result.fault&.tr("_", " ") ].compact.join(" "))
+            mine = cohort.select { |candidate| candidate.label == label }.sort_by(&:trial)
+            mine.empty? ? "—" : cell(matrix_cell_text(mine))
           end
           "| #{cell("`#{key}` #{cohort.first.scenario.prompt.truncate(70)}")} | #{cells.join(' | ')} | #{scenario_cost_cell(key)} |"
         end
         header + rows
+      end
+
+      # "✅ 100%" or "❌ 50% missing capability" for one result; for a
+      # scenario replayed more than once, every trial's mark run together
+      # ("✅✅❌"), the mean of the trials' scores, and the fault seen most
+      # often among them (a tie goes to the first seen).
+      def matrix_cell_text(results)
+        marks = results.map { |result| status_mark(result) }.join
+        scored = results.filter_map(&:score)
+        fault = results.filter_map(&:fault).tally.max_by(&:last)&.first
+        [ marks, (Format.score(scored.sum.fdiv(scored.size)) if scored.any?), fault&.tr("_", " ") ].compact.join(" ")
       end
 
       # "~$0.0243 (judge ~$0.0015)" for a scenario's total across models.

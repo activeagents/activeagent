@@ -255,17 +255,19 @@ module ActionAgent
     # for one the engine judged.
     #
     # The engine runs against every activeagent since 1.4, so the report
-    # kwargs that arrived later are passed only when Report.new takes them.
+    # kwargs that arrived later are passed only when Report.new takes them,
+    # and a result's trial only when Result carries one.
     def to_report(links: report_links, estimate: true)
       # A replay not yet scored (a fanned-out run in progress) is not a
       # result the report can grade, so it is left out rather than read as
       # a failure.
       rows = scenario_results.where.not(status: :pending).includes(:scenario).sort_by do |row|
-        [ row.evaluated_scenario["position"].to_i, row.evaluation_scenario_id, row.model ]
+        [ row.evaluated_scenario["position"].to_i, row.evaluation_scenario_id, row.model, row.trial, row.id ]
       end
       breakdown = cost_breakdown if estimate
       selected = selected_specs
       specs = {}
+      trials = self.class.result_accepts?(:trial)
       results = rows.map do |row|
         spec = specs[[ row.provider.to_s, row.model ]] ||= selected[[ row.provider.to_s, row.model ]] || ModelSpec.new(
           label: [ row.provider.presence, row.model ].compact.join("/"), provider: row.provider.to_s, model: row.model
@@ -280,7 +282,8 @@ module ActionAgent
             metadata: replay_metadata_for(row, breakdown)
           ),
           scores: row.scores.to_h, score: row.score, status: row.status,
-          diagnosis: row.evaluation_diagnosis.presence
+          diagnosis: row.evaluation_diagnosis.presence,
+          **(trials ? { trial: row.trial } : {})
         )
       end
 
@@ -315,6 +318,11 @@ module ActionAgent
     # Whether the installed framework's Report.new declares +keyword+.
     def self.report_accepts?(keyword)
       report_class.instance_method(:initialize).parameters.any? { |type, name| name == keyword && %i[key keyreq].include?(type) }
+    end
+
+    # Whether the installed framework's Result carries +member+.
+    def self.result_accepts?(member)
+      ActiveAgent::Evals::Result.members.include?(member)
     end
 
     # The release this run scored, as the report names it — `{ "digest",

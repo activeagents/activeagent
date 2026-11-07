@@ -7,15 +7,26 @@ opt-in: the payload contains the report's prompts, answers and tool results.
 ```ruby
 require "active_agent/evals"
 
-receipt = ActiveAgent::Evals::Publisher.new(
+publisher = ActiveAgent::Evals::Publisher.new(
   endpoint: ENV.fetch("ACTIVEAGENTS_EVALUATIONS_ENDPOINT"),
   api_key: ENV.fetch("ACTIVEAGENTS_API_KEY")
-).call(
-  report: report,
-  run_id: report.metadata.fetch("run_id"),
-  source: "support-app", agent_name: "SupportBot", suite: "orders"
 )
+receipt = publisher.call(report: report, source: "support-app", agent_name: "SupportBot", suite: "orders")
 ```
+
+The run is stored under the report's `run_id`, which `Correlation#with_run`
+records in `report.metadata["run_id"]` and the publisher reads from there, from
+a `Report` or its saved JSON hash alike. Pass `run_id:` to publish under
+another one; the keyword wins over the report:
+
+```ruby
+publisher.call(report: report, run_id: "ci-2026-10-21",
+  source: "support-app", agent_name: "SupportBot", suite: "orders")
+```
+
+The `run_id` is read under a String or Symbol key and must be a nonempty
+string. A report whose metadata carries none, published without the keyword,
+raises `ArgumentError` before anything is sent.
 
 ## Collectors
 
@@ -24,7 +35,7 @@ A collector is either the hosted platform or a Rails app that mounts the
 
 | Collector | Endpoint | Key |
 |---|---|---|
-| The hosted platform, when it offers one | `https://api.activeagents.ai/v1/evaluations` (the publisher's default) | An account API key |
+| The hosted platform ([setup](/framework/hosted_dashboard)) | `https://api.activeagents.ai/v1/evaluations` (the publisher's default) | A workspace API key (Settings → API Keys), or the workspace telemetry key |
 | A full install of the `actionagent` engine (not one generated with `--traces-only`) | `<mount>/api/evaluation_reports`, e.g. `https://ops.example.com/activeagents/api/evaluation_reports` | The install's `ActionAgent.ingest_api_key`, or the tenant's key on a multi-tenant install |
 
 A self-hosted collector authenticates exactly as the engine's trace ingest
@@ -39,6 +50,18 @@ ACTIVEAGENTS_API_KEY=<the mount's ingest_api_key>
 The engine stores the report as its own evaluation rows, so the dashboard's
 Evaluations page shows it the way it shows a run the dashboard executed. See
 [Self-hosted collector](#self-hosted-collector) below.
+
+`Publisher.from_env` builds the publisher from those variables:
+`ACTIVEAGENTS_EVALUATIONS_ENDPOINT` (the hosted platform's endpoint when it is
+unset or blank), `ACTIVEAGENTS_API_KEY` (required; unset or blank raises
+`ArgumentError`), and `ACTIVEAGENTS_DASHBOARD_URL`, the address people open the
+dashboard at when it is not the collector's, which the receipt's `url` path is
+resolved against (see [The envelope and the receipt](#the-envelope-and-the-receipt)).
+It reads `ENV`, or the hash it is given.
+
+```ruby
+ActiveAgent::Evals::Publisher.from_env.call(report: report, source: "support-app", agent_name: "SupportBot", suite: "orders")
+```
 
 ## The envelope and the receipt
 
@@ -72,11 +95,30 @@ Anything else raises `Publisher::Error` (see [Errors and retries](#errors-and-re
 Save the report before calling the publisher so a rejected upload does not
 discard an expensive evaluation. The publisher does not follow redirects.
 
+A receipt's `url` is the run's page on the dashboard. A collector sends it as
+a path beginning with `/` (the engine's is
+`<mount>/evaluations/:evaluation_id/runs/:id`), and `call` and `progress` both
+return that path joined onto the publisher's `dashboard_url`, by default the
+endpoint's origin, so
+`https://ops.example.com/activeagents/api/evaluation_reports` resolves
+`/activeagents/evaluations/7/runs/42` to
+`https://ops.example.com/activeagents/evaluations/7/runs/42`. Give
+`Publisher.new(dashboard_url:)` (or `ACTIVEAGENTS_DASHBOARD_URL`) an HTTP(S)
+URL when people reach the dashboard at another address than the collector's.
+`Publisher#dashboard_url` returns the URL given, and the receipt's path, which
+already carries the engine's mount, replaces any path on it; a URL carrying
+credentials, a query or a fragment is refused. A `url` that is already
+absolute, or that is neither a path nor absolute (a relative reference without
+a leading slash, a `//host/path` reference, or a path that is not a valid
+URI), is returned as the collector sent it, a receipt without one gets none,
+and nothing else in the receipt changes.
+
 To retry delivery without repeating model calls, load the saved report JSON and
-pass that hash as `report`, with the **same** run ID and envelope identities. A
-compatible collector treats the report as immutable within its authenticated
-account: identical delivery is idempotent; different content with the same run
-ID is a conflict. Never change the report's IDs between retries.
+pass that hash as `report`, with the **same** run ID (the saved report's
+metadata carries it) and envelope identities. A compatible collector treats the
+report as immutable within its authenticated account: identical delivery is
+idempotent; different content with the same run ID is a conflict. Never change
+the report's IDs between retries.
 
 ## Checking the collector before a run
 
@@ -93,8 +135,7 @@ publisher = ActiveAgent::Evals::Publisher.new(
 publisher.verify! # true, or raises Publisher::Error
 
 report = run_the_evaluation
-publisher.call(report: report, run_id: report.metadata.fetch("run_id"),
-  source: "support-app", agent_name: "SupportBot", suite: "orders")
+publisher.call(report: report, source: "support-app", agent_name: "SupportBot", suite: "orders")
 ```
 
 The check posts an empty JSON object. A compatible collector authenticates the
@@ -114,7 +155,10 @@ to prove: a 422 there confirms the collector is reachable and its evaluation
 store is migrated, and nothing more.
 
 `Publisher#endpoint` returns the collector URL as a string, for a message that
-names where a report goes.
+names where a report goes, and `Publisher#dashboard_url` the address a
+receipt's `url` path is resolved against: the `dashboard_url` given, else the
+endpoint's origin, except that the hosted collector at `api.activeagents.ai`
+resolves to `https://activeagents.ai`, where the dashboard is signed in to.
 
 ## Showing a run while it is in progress
 
@@ -166,8 +210,9 @@ publisher cannot use raise `ArgumentError` before anything is sent:
 
 - an endpoint that is not an HTTP(S) URL, uses plain HTTP off loopback, or carries credentials, a query or a fragment
 - a missing or blank API key, or one with characters other than visible ASCII once surrounding whitespace is stripped
+- a `dashboard_url` that is not an HTTP(S) URL, or carries credentials, a query or a fragment
 - a timeout that is not a positive, finite number
-- a `run_id`, `source`, `agent_name` or `suite` that is not a nonblank string
+- a `run_id`, `source`, `agent_name` or `suite` that is not a nonblank string, or no `run_id` at all: none given and none in the report's metadata as a nonblank string
 - a `report` that is `nil`, an array, or anything else whose `to_h` does not return a hash
 
 Besides its message, `Publisher::Error` carries:
@@ -260,7 +305,7 @@ application's agent.
 
 | Response | When |
 |---|---|
-| 201 | The report was stored. The receipt carries `id`, `evaluation_id`, `run_id` (exactly as sent), `status: "complete"`, `duplicate: false` and `url`, the run's dashboard page (`<mount>/evaluations/:evaluation_id/runs/:id`). |
+| 201 | The report was stored. The receipt carries `id`, `evaluation_id`, `run_id` (exactly as sent), `status: "complete"`, `duplicate: false` and `url`, the run's dashboard page, sent as the path `<mount>/evaluations/:evaluation_id/runs/:id` and returned by the publisher as an absolute URL on the dashboard (see [The envelope and the receipt](#the-envelope-and-the-receipt)). |
 | 200 | The same report was already stored under this `run_id`, or the report is this install's own export of the run the `run_id` names ([Exporting a stored run](#exporting-a-stored-run)); the receipt names the stored run, with `duplicate: true`. A retry is answered before the quota and the rate limit are consulted, so a report that used the last unit of either still gets its receipt. |
 | 409 | A different report is already stored under this `run_id`. |
 | 422 | The report is not a valid version-1 report (the error names the field), or the agent already has an evaluation of that name that no report with this source, suite and scope created: publish under another suite or scope. |
@@ -287,8 +332,8 @@ A valid report has:
 - Scope values (`scope`, `environment`, `role` in the report metadata) of 1-100 letters,
   digits, spaces or `. : / @ _ -`, which together with the suite name an evaluation of at
   most 255 characters.
-- One result per scenario and model label, each label naming one provider/model and no two
-  labels the same one.
+- One result per scenario, model label and `trial` (an integer from 1 to 1000; absent or null reads
+  as 1), each label naming one provider/model and no two labels the same one.
 - Token counts and durations that fit a 32-bit integer, and a cost below 1,000,000 — in each
   result and in each `judge_usage`, whose `by_kind` counts are non-negative integers.
 - A `release.digest` of 1-64 letters, digits or `. _ -`, and a `revision` and `label` of at most 200.
@@ -310,7 +355,7 @@ no judge is recorded as scored on rules.
 | Agent | The observed agent for the envelope's `source` and `agent_name`. It is read-only, like the agents trace ingest observes. |
 | Evaluation | That agent's evaluation named for the `suite`, qualified by the report metadata's `scope`, `environment` and `role`, in that order: `orders (eu, support)`. |
 | Scenarios | One per reported scenario key, updated to the prompt and group the report ran. Scenarios the report did not run are left alone. |
-| Run | One complete run per tenant and `run_id`, with one scenario result per scenario and model, pinned to the agent version of `report.release` when the report names one. Each result keeps its `metadata` (`result_id`, `trace_id`, `judge_trace_ids`) and its `judge_usage`; `report.judge_usage.run` is kept on the run. |
+| Run | One complete run per tenant and `run_id`, with one scenario result per scenario, model and trial, pinned to the agent version of `report.release` when the report names one. Each result keeps its `metadata` (`result_id`, `trace_id`, `judge_trace_ids`) and its `judge_usage`; `report.judge_usage.run` is kept on the run. |
 
 On a single-tenant install the agent has no owner, as a traced agent has none, and a
 `run_id` is unique across the install. On a multi-tenant install the tenant is the account

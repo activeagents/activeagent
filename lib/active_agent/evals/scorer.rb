@@ -4,7 +4,8 @@ module ActiveAgent
   module Evals
     # Scores one Replay against an evaluation's criteria and the scenario's
     # expectations. Returns `criterion key => 0.0..1.0`, with nil for a
-    # criterion that could not be scored (an llm_judge criterion with no judge).
+    # criterion that could not be scored (an llm_judge criterion with no judge,
+    # or one the Scorer did not ask because the expectations failed).
     #
     # Criteria are `{ "key", "type", "config" }` hashes:
     #
@@ -22,41 +23,37 @@ module ActiveAgent
     class Scorer
       RULE_CRITERION_TYPES = %w[response_present min_length max_latency_ms token_budget contains not_contains].freeze
       CRITERION_TYPES = (RULE_CRITERION_TYPES + %w[llm_judge]).freeze
+      # The keys `score` adds from the scenario's own expectations.
+      EXPECTATION_KEYS = %w[expected_tools expected_content forbidden_content tools_succeeded].freeze
 
-      attr_reader :criteria, :judge
+      attr_reader :criteria, :judge, :judge_failed_expectations
 
-      def initialize(criteria: [], judge: nil)
+      # @param criteria [Array<Hash>] the criteria every replay is scored on
+      # @param judge [Judge, nil] scores the llm_judge criteria
+      # @param judge_failed_expectations [Boolean] whether an llm_judge criterion
+      #   is asked of a replay that missed one of its scenario's expectations;
+      #   false leaves it nil, since the replay fails on the expectation anyway
+      def initialize(criteria: [], judge: nil, judge_failed_expectations: true)
         @criteria = Array(criteria).map { |criterion| criterion.to_h.deep_stringify_keys }
         @judge = judge
+        @judge_failed_expectations = judge_failed_expectations
       end
 
       def score(scenario, replay)
         scores = {}
         answer = replay.answer.to_s
+        expectations = expectation_scores(scenario, replay)
+        ask_judge = answer.present? && (@judge_failed_expectations || self.class.expectations_met?(expectations))
 
         @criteria.each do |criterion|
-          scores[criterion["key"]] = answer.present? ? score_criterion(criterion, scenario, replay) : 0.0
+          scores[criterion["key"]] =
+            if answer.blank? then 0.0
+            elsif criterion["type"] == "llm_judge" && !ask_judge then nil
+            else score_criterion(criterion, scenario, replay)
+            end
         end
 
-        if scenario.expected_tools.any?
-          scores["expected_tools"] = (scenario.expected_tools & replay.tool_names).any? ? 1.0 : 0.0
-        end
-        if scenario.expected_patterns.any?
-          hits = scenario.expected_patterns.count { |pattern| self.class.matches_pattern?(answer, pattern) }
-          scores["expected_content"] = (hits.to_f / scenario.expected_patterns.size).round(3)
-        end
-        if scenario.forbidden_patterns.any?
-          hit = scenario.forbidden_patterns.any? { |pattern| self.class.matches_pattern?(answer, pattern) }
-          scores["forbidden_content"] = hit ? 0.0 : 1.0
-        end
-        # A tool that ran without erroring is evidence only when it is one the
-        # scenario expected: a wrong tool that succeeded used to outscore
-        # calling nothing at all.
-        if replay.tool_calls.any? && (scenario.expected_tools.empty? || (scenario.expected_tools & replay.tool_names).any?)
-          scores["tools_succeeded"] = replay.failed_tool_calls.any? ? 0.0 : 1.0
-        end
-
-        scores
+        scores.merge(expectations)
       end
 
       # The mean of the scored criteria, or nil when nothing could be scored.
@@ -65,6 +62,12 @@ module ActiveAgent
         return nil if scored.empty?
 
         (scored.sum / scored.size).round(3)
+      end
+
+      # Whether every expectation score in `scores` is a full 1.0. A scores
+      # hash with no expectation keys is met.
+      def self.expectations_met?(scores)
+        scores.slice(*EXPECTATION_KEYS).values.all? { |value| value.to_f >= 1.0 }
       end
 
       # How long one pattern may take to match one answer. Patterns are
@@ -89,6 +92,33 @@ module ActiveAgent
       end
 
       private
+
+      # The scores the scenario's own expectations add, in the order they appear
+      # after the criteria.
+      def expectation_scores(scenario, replay)
+        scores = {}
+        answer = replay.answer.to_s
+
+        if scenario.expected_tools.any?
+          scores["expected_tools"] = (scenario.expected_tools & replay.tool_names).any? ? 1.0 : 0.0
+        end
+        if scenario.expected_patterns.any?
+          hits = scenario.expected_patterns.count { |pattern| self.class.matches_pattern?(answer, pattern) }
+          scores["expected_content"] = (hits.to_f / scenario.expected_patterns.size).round(3)
+        end
+        if scenario.forbidden_patterns.any?
+          hit = scenario.forbidden_patterns.any? { |pattern| self.class.matches_pattern?(answer, pattern) }
+          scores["forbidden_content"] = hit ? 0.0 : 1.0
+        end
+        # A tool that ran without erroring is evidence only when it is one the
+        # scenario expected: a wrong tool that succeeded used to outscore
+        # calling nothing at all.
+        if replay.tool_calls.any? && (scenario.expected_tools.empty? || (scenario.expected_tools & replay.tool_names).any?)
+          scores["tools_succeeded"] = replay.failed_tool_calls.any? ? 0.0 : 1.0
+        end
+
+        scores
+      end
 
       def score_criterion(criterion, scenario, replay)
         config = criterion["config"] || {}

@@ -63,9 +63,35 @@ class EvalsCaptureMCPProvidersTest < ActiveSupport::TestCase
     end
   end
 
+  # The agents above with a tool_observer of their own, as an application
+  # defines one to audit its MCP calls. Each logs what it saw to `observed`.
+  module AuditsMCPCalls
+    extend ActiveSupport::Concern
+
+    included { class_attribute :observed, default: [] }
+
+    def tool_observer
+      proc do |name, arguments, &call|
+        result = call.call
+        observed << [ name, arguments, result ]
+        result
+      end
+    end
+  end
+
+  class ObservedChatAgent < ChatAgent
+    include AuditsMCPCalls
+  end
+
+  class ObservedMessagesAgent < MessagesAgent
+    include AuditsMCPCalls
+  end
+
   setup do
     ActiveAgent::Providers::MCPToolCache.reset!
     ChatAgent.orders = []
+    ObservedChatAgent.observed = []
+    ObservedMessagesAgent.observed = []
   end
 
   teardown { ActiveAgent::Providers::MCPToolCache.reset! }
@@ -171,6 +197,37 @@ class EvalsCaptureMCPProvidersTest < ActiveSupport::TestCase
     end
   end
 
+  [ false, true ].each do |stream|
+    test "an agent's own observer and Capture both see the MCP call in a #{stream ? 'streamed' : 'plain'} tool loop, made once" do
+      client = FakeClient.new
+      stub_chat(
+        chat_completion(tool_calls: [ function_call("call_1", "lookup_order", number: "7"), function_call("call_2", "get_page", url: "https://example.test") ]),
+        chat_completion(content: "Done."),
+        stream:
+      )
+
+      replay = with_fake_server(client) { Capture.run(ObservedChatAgent.research(stream:)) }
+
+      assert_equal %w[lookup_order get_page], replay.tool_names
+      assert_equal [ [ "get_page", { url: "https://example.test" } ] ], ObservedChatAgent.observed.map { _1.first(2) }
+      assert_includes ObservedChatAgent.observed.sole.last.to_s, "<html>Example</html>"
+      assert_equal [ [ "get_page", { url: "https://example.test" } ] ], client.calls
+      assert_equal "<html>Example</html>".to_json, @request_bodies.last["messages"].select { _1["role"] == "tool" }.last["content"]
+    end
+  end
+
+  test "an agent's own observer receives the result the MCP server marked as an error" do
+    client = FakeClient.new({ "isError" => true, "content" => [ { "type" => "text", "text" => "Invalid params" } ] })
+    stub_messages(assistant_message(get_page), assistant_message({ type: "text", text: "Sorry." }))
+
+    replay = with_fake_server(client) { Capture.run(ObservedMessagesAgent.fetch(strategy: :client), raise_errors: true) }
+
+    assert_equal [ "get_page" ], replay.failed_tool_calls.pluck("name")
+    assert_kind_of ActiveAgent::Providers::MCPBridge::ErrorResult, ObservedMessagesAgent.observed.sole.last
+    assert_equal true, @request_bodies.last["messages"].last["content"].first["is_error"]
+    assert_equal 1, client.calls.length
+  end
+
   test "a result the MCP server marked as an error is recorded as failed and reaches the model as one" do
     client = FakeClient.new({ "isError" => true, "content" => [ { "type" => "text", "text" => "Invalid params" } ] })
     stub_messages(assistant_message(get_page), assistant_message({ type: "text", text: "Sorry." }))
@@ -194,6 +251,18 @@ class EvalsCaptureMCPProvidersTest < ActiveSupport::TestCase
 
     refute replay.errored?
     assert_empty replay.tool_calls
+    assert_empty client.calls
+  end
+
+  test "a call that needs approval reaches neither the agent's own observer nor the server" do
+    client = FakeClient.new
+    stub_messages(assistant_message(get_page))
+
+    replay = with_fake_server(client) { Capture.run(ObservedMessagesAgent.fetch(server: SERVER.merge(require_approval: "always")), raise_errors: true) }
+
+    refute replay.errored?
+    assert_empty replay.tool_calls
+    assert_empty ObservedMessagesAgent.observed
     assert_empty client.calls
   end
 

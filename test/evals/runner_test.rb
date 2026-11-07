@@ -200,6 +200,82 @@ class EvalsRunnerTest < ActiveSupport::TestCase
     assert_equal "passed", report.results.first.status
   end
 
+  def test_a_replay_that_missed_its_expected_tool_is_not_judged_when_asked_and_keeps_the_judge_budget
+    missed = scenario("order_1", "Where is order ABC-123?", group: "orders", tools: [ "lookup_order" ])
+    ungrounded = scenario("tickets_1", "what tickets are on my plate?", group: "tickets")
+    calls = Hash.new(0)
+    asked = 0
+    runner = ActiveAgent::Evals::Runner.new(
+      scenarios: [ missed, ungrounded ], models: [ spec("test-model") ], judge: counting_judge(calls),
+      available_tools: { "lookup_order" => "Find an order by number" }, judge_failed_expectations: false, judge_limit: 1,
+      refine_gate: -> { asked += 1; true },
+      replay: lambda { |scenario, *|
+        next replay(answer: "The order shipped.", tool_calls: []) if scenario == missed
+
+        replay(answer: "You have 3 open tickets: #412 Login bug and #388 Export timeout.", tool_calls: [])
+      }
+    )
+
+    gated, refined = runner.call.results
+    assert_equal false, runner.judge_failed_expectations
+    assert_equal "failed", gated.status
+    assert_equal "expected_tool_not_called", gated.fault
+    assert_not gated.scores.key?("task_completion")
+    assert_nil gated.diagnosis["judge"]
+    assert_equal "ungrounded_answer", refined.fault
+    assert_equal "Call the expected tool.", refined.recommendation, "the one judge_limit call is still available after the gated replay"
+    assert_equal 1, asked, "the gate is asked only for the replay the judge can change"
+    assert_equal({ "score_task" => 1, "recommend" => 1 }, calls)
+  end
+
+  def test_a_replay_meeting_its_expectations_is_judged_and_refined_with_failed_ones_ungraded
+    task = scenario("order_1", "Where is order ABC-123?", group: "orders", tools: [ "lookup_order" ], contains: [ "ABC-123" ])
+    calls = Hash.new(0)
+    report = ActiveAgent::Evals::Runner.new(
+      scenarios: [ task ], models: [ spec("test-model") ], available_tools: [ "lookup_order" ], judge_failed_expectations: false,
+      judge: counting_judge(calls, reply: '{"score": 0.2, "recommendation": "Quote the carrier status."}'),
+      replay: ->(*) { replay(answer: "ABC-123 probably shipped.", tool_calls: [ { name: "lookup_order" } ]) }
+    ).call
+    result = report.results.first
+
+    assert_equal 0.2, result.scores["task_completion"]
+    assert_equal "low_quality", result.fault
+    assert_equal "Quote the carrier status.", result.recommendation
+    assert_equal({ "score_task" => 1, "recommend" => 1 }, calls)
+  end
+
+  def test_every_gated_replay_fails_on_an_evidence_fault_even_when_judge_scores_are_required
+    order = [ "order_1", "Where is order ABC-123?" ]
+    gated = {
+      "expected_tool_not_called" => [ scenario(*order, tools: [ "lookup_order" ]), replay(answer: "It shipped.") ],
+      "tool_error" => [ scenario(*order, tools: [ "lookup_order" ]),
+                        replay(answer: "It shipped.", tool_calls: [ { name: "lookup_order", error: true, detail: "timeout" } ]) ],
+      "missing_capability" => [ scenario(*order, tools: [ "lookup_order" ]), replay(answer: "I can't access the order system.") ],
+      "ungrounded_answer" => [ scenario(*order, not_contains: [ "sorry" ]), replay(answer: "Sorry, you have 3 open tickets.") ],
+      "forbidden_content" => [ scenario(*order, not_contains: [ "sorry" ]), replay(answer: "Sorry, it shipped.") ],
+      "missing_content" => [ scenario(*order, contains: [ "ABC-123" ]), replay(answer: "It shipped.") ]
+    }
+
+    gated.each do |fault, (task, answer)|
+      [ CRITERIA, CRITERIA + [ { "key" => "quality", "type" => "llm_judge" } ] ].each do |criteria|
+        calls = Hash.new(0)
+        report = ActiveAgent::Evals::Runner.new(
+          scenarios: [ task ], models: [ spec("test-model") ], criteria: criteria, judge: counting_judge(calls),
+          available_tools: [ "lookup_order" ], require_judge_scores: true, judge_failed_expectations: false,
+          replay: ->(*) { answer }
+        ).call
+        result = report.results.first
+
+        assert_equal "failed", result.status, fault
+        assert_equal fault, result.fault
+        assert_not result.scores.key?("task_completion"), fault
+        assert_nil result.scores["quality"], fault
+        assert_nil result.diagnosis["judge"], fault
+        assert_empty calls, "#{fault} must not reach the judge"
+      end
+    end
+  end
+
   def test_required_judge_scores_cover_explicit_llm_criteria_without_affecting_rules
     criteria = CRITERIA + [ { "key" => "accuracy", "type" => "llm_judge" } ]
     report = ActiveAgent::Evals::Runner.new(
@@ -252,6 +328,66 @@ class EvalsRunnerTest < ActiveSupport::TestCase
     assert_equal 6, report.results.size
     assert_equal [ %w[tickets_1 gpt-5-mini], %w[tickets_1 qwen3:8b] ], landed.first(2)
     assert_equal %w[gpt-5-mini qwen3:8b], report.models.map(&:label)
+    assert report.results.all? { |result| result.trial == 1 }, "a run with the default replays each scenario once"
+    assert_equal 1, report.trials
+  end
+
+  def test_trials_replay_each_scenario_under_each_model_scenario_by_scenario_model_by_model
+    landed = []
+    report = runner(trials: 3, on_result: ->(result) { landed << [ result.scenario.key, result.label, result.trial ] }).call
+    expected = scenarios.flat_map { |task| models.flat_map { |model| (1..3).map { |trial| [ task.key, model.label, trial ] } } }
+
+    assert_equal 18, report.results.size
+    assert_equal expected, landed
+    assert_equal expected, report.results.map { |result| [ result.scenario.key, result.label, result.trial ] }
+    assert_equal %w[tickets_1 tickets_2 history_1], report.results.map { |result| result.scenario.key }.uniq, "the keys stay as they are"
+    assert_equal 3, report.trials
+    assert_equal [ 9, 3 ], report.summary_by_model["gpt-5-mini"].values_at("scenarios", "unique_scenarios")
+  end
+
+  def test_trials_must_be_a_whole_number_of_one_or_more
+    [ 0, 1.5, "3", nil ].each do |trials|
+      error = assert_raises(ArgumentError) { runner(trials: trials) }
+      assert_equal "trials must be an Integer of 1 or more, got #{trials.inspect}", error.message
+    end
+    assert_equal 1, runner.trials
+  end
+
+  def test_evaluate_numbers_the_result_with_the_trial_it_is_given
+    answer = replay(answer: "12 refund requests match.")
+
+    assert_equal 2, runner.evaluate(scenarios.first, models.first, answer, trial: 2).trial
+    assert_equal 1, runner.evaluate(scenarios.first, models.first, answer).trial
+  end
+
+  def test_the_trial_reaches_the_result_through_a_context_wrapper
+    report = runner(trials: 2, around_evaluation: ->(_scenario, _spec, &evaluate) { evaluate.call }).call
+    by_pair = report.results.group_by { |result| [ result.scenario.key, result.label ] }
+
+    assert_equal 6, by_pair.size
+    assert_equal [ [ 1, 2 ] ] * 6, by_pair.values.map { |results| results.map(&:trial) }, "each scenario × model carries trials 1 and 2"
+  end
+
+  def test_trials_pool_into_a_scenarios_pass_share_in_the_comparison
+    # gpt-5-mini answers tickets_1 well twice and badly the third time; the
+    # share of that scenario it passed is 2 of 3, not three coin flips.
+    seen = Hash.new(0)
+    flaky = lambda do |scenario, spec|
+      seen[[ scenario.key, spec.label ]] += 1
+      next Replay.new(answer: "") if scenario.key == "tickets_1" && spec.provider == "openai" && seen[[ scenario.key, spec.label ]] == 3
+
+      replay_agent(scenario, spec)
+    end
+    report = runner(trials: 3, replay: flaky).call
+    summary = report.summary_by_model["gpt-5-mini"]
+
+    assert_equal [ 9, 3, 8 ], summary.values_at("scenarios", "unique_scenarios", "passed")
+    assert_equal 88.9, summary["pass_rate"], "the model's own pass rate counts every replay"
+    comparison = report.comparison["models"]["gpt-5-mini"]
+    assert_equal 3, comparison["scenarios"], "the comparison counts scenarios, not replays"
+    assert_equal 88.9, comparison["pass_rate"], "(2/3 + 1 + 1) / 3, the same as 8/9 while every scenario has three trials; the scenario count shows the pooling"
+    assert_equal 3, report.comparison["pairs"].first["scenarios"]
+    assert_match(/\APassed 8 of 9 replays of 3 scenarios \(89%\)/, report.verdict["rationale"])
   end
 
   def test_faults_are_assigned_from_the_evidence_and_rolled_up
@@ -273,6 +409,44 @@ class EvalsRunnerTest < ActiveSupport::TestCase
     assert_equal %w[expected_tool_not_called missing_capability], faults.sort
     assert_equal "gpt-5-mini", report.winner
     assert_equal "pass rate", report.verdict["judge"]
+  end
+
+  def test_the_suites_pass_thresholds_set_the_threshold_and_travel_onto_the_report
+    thresholds = ActiveAgent::Evals::PassThresholds.new(suite: { "threshold" => 0.8, "min_pass_rate" => 0.5 }, groups: { "history" => { "gated" => false } })
+    gated = runner(pass_thresholds: thresholds)
+    report = gated.call
+
+    assert_equal 0.8, gated.threshold
+    assert_equal thresholds, gated.pass_thresholds
+    assert_equal thresholds, report.pass_thresholds
+    assert_equal thresholds.to_h, report.to_h["pass_thresholds"]
+    assert_equal %w[tickets tickets history history nil nil], report.gates.map { |gate| gate.group || "nil" }
+    assert report.passed?, "qwen3:8b fails tickets_2 and history_1: 1/2 tickets meets 50%, and history is not gated"
+    assert_equal 0.9, runner(pass_thresholds: thresholds, threshold: 0.9).threshold, "an explicit threshold wins over the pass block"
+    assert_equal ActiveAgent::Evals::PASS_THRESHOLD, runner.threshold
+    assert_nil runner.pass_thresholds
+    assert_not runner.call.to_h.key?("gates")
+  end
+
+  def test_a_run_with_pass_thresholds_and_judge_failed_expectations_false_gates_as_a_fully_judged_one
+    thresholds = ActiveAgent::Evals::PassThresholds.new(suite: { "threshold" => 0.8, "min_pass_rate" => 0.5 }, groups: { "history" => { "gated" => false } })
+    runs = [ true, false ].to_h do |flag|
+      calls = Hash.new(0)
+      run = runner(pass_thresholds: thresholds, judge: counting_judge(calls), judge_failed_expectations: flag)
+      [ flag, [ run, run.call, calls.dup ] ]
+    end
+    skipping, report, calls = runs[false]
+    judged = runs[true][1]
+
+    assert_equal false, skipping.judge_failed_expectations
+    assert_equal 0.8, skipping.threshold
+    assert_equal thresholds, report.pass_thresholds
+    assert_equal judged.results.map(&:status), report.results.map(&:status)
+    assert_equal judged.gates.map(&:to_h), report.gates.map(&:to_h)
+    assert_equal judged.to_h["gates"], report.to_h["gates"]
+    assert report.passed?, "qwen3:8b fails tickets_2 and history_1 either way: 1/2 tickets meets 50%, and history is not gated"
+    assert_equal({ "score_task" => 5, "recommend" => 1 }, calls, "tickets_2 on qwen3:8b missed find_tickets and is not judged")
+    assert_equal({ "score_task" => 6, "recommend" => 2 }, runs[true][2])
   end
 
   def test_criterion_scores_are_cohort_maps_when_comparing_and_flat_otherwise
@@ -343,6 +517,37 @@ class EvalsRunnerTest < ActiveSupport::TestCase
 
     assert_nil report.results.first.scores["task_completion"]
     assert_equal "pass rate", report.verdict["judge"]
+  end
+
+  def test_the_judge_grades_every_answered_replay_by_default_and_skips_the_gated_ones_when_asked
+    counts = [ true, false ].to_h do |flag|
+      calls = Hash.new(0)
+      runner(judge: counting_judge(calls), judge_failed_expectations: flag).call
+      [ flag, calls ]
+    end
+
+    # Six answered replays, two refinable faults (tickets_2 on qwen3:8b missed
+    # find_tickets, history_1 on qwen3:8b refused); the gate spares the first.
+    assert_equal({ "score_task" => 6, "recommend" => 2 }, counts[true])
+    assert_equal({ "score_task" => 5, "recommend" => 1 }, counts[false])
+  end
+
+  def test_a_gated_run_reports_its_scores_in_the_same_key_order
+    criteria = CRITERIA + [ { "key" => "quality", "type" => "llm_judge" } ]
+    reports = [ true, false ].to_h do |flag|
+      [ flag, runner(criteria: criteria, judge: counting_judge(Hash.new(0)), judge_failed_expectations: flag).call ]
+    end
+    gated = reports[false].results.find { |result| result.scenario.key == "tickets_2" && result.label == "qwen3:8b" }
+
+    assert_equal "expected_tool_not_called", gated.fault
+    assert_nil gated.scores["quality"]
+    assert_equal %w[response_present quality expected_tools], gated.to_h["scores"].keys
+    reports[true].to_h["results"].zip(reports[false].to_h["results"]).each do |judged, skipped|
+      assert_equal judged["scores"].keys, skipped["scores"].keys, judged["scenario_key"]
+    end
+    JSON.parse(reports[true].to_json)["results"].zip(JSON.parse(reports[false].to_json)["results"]).each do |judged, skipped|
+      assert_equal judged["scores"].keys, skipped["scores"].keys, judged["scenario_key"]
+    end
   end
 
   def test_the_report_renders_markdown_and_json

@@ -30,8 +30,9 @@ module ActiveAgent
       # tool to add, or how to change the instructions.
       DEFAULT_REFINE_FAULTS = %w[missing_capability expected_tool_not_called ungrounded_answer low_quality missing_content].freeze
       DEFAULT_JUDGE_LIMIT = 25
+      DEFAULT_TRIALS = 1
 
-      attr_reader :scenarios, :models, :criteria, :judge, :threshold
+      attr_reader :scenarios, :models, :criteria, :judge, :threshold, :pass_thresholds, :judge_failed_expectations, :trials
 
       # @param scenarios [Array<Scenario>]
       # @param models [Array<ModelSpec>]
@@ -43,6 +44,12 @@ module ActiveAgent
       # @param available_tools [Hash{String=>String}, Array<String>] the agent's tool roster
       # @param instructions [String, nil] the agent's instructions, for the judge
       # @param agent_name [String] how recommendations refer to the agent
+      # @param threshold [Float, nil] the score an answer must reach to pass;
+      #   an explicit value wins over the `pass_thresholds` bar, and without
+      #   either it is PASS_THRESHOLD
+      # @param pass_thresholds [PassThresholds, nil] the bars the suite
+      #   declared (Suite#pass_thresholds): its threshold applies when none
+      #   is given here, and the Report gates each group by it (Report#gates)
       # @param on_result [#call, nil] called with each Result as it lands
       # @param around_evaluation [#call, nil] called with (scenario, spec) and a
       #   block that returns the Result. Establishes context for replay, scoring
@@ -58,20 +65,38 @@ module ActiveAgent
       #   after `judge_limit`; false skips it. A caller that scores each
       #   scenario in its own Runner (a background job per scenario) shares one
       #   run-wide limit this way, since `judge_limit` counts per instance.
+      # @param judge_failed_expectations [Boolean] whether the judge grades a
+      #   replay that missed one of its scenario's expectations (an expected
+      #   tool not called, forbidden or missing content, a failed tool call).
+      #   false skips its task grade, its llm_judge criteria and its judged
+      #   recommendation, since it fails whatever the judge says, and the
+      #   calls saved do not count against `judge_limit`. The default grades
+      #   every answered replay.
+      # @param trials [Integer] how many times each scenario is replayed under
+      #   each model, 1 or more. Every replay is a Result of its own under the
+      #   scenario's key, told apart by Result#trial, so a flaky scenario
+      #   reads as a pass share rather than one pass or fail.
       def initialize(scenarios:, models:, replay:, criteria: [], judge: nil, judge_task: true, available_tools: {},
-                     instructions: nil, agent_name: "The agent", threshold: PASS_THRESHOLD,
+                     instructions: nil, agent_name: "The agent", threshold: nil, pass_thresholds: nil,
                      refine_faults: DEFAULT_REFINE_FAULTS, judge_limit: DEFAULT_JUDGE_LIMIT, on_result: nil,
-                     around_evaluation: nil, require_judge_scores: false, metadata: {}, release: nil, refine_gate: nil)
+                     around_evaluation: nil, require_judge_scores: false, metadata: {}, release: nil, refine_gate: nil,
+                     judge_failed_expectations: true, trials: DEFAULT_TRIALS)
+        unless trials.is_a?(Integer) && trials >= 1
+          raise ArgumentError, "trials must be an Integer of 1 or more, got #{trials.inspect}"
+        end
+
         @scenarios = scenarios
         @models = models
         @replay = replay
+        @trials = trials
         @criteria = criteria
         @judge = judge
         @judge_task = judge_task
         @available_tools = normalize_tools(available_tools)
         @instructions = instructions
         @agent_name = agent_name
-        @threshold = threshold
+        @threshold = threshold || pass_thresholds&.threshold || PASS_THRESHOLD
+        @pass_thresholds = pass_thresholds
         @refine_faults = refine_faults
         @judge_limit = judge_limit
         @on_result = on_result
@@ -80,27 +105,33 @@ module ActiveAgent
         @metadata = metadata
         @release = release
         @refine_gate = refine_gate
+        @judge_failed_expectations = judge_failed_expectations
         @judge_calls = 0
-        @scorer = Scorer.new(criteria: criteria, judge: judge)
+        @scorer = Scorer.new(criteria: criteria, judge: judge, judge_failed_expectations: judge_failed_expectations)
       end
 
+      # Replays every scenario under every model `trials` times: scenario by
+      # scenario, model by model, trial 1 to `trials`.
       def call
         results = @scenarios.flat_map do |scenario|
-          @models.map do |spec|
-            evaluate_with_context(scenario, spec).tap { |result| @on_result&.call(result) }
+          @models.flat_map do |spec|
+            (1..@trials).map do |trial|
+              evaluate_with_context(scenario, spec, trial: trial).tap { |result| @on_result&.call(result) }
+            end
           end
         end
 
         Report.new(results: results, models: @models, judge: @judge, instructions: @instructions,
-                   threshold: @threshold, metadata: @metadata, release: @release)
+                   threshold: @threshold, metadata: @metadata, release: @release, pass_thresholds: @pass_thresholds)
       end
 
       # Scores and diagnoses one replay. Public so a caller that has already run
       # the agent (a background job per scenario, say) can score without the loop.
-      def evaluate(scenario, spec, replay = nil)
+      # `trial` numbers the Result when the caller replays a scenario more than once.
+      def evaluate(scenario, spec, replay = nil, trial: 1)
         replay ||= run_replay(scenario, spec)
         scores = @scorer.score(scenario, replay)
-        if judge_task? && replay.answer.present?
+        if judge_task? && replay.answer.present? && judge_answer?(scores)
           scores["task_completion"] = @judge.score_task(scenario: scenario, answer: replay.answer)
         end
         score = Scorer.mean(scores)
@@ -110,7 +141,7 @@ module ActiveAgent
                                    judge_keys: llm_judge_keys)
         diagnosis ||= unavailable_judge_diagnosis(scores)
         diagnosis_hash = diagnosis&.to_h
-        refine!(diagnosis_hash, scenario, replay, diagnosis) if diagnosis_hash
+        refine!(diagnosis_hash, scenario, replay, diagnosis, scores) if diagnosis_hash
 
         Result.new(
           scenario: scenario,
@@ -119,16 +150,17 @@ module ActiveAgent
           scores: scores,
           score: score,
           status: replay.errored? ? "errored" : (diagnosis ? "failed" : "passed"),
-          diagnosis: diagnosis_hash
+          diagnosis: diagnosis_hash,
+          trial: trial
         )
       end
 
       private
 
-      def evaluate_with_context(scenario, spec)
-        return evaluate(scenario, spec) unless @around_evaluation
+      def evaluate_with_context(scenario, spec, trial:)
+        return evaluate(scenario, spec, trial: trial) unless @around_evaluation
 
-        result = @around_evaluation.call(scenario, spec) { evaluate(scenario, spec) }
+        result = @around_evaluation.call(scenario, spec) { evaluate(scenario, spec, trial: trial) }
         # A wrapper written the natural way — do something, yield, do something
         # after — returns that last value rather than the Result. Left alone it
         # reaches on_result and the Report, and fails somewhere far from the
@@ -142,6 +174,16 @@ module ActiveAgent
 
       def judge_task?
         @judge && @judge_task && @criteria.none? { |criterion| criterion.to_h.stringify_keys["type"] == "llm_judge" }
+      end
+
+      # Whether the judge is asked about a replay with these scores: always by
+      # default, or only when it met every expectation of its scenario. A
+      # replay that did not already carries one of the faults Diagnosis
+      # assigns ahead of low_quality (tool_error, missing_capability,
+      # expected_tool_not_called, ungrounded_answer, forbidden_content or
+      # missing_content), so its status is failed whatever the judge would say.
+      def judge_answer?(scores)
+        @judge_failed_expectations || Scorer.expectations_met?(scores)
       end
 
       # The keys in `scores` a judge graded, so a low grade is not averaged
@@ -189,8 +231,9 @@ module ActiveAgent
         end
       end
 
-      def refine!(diagnosis, scenario, replay, result)
+      def refine!(diagnosis, scenario, replay, result, scores)
         return unless @judge && @refine_faults.include?(result.fault)
+        return unless judge_answer?(scores)
         return if @judge_calls >= @judge_limit
         return if @refine_gate && !@refine_gate.call
 

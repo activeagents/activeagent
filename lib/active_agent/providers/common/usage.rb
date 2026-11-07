@@ -148,7 +148,8 @@ module ActiveAgent
             cached_tokens:         sum_optional(self.cached_tokens,         other.cached_tokens),
             cache_creation_tokens: sum_optional(self.cache_creation_tokens, other.cache_creation_tokens),
             reasoning_tokens:      sum_optional(self.reasoning_tokens,      other.reasoning_tokens),
-            audio_tokens:          sum_optional(self.audio_tokens,          other.audio_tokens)
+            audio_tokens:          sum_optional(self.audio_tokens,          other.audio_tokens),
+            duration_ms:           sum_optional(self.duration_ms,           other.duration_ms)
           )
         end
 
@@ -263,6 +264,10 @@ module ActiveAgent
             **usage.slice(:input_tokens, :output_tokens, :service_tier),
             input_tokens: usage[:input_tokens] || 0,
             output_tokens: usage[:output_tokens] || 0,
+            # Anthropic's input_tokens excludes cache reads and writes, which are
+            # reported separately, so they are added to get every token processed.
+            total_tokens: (usage[:input_tokens] || 0) + (usage[:output_tokens] || 0) +
+              (usage[:cache_read_input_tokens] || 0) + (usage[:cache_creation_input_tokens] || 0),
             cached_tokens: usage[:cache_read_input_tokens],
             cache_creation_tokens: usage[:cache_creation_input_tokens],
             provider_details: usage.slice(:cache_creation, :server_tool_use).compact

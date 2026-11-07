@@ -139,9 +139,9 @@ export function Chip({ selected = false, onClick, children, square = false, mono
 
 // Bordered buttons, radius 8, 13px/500; the selected one carries the accent.
 // An option's `title`, when given, is the button's tooltip.
-export function SegmentedControl({ options, value, onChange, style }) {
+export function SegmentedControl({ options, value, onChange, style, labelledBy }) {
   return (
-    <div style={{ display: 'flex', gap: 4, ...style }} role="group">
+    <div style={{ display: 'flex', gap: 4, ...style }} role="group" aria-labelledby={labelledBy}>
       {options.map((option) => {
         const active = option.value === value;
         return (

@@ -25,8 +25,8 @@ export default function FixVerification({ session, evaluationId, sandboxId, onRe
     {verification?.error && <p role="alert" style={{ color: 'var(--color-error-text)', margin: 0, fontSize: 13 }}>{verification.error}</p>}
     <div style={{ overflowX: 'auto' }}><table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
       <thead><tr>{['Scenario / model', 'Before', 'After', 'Score Δ', 'Fault'].map((title) => <th key={title} style={{ textAlign: 'left', padding: '8px 10px', borderBottom: '1px solid var(--color-border)', color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>{title}</th>)}</tr></thead>
-      <tbody>{rows.map((row) => <tr key={`${row.scenario_key}/${row.model}`}>
-        <td style={{ padding: 10, fontFamily: 'var(--font-mono)' }}>{row.scenario_key}<div style={{ color: 'var(--color-text-muted)', fontSize: 10, marginTop: 4 }}>{row.model}</div></td>
+      <tbody>{rows.map((row) => <tr key={`${row.scenario_key}/${row.model}/${row.trial ?? 1}`}>
+        <td style={{ padding: 10, fontFamily: 'var(--font-mono)' }}>{row.scenario_key}<div style={{ color: 'var(--color-text-muted)', fontSize: 10, marginTop: 4 }}>{row.model}{row.trial > 1 ? ` · trial ${row.trial}` : ''}</div></td>
         <td style={{ padding: 10 }}>{row.before} · {score(row.before_score)}</td>
         <td style={{ padding: 10, color: row.change === 'fixed' ? 'var(--color-success-text)' : ['regressed', 'still_failing'].includes(row.change) ? 'var(--color-error-text)' : 'var(--color-text-secondary)' }}>{row.after || 'pending'}{row.after_score != null && ` · ${score(row.after_score)}`}<div style={{ fontSize: 10, marginTop: 4 }}>{row.change.replaceAll('_', ' ')}</div></td>
         <td style={{ padding: 10, fontFamily: 'var(--font-mono)' }}>{row.score_change == null ? '—' : `${row.score_change > 0 ? '+' : ''}${score(row.score_change)}`}</td>

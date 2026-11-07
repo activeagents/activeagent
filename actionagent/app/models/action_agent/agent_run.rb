@@ -351,18 +351,37 @@ module ActionAgent
       LiveUpdates.broadcast("agent_runs_#{agent_id}", type: "update", id: id, status: status)
     end
 
+    # Statuses a cancel moves to `cancelled`. A finished run keeps its end.
+    CANCELLABLE_STATUSES = %i[pending running awaiting_input].freeze
+
     # Cancels a run that is in progress or waiting for input, and every
-    # request for input it still has pending.
+    # request for input it still has pending. Returns whether this call
+    # cancelled it.
+    #
+    # The status is checked by the write itself, as AgentExecutionJob claims
+    # a pending run, because this copy of the run may be older than the
+    # database's: the request's, or a caller's that has held it since it
+    # executed. A run that finished in the meantime is left as it finished,
+    # and this copy is reloaded to show how. The update skips callbacks, so
+    # the cancel is broadcast here, once.
     #
     # @param reason [String] recorded as the run's error message
+    # @return [Boolean]
     def cancel!(reason = "Cancelled by user")
-      return unless in_progress? || awaiting_input?
+      return false unless in_progress? || awaiting_input?
 
-      transaction do
-        update!(status: :cancelled, completed_at: Time.current, error_message: reason)
-        input_requests.pending.update_all(status: InputRequest.statuses[:cancelled], updated_at: Time.current)
+      now = Time.current
+      cancelled = transaction do
+        changed = self.class.where(id: id, status: self.class.statuses.values_at(*CANCELLABLE_STATUSES))
+          .update_all(status: self.class.statuses[:cancelled], completed_at: now, error_message: reason, updated_at: now)
+        next false if changed.zero?
+
+        input_requests.pending.update_all(status: InputRequest.statuses[:cancelled], updated_at: now)
+        true
       end
-      broadcast_update
+      reload
+      broadcast_update if cancelled
+      cancelled
     end
 
     # Running runs whose lease ran out: no claim, renewal or result from
