@@ -16,6 +16,7 @@ import useMeasuredWidth, { useIsoLayoutEffect } from '../../hooks/useMeasuredWid
 import MultiModelPicker from './MultiModelPicker';
 import { RunRail, runRows } from './evaluations/RunsList';
 import RunHeader from './evaluations/RunHeader';
+import GateTable from './evaluations/GateTable';
 import CriteriaFooter from './evaluations/CriteriaFooter';
 import { scenariosToText } from '../../utils/scenarioSuiteText.mjs';
 import {
@@ -1001,6 +1002,10 @@ export default function ScenarioSuitePanel({
           onRunAgain={() => startRun(runRequestSelection(run, scenarios))}
         />
       )}
+
+      {/* The pass gates the shown run was held to, when its suite or
+          catalog set declared any. */}
+      {run && !running && <GateTable run={run} />}
 
       {/* Runs, read narrow: the latest few as cards above the box, the rest
           a line away. */}

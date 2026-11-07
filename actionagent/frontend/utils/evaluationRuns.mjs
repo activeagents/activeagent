@@ -159,6 +159,40 @@ export const passRate = (run) =>
 
 export const isInProgress = (run) => !!run && ['pending', 'running'].includes(run.status);
 
+// --- pass gates -------------------------------------------------------------
+
+// A run's per-group pass gates, as the server computed them (the run's
+// `gates`, ActiveAgent::Evals::Report#gates) with its `gates_met` verdict:
+// `{ met, rows }`, one row per group and model, then the whole run's ("All")
+// per model. null for a run held to no bars, so it reads as it always did.
+export const runGates = (run) => {
+  if (!run || !Array.isArray(run.gates)) return null;
+  const number = (value) => (Number.isFinite(Number(value)) ? Number(value) : 0);
+  const rows = run.gates.filter((gate) => gate && typeof gate === 'object').map((gate) => ({
+    group: gate.group ?? null,
+    name: String(gate.name || gate.group || 'All'),
+    label: String(gate.label || ''),
+    passed: number(gate.passed),
+    total: number(gate.total),
+    rate: number(gate.pass_rate),
+    minRate: number(gate.min_pass_rate),
+    gated: gate.gated !== false,
+    met: gate.met === true,
+  }));
+  return { met: run.gates_met === true, rows };
+};
+
+// What a gate says, in Gate#to_s's words:
+// "Orders · gpt-5-mini: 1/2 (50%) passed, below 100%".
+export const gateSentence = (gate) => {
+  const bar = !gate.gated ? 'not gated' : gate.met ? `at or above ${wholePercent(gate.minRate)}` : `below ${wholePercent(gate.minRate)}`;
+  const passes = gate.total > 0 ? `${gate.passed}/${gate.total} (${wholePercent(gate.passed / gate.total)})` : '—';
+  return `${gate.name}${gate.label ? ` · ${gate.label}` : ''}: ${passes} passed, ${bar}`;
+};
+
+// The gated rows a run missed, in order.
+export const unmetGates = (run) => (runGates(run)?.rows || []).filter((gate) => gate.gated && !gate.met);
+
 // --- pricing ----------------------------------------------------------------
 //
 // Every interaction with tokens is priced by the API: a cost the

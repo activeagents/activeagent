@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **The dashboard shows a run's per-group pass gates** (`actionagent`). A
+  published report's `pass_thresholds` are kept with the run, so the
+  rebuilt report, the export and the run page gate the stored results as
+  the application's report did, and a run started from the dashboard on a
+  catalog set is held to the set's and product's `pass` bars, recorded as
+  the run starts so a later catalog change does not regrade it. The run
+  page adds a **Pass rate by group** table, and the run's badge reads
+  `gate missed` when a gate was not met even if the whole-run pass rate
+  looks fine. The run's JSON adds `gates` and `gates_met`; a run without
+  bars reads as before (#678).
 - **An empty agent list shows how agents arrive** (`actionagent`). With no
   agents, the Agents page offered only Browse Templates and Create From
   Scratch. It now shows three ways in, telemetry first:
@@ -23,6 +33,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The dashboard keeps a catalog's pass bars** (`actionagent`). A
+  product's and a set's `pass` blocks (`min_pass_rate`, `threshold`,
+  `gated`) parsed in `ActiveAgent::Evals::Catalog`, but neither
+  `ScenarioProduct` nor `ScenarioSet` kept them: an import dropped the
+  bars, the export left them out, the stored catalog's `pass_thresholds`
+  fell back to the defaults (every group gated at 100%), and the import
+  preview reported the product and its sets as `update` on every re-import
+  of an unchanged file. The bars are now stored and exported as imported,
+  and both import modes take the document's. Existing installs add the
+  columns with `bin/rails generate action_agent:install --skip` and
+  `bin/rails db:migrate` (`add_catalog_pass_bars`); imports keep working,
+  without the bars, until it runs. Bars dropped by an earlier version come
+  back when the original document is imported again.
+- **The dashboard keeps a catalog product's named criteria lists**
+  (`actionagent`). A product's `criteria: { shared: [...], strict: [...] }`
+  parsed and round-tripped in `ActiveAgent::Evals::Catalog`, but
+  `ScenarioProduct` had nowhere to keep it: an import dropped the lists, the
+  export left them out, the stored digest never matched the records'
+  export, and the import preview reported the product as `update` on every
+  re-import of an unchanged file. The lists are now stored on the product
+  and exported as imported, so the documents and digests match and an
+  unchanged file previews as unchanged. Both import modes take the
+  document's lists, as they take a set's `criteria`. A set still runs on
+  its own `criteria`; which product lists a run uses is left for later.
+  Existing installs add the column with
+  `bin/rails generate action_agent:install --skip` and `bin/rails db:migrate`
+  (`add_catalog_product_criteria`); imports keep working, without the lists,
+  until it runs. Lists dropped by an earlier version come back when the
+  original document is imported again (#687).
 - **A self-hosted dashboard shows its own trace endpoint** (`actionagent`).
   The Organization page's Telemetry card showed the platform's `/v1/traces`.
   A self-hosted engine takes traces at `<mount>/api/traces`, and the card

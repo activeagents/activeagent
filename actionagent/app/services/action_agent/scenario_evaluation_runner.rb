@@ -22,6 +22,11 @@ module ActionAgent
   #                        decisive (ActiveAgent::Evals::Comparison)
   #   "_selection"       — the scenarios and models this run covered, and
   #                        the checkout sandbox it replayed against, if any
+  #   "_pass_thresholds" — for an evaluation of a catalog set that declares
+  #                        `pass` bars: the bars, recorded as the run starts,
+  #                        so every replay and the completion gate by the same
+  #                        ones however the catalog changes meanwhile
+  #   "_gates"           — with them: each group's gate per model, met or not
   #
   # A selection's `sandbox_id` names a checkout sandbox whose app runtime
   # every replay reaches beside the agent's own MCP servers, as if the agent
@@ -81,6 +86,7 @@ module ActionAgent
       specs = model_specs
       run = @run || @evaluation.evaluation_runs.create!(status: :pending)
       run.update!(status: :running, selection: selection_summary(scenarios, specs))
+      record_pass_thresholds!(run)
       ensure_sandbox_live!
 
       if scenarios.empty?
@@ -125,7 +131,7 @@ module ActionAgent
         adapter.call(evaluation: @evaluation, owner: owner, scenarios: tasks, models: specs, on_result: metered)
       else
         ensure_judge_defined_kpis! if @evaluation.judge_defined?
-        default_report(tasks, specs, on_result)
+        default_report(tasks, specs, on_result, run)
       end
       raise ArgumentError, "scenario evaluation adapter must return an ActiveAgent::Evals::Report" unless report.is_a?(Evals::Report)
       reported = report.results.map { |result| [ result.scenario.key, result.label ] }
@@ -453,7 +459,7 @@ module ActionAgent
         available_tools: fan_out_state(run).fetch("tools") { tool_roster },
         instructions: @evaluation.agent.instructions,
         agent_name: @evaluation.agent.name,
-        threshold: PASS_THRESHOLD,
+        **gating(run.pass_thresholds, Evals::Runner),
         replay: ->(*) { raise ArgumentError, "a fanned-out result is scored from its stored replay" },
         refine_gate: -> { reserve_refinement!(run) }
       )
@@ -513,7 +519,7 @@ module ActionAgent
         )
       end
       report = Evals::Report.new(results: results, models: specs.values, judge: evals_judge,
-                                 instructions: @evaluation.agent.instructions, threshold: PASS_THRESHOLD)
+                                 instructions: @evaluation.agent.instructions, **gating(run.pass_thresholds, Evals::Report))
       state = fan_out_state(run)
 
       # The other jobs' judge calls go into this runner's meter before the
@@ -559,7 +565,7 @@ module ActionAgent
       error.is_a?(Exception) ? "#{error.class}: #{error.message}" : error.to_s
     end
 
-    def default_report(tasks, specs, on_result)
+    def default_report(tasks, specs, on_result, run)
       Evals::Runner.new(
         scenarios: tasks,
         models: specs,
@@ -568,7 +574,7 @@ module ActionAgent
         available_tools: tool_roster,
         instructions: @evaluation.agent.instructions,
         agent_name: @evaluation.agent.name,
-        threshold: PASS_THRESHOLD,
+        **gating(run.pass_thresholds, Evals::Runner),
         replay: ->(scenario, spec) { replay(scenario, spec) },
         on_result: on_result
       ).call
@@ -827,6 +833,7 @@ module ActionAgent
       comparison = report.comparison if report.respond_to?(:comparison)
       scores["_comparison"] = comparison if comparison
       scores["_selection"] = run.selection
+      record_gates(scores, report, run.pass_thresholds)
       scores["_metadata"] = report.metadata
       scores["_judge_label"] = report.judge_label || report.judge&.label
       # The judge's own spend, apart from the replays' (which the results
@@ -837,6 +844,60 @@ module ActionAgent
         name_judge!(scores, report.judge&.label)
       end
       scores
+    end
+
+    # The bars a host adapter's report did not carry are the run's own, so
+    # the run is gated however its replays ran.
+    def record_gates(scores, report, recorded)
+      thresholds = (report.pass_thresholds if report.respond_to?(:pass_thresholds)) || recorded
+      return if thresholds.nil?
+
+      scores["_pass_thresholds"] = thresholds.to_h
+      scores["_gates"] = report.gates(thresholds).map(&:to_h)
+    end
+
+    # --- pass bars ----------------------------------------------------------
+
+    # The score keyword, and the bars when the run has them and the
+    # installed framework's +klass+ takes them: the bars' threshold is the
+    # catalog's or PASS_THRESHOLD, the score the dashboard always used.
+    def gating(thresholds, klass)
+      return { threshold: PASS_THRESHOLD } if thresholds.nil? || !accepts_keyword?(klass, :pass_thresholds)
+
+      { threshold: thresholds.threshold, pass_thresholds: thresholds }
+    end
+
+    def accepts_keyword?(klass, keyword)
+      klass.instance_method(:initialize).parameters.any? { |type, name| name == keyword && %i[key keyreq].include?(type) }
+    end
+
+    # Records the bars of the catalog set this evaluation runs as, once,
+    # as the run starts: a fanned-out replay reads them from the run.
+    def record_pass_thresholds!(run)
+      thresholds = catalog_pass_thresholds
+      return if thresholds.nil?
+
+      run.update!(scores: (run.scores.is_a?(Hash) ? run.scores : {}).merge("_pass_thresholds" => thresholds.to_h))
+    end
+
+    # The product's bars as the suite's and the set's as its group's, as
+    # Catalog#suite_for gives them, for an evaluation a catalog set
+    # materialized (ScenarioSet#catalog_reference) when the set, under the
+    # owner's catalogs, still has the keys the reference names; nil when
+    # it declares none, and on a framework without per-group bars.
+    def catalog_pass_thresholds
+      reference = @evaluation.config.to_h["catalog"]
+      return nil unless reference.is_a?(Hash) && defined?(Evals::PassThresholds)
+
+      set = ScenarioSet.joins(:product).includes(:product)
+        .where(ScenarioProduct.table_name => { scenario_catalog_id: ScenarioCatalog.for_owner(owner).select(:id) })
+        .find_by(id: reference["set_id"], key: reference["set_key"].to_s)
+      return nil if set.nil? || set.product.key != reference["product_key"].to_s
+      return nil if set.product.pass.empty? && set.pass.empty?
+
+      Evals::PassThresholds.new(suite: set.product.pass, groups: { set.key => set.pass })
+    rescue ArgumentError
+      nil
     end
 
     # Records who judged once the calls are in. A judge with no model pinned
