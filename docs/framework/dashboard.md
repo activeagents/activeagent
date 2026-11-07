@@ -610,6 +610,22 @@ models, the matrix, the drill-downs, what to fix — so the whole card
 describes the run you are reading, while the collapsed header keeps
 reporting the latest.
 
+**Pass gates.** A run held to pass bars (a published report's
+`pass_thresholds`, or the `pass` blocks of the catalog set a run started
+here replays) shows a **Pass rate by group** table under the run header:
+one row per group and model, then the whole run's per model, each with
+passed of total, the bar, and `met`, `not met`, or `reported only` for a
+`gated: false` group. The run's badge, in the list and the header, adds
+`gate missed` when any gate was not met, whatever the pass rate reads, and
+its tooltip names each gate missed; otherwise `gates met`. A missed gate is
+a verdict on a complete run, not a failed one. The bars are recorded with
+the run when it starts or is imported, so changing the catalog later does
+not regrade it, and the gates are worked out from the stored results rather
+than taken from the report. The run's JSON carries them as `gates` (each
+`group`, `name`, `label`, `passed`, `total`, `pass_rate`, `min_pass_rate`,
+`gated` and `met`) and `gates_met`, both `null` for a run without bars,
+which reads as it always did.
+
 **Models** gives each candidate its pass bar and `k/n`, mean score, mean
 latency with its P50 and P95, input and output tokens, estimated cost, and
 the faults it hit as badges (or `[+] no faults`). When the run compared
@@ -890,6 +906,28 @@ bin/rails db:migrate
 
 This also installs the column on a fresh dashboard. Fields discarded by an
 earlier version can only be restored by importing the original document again.
+
+A product's named `criteria` lists are stored the same way. They come back
+in every export that includes the product, so a re-imported unchanged
+document previews as unchanged and keeps its digest. Like a set's
+`criteria`, the lists are a field of the product: replace and merge mode
+both take the document's, so a narrowed export merges back unchanged.
+A set still runs on its own
+`criteria`: the product's lists are kept, not scored. Existing installs
+need the `add_catalog_product_criteria` migration (the same
+`action_agent:install --skip` and `db:migrate` as above); until it runs,
+imports keep working and leave the lists out. Lists dropped by an earlier
+version come back when the original document is imported again.
+
+A product's and a set's `pass` bars are stored the same way, so the stored
+catalog's `pass_thresholds` answer as the document's do and an unchanged
+document previews as unchanged. Both import modes take the document's
+bars, so a set imported without `pass` loses its stored one. A run of the
+set started from the dashboard is gated by them (see **Pass gates** under
+[Scenario evaluations](#scenario-evaluations)). Existing
+installs need the `add_catalog_pass_bars` migration; until it runs,
+imports keep working and leave the bars out. Bars dropped by an earlier
+version come back when the original document is imported again.
 
 **Permissions and gates.** Importing, re-importing, deleting, syncing,
 materializing and running a set change evaluation scenarios, so each needs

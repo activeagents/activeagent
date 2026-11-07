@@ -81,7 +81,9 @@ module ActionAgent
     # checkout sandbox the run replayed against, if any: its session id and
     # checkout, never its token. `agent_version` is the version of the
     # agent the run scored, and `version_state` whether that is the agent's
-    # current version ("current", "earlier" or "unrecorded").
+    # current version ("current", "earlier" or "unrecorded"). `gates` are the
+    # per-group pass gates the run was held to (EvaluationRun#gates) and
+    # `gates_met` whether it met every one; both nil for a run without bars.
     def run_summary(run, number: nil)
       {
         id: run.id,
@@ -95,7 +97,9 @@ module ActionAgent
         created_at: run.created_at.iso8601,
         sandbox: run.sandbox,
         agent_version: run.agent_version_summary,
-        version_state: run.evaluation.standing_info.version_state(run)
+        version_state: run.evaluation.standing_info.version_state(run),
+        gates: run.gates,
+        gates_met: run.gates_met
       }
     end
 

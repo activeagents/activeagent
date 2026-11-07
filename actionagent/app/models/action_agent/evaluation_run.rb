@@ -87,6 +87,48 @@ module ActionAgent
       comparison if comparison.is_a?(Hash) && comparison.present?
     end
 
+    # The bars this run was gated by (ActiveAgent::Evals::PassThresholds),
+    # as the run recorded them when it started or was imported, so a later
+    # change to the catalog does not regrade it; nil for a run whose suite
+    # declared none, one recorded before runs kept them, and a framework
+    # without per-group bars.
+    def pass_thresholds
+      self.class.pass_thresholds_from(scores&.dig("_pass_thresholds"))
+    end
+
+    # A recorded `pass_thresholds` mapping (Report#to_h's: "threshold",
+    # "min_pass_rate", "groups") as PassThresholds, or nil for anything
+    # that is not one.
+    def self.pass_thresholds_from(value)
+      return nil unless value.is_a?(Hash) && defined?(ActiveAgent::Evals::PassThresholds)
+
+      value = value.stringify_keys
+      groups = value["groups"].nil? ? {} : value["groups"]
+      return nil unless groups.is_a?(Hash)
+
+      ActiveAgent::Evals::PassThresholds.new(suite: value.slice(*ActiveAgent::Evals::PassThresholds::SUITE_KEYS), groups: groups)
+    rescue ArgumentError
+      nil
+    end
+
+    # The gates the run's results met or missed (Report#gates, each
+    # `{ "group", "name", "label", "passed", "total", "pass_rate",
+    # "min_pass_rate", "gated", "met" }`), as recorded when it completed;
+    # nil for a run without bars.
+    def gates
+      value = scores&.dig("_gates")
+      value.select { |gate| gate.is_a?(Hash) } if value.is_a?(Array)
+    end
+
+    # Whether every gate was met, as Report#passed? answers: false when no
+    # gate was reached; nil for a run without bars.
+    def gates_met
+      rows = gates
+      return nil if rows.nil?
+
+      rows.any? && rows.all? { |gate| gate["met"] == true }
+    end
+
     # How the report names the judge, the way the suite panel does: the
     # judge the recorded verdict names — unless that is only the pass-rate
     # ranking — else the evaluation's judge model. nil when neither is set,
@@ -307,6 +349,7 @@ module ActionAgent
       kwargs[:judge_usage] = judge_usage_run if judge_usage_run && self.class.report_accepts?(:judge_usage)
       kwargs[:release] = release_summary if release_summary && self.class.report_accepts?(:release)
       kwargs[:comparison] = recorded_comparison if recorded_comparison && self.class.report_accepts?(:comparison)
+      kwargs[:pass_thresholds] = pass_thresholds if pass_thresholds && self.class.report_accepts?(:pass_thresholds)
       self.class.report_class.new(**kwargs)
     end
 

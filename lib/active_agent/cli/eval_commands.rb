@@ -86,8 +86,8 @@ module ActiveAgent
           p.on("--keys LIST", "Replay only these scenario keys, comma-separated") { |v| arguments[:keys] = list_option(v) }
           p.on("--group GROUP", "Replay only this scenario group") { |v| arguments[:group] = v }
           p.on("--sandbox ID", "Replay against this ready checkout sandbox") { |v| arguments[:sandbox_id] = v }
-          p.on("--wait", "Wait for the run to finish") { wait = true }
-          p.on("--min-pass-rate RATE", "Fail (exit #{EXIT_GATE}) below this pass rate: 0.8 or 80%; implies --wait") do |v|
+          p.on("--wait", "Wait for the run to finish; fail (exit #{EXIT_GATE}) when it failed or missed a pass gate") { wait = true }
+          p.on("--min-pass-rate RATE", "Also fail below this whole-run pass rate: 0.8 or 80%; implies --wait") do |v|
             min_pass_rate = pass_rate_option(v)
             wait = true
           end
@@ -199,18 +199,28 @@ module ActiveAgent
         end
       end
 
+      # A finished run fails the gate when it failed, when its whole pass
+      # rate is under --min-pass-rate, or when it was held to per-group pass
+      # gates (the run's "gates", from the suite's or catalog set's `pass`
+      # bars) and the dashboard says it did not meet every one. A run
+      # without gates is gated on its status and rate alone, as it was.
       def gate(payload, min_pass_rate)
         run = payload.fetch("run", {})
         rate = pass_rate(run)
         failed = run["status"] == "failed"
         below = min_pass_rate && (rate.nil? || rate < min_pass_rate)
-        verdict = failed || below ? "fail" : "pass"
+        gates = run_gates(run)
+        missed = !gates.nil? && run["gates_met"] != true
+        verdict = failed || below || missed ? "fail" : "pass"
         failures = payload.fetch("results", [])
+        summary = { "pass_rate" => rate, "min_pass_rate" => min_pass_rate }
+        summary["gates"] = gates if gates
 
-        emit(payload.merge("pass_rate" => rate, "min_pass_rate" => min_pass_rate, "verdict" => verdict)) do
+        emit(payload.merge(summary).merge("verdict" => verdict)) do
           @out.puts "Run #{run["id"]} #{run["status"]}: #{passed(run) || "no results"}" \
                     "#{rate ? format(" (%.1f%%)", rate * 100) : ""}#{min_pass_rate ? format(", threshold %.1f%%", min_pass_rate * 100) : ""}."
           @out.puts "Error: #{run["error_message"]}" if run["error_message"]
+          print_gates(gates, missed) if gates
           unless failures.empty?
             @out.puts "Failed results:"
             table(failures, {
@@ -225,6 +235,39 @@ module ActiveAgent
           @out.puts(verdict == "pass" ? "PASS" : "FAIL")
         end
         verdict == "pass" ? EXIT_SUCCESS : EXIT_GATE
+      end
+
+      # The run's per-group pass gates as the dashboard worked them out
+      # (EvaluationRun#gates), or nil for a run held to none.
+      def run_gates(run)
+        rows = run["gates"]
+        rows.select { |row| row.is_a?(Hash) } if rows.is_a?(Array)
+      end
+
+      def print_gates(gates, missed)
+        unmet = gates.reject { |gate| gate["met"] == true }
+        unless missed
+          @out.puts "Gates: every gate met (#{gates.size})."
+          return
+        end
+
+        @out.puts(unmet.empty? ? "Gates: no gate was reached." : "Gates not met:")
+        unmet.each { |gate| @out.puts "  #{gate_sentence(gate)}" }
+      end
+
+      # A gate the run missed, as ActiveAgent::Evals::Report::Gate#to_s
+      # reads it: "Orders · gpt-5-mini: 1/2 (50%) passed, below 100%".
+      def gate_sentence(gate)
+        passed = gate["passed"].to_i
+        total = gate["total"].to_i
+        passes = total.positive? ? "#{passed}/#{total} (#{whole_percent(passed.to_f / total)})" : "no results"
+        label = cell(gate["label"]) unless gate["label"].to_s.empty?
+        "#{cell(gate["name"] || gate["group"] || "All")}#{label ? " · #{label}" : ""}: #{passes} passed, below #{whole_percent(gate["min_pass_rate"])}"
+      end
+
+      def whole_percent(fraction)
+        value = Float(fraction, exception: false)
+        value ? "#{(value * 100).round}%" : "?"
       end
 
       def pass_rate(run)

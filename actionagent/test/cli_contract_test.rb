@@ -10,6 +10,8 @@ require "tmpdir"
 # write what the MCP facade and the report collector actually serve, so a
 # change to either that breaks the CLI fails here.
 class CliContractTest < ActiveSupport::TestCase
+  include ActiveJob::TestHelper
+
   URL = "http://localhost/activeagents"
   INGEST_KEY = "install-key-for-cli"
 
@@ -137,6 +139,38 @@ class CliContractTest < ActiveSupport::TestCase
     assert_equal evaluation.id, started.dig("evaluation", "id")
     assert_equal evaluation.evaluation_runs.sole.id, started.dig("run", "id")
     assert started["background"]
+  end
+
+  test "evals run --wait fails on a catalog set's missed pass gate the dashboard worked out" do
+    catalog = ActionAgent::ScenarioCatalogImport.new(owner: nil, document: <<~YAML).call
+      catalog: shop
+      products:
+        - key: support
+          agent: support
+          pass: { min_pass_rate: 0.5 }
+          sets:
+            - key: critical
+              criteria:
+                - { key: response_present, type: response_present }
+              pass: { min_pass_rate: 1.0 }
+              scenarios:
+                - key: status_1
+                  prompt: Where is order 1?
+                - key: lookup_1
+                  prompt: Look order 1 up.
+                  expect: { tools: [ find_order ] }
+    YAML
+    evaluation = catalog.sets.sole.materialize!(agent: @agent)
+
+    code, out, err = perform_enqueued_jobs { cli("evals", "run", evaluation.name, "--wait", "--interval", "1") }
+
+    assert_equal ActiveAgent::CLI::EXIT_GATE, code, err
+    assert_includes out, "complete: 1/2 (50.0%).", "the whole run clears the product's 50%"
+    assert_match(/Gates not met:\n  critical · mock-model: 1\/2 \(50%\) passed, below 100%\n/, out)
+    assert_match(/FAIL$/, out)
+
+    _, out, = cli("evals", "runs", evaluation.id.to_s, "--json")
+    assert_equal false, JSON.parse(out)["runs"].sole["gates_met"], "the run list carries the same verdict"
   end
 
   test "agents list and traces list read the key's agents and telemetry" do

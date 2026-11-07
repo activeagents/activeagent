@@ -114,6 +114,26 @@ the run failed or passed less than the threshold. The rate is `0.8` or
     ACTIVEAGENT_API_KEY: ${{ secrets.ACTIVEAGENT_API_KEY }}
 ```
 
+A run held to per-group pass gates (the `pass` bars of the catalog set it
+replays, see [Gating a suite](/framework/evaluations#gating-a-suite)) is
+gated on them too: `--wait` alone exits 4 when the dashboard says any gated
+group missed its bar, and `--min-pass-rate` stays the whole run's bar, so
+the run must clear it and every gate. Each gate missed prints as one line:
+
+```
+Run 41 complete: 9/10 (90.0%), threshold 80.0%.
+Gates not met:
+  critical · gpt-5-mini: 1/2 (50%) passed, below 100%
+FAIL
+```
+
+Here the whole run clears 80% and still fails, because the critical group
+is held to 100%. A group with `gated: false` is reported and never fails
+the run. `--json` adds the run's `gates` beside `pass_rate` and `verdict`.
+A run without gates is gated on its status and pass rate alone, as before,
+and without `--wait` or `--min-pass-rate` the command returns once the run
+starts, before any gate exists.
+
 A scenario suite's replays run the agent on the dashboard, so the run needs
 execution enabled there and counts against its execution quota.
 
