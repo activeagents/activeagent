@@ -293,6 +293,29 @@ class ActionAgentInstallGeneratorTest < Rails::Generators::TestCase
     connection&.drop_table(table, if_exists: true) if table
   end
 
+  test "run lease columns and their index install under a custom prefix and reverse" do
+    run_generator [ "--skip-routes" ]
+    connection = ActiveRecord::Base.connection
+    prefix = "lease_probe_"
+    table = "#{prefix}agent_runs"
+    connection.create_table(table, force: true) { |t| t.integer :status }
+    ActionAgent.table_name_prefix = prefix
+    namespace = Module.new
+    namespace.module_eval(File.read(migration_file_name("db/migrate/add_agent_run_execution_leases.rb")))
+    migration = namespace::AddAgentRunExecutionLeases.new
+
+    ActiveRecord::Migration.suppress_messages { migration.migrate(:up) }
+    assert connection.column_exists?(table, :execution_token, :string)
+    assert connection.column_exists?(table, :execution_expires_at, :datetime)
+    assert connection.index_exists?(table, [ :status, :execution_expires_at ], name: "index_#{prefix}agent_runs_on_status_and_lease")
+    ActiveRecord::Migration.suppress_messages { migration.migrate(:down) }
+    assert_not connection.column_exists?(table, :execution_token)
+    assert_not connection.column_exists?(table, :execution_expires_at)
+  ensure
+    ActionAgent.table_name_prefix = "active_agent_"
+    connection&.drop_table(table, if_exists: true) if table
+  end
+
   test "files in the numbered template directory that break the naming convention are not emitted" do
     with_numbered_templates(
       "001_create_widgets.rb.erb" => numbered_template("CreateWidgets"),

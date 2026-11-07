@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+Upgrading: one dashboard migration, 033 `add_agent_run_execution_leases`
+(the lease columns on `agent_runs`): run `bin/rails generate
+action_agent:install --skip` and `bin/rails db:migrate`. Until it runs,
+agent runs take no leases, so a run whose worker dies stays running as
+before.
+
 ### Added
 
 - **An empty agent list shows how agents arrive** (`actionagent`). With no
@@ -22,6 +28,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Build one here** keeps the template library and the builder.
 
 ### Fixed
+
+- **A run whose worker died is failed as lost instead of running forever**
+  (`actionagent`). Since a run is claimed once, a worker that died after
+  its claim left the run `running` for good: a redelivered job leaves a
+  running run alone. Each claim (the execution job's, the resume job's,
+  `Agent#test_execute`'s) now takes a lease (migration 033,
+  `config.run_lease_duration`, 30 minutes by default) that each LLM or
+  tool call renews. A running run whose lease ran out is failed with
+  `error_class` `ActionAgent::AgentRun::WorkerLost` when its page or the
+  run list is read, or when `ActionAgent::AgentRunExpiryJob` runs (not
+  scheduled by default). Nothing is executed again: the run's provider and
+  tool calls may already have taken effect. A worker that was only slow
+  has its result discarded, as a cancelled run's is, and a result now
+  only lands while the run holds its worker's lease, so whatever ended
+  the run first is kept. `test_execute` records its result the same way,
+  so a cancel during a synchronous test run is no longer overwritten. A
+  run with no lease, such as one running when the migration is installed,
+  is never failed as lost.
 
 - **A self-hosted dashboard shows its own trace endpoint** (`actionagent`).
   The Organization page's Telemetry card showed the platform's `/v1/traces`.

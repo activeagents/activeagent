@@ -19,6 +19,11 @@ module ActionAgent
       end
     end
 
+    # The error class recorded on a run failed as lost: running past its
+    # lease with no news from its worker (see #expire_if_lost!). Never
+    # raised; it names the failure, as record_failure! names any other.
+    class WorkerLost < StandardError; end
+
     # Files uploaded with the run. The execution service delivers them to
     # the model (images and PDFs as data URIs, text inlined) and the
     # persisted user message keeps a manifest of them.
@@ -165,6 +170,37 @@ module ActionAgent
       end
     end
 
+    # Whether migration 033's lease columns are installed. A host that
+    # upgraded the gem without running the generator takes no leases and
+    # runs as before, instead of failing every claim on a missing column.
+    def self.execution_leases?
+      (%w[execution_token execution_expires_at] - column_names).empty?
+    end
+
+    # The attributes a claim writes to take a run for one execution segment:
+    # a token of its own, and an expiry ActionAgent.run_lease_duration from
+    # +now+. Empty when leases are off (no columns, or no duration).
+    # @return [Hash]
+    def self.lease_attributes(now = Time.current)
+      duration = ActionAgent.run_lease_duration
+      return {} unless duration && execution_leases?
+
+      { execution_token: SecureRandom.uuid, execution_expires_at: now + duration }
+    end
+
+    # Pushes the lease's expiry out by ActionAgent.run_lease_duration, while
+    # the run is still running under this copy's token. A run that finished,
+    # paused, or was taken under another token is left alone. Returns
+    # whether the lease was renewed.
+    # @return [Boolean]
+    def renew_lease!(now = Time.current)
+      duration = ActionAgent.run_lease_duration
+      return false unless duration && self.class.execution_leases? && execution_token
+
+      self.class.where(id: id, status: self.class.statuses[:running], execution_token: execution_token)
+        .update_all(execution_expires_at: now + duration) == 1
+    end
+
     # Callbacks
     before_validation :set_trace_id, on: :create
     after_update_commit :broadcast_update, if: :saved_change_to_status?
@@ -185,6 +221,7 @@ module ActionAgent
     # a "started" event is pending until a "done"/"error" with the same eid
     # lands. update_column: no validations/callbacks, safe from the run's own
     # execution thread; reads current DB state so add_log interleaves safely.
+    # An event is the run's sign of progress, so it renews the run's lease.
     def append_event(eid:, kind:, label:, status: "done", detail: nil, duration_ms: nil)
       event = {
         "at" => Time.current.iso8601(3),
@@ -197,6 +234,7 @@ module ActionAgent
       event["duration_ms"] = duration_ms if duration_ms
       current = self.class.where(id: id).pick(:logs) || []
       update_column(:logs, current + [ event ])
+      renew_lease!
       event
     end
 
@@ -346,6 +384,54 @@ module ActionAgent
       cancelled
     end
 
+    # Running runs whose lease ran out: no claim, renewal or result from
+    # their worker within ActionAgent.run_lease_duration. A run without a
+    # lease (claimed before migration 033, or with leases off) is never
+    # among them. Needs the lease columns (see .execution_leases?).
+    scope :lost, ->(now = Time.current) {
+      running.where.not(execution_token: nil).where(execution_expires_at: ..now)
+    }
+
+    # Fails every lost run in +relation+ (see #expire_if_lost!) and returns
+    # how many it failed. Nothing without the lease columns.
+    # @return [Integer]
+    def self.expire_lost!(relation = all, now: Time.current)
+      return 0 unless execution_leases?
+
+      relation.lost(now).find_each.count { |run| run.expire_if_lost!(now) }
+    end
+
+    # Fails the run as lost when it is still running under the lease this
+    # copy read and that lease has run out, in one conditional update, so a
+    # renewal, a result or a cancel that lands first wins and this changes
+    # nothing. The run is not executed again: its worker may have died, or
+    # may only be slow, and whatever its provider and tool calls did may
+    # already have happened; a slow worker's result is then discarded (see
+    # #unless_cancelled). Returns whether this call failed the run, which is
+    # reloaded either way it touches the database.
+    # @return [Boolean]
+    def expire_if_lost!(now = Time.current)
+      return false unless self.class.execution_leases? && running? && execution_token &&
+        execution_expires_at && execution_expires_at <= now
+
+      message = "The run's worker stopped reporting progress (its lease expired at #{execution_expires_at.iso8601}). " \
+                "The run was not executed again; its provider and tool calls may already have taken effect."
+      changed = self.class
+        .where(id: id, status: self.class.statuses[:running], execution_token: execution_token)
+        .where(execution_expires_at: ..now)
+        .update_all(
+          status: self.class.statuses[:failed], completed_at: now, error_message: message,
+          output_metadata: output_metadata.to_h.merge("error_class" => WorkerLost.name),
+          execution_token: nil, execution_expires_at: nil, updated_at: now
+        )
+      reload
+      return false if changed.zero?
+
+      add_log(message, level: :error)
+      broadcast_update
+      true
+    end
+
     # Expires the run's overdue requests for input, which fails the run (see
     # InputRequest#expire!). Returns the run, reloaded when a request
     # expired.
@@ -376,9 +462,9 @@ module ActionAgent
       transaction do
         if result[:input_requests].present?
           InputRequest.record_pause!(self, result[:input_requests], checkpoint: result[:checkpoint])
-          update!(attributes.merge(status: :awaiting_input))
+          update!(attributes.merge(status: :awaiting_input, **lease_release_attributes))
         else
-          update!(attributes.merge(output: result[:output], status: :complete, completed_at: Time.current))
+          update!(attributes.merge(output: result[:output], status: :complete, completed_at: Time.current, **lease_release_attributes))
         end
       end
     end
@@ -395,17 +481,29 @@ module ActionAgent
         completed_at: Time.current,
         error_message: message,
         error_backtrace: error.backtrace&.first(10)&.join("\n"),
-        output_metadata: output_metadata.to_h.merge("error_class" => error.class.name)
+        output_metadata: output_metadata.to_h.merge("error_class" => error.class.name),
+        **lease_release_attributes
       )
     end
 
     # Yields under the run's row lock unless the run was cancelled meanwhile,
     # so a cancel that arrived while the run executed is never overwritten by
-    # the result. Returns whether it yielded.
-    def unless_cancelled
+    # the result. Given the +token+ of the worker's lease, it also yields only
+    # while the run still holds that token. Every write that ends a segment
+    # releases the lease, so a worker whose run was ended under it (failed as
+    # lost, say) or taken for another segment has its result discarded.
+    # Returns whether it yielded.
+    #
+    # @param token [String, nil] the lease token the worker's claim took; nil
+    #   (no lease) checks for a cancel only
+    def unless_cancelled(token: nil)
       with_lock do
         if cancelled?
           add_log("Execution finished after cancellation; result discarded", level: :info)
+          next false
+        end
+        if token && execution_token != token
+          add_log("Execution finished after its run was ended or taken by another worker; result discarded", level: :warn)
           next false
         end
 
@@ -415,6 +513,12 @@ module ActionAgent
     end
 
     private
+
+    # Ending a segment ends its lease: nothing renews it, and no worker holds
+    # the run until the next claim.
+    def lease_release_attributes
+      self.class.execution_leases? ? { execution_token: nil, execution_expires_at: nil } : {}
+    end
 
     def add_tokens(recorded, segment)
       return recorded if segment.nil?

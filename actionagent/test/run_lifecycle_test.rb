@@ -373,10 +373,12 @@ class RunCancelConcurrencyTest < ActiveSupport::TestCase
   #
   # The worker records under unless_cancelled, a read under the row lock
   # followed by a write. On SQLite under Rails 7.2, whose transactions are
-  # deferred, that write is refused ("database is locked") when the cancel
-  # commits between the two; the worker then records nothing, which leaves
-  # the run as the cancel left it. Rails 8 takes the write lock first, so
-  # the cancel waits for the worker instead.
+  # deferred, two writers that each hold a read lock cannot both upgrade, so
+  # SQLite refuses one of them at once ("database is locked") instead of
+  # waiting. Either side can be the one refused: a refused worker records
+  # nothing, which leaves the run as the cancel left it, and a refused
+  # cancel changes nothing, which leaves the run as the worker finished it.
+  # Rails 8 takes the write lock first, so the later writer waits instead.
   test "a cancel racing the finishing worker leaves one consistent outcome" do
     10.times do
       run = @agent.agent_runs.create!(input_prompt: "hi", status: :pending)
@@ -388,6 +390,10 @@ class RunCancelConcurrencyTest < ActiveSupport::TestCase
           stale = ActionAgent::AgentRun.find(run.id)
           barrier.wait(10)
           stale.cancel!
+        rescue ActiveRecord::StatementInvalid => e
+          raise unless e.cause.is_a?(SQLite3::BusyException)
+
+          :refused
         end
       end
       finishing = Thread.new do
@@ -403,11 +409,13 @@ class RunCancelConcurrencyTest < ActiveSupport::TestCase
           :refused
         end
       end
-      cancelling.join
-      refused = finishing.value == :refused
+      cancel_refused = cancelling.value == :refused
+      worker_refused = finishing.value == :refused
+      refute cancel_refused && worker_refused, "SQLite refused both writers, so neither could have won"
 
       run.reload
-      assert run.cancelled?, "the worker's write was refused, yet the run is #{run.status}" if refused
+      assert run.cancelled?, "the worker's write was refused, yet the run is #{run.status}" if worker_refused
+      assert run.complete?, "the cancel's write was refused, yet the run is #{run.status}" if cancel_refused
       if run.cancelled?
         assert_nil run.output, "a cancelled run kept the finished worker's output"
       else

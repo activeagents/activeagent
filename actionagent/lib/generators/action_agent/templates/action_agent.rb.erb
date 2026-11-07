@@ -170,6 +170,17 @@ ActionAgent.configure do |config|
   # config.input_request_ttl = 1.day
 
   # ==========================================================================
+  # Agent runs
+  # ==========================================================================
+  #
+  # How long a running run stays its worker's without progress (an LLM or
+  # tool call) before it is failed as lost. Its result is then discarded if
+  # the worker was only slow; nothing is run again. Schedule
+  # ActionAgent::AgentRunExpiryJob to fail the lost runs nobody looks at.
+  #
+  # config.run_lease_duration = 30.minutes
+
+  # ==========================================================================
   # Host integration
   # ==========================================================================
   #

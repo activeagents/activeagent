@@ -12,6 +12,9 @@ module ActionAgent
       # retry of a failed run would re-run the generation.
       return unless claim_pending(run)
 
+      # This worker's lease: only while the run is still running under it is
+      # the result recorded.
+      token = run.execution_token
       run.add_log("Starting execution", level: :info)
 
       begin
@@ -20,12 +23,12 @@ module ActionAgent
         # Build the agent class dynamically based on configuration
         result = execute_agent(agent_record, run)
 
-        run.unless_cancelled do
+        run.unless_cancelled(token: token) do
           run.record_result!(result, segment_started_at: run.started_at)
           run.add_log(result[:input_requests].present? ? "Execution paused for input" : "Execution completed successfully", level: :info)
         end
       rescue => e
-        run.unless_cancelled do
+        run.unless_cancelled(token: token) do
           run.record_failure!(e)
           run.add_log("Execution failed: #{e.message}", level: :error)
         end
@@ -46,11 +49,12 @@ module ActionAgent
     # with Rails 7.2, whose deferred transactions cannot write once another
     # writer has committed. Nothing is held over the generation, so a cancel
     # never waits for it. The update skips callbacks, so the status change is
-    # broadcast here.
+    # broadcast here. The claim takes the run's lease (AgentRun.lease_attributes),
+    # so the reloaded run carries this worker's token.
     def claim_pending(run)
       now = Time.current
       claimed = AgentRun.where(id: run.id, status: AgentRun.statuses[:pending])
-        .update_all(status: AgentRun.statuses[:running], started_at: now, updated_at: now)
+        .update_all(status: AgentRun.statuses[:running], started_at: now, updated_at: now, **AgentRun.lease_attributes(now))
       return false if claimed.zero?
 
       run.reload
