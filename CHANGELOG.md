@@ -134,6 +134,12 @@ one under its own keys needs them renamed.
   key from `RUNCRATE_API_KEY`; a thin subclass of the OpenAI provider, like
   Cheaper Inference.
 
+- **CloudGPU as an OpenAI-compatible provider** (`activeagent`).
+  `service: "CloudGPU"` generates through `https://cloudgpu.app/v1`
+  (DeepSeek, Kimi, GLM, MiniMax, Qwen and more, such as `deepseek-v4-flash`),
+  with the key from `CLOUDGPU_API_KEY`; a thin subclass of the OpenAI
+  provider, like Runcrate.
+
 - **Your own MCP servers** (`actionagent`). A dashboard user adds a remote
   MCP server by URL on the MCP Services page (*Your MCP servers*), with
   optional request headers, tests it (`tools/list`, recording the tools it
