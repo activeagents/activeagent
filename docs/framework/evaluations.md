@@ -887,7 +887,9 @@ no gates table, no tone and none of the three keys. The command line's
 `evals run --min-pass-rate` stays a gate on the whole run's pass rate
 (see [Command Line](/framework/cli#gating-ci-on-a-pass-rate)); the
 per-group gates travel with the report, in `to_h["gates"]`, for whatever
-reads the JSON.
+reads the JSON. The mounted dashboard keeps a published report's
+`pass_thresholds` with the run and rebuilds the gates from its stored
+results (see [Scenario evaluations](/framework/dashboard#scenario-evaluations)).
 
 ## The pieces
 
@@ -1399,7 +1401,8 @@ suite](#gating-a-suite)), checked as the catalog loads — a bad one raises
 `Catalog::InvalidDocument` naming the product or set it sits on;
 `suite_for` makes the product's the suite's and each set's its group's, and
 `Catalog#pass_thresholds(:triage, :smoke)` reads them. The mounted
-dashboard stores and exports both blocks with the catalog. Keys the format does
+dashboard stores and exports both blocks with the catalog, and gates a run
+of the set by them. Keys the format does
 not define (`owner_team`, `repository`, …) are kept as `metadata` on the
 catalog, product, set or scenario they sit on. Scenario extensions are
 opaque data: they do not add scoring rules. They remain at their original

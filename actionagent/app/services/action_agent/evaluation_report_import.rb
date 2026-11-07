@@ -95,6 +95,10 @@ module ActionAgent
     JUDGE_USAGE_KEYS = %w[calls input_tokens output_tokens cost model by_kind source].freeze
     JUDGE_USAGE_SOURCES = %w[reported traces meter].freeze
     MAX_JUDGE_KINDS = 10
+    # Groups a report's `pass_thresholds` may name; a group holds at least
+    # one result, so no report needs more.
+    MAX_PASS_GROUPS = MAX_RESULTS
+    PASS_THRESHOLD_KEYS = %w[threshold min_pass_rate groups].freeze
     SCOPE_PATTERN = %r{\A[\w .:/@-]{1,100}\z}
     STATUSES = %w[passed failed errored].freeze
     # The envelope statuses a delivery may name.
@@ -674,8 +678,19 @@ module ActionAgent
         "_verdict" => report["verdict"],
         "_selection" => selection,
         "_metadata" => metadata,
-        "_judge_usage_run" => bounded_judge_usage(report.dig("judge_usage", "run"))
+        "_judge_usage_run" => bounded_judge_usage(report.dig("judge_usage", "run")),
+        "_pass_thresholds" => recorded_pass_thresholds
       }.compact.merge("_judge_label" => judge_label)
+    end
+
+    # The bars the report was gated by, as PassThresholds normalizes them
+    # (validate_pass_thresholds! has refused anything else), so the rebuilt
+    # report gates the stored results the way the application's did. nil
+    # for a report whose suite declared none.
+    def recorded_pass_thresholds
+      return nil if report["pass_thresholds"].nil?
+
+      EvaluationRun.pass_thresholds_from(report["pass_thresholds"])&.to_h
     end
 
     # The run's scores in the shape the Evaluations view renders
@@ -689,10 +704,14 @@ module ActionAgent
     def summarized_scores(run)
       rebuilt = run.to_report(estimate: false)
       comparison = rebuilt.comparison if rebuilt.respond_to?(:comparison)
+      # The gates are worked out from the stored results as well: the
+      # report's own "gates" are not taken as the verdict.
+      gates = rebuilt.gates.map(&:to_h) if rebuilt.respond_to?(:pass_thresholds) && rebuilt.pass_thresholds
       rebuilt.criterion_scores.merge(
         "_models" => rebuilt.summary_by_model,
         "_recommendations" => rebuilt.recommendations,
-        "_comparison" => comparison
+        "_comparison" => comparison,
+        "_gates" => gates
       ).compact.merge(recorded_scores)
     end
 
@@ -725,6 +744,7 @@ module ActionAgent
       judge_trace_ids!(metadata["judge_trace_ids"])
       string!(report["judge"], "report.judge", 200)
       validate_release!
+      validate_pass_thresholds!
       validate_judge_usage!(report.dig("judge_usage", "run"), "report.judge_usage.run") if report["judge_usage"].is_a?(Hash)
       optional_object!(report["judge_usage"], "report.judge_usage")
       object!(report["models"], "report.models")
@@ -854,6 +874,33 @@ module ActionAgent
 
       string!(release["revision"], "report.release.revision", 200)
       string!(release["label"], "report.release.label", 200)
+    end
+
+    # The bars the suite declared, as Report#to_h writes them: "threshold"
+    # and "min_pass_rate" from 0 to 1, and "groups", each group's
+    # "min_pass_rate" and "gated", by group key. Checked by PassThresholds
+    # itself, so the import refuses what the framework would.
+    def validate_pass_thresholds!
+      bars = report["pass_thresholds"]
+      return if bars.nil?
+
+      object!(bars, "report.pass_thresholds")
+      unknown = bars.keys - PASS_THRESHOLD_KEYS
+      raise Invalid, "report.pass_thresholds has unknown keys #{unknown.join(', ')}" if unknown.any?
+
+      groups = bars["groups"]
+      optional_object!(groups, "report.pass_thresholds.groups")
+      if groups && groups.size > MAX_PASS_GROUPS
+        raise Invalid, "report.pass_thresholds.groups must name at most #{MAX_PASS_GROUPS} groups"
+      end
+
+      (groups || {}).each_key { |key| string!(key, "report.pass_thresholds.groups key", 200) }
+      # A framework without per-group bars stores none, as before.
+      return unless defined?(ActiveAgent::Evals::PassThresholds)
+
+      ActiveAgent::Evals::PassThresholds.new(suite: bars.slice(*ActiveAgent::Evals::PassThresholds::SUITE_KEYS), groups: groups || {})
+    rescue ArgumentError => e
+      raise Invalid, "report.pass_thresholds: #{e.message}"
     end
 
     # What the judge spent, as ActiveAgent::Evals::Report writes it per

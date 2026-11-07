@@ -5,8 +5,8 @@ import { META_COLUMN, MetaStrip } from '../TelemetryObject';
 import { splitModelLabel, timeAgo } from '../../../utils/format';
 import { fmtPasses, fmtScore, fmtSpend } from '../../../utils/evalFormat.mjs';
 import {
-  STRIP_LIST_HEIGHT, combinedBars, judgeCallsText, judgeLabel, judgeSourceText, passRate, plural, runCohorts, runDelta, runLabel,
-  runNumber, runSandboxLabel, runSpend, runTotalOf, runsMeta, shownRunIndexes, versionChip, versionDelta,
+  STRIP_LIST_HEIGHT, combinedBars, gateSentence, judgeCallsText, judgeLabel, judgeSourceText, passRate, plural, runCohorts, runDelta,
+  runGates, runLabel, runNumber, runSandboxLabel, runSpend, runTotalOf, runsMeta, shownRunIndexes, unmetGates, versionChip, versionDelta,
 } from '../../../utils/evaluationRuns.mjs';
 import { useIsoLayoutEffect } from '../../../hooks/useMeasuredWidth';
 import { agentUnit, fmtRate } from './SpendStrip';
@@ -28,7 +28,10 @@ import { agentUnit, fmtRate } from './SpendStrip';
 
 // A run's standing, as one badge: what it passed when it completed, else
 // where it is. A fraction carries its percent; `short` drops the word
-// "passed" where the row around it already says so (a rail row).
+// "passed" where the row around it already says so (a rail row). A run held
+// to pass gates says whether it met them: a missed gate turns the badge to
+// an error and reads "gate missed" whatever the pass rate, and the title
+// names each gate it missed.
 export function RunBadge({ run, testId, short = false }) {
   if (!run) return <Badge tone="muted" testId={testId}>no runs</Badge>;
   if (run.status === 'failed') return <Badge tone="error" testId={testId}>failed</Badge>;
@@ -36,9 +39,15 @@ export function RunBadge({ run, testId, short = false }) {
   if (run.status === 'running') return <Badge tone="warning" testId={testId}>running</Badge>;
   if (run.samples_evaluated) {
     const passes = fmtPasses(run.samples_passed || 0, run.samples_evaluated);
+    const gates = runGates(run);
+    const missed = !!gates && !gates.met;
+    const gateTitle = !gates ? null : missed ? (unmetGates(run).map(gateSentence).join('\n') || 'No gate was reached') : 'Every pass gate was met';
+    const text = short ? passes : `${passes} passed`;
+    const note = missed ? ' · gate missed' : gates && !short ? ' · gates met' : '';
+    const title = [short || gates ? `${passes} passed` : null, gateTitle].filter(Boolean).join('\n') || undefined;
     return (
-      <Badge tone={toneFor(passRate(run))} testId={testId} title={short ? `${passes} passed` : undefined}>
-        {short ? passes : `${passes} passed`}
+      <Badge tone={missed ? 'error' : toneFor(passRate(run))} testId={testId} title={title}>
+        {`${text}${note}`}
       </Badge>
     );
   }
