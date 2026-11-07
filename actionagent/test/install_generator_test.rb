@@ -551,6 +551,59 @@ class ActionAgentInstallGeneratorTest < Rails::Generators::TestCase
     end
   end
 
+  test "the product criteria upgrade follows catalog creation and is emitted again only when missing" do
+    run_generator [ "--skip-routes" ]
+    assert_migration "db/migrate/add_catalog_product_criteria.rb"
+    assert_operator migration_version("add_catalog_product_criteria"), :>, migration_version("create_active_agent_scenario_catalogs")
+    FileUtils.rm(migration_file_name("db/migrate/add_catalog_product_criteria.rb"))
+    before = Dir.children(File.join(destination_root, "db/migrate"))
+
+    run_generator [ "--skip-routes" ]
+    emitted = Dir.children(File.join(destination_root, "db/migrate")) - before
+    assert_equal 1, emitted.grep(/_add_catalog_product_criteria\.rb\z/).size
+    run_generator [ "--skip-routes" ]
+    assert_equal 1, Dir.glob(File.join(destination_root, "db/migrate/*_add_catalog_product_criteria.rb")).size
+  end
+
+  test "the product criteria upgrade preserves old rows under a custom prefix, reverses idempotently and skips a missing table" do
+    run_generator [ "--skip-routes" ]
+    connection = ActiveRecord::Base.connection
+    prefix = "product_criteria_probe_"
+    table = "#{prefix}scenario_products"
+    connection.create_table(table, force: true) { |t| t.string :key }
+    connection.execute("INSERT INTO #{table} (key) VALUES ('existing')")
+    ActionAgent.table_name_prefix = prefix
+
+    2.times { run_migration("add_catalog_product_criteria", :AddCatalogProductCriteria) }
+    assert connection.column_exists?(table, :criteria)
+    assert_equal [ "existing" ], connection.select_values("SELECT key FROM #{table}")
+    assert_nil connection.select_value("SELECT criteria FROM #{table}")
+    2.times { run_migration("add_catalog_product_criteria", :AddCatalogProductCriteria, :down) }
+    assert_not connection.column_exists?(table, :criteria)
+    assert_equal [ "existing" ], connection.select_values("SELECT key FROM #{table}")
+
+    ActionAgent.table_name_prefix = "missing_product_probe_"
+    run_migration("add_catalog_product_criteria", :AddCatalogProductCriteria)
+    run_migration("add_catalog_product_criteria", :AddCatalogProductCriteria, :down)
+    assert_not connection.table_exists?("missing_product_probe_scenario_products")
+  ensure
+    ActionAgent.table_name_prefix = "active_agent_"
+    connection&.drop_table(table, if_exists: true) if table
+  end
+
+  test "the product criteria upgrade uses each adapter's JSON type without a JSON default" do
+    run_generator [ "--skip-routes" ]
+    namespace = Module.new
+    namespace.module_eval(File.read(migration_file_name("db/migrate/add_catalog_product_criteria.rb")))
+    { "PostgreSQL" => :jsonb, "Mysql2" => :json, "Trilogy" => :json, "SQLite" => :json }.each do |adapter, type|
+      migration = namespace::AddCatalogProductCriteria.new
+      added = []
+      connection = connection_without_metadata_column(adapter, added)
+      ActiveRecord::Migration.suppress_messages { migration.stub(:connection, connection) { migration.up } }
+      assert_equal [ [ "active_agent_scenario_products", :criteria, type, {} ] ], added, adapter
+    end
+  end
+
   private
 
   # The real connection, reporting +adapter+ and a table without the column,

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 32) do
+ActiveRecord::Schema[8.0].define(version: 34) do
   create_table "active_agent_agent_contexts", force: :cascade do |t|
     t.string "action_name", null: false
     t.string "agent_name", null: false
@@ -682,6 +682,7 @@ ActiveRecord::Schema[8.0].define(version: 32) do
     t.json "metadata"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.json "criteria"
     t.index [ "agent_id" ], name: "index_active_agent_scenario_products_on_agent_id"
     t.index [ "project_id" ], name: "index_active_agent_scenario_products_on_project_id"
     t.index [ "scenario_catalog_id", "key" ], name: "idx_on_scenario_catalog_id_key_2062a9535b", unique: true

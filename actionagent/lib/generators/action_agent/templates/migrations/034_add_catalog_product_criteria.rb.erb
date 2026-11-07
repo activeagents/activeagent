@@ -1,0 +1,24 @@
+# frozen_string_literal: true
+
+class AddCatalogProductCriteria < ActiveRecord::Migration<%= migration_version %>
+  def up
+    return unless table_exists?(products_table)
+    return if column_exists?(products_table, :criteria)
+
+    type = connection.adapter_name.to_s.downcase.include?("postgres") ? :jsonb : :json
+    add_column products_table, :criteria, type
+  end
+
+  def down
+    return unless table_exists?(products_table)
+    return unless column_exists?(products_table, :criteria)
+
+    remove_column products_table, :criteria
+  end
+
+  private
+
+  def products_table
+    "#{ActionAgent.table_name_prefix}scenario_products"
+  end
+end

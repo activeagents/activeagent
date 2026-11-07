@@ -1390,10 +1390,10 @@ new one is appended), so `catalog.suite_for(:triage).criteria(:shared)`
 reads a product's `shared` list the way `Suite#criteria` does. A set keeps
 a criterion without a `key`, appended as it is and once, however many
 layered documents restate it. The mounted dashboard stores a set's
-criteria; a product's named lists stay in the YAML and do not survive its
-import and export, so the import preview reports a product that carries
-them as changed on every re-import, and a document the dashboard writes
-back from its records leaves them out.
+criteria and a product's named lists, and exports both as it imported
+them, so an unchanged document re-imports with no change; running a set
+still scores on the set's own criteria (see
+[Scenario catalogs](/framework/dashboard#scenario-catalogs)).
 A product and a set may also carry a `pass` block (see [Gating a
 suite](#gating-a-suite)), checked as the catalog loads — a bad one raises
 `Catalog::InvalidDocument` naming the product or set it sits on;
