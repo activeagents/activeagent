@@ -69,6 +69,9 @@ bundle add openai
 # Runcrate (uses OpenAI-compatible API)
 bundle add openai
 
+# Standard Compute (uses OpenAI-compatible API)
+bundle add openai
+
 # DeepSeek (uses OpenAI-compatible API)
 bundle add openai
 
