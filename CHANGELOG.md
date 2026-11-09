@@ -23,6 +23,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Responses streaming failures retain their error details.** `error` and
+  `response.failed` events raise a provider error with the API code and message
+  instead of an unexpected chunk type error.
+
 - **A self-hosted dashboard shows its own trace endpoint** (`actionagent`).
   The Organization page's Telemetry card showed the platform's `/v1/traces`.
   A self-hosted engine takes traces at `<mount>/api/traces`, and the card

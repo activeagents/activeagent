@@ -110,6 +110,7 @@ module ActiveAgent
         #   reasoning progress, kept from the reasoning item once it is done
         # - `:"response.content_part.done"` - content part completed
         # - `:"response.output_item.done"` - message, reasoning or function call completed
+        # - `:error`, `:"response.failed"` - provider failure
         # - `:"response.completed"` - response finished
         # - `:"response.incomplete"` - response cut short (e.g. max_output_tokens)
         #
@@ -173,6 +174,12 @@ module ActiveAgent
           # -> Message Completed
           when :"response.output_item.done"
             process_stream_output_item_done(api_response_event)
+
+          # Errors arrive as events even though the HTTP request succeeded.
+          when :error, :"response.failed"
+            error = api_response_event.type == :error ? api_response_event : api_response_event.response.error
+            message = [ error&.code, error&.message ].compact.join(": ")
+            raise Errors::ProviderError.new(message.presence || "OpenAI response failed", provider_tag: tag_name)
 
           # Response Completed, or cut short (e.g. by max_output_tokens) with
           # the output it has so far
