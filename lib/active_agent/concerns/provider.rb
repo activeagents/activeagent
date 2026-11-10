@@ -15,7 +15,9 @@ module ActiveAgent
       "AzureOpenai" => "AzureOpenAI",
       "Azureopenai" => "AzureOpenAI",
       "Rubyllm"     => "RubyLLM",
-      "RubyLlm"     => "RubyLLM"
+      "RubyLlm"     => "RubyLLM",
+      "Uberllm"     => "UberLLM",
+      "UberLlm"     => "UberLLM"
     }
 
     included do

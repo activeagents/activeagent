@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **UberLLM as an OpenAI-compatible provider** (`activeagent`).
+  `service: "UberLLM"` (or `generate_with :uber_llm`) generates through
+  `https://api.uberllm.dev/v1` (vendor-prefixed model ids such as
+  `deepseek/deepseek-v4.1-flash` or `z-ai/glm-5.2`), with the key from
+  `UBERLLM_API_KEY`; a thin subclass of the OpenAI provider, like Runcrate.
+  UberLLM serves no embedding models, so it does not embed.
+
 - **An empty agent list shows how agents arrive** (`actionagent`). With no
   agents, the Agents page offered only Browse Templates and Create From
   Scratch. It now shows three ways in, telemetry first:
