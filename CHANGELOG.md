@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **The dashboard shows a run's per-group pass gates** (`actionagent`). A
+  published report's `pass_thresholds` are kept with the run, so the
+  rebuilt report, the export and the run page gate the stored results as
+  the application's report did, and a run started from the dashboard on a
+  catalog set is held to the set's and product's `pass` bars, recorded as
+  the run starts so a later catalog change does not regrade it. The run
+  page adds a **Pass rate by group** table, and the run's badge reads
+  `gate missed` when a gate was not met even if the whole-run pass rate
+  looks fine. The run's JSON adds `gates` and `gates_met`; a run without
+  bars reads as before (#678).
 - **An empty agent list shows how agents arrive** (`actionagent`). With no
   agents, the Agents page offered only Browse Templates and Create From
   Scratch. It now shows three ways in, telemetry first:
