@@ -23,7 +23,9 @@ class EvalsRubyLLMConversationTest < ActiveSupport::TestCase
     [ "lookup_order", false, nil ],
     [ "failing_hash", true, "backend timed out" ],
     [ "failing_json", true, "MCP tool failing_json timed out" ],
-    [ "github__search_issues", true, /\AModel tried to call unavailable tool `github__search_issues`/ ]
+    # RubyLLM 2.2 reworded its unavailable-tool error.
+    [ "github__search_issues", true,
+      /\A(Model tried to call unavailable tool|There is no tool named) `github__search_issues`/ ]
   ].freeze
 
   test "a conversation replays the same from RubyLLM messages and from acts_as_chat records" do

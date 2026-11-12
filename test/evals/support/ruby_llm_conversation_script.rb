@@ -113,13 +113,19 @@ else
   # RubyLLM's railtie requires these under Rails, in its order; a release
   # that renames one reads as a skip naming the file rather than a crash.
   # 2.1 added record (the base class its models inherit from), mcp_credential
-  # and provider_file; they are required where the release has them.
+  # and provider_file; 2.2 added queued_message, chat_file, file_store,
+  # chat_files, chat_column_guard, message_broadcasting and chunk_methods
+  # (acts_as_chat includes ChatFiles and prepends ChatColumnGuard). Each is
+  # required where the release has it.
   internals = if V2
-    %w[record payload_helpers model tool_call usage batch mcp_credential provider_file chat_methods message_methods acts_as]
+    %w[record payload_helpers model tool_call usage batch mcp_credential provider_file queued_message
+       chat_file file_store chat_methods chat_files chat_column_guard message_methods message_broadcasting
+       chunk_methods acts_as]
   else
     %w[payload_helpers chat_methods message_methods model_methods tool_call_methods acts_as]
   end
-  since_2_1 = %w[record mcp_credential provider_file]
+  since_2_1 = %w[record mcp_credential provider_file queued_message chat_file file_store chat_files
+                 chat_column_guard message_broadcasting chunk_methods]
   begin
     internals.each do |file|
       next if since_2_1.include?(file) && $LOAD_PATH.none? { |dir| File.exist?(File.join(dir, "ruby_llm/active_record/#{file}.rb")) }
@@ -150,6 +156,9 @@ else
         t.json :pricing, default: {}
         t.json :metadata, default: {}
         t.timestamps
+        # RubyLLM 2.2 upserts the registry by this key (its install
+        # migration has always created the index).
+        t.index [ :provider, :model_id ], unique: true
       end
       create_table :chats do |t|
         t.references :ruby_llm_model, null: false
@@ -168,6 +177,10 @@ else
         t.json :raw_content
         t.json :raw_reasoning
         t.string :finish_reason
+        # RubyLLM 2.2 columns (its install migration writes them).
+        t.string :cache_ttl
+        t.string :phase
+        t.text :continuation
         if LEGACY
           t.integer :tool_call_id
           t.integer :input_tokens
@@ -179,11 +192,18 @@ else
         t.references :message, polymorphic: true, null: false, index: false
         t.references :result, polymorphic: true, index: false
         t.string :tool_call_id, null: false
+        # RubyLLM 2.2: the provider's ID beside RubyLLM's own, the tool's
+        # namespace, the claim and the MCP state.
+        t.string :provider_call_id
+        t.string :namespace
         t.string :name, null: false
         t.text :thought_signature
         t.string :approval
         t.boolean :remote, default: false, null: false
+        t.datetime :claimed_until
         t.json :arguments, default: {}
+        t.json :mcp_state
+        t.json :mcp_result
         t.timestamps
       end
       create_table :ruby_llm_usages do |t|
@@ -229,6 +249,7 @@ else
         t.json :pricing, default: {}
         t.json :metadata, default: {}
         t.timestamps
+        t.index [ :provider, :model_id ], unique: true
       end
       create_table :chats do |t|
         t.references :model
@@ -252,6 +273,8 @@ else
       end
       create_table :tool_calls do |t|
         t.string :tool_call_id, null: false
+        t.string :provider_call_id
+        t.string :namespace
         t.string :name, null: false
         t.text :thought_signature
         t.json :arguments, default: {}

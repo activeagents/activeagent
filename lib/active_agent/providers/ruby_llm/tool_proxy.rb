@@ -32,6 +32,21 @@ module ActiveAgent
         alias_method :declared_parameters, :parameters
         alias_method :provider_options, :provider_params
 
+        # RubyLLM 2.2 registers a tool under its qualified name (namespace
+        # plus name) and asks each tool whether it defers. ActiveAgent's
+        # tools have no namespace and run when called.
+        def namespace
+          nil
+        end
+
+        def qualified_name
+          name
+        end
+
+        def deferred?
+          false
+        end
+
         private
 
         def deep_stringify(obj)

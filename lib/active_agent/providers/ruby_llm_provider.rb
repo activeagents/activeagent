@@ -152,15 +152,16 @@ module ActiveAgent
         # Handle tool calls in chunk
         if chunk.tool_calls&.any?
           message[:tool_calls] ||= []
-          chunk.tool_calls.each do |key, tool_call|
+          each_tool_call(chunk.tool_calls) do |key, tool_call|
             # Only the first delta of a call has its ID and name; the rest
             # are fragments of its arguments. A fragment belongs to the call
             # that shares its stream key (the index RubyLLM 2 numbers calls
             # by), or, without one as RubyLLM 1.16 leaves it for OpenAI, to
             # the latest call. RubyLLM 1.16 cannot preserve interleaved
             # OpenAI calls: its parser drops their indices and fragments.
-            existing = if tool_call.id
-              message[:tool_calls].find { |tc| tc[:id] == tool_call.id }
+            call_id = streamed_tool_call_id(tool_call)
+            existing = if call_id
+              message[:tool_calls].find { |tc| tc[:id] == call_id }
             else
               @stream_tool_calls[key] || message[:tool_calls].last
             end
@@ -169,7 +170,7 @@ module ActiveAgent
               existing[:function][:arguments] += fragment
             else
               existing = {
-                id: tool_call.id,
+                id: call_id,
                 type: "function",
                 function: {
                   name: tool_call.name,
@@ -492,7 +493,7 @@ module ActiveAgent
 
         # Handle tool calls
         if response.tool_calls&.any?
-          hash[:tool_calls] = response.tool_calls.map do |id, tc|
+          hash[:tool_calls] = each_tool_call(response.tool_calls).map do |id, tc|
             {
               id: id,
               type: "function",
@@ -521,6 +522,41 @@ module ActiveAgent
         hash[:model] = model_id if model_id
 
         hash
+      end
+
+      # Yields each of a message's tool calls with its key. RubyLLM 1.x and
+      # 2.0 to 2.1 keep them in a Hash keyed by call ID (or, on a streamed
+      # chunk, by stream index), so iterating yields pairs. RubyLLM 2.2's
+      # `ToolCall::Collection` yields the calls themselves and keeps the
+      # keys behind `each_key`, in the same order.
+      #
+      # @param calls [Hash, #each_key, nil]
+      # @return [Enumerator, Array] key and call pairs
+      def each_tool_call(calls, &block)
+        pairs = if calls.nil?
+          []
+        elsif calls.is_a?(Hash)
+          calls.to_a
+        elsif calls.respond_to?(:each_key)
+          calls.each_key.to_a.zip(calls.each.to_a)
+        else
+          calls.each.to_a.map { |call| [ call.id, call ] }
+        end
+        block ? pairs.each(&block) : pairs
+      end
+
+      # The provider's ID for a streamed tool call, present on its first
+      # delta and nil on the fragments. RubyLLM 2.2 keeps it in
+      # `provider_call_id` and leaves `id` (its own identifier, assigned when
+      # the message completes) nil on a chunk; earlier releases put the
+      # provider's ID in `id`.
+      #
+      # @param tool_call [RubyLLM::ToolCall]
+      # @return [String, nil]
+      def streamed_tool_call_id(tool_call)
+        provider_id = tool_call.provider_call_id if tool_call.respond_to?(:provider_call_id)
+        provider_id = nil if provider_id.to_s.empty?
+        provider_id || tool_call.id
       end
 
       # A streamed tool call's arguments as the text they add to the JSON
