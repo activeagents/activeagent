@@ -74,6 +74,43 @@ On a cache miss, ActiveAgent connects during prompt setup to list tools. On a ca
 
 <<< @/../test/docs/actions/mcps_examples_test.rb#multiple_servers_integrated_agent {ruby:line-numbers}
 
+### Inspect a local codebase with Sem
+
+[Sem](https://github.com/Ataraxy-Labs/sem) exposes entity search and code
+relationships over stdio. Install its `sem` executable on the Rails host and
+add `gem "mcp"` to your application's Gemfile.
+
+```ruby
+class CodeInspectorAgent < ApplicationAgent
+  generate_with :openai, model: "gpt-4o-mini"
+
+  def inspect_code(question)
+    prompt(
+      message: question,
+      mcp_strategy: :client,
+      mcps: [ {
+        name: "sem",
+        command: ENV.fetch("SEM_BINARY", "sem"),
+        args: [ "mcp" ],
+        env: { "SEM_REPO" => ENV.fetch("CODE_REPO"), "SEM_CLOUD" => "0" },
+        allowed_tools: [ "sem_find", "sem_grep", "sem_graph", "sem_impact" ],
+        read_timeout: 60
+      } ]
+    )
+  end
+end
+```
+
+Set `CODE_REPO` to an absolute path to a Git checkout readable by the Rails
+process. Try `CodeInspectorAgent.inspect_code("Find parse_config and its callers").generate_now`.
+The bridge starts the local server, discovers the allowed tools, and closes it
+when generation ends. No public MCP endpoint is needed.
+
+This example exposes inspection tools only. Source excerpts become part of the
+configured model provider's context; `SEM_CLOUD=0` disables Sem cloud uploads,
+not model requests. Repository selection is operator-controlled, not taken
+from an untrusted request parameter. Sem may populate its local index.
+
 ### With Function Tools
 
 <<< @/../test/docs/actions/mcps_examples_test.rb#hybrid_agent_with_tools {ruby:line-numbers}
