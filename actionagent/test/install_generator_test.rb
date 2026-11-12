@@ -604,6 +604,67 @@ class ActionAgentInstallGeneratorTest < Rails::Generators::TestCase
     end
   end
 
+  test "the pass bars upgrade follows catalog creation and is emitted again only when missing" do
+    run_generator [ "--skip-routes" ]
+    assert_migration "db/migrate/add_catalog_pass_bars.rb"
+    assert_operator migration_version("add_catalog_pass_bars"), :>, migration_version("create_active_agent_scenario_catalogs")
+    FileUtils.rm(migration_file_name("db/migrate/add_catalog_pass_bars.rb"))
+    before = Dir.children(File.join(destination_root, "db/migrate"))
+
+    run_generator [ "--skip-routes" ]
+    emitted = Dir.children(File.join(destination_root, "db/migrate")) - before
+    assert_equal 1, emitted.grep(/_add_catalog_pass_bars\.rb\z/).size
+    run_generator [ "--skip-routes" ]
+    assert_equal 1, Dir.glob(File.join(destination_root, "db/migrate/*_add_catalog_pass_bars.rb")).size
+  end
+
+  test "the pass bars upgrade preserves old rows under a custom prefix, reverses idempotently and skips a missing table" do
+    run_generator [ "--skip-routes" ]
+    connection = ActiveRecord::Base.connection
+    prefix = "pass_bars_probe_"
+    tables = %w[scenario_products scenario_sets].map { |name| "#{prefix}#{name}" }
+    tables.each do |table|
+      connection.create_table(table, force: true) { |t| t.string :key }
+      connection.execute("INSERT INTO #{table} (key) VALUES ('existing')")
+    end
+    ActionAgent.table_name_prefix = prefix
+
+    2.times { run_migration("add_catalog_pass_bars", :AddCatalogPassBars) }
+    tables.each do |table|
+      assert connection.column_exists?(table, :pass), table
+      assert_equal [ "existing" ], connection.select_values("SELECT key FROM #{table}")
+      assert_nil connection.select_value("SELECT pass FROM #{table}")
+    end
+    2.times { run_migration("add_catalog_pass_bars", :AddCatalogPassBars, :down) }
+    tables.each do |table|
+      assert_not connection.column_exists?(table, :pass), table
+      assert_equal [ "existing" ], connection.select_values("SELECT key FROM #{table}")
+    end
+
+    connection.drop_table(tables.last)
+    2.times { run_migration("add_catalog_pass_bars", :AddCatalogPassBars) }
+    assert connection.column_exists?(tables.first, :pass), "a missing sets table does not stop the products column"
+    run_migration("add_catalog_pass_bars", :AddCatalogPassBars, :down)
+    assert_not connection.table_exists?(tables.last)
+  ensure
+    ActionAgent.table_name_prefix = "active_agent_"
+    tables&.each { |table| connection&.drop_table(table, if_exists: true) }
+  end
+
+  test "the pass bars upgrade uses each adapter's JSON type without a JSON default" do
+    run_generator [ "--skip-routes" ]
+    namespace = Module.new
+    namespace.module_eval(File.read(migration_file_name("db/migrate/add_catalog_pass_bars.rb")))
+    { "PostgreSQL" => :jsonb, "Mysql2" => :json, "Trilogy" => :json, "SQLite" => :json }.each do |adapter, type|
+      migration = namespace::AddCatalogPassBars.new
+      added = []
+      connection = connection_without_metadata_column(adapter, added)
+      ActiveRecord::Migration.suppress_messages { migration.stub(:connection, connection) { migration.up } }
+      expected = %w[active_agent_scenario_products active_agent_scenario_sets].map { |table| [ table, :pass, type, {} ] }
+      assert_equal expected, added, adapter
+    end
+  end
+
   private
 
   # The real connection, reporting +adapter+ and a table without the column,

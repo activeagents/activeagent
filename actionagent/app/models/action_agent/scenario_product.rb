@@ -35,6 +35,14 @@ module ActionAgent
       end
     end
 
+    # The bars the catalog's `pass:` declares (ActiveAgent::Evals::PassThresholds);
+    # a stored value that is not a mapping reads as none.
+    # @return [Hash{String => Object}]
+    def pass
+      value = self[:pass]
+      value.is_a?(Hash) ? value : {}
+    end
+
     # The agent a set of this product runs against when the caller names
     # none: the product's agent, else the project's agent under test, else
     # the owner's agent named by the document.
@@ -51,6 +59,7 @@ module ActionAgent
         "description" => description,
         "agent" => agent_name.presence || agent&.name,
         "criteria" => criteria.presence,
+        "pass" => pass.presence,
         "sets" => sets.map(&:to_document)
       }.merge(metadata).compact
     end
