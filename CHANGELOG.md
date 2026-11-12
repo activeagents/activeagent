@@ -39,6 +39,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The RubyLLM provider works with ruby_llm 2.2** (`activeagent`). RubyLLM
+  2.2.0 (2026-11-10) changed three things the provider leaned on. A
+  message's `tool_calls` became a `ToolCall::Collection` that yields the
+  calls rather than ID-and-call pairs, so every tool call read as `nil`; a
+  streamed delta now carries the provider's call ID in `provider_call_id`
+  and leaves `id` empty, so every fragment joined the latest call and
+  arguments doubled up; and a chat asks each tool for its `namespace`,
+  `qualified_name` and `deferred?`, which ActiveAgent's tool proxy did not
+  answer. The provider now iterates either shape, keys streamed fragments
+  by the provider's ID, and the proxy answers the three. ruby_llm 1.16
+  through 2.1 behave as before. The evals conversation check also learned
+  2.2's `acts_as_chat` modules, columns and reworded unavailable-tool error.
 - **`evals run` fails CI on a missed group gate** (`activeagent`). A run
   whose critical group slipped to 50% passed `evals run --min-pass-rate`
   whenever the other groups lifted the whole-run pass rate over the bar.
