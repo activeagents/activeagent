@@ -884,8 +884,8 @@ group's pass count by its gate, naming the bar in its tooltip; and `to_h`
 gains `"pass_thresholds"`, `"groups"` (`summary_by_group`, each model's
 counts within each group) and `"gates"`. A report built without them has
 no gates table, no tone and none of the three keys. The command line's
-`evals run --min-pass-rate` stays a gate on the whole run's pass rate
-(see [Command Line](/framework/cli#gating-ci-on-a-pass-rate)); the
+`evals run --wait` fails on a missed group gate as well as on the whole
+run's pass rate (see [Command Line](/framework/cli#gating-ci-on-a-pass-rate)); the
 per-group gates travel with the report, in `to_h["gates"]`, for whatever
 reads the JSON. The mounted dashboard keeps a published report's
 `pass_thresholds` with the run and rebuilds the gates from its stored

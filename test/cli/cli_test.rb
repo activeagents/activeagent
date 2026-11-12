@@ -63,10 +63,28 @@ class ActiveAgentCLITest < Minitest::Test
     stub
   end
 
-  def run_payload(status, passed: 0, evaluated: 0, results: [])
-    { evaluation: { id: 7, name: "Orders" },
-      run: { id: 41, run_id: "dashboard-run-41-20261022100000", status: status, samples_evaluated: evaluated, samples_passed: passed },
-      results: results }
+  def run_payload(status, passed: 0, evaluated: 0, results: [], gates: nil, gates_met: nil)
+    run = { id: 41, run_id: "dashboard-run-41-20261022100000", status: status, samples_evaluated: evaluated, samples_passed: passed }
+    run = run.merge(gates: gates, gates_met: gates_met) unless gates.nil? && gates_met.nil?
+    { evaluation: { id: 7, name: "Orders" }, run: run, results: results }
+  end
+
+  # A run's gate as the dashboard serializes it (Report::Gate#to_h).
+  def gate_row(group, name, passed, total, min_pass_rate, gated: true, label: "mock/alpha")
+    rate = passed.to_f / total
+    { group: group, name: name, label: label, passed: passed, total: total, pass_rate: rate,
+      min_pass_rate: min_pass_rate, gated: gated, met: !gated || rate >= min_pass_rate }
+  end
+
+  # Nine of ten passed; the critical group passed one of its two against
+  # 100%, the informational group none of its two but it is not gated.
+  def gated_run(critical: [ 1, 2 ], whole: [ 7, 8 ])
+    gates = [
+      gate_row("critical", "Critical", *critical, 1.0),
+      gate_row("informational", "Informational", 0, 2, 0.8, gated: false),
+      gate_row(nil, "All", *whole, 0.8)
+    ]
+    run_payload("complete", passed: 9, evaluated: 10, gates: gates, gates_met: gates.all? { |gate| gate[:met] })
   end
 
   def envelope(run_id: "run-1")
@@ -270,6 +288,134 @@ class ActiveAgentCLITest < Minitest::Test
     code, out, = cli("evals", "run", "7", "--wait")
     assert_equal CLI::EXIT_GATE, code
     assert_match(/FAIL$/, out)
+  end
+
+  def test_evals_run_wait_fails_an_unmet_group_gate_and_names_it
+    stub_tool("evaluations_run", run_payload("pending"))
+    stub_tool("evaluation_runs_get", gated_run)
+
+    code, out, = cli("evals", "run", "7", "--wait")
+
+    assert_equal CLI::EXIT_GATE, code
+    assert_includes out, "Run 41 complete: 9/10 (90.0%)."
+    assert_includes out, "Gates not met:\n  Critical · mock/alpha: 1/2 (50%) passed, below 100%\n"
+    refute_includes out, "Informational", "an ungated group never fails the run"
+    assert_match(/FAIL$/, out)
+  end
+
+  def test_evals_run_min_pass_rate_needs_the_rate_and_every_gate
+    stub_tool("evaluations_run", run_payload("pending"))
+    stub_tool("evaluation_runs_get", gated_run)
+
+    code, out, = cli("evals", "run", "7", "--min-pass-rate", "0.8")
+
+    assert_equal CLI::EXIT_GATE, code, "the rate clears 80% but the critical gate does not"
+    assert_includes out, "(90.0%), threshold 80.0%."
+    assert_includes out, "Critical · mock/alpha: 1/2 (50%) passed, below 100%"
+  end
+
+  def test_evals_run_min_pass_rate_fails_below_the_rate_with_every_gate_met
+    stub_tool("evaluations_run", run_payload("pending"))
+    stub_tool("evaluation_runs_get", gated_run(critical: [ 2, 2 ]))
+
+    code, out, = cli("evals", "run", "7", "--min-pass-rate", "0.95")
+
+    assert_equal CLI::EXIT_GATE, code
+    assert_includes out, "(90.0%), threshold 95.0%."
+    assert_includes out, "Gates: every gate met (3)."
+    assert_match(/FAIL$/, out)
+  end
+
+  def test_evals_run_passes_when_every_gated_group_is_met_whatever_an_ungated_group_scored
+    stub_tool("evaluations_run", run_payload("pending"))
+    stub_tool("evaluation_runs_get", gated_run(critical: [ 2, 2 ]))
+
+    code, out, = cli("evals", "run", "7", "--wait")
+
+    assert_equal 0, code, out
+    assert_includes out, "Gates: every gate met (3)."
+    assert_match(/PASS$/, out)
+  end
+
+  def test_evals_run_trusts_the_dashboards_verdict_on_its_gates
+    stub_tool("evaluations_run", run_payload("pending"))
+    stub_tool("evaluation_runs_get", run_payload("complete", passed: 2, evaluated: 2, gates: [], gates_met: false))
+
+    code, out, = cli("evals", "run", "7", "--wait")
+
+    assert_equal CLI::EXIT_GATE, code, "a run that reached no gate has not passed"
+    assert_includes out, "Gates: no gate was reached."
+  end
+
+  def test_evals_run_json_adds_the_gates_and_keeps_the_payload
+    stub_tool("evaluations_run", run_payload("pending"))
+    stub_tool("evaluation_runs_get", gated_run)
+
+    code, out, = cli("evals", "run", "7", "--wait", "--json")
+
+    assert_equal CLI::EXIT_GATE, code
+    result = JSON.parse(out)
+    assert_equal "fail", result["verdict"]
+    assert_in_delta 0.9, result["pass_rate"]
+    assert_equal %w[Critical Informational All], result["gates"].map { |gate| gate["name"] }
+    assert_equal false, result.dig("run", "gates_met")
+    assert_equal "Orders", result.dig("evaluation", "name")
+  end
+
+  def test_evals_run_without_gates_reads_as_before
+    stub_tool("evaluations_run", run_payload("pending"))
+    stub_tool("evaluation_runs_get", run_payload("complete", passed: 9, evaluated: 10))
+
+    code, out, = cli("evals", "run", "7", "--wait")
+    assert_equal 0, code
+    refute_includes out, "Gates"
+    assert_match(/PASS$/, out)
+
+    code, out, = cli("evals", "run", "7", "--wait", "--json")
+    assert_equal 0, code
+    refute JSON.parse(out).key?("gates"), "a run without gates adds no key"
+  end
+
+  def test_evals_run_failed_run_with_gates_still_fails
+    stub_tool("evaluations_run", run_payload("pending"))
+    stub_tool("evaluation_runs_get", run_payload("failed", gates: [ gate_row("critical", "Critical", 2, 2, 1.0) ], gates_met: true))
+
+    code, out, = cli("evals", "run", "7", "--wait")
+
+    assert_equal CLI::EXIT_GATE, code
+    assert_match(/FAIL$/, out)
+  end
+
+  def test_evals_run_gate_text_strips_control_characters_from_the_server
+    hostile = gate_row("critical", "Critical\e[2J\nNext", 1, 2, 1.0, label: "mock/\e]0;title\a")
+    stub_tool("evaluations_run", run_payload("pending"))
+    stub_tool("evaluation_runs_get", run_payload("complete", passed: 1, evaluated: 2, gates: [ hostile ], gates_met: false))
+
+    _, out, = cli("evals", "run", "7", "--wait")
+
+    refute_includes out, "\e"
+    refute_includes out, "\a"
+    assert_includes out, "Critical [2J Next · mock/ ]0;title : 1/2 (50%) passed, below 100%"
+  end
+
+  def test_evals_run_skips_a_gate_row_that_is_not_an_object
+    rows = [ "critical", 3, nil, gate_row("critical", "Critical", 1, 2, 1.0) ]
+    stub_tool("evaluations_run", run_payload("pending"))
+    stub_tool("evaluation_runs_get", run_payload("complete", passed: 1, evaluated: 2, gates: rows, gates_met: false))
+
+    code, out, = cli("evals", "run", "7", "--wait", "--json")
+
+    assert_equal CLI::EXIT_GATE, code
+    assert_equal [ "Critical" ], JSON.parse(out)["gates"].map { |gate| gate["name"] }
+  end
+
+  def test_evals_run_without_wait_ignores_gates
+    stub_tool("evaluations_run", gated_run)
+
+    code, out, = cli("evals", "run", "7")
+
+    assert_equal 0, code
+    refute_includes out, "Gates"
   end
 
   def test_evals_run_gives_up_after_the_timeout

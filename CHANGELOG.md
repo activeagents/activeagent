@@ -39,6 +39,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`evals run` fails CI on a missed group gate** (`activeagent`). A run
+  whose critical group slipped to 50% passed `evals run --min-pass-rate`
+  whenever the other groups lifted the whole-run pass rate over the bar.
+  A finished run that the dashboard holds to per-group pass gates now fails
+  (exit 4) when any gated group missed its bar, with `--wait` alone or with
+  `--min-pass-rate`, which stays the whole-run bar; each missed gate prints
+  as one line, and `--json` adds `gates`. A run without gates is gated as
+  before (#677).
 - **Responses streaming failures retain their error details** (`activeagent`).
   `error` and `response.failed` events raise a provider error with the API
   code and message instead of an unexpected chunk type error.
