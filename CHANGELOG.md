@@ -5,7 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.9.8] - 2026-11-12
+
+The dashboard holds a run to its catalog's pass bars: a product's and a
+set's `pass` blocks and a product's named criteria lists survive import, a
+run records the bars it started under and shows each group's gate beside
+its pass rate, and `evals run` exits 4 when a gated group misses, so CI
+fails on the group that slipped rather than on the whole-run average. A
+catalog that declares a `threshold` now scores at it instead of the fixed
+0.7. Around that: the empty agent list shows the ways an agent arrives,
+telemetry first; the RubyLLM provider works with ruby_llm 2.2 and the
+Anthropic provider with the `anthropic` gem 2.x; Runcrate joins the
+OpenAI-compatible providers; and smaller fixes to Anthropic usage counts,
+Requesty embeddings, `top_k` for thinking-first models, late cancels,
+`tool_observer` under Capture and Responses streaming errors.
+
+Upgrading: two dashboard migrations, 034 `add_catalog_product_criteria`
+(the `criteria` column on scenario products) and 035
+`add_catalog_pass_bars` (the `pass` column on scenario products and sets):
+run `bin/rails generate action_agent:install --skip` and `bin/rails
+db:migrate`. Until they run, catalog imports keep working but still drop
+named criteria lists and pass bars, so dashboard runs stay ungated; a
+catalog imported before the upgrade needs importing again to gain them.
+033 is left free for a later release. A finished run that carries gates
+now fails `evals run --wait` with exit 4 when any gated group missed its
+bar; a run without gates is reported as before. ruby_llm 2.2.0 (2026-11-10)
+breaks the RubyLLM provider in 1.9.7 and earlier (every tool call reads as
+`nil`); upgrade, or hold `ruby_llm < 2.2` until you do.
 
 ### Added
 
