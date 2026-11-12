@@ -39,6 +39,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Responses streaming failures retain their error details** (`activeagent`).
+  `error` and `response.failed` events raise a provider error with the API
+  code and message instead of an unexpected chunk type error.
 - **The dashboard keeps a catalog's pass bars** (`actionagent`). A
   product's and a set's `pass` blocks (`min_pass_rate`, `threshold`,
   `gated`) parsed in `ActiveAgent::Evals::Catalog`, but neither
