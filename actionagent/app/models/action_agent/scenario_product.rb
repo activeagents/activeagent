@@ -21,6 +21,20 @@ module ActionAgent
       value.is_a?(Hash) ? value : {}
     end
 
+    # The product's named criteria lists, as the catalog's `criteria:` gives
+    # them: list name => criterion hashes. A stored value that is not such a
+    # mapping, and a list left with no criterion, read as no list.
+    # @return [Hash{String => Array<Hash>}]
+    def criteria
+      value = self[:criteria]
+      return {} unless value.is_a?(Hash)
+
+      value.each_with_object({}) do |(name, list), lists|
+        entries = Array(list).select { |criterion| criterion.is_a?(Hash) } if list.is_a?(Array)
+        lists[name.to_s] = entries if entries.present?
+      end
+    end
+
     # The agent a set of this product runs against when the caller names
     # none: the product's agent, else the project's agent under test, else
     # the owner's agent named by the document.
@@ -36,6 +50,7 @@ module ActionAgent
         "name" => name,
         "description" => description,
         "agent" => agent_name.presence || agent&.name,
+        "criteria" => criteria.presence,
         "sets" => sets.map(&:to_document)
       }.merge(metadata).compact
     end

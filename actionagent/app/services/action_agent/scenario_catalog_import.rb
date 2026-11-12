@@ -181,6 +181,8 @@ module ActionAgent
           metadata: entry.metadata, agent: resolve_agent(entry) || (merge? ? product.agent : nil),
           project: resolve_project(entry) || (merge? ? product.project : nil)
         )
+        # Until add_catalog_product_criteria runs, imports keep working without the lists.
+        product.criteria = entry.criteria if product.has_attribute?(:criteria)
         product.position = position_for(product, entry.position, offset)
         product.save!
         replace_sets(product, entry)
