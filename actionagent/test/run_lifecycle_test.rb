@@ -373,10 +373,12 @@ class RunCancelConcurrencyTest < ActiveSupport::TestCase
   #
   # The worker records under unless_cancelled, a read under the row lock
   # followed by a write. On SQLite under Rails 7.2, whose transactions are
-  # deferred, that write is refused ("database is locked") when the cancel
-  # commits between the two; the worker then records nothing, which leaves
-  # the run as the cancel left it. Rails 8 takes the write lock first, so
-  # the cancel waits for the worker instead.
+  # deferred, one of the two writes can be refused ("database is locked"):
+  # the worker's when the cancel commits between its read and its write,
+  # and the cancel's when it waits on the worker's lock past the busy
+  # timeout. The refused side writes nothing, so the run ends as the other
+  # left it. Rails 8 takes the write lock first, so one waits for the other
+  # instead.
   test "a cancel racing the finishing worker leaves one consistent outcome" do
     10.times do
       run = @agent.agent_runs.create!(input_prompt: "hi", status: :pending)
@@ -388,6 +390,10 @@ class RunCancelConcurrencyTest < ActiveSupport::TestCase
           stale = ActionAgent::AgentRun.find(run.id)
           barrier.wait(10)
           stale.cancel!
+        rescue ActiveRecord::StatementInvalid => e
+          raise unless e.cause.is_a?(SQLite3::BusyException)
+
+          :refused
         end
       end
       finishing = Thread.new do
@@ -403,11 +409,13 @@ class RunCancelConcurrencyTest < ActiveSupport::TestCase
           :refused
         end
       end
-      cancelling.join
+      cancel_refused = cancelling.value == :refused
       refused = finishing.value == :refused
+      assert_not (refused && cancel_refused), "both writes were refused"
 
       run.reload
       assert run.cancelled?, "the worker's write was refused, yet the run is #{run.status}" if refused
+      assert run.complete?, "the cancel's write was refused, yet the run is #{run.status}" if cancel_refused
       if run.cancelled?
         assert_nil run.output, "a cancelled run kept the finished worker's output"
       else

@@ -30,6 +30,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     **Check for agents** reloads the list.
   - **Link a GitHub repository** opens New project.
   - **Build one here** keeps the template library and the builder.
+- **Runcrate as an OpenAI-compatible provider** (`activeagent`).
+  `service: "Runcrate"` generates and embeds through
+  `https://api.runcrate.ai/v1` (open-weight models such as
+  `deepseek-ai/DeepSeek-V4.1-Flash` and `Qwen/Qwen3-Embedding-8B`), with the
+  key from `RUNCRATE_API_KEY`; a thin subclass of the OpenAI provider, like
+  Cheaper Inference.
 
 ### Fixed
 
@@ -77,7 +83,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **The agent list's filter arrows sit inside the select** (`actionagent`).
   The browser's own arrow ignores padding and sat against the right border.
   The three filters now draw an inset chevron (`aa-select`).
-
 - **The Anthropic provider loads the `anthropic` gem 2.x** (`activeagent`).
   The provider pinned its client gem to `~> 1.12`, so a bundle holding
   anthropic 2.0 or later raised `LoadError` the moment the provider loaded,
@@ -92,6 +97,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `Authorization: Bearer` instead of `x-api-key`. The 2.0 SDK also dropped
   the `?beta=true` query string from its beta Messages requests, so the test
   suite matches recorded cassettes with or without it.
+- **A streamed Anthropic response reports its token usage**
+  (`activeagent`). With `stream: true`, `response.usage` was nil, so a
+  streamed generation counted 0 tokens and cost nothing. The provider now
+  records the usage `message_start` reports and the cumulative counts
+  `message_delta` carries, as the OpenAI providers do from their chunks.
+- **Anthropic's `total_tokens` counts cached tokens** (`activeagent`).
+  Anthropic's `input_tokens` leaves out cache reads and writes, which it
+  reports separately, so `total_tokens` undercounted any prompt that used
+  the cache. It is now input + output + cache read + cache creation. The
+  other counts are unchanged, and so is cost: pricing still reads
+  `input_tokens` and `output_tokens` only.
+- **Added usage keeps its duration** (`activeagent`). `Usage#+` dropped
+  `duration_ms`, so the usage of a tool-calling loop (Ollama reports a
+  duration) came back without one. It is now summed like the other
+  optional counts.
+- **Requesty embeddings work** (`activeagent`). The Requesty provider
+  declared an embedding request but never sent one, so `embed` raised
+  `NotImplementedError`. It now calls Requesty's OpenAI-compatible
+  `/v1/embeddings`.
+- **`top_k` is stripped for thinking-first models** (`activeagent`).
+  `ModelCapabilities` removed `temperature` and `top_p` for the models that
+  reject sampling parameters, but not `top_k`, which they reject too, so an
+  agent configured with it still got a 400.
+- **A late cancel leaves a finished run as it finished** (`actionagent`).
+  `AgentRun#cancel!` checked the status of its own copy of the run and
+  then wrote `cancelled` unconditionally. A cancel request that loaded the
+  run while it was running, and wrote after the worker had recorded its
+  result, turned a complete run into a cancelled one that still carried
+  its output, and replaced a failed run's error with "Cancelled by user".
+  The cancel now moves the run to `cancelled` in one conditional update,
+  as the execution job claims a pending run, and only from pending,
+  running or awaiting input. A run that finished first keeps its status,
+  output, error and completion time; `cancel!` returns false and reloads
+  the copy, so the API answers with the status the run ended in. A cancel
+  is broadcast once, where the callback and the method each sent it
+  before. Cancelling still does not stop a provider call already in
+  flight; it keeps that call's result from being recorded.
+- **Capture keeps an agent's own `tool_observer`** (`activeagent`). Since
+  1.9.7, `Evals::Capture` records client-side MCP calls through the
+  agent's `tool_observer`, and it replaced an observer the agent defined
+  itself, so that observer stopped running whenever the agent was
+  captured. Capture now runs the agent's observer around the call it
+  records: the server is still called once, both see the same result or
+  exception, and a call the observer withholds is not recorded as made.
 
 ## [1.9.7] - 2026-11-04
 
@@ -173,13 +222,6 @@ one under its own keys needs them renamed.
   `https://api.cheaperinference.com/v1`, with the key from
   `CHEAPER_INFERENCE_API_KEY`; a thin subclass of the OpenAI provider, like
   Opper. Contributed in #629 and landed in #666.
-
-- **Runcrate as an OpenAI-compatible provider** (`activeagent`).
-  `service: "Runcrate"` generates and embeds through
-  `https://api.runcrate.ai/v1` (open-weight models such as
-  `deepseek-ai/DeepSeek-V4.1-Flash` and `Qwen/Qwen3-Embedding-8B`), with the
-  key from `RUNCRATE_API_KEY`; a thin subclass of the OpenAI provider, like
-  Cheaper Inference.
 
 - **Your own MCP servers** (`actionagent`). A dashboard user adds a remote
   MCP server by URL on the MCP Services page (*Your MCP servers*), with
@@ -486,9 +528,7 @@ one under its own keys needs them renamed.
   those calls and `assert_tool_called` could not find them. The provider
   now runs such a call inside the agent's `tool_observer`, which Capture
   sets, so it is recorded once with its arguments, result preview and
-  timing. An observer the agent defines itself keeps running under
-  Capture, around the call that is recorded, so the server is still called
-  once and a call the observer withholds is not recorded as made. A result the server marks as an error, which the model receives
+  timing. A result the server marks as an error, which the model receives
   as a result and not an exception, is recorded as a failed call, so
   `failed_tool_calls` and `assert_tools_succeeded` see it. A server the
   provider runs itself (Anthropic's or OpenAI's hosted MCP) executes on the
@@ -506,21 +546,6 @@ one under its own keys needs them renamed.
   followed by a write is refused once another worker has committed. Nothing
   is held over the generation, so a cancel does not wait for one. A run
   whose worker died after the claim stays running and is not run again.
-
-- **A late cancel leaves a finished run as it finished** (`actionagent`).
-  `AgentRun#cancel!` checked the status of its own copy of the run and
-  then wrote `cancelled` unconditionally. A cancel request that loaded the
-  run while it was running, and wrote after the worker had recorded its
-  result, turned a complete run into a cancelled one that still carried
-  its output, and replaced a failed run's error with "Cancelled by user".
-  The cancel now moves the run to `cancelled` in one conditional update,
-  as the execution job claims a pending run, and only from pending,
-  running or awaiting input. A run that finished first keeps its status,
-  output, error and completion time; `cancel!` returns false and reloads
-  the copy, so the API answers with the status the run ended in. A cancel
-  is broadcast once, where the callback and the method each sent it
-  before. Cancelling still does not stop a provider call already in
-  flight; it keeps that call's result from being recorded.
 
 ## [1.9.6] - 2026-10-29
 
