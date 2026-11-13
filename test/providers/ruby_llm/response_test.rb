@@ -48,6 +48,8 @@ class RubyLLMResponseTest < ActiveSupport::TestCase
     assert_equal 30, usage.cached_tokens
     assert_equal 4, usage.cache_creation_tokens
     assert_equal 2, usage.reasoning_tokens
+    # input excludes cache, and thinking is already inside output when billed.
+    assert_equal 49, usage.total_tokens
   end
 
   # ruby_llm 1.16 has no token counts at all on such a message (its tokens is
@@ -83,6 +85,8 @@ class RubyLLMResponseTest < ActiveSupport::TestCase
       assert_equal 3, usage.public_send(field)
       assert_equal 0, usage.input_tokens
       assert_equal 0, usage.output_tokens
+      # A lone thinking count is a breakdown of output, not an extra bucket.
+      assert_equal(count == :thinking ? 0 : 3, usage.total_tokens)
     end
   end
 
@@ -142,6 +146,7 @@ class RubyLLMResponseTest < ActiveSupport::TestCase
     assert_equal 7, usage.input_tokens
     assert_equal 4, usage.output_tokens
     assert_equal 5, usage.cached_tokens
+    assert_equal 16, usage.total_tokens
   end
 
   test "reports the tokens Anthropic counted, cache reads and writes included" do
@@ -155,6 +160,7 @@ class RubyLLMResponseTest < ActiveSupport::TestCase
     assert_equal 4, usage.output_tokens
     assert_equal 5, usage.cached_tokens
     assert_equal 2, usage.cache_creation_tokens
+    assert_equal 23, usage.total_tokens
   end
 
   # --- Stop reason ---
