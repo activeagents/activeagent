@@ -24,6 +24,8 @@ module ActionAgent
       pause = claim_pause(run, request)
       return unless pause
 
+      token = run.execution_token
+
       segment_started_at = Time.current
       secrets = pause.select { |paused| paused.kind == "secret" }.filter_map(&:answer)
 
@@ -39,13 +41,13 @@ module ActionAgent
           }
         )
 
-        run.unless_cancelled do
+        run.unless_cancelled(token: token) do
           run.record_result!(result, segment_started_at: segment_started_at)
           run.add_log(result[:input_requests].present? ? "Execution paused for input" : "Execution completed successfully", level: :info)
         end
       rescue => e
         message = ActiveAgent::InputRequest.scrub(e.message, secrets)
-        run.unless_cancelled do
+        run.unless_cancelled(token: token) do
           run.record_failure!(e, message: message)
           run.add_log("Execution failed: #{message}", level: :error)
         end
@@ -60,7 +62,8 @@ module ActionAgent
     # Moves the run from awaiting_input to running when every request of the
     # pause is settled, under the run's row lock, and returns the pause's
     # requests in call order; nil when this job is not the one to resume it,
-    # or when the request's pause is not the one the run waits on.
+    # or when the request's pause is not the one the run waits on. The resumed
+    # segment takes a lease of its own, under a new token.
     def claim_pause(run, request)
       run.with_lock do
         next nil unless run.awaiting_input? && request.current_pause?
@@ -68,7 +71,7 @@ module ActionAgent
         pause = request.pause_requests.order(:id).to_a
         next nil unless pause.all? { |paused| paused.answered? || paused.declined? }
 
-        run.update!(status: :running)
+        run.update!(status: :running, **AgentRun.lease_attributes)
         pause
       end
     end
