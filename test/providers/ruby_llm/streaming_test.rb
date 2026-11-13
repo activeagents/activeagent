@@ -239,6 +239,7 @@ class RubyLLMStreamingTest < ActiveSupport::TestCase
       assert_not_nil response.usage
       assert_equal(stream.name == :chat_completions ? 7 : 12, response.usage.input_tokens)
       assert_equal 4, response.usage.output_tokens
+      assert_equal 16, response.usage.total_tokens
       assert_equal "end_turn", response.finish_reason
       assert_equal "Done.", response.messages.last.content
       assert_equal 1, response.messages.count { |message| message.role == "assistant" }
@@ -414,6 +415,7 @@ class RubyLLMStreamingTest < ActiveSupport::TestCase
       assert_equal 5, response.usage.output_tokens
       assert_equal 5, response.usage.cached_tokens
       assert_equal 1, response.usage.reasoning_tokens
+      assert_equal 27, response.usage.total_tokens
       assert_equal "end_turn", response.finish_reason
     end
   end
@@ -435,6 +437,7 @@ class RubyLLMStreamingTest < ActiveSupport::TestCase
     assert_equal 7, usage.input_tokens
     assert_equal 4, usage.output_tokens
     assert_equal 5, usage.cache_creation_tokens
+    assert_equal 16, usage.total_tokens
   end
 
   test "updates positive cumulative cache writes and starts a fresh count on each tool turn" do
@@ -453,6 +456,7 @@ class RubyLLMStreamingTest < ActiveSupport::TestCase
       assert_equal 17, response.usage.input_tokens
       assert_equal 5, response.usage.output_tokens
       assert_equal 9, response.usage.cache_creation_tokens
+      assert_equal 31, response.usage.total_tokens
       assert_equal [ 9, 0 ], response.usages.map(&:cache_creation_tokens)
     end
   end
