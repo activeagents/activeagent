@@ -775,7 +775,9 @@ and `pass_rate` (a 0..1 fraction) beside the
 true when the rate reaches the bar, and always for an ungated group.
 `Report#passed?` is every gate met, and a report with no gate (a selection
 that matched nothing, or every scenario dropped as `production_only`) does
-not pass.
+not pass. A report whose every result sits in an ungated group passes,
+since such a group never fails the run, but nothing in it was held to a
+bar, and `GateCheck#message` says so rather than "every pass gate met".
 `Report#failures(group:)` lists the results that did not pass — failed and
 errored, in run order — and `failures_markdown(group:)` writes them one per
 line.

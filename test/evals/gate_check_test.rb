@@ -38,6 +38,18 @@ class EvalsGateCheckTest < ActiveSupport::TestCase
     assert_equal "no result reached a pass gate; the run evaluated nothing", check.message
   end
 
+  # An ungated group never fails the run, so a report of nothing else is
+  # met; its message says why instead of "every pass gate met".
+  def test_a_report_with_only_ungated_groups_is_met_and_says_nothing_was_held_to_a_bar
+    experiment = grouped("exp_1", "Draft a reply in the customer's tone.", "experimental", "Experimental")
+    report = Report.new(results: [ result(experiment, gpt, replay(answer: "Dear customer."), score: 0.1) ], models: [ gpt ], pass_thresholds: THRESHOLDS)
+    check = GateCheck.new(report)
+
+    assert check.met?
+    assert_empty check.unmet
+    assert_equal "every group the run covered is ungated; no answer was held to a bar", check.message
+  end
+
   def test_the_message_counts_the_unmet_gates_then_lists_them_and_each_groups_failures
     report = gated_report
     check = GateCheck.new(report)

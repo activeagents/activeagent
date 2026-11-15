@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **A run of only ungated groups no longer reads as "every gate met"**
+  (`activeagent`). An ungated group's row is met without being held to a
+  bar, so a report whose every result sat in ungated groups said "every
+  pass gate met" (`GateCheck`, `assert_meets_pass_gates`, the RSpec
+  matcher) and `evals run --wait` printed `Gates: every gate met`, even
+  when every answer had failed. The verdict is unchanged, since an ungated
+  group never fails the run, but the message now says that every group
+  covered is ungated and nothing was held to a bar.
+
 ## [1.9.8] - 2026-11-12
 
 The dashboard holds a run to its catalog's pass bars: a product's and a
