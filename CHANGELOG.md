@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **A fanned-out replay is claimed before the agent runs** (`actionagent`).
+  `EvaluationReplayJob` checked for a stored result, replayed, and only
+  then took the run's lock to store, so two deliveries of one replay job
+  both called the provider (and the agent's tools) and the second answer
+  was dropped. A delivery that failed after another had stored the pair's
+  replay also marked that good result errored. The replay now takes a
+  claim, kept with the run's fan-out bookkeeping (no migration), before
+  the agent runs. A delivery that finds the pair claimed comes back when
+  the claim expires (30 minutes) and replays only if nothing was stored,
+  so a worker that stopped mid-replay is still covered. A failure is
+  stored only over the delivery's own pair. A worker that stops after the
+  provider answered and before the result is stored is still replayed
+  again: this is one active replay per pair, not exactly once.
+
 ## [1.9.8] - 2026-11-12
 
 The dashboard holds a run to its catalog's pass bars: a product's and a
