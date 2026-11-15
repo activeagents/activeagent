@@ -163,6 +163,19 @@ class ScenarioCatalogsApiTest < ActionDispatch::IntegrationTest
     assert_match(/product has no key/, body["errors"].first)
   end
 
+  test "a document naming a Ruby class is refused as invalid YAML, on import and on preview" do
+    document = "--- !ruby/object:Object {}\n"
+
+    post "/activeagents/api/scenario_catalogs", params: { document: document }, as: :json
+    assert_response :unprocessable_entity
+    assert_match(/not valid YAML: Tried to load unspecified class: Object/, body["errors"].first)
+
+    post "/activeagents/api/scenario_catalogs/preview", params: { document: document }, as: :json
+    assert_response :unprocessable_entity
+    assert_match(/not valid YAML/, body["errors"].first)
+    assert_equal 0, ActionAgent::ScenarioCatalog.count
+  end
+
   test "imports every catalog file of a connected repository at a ref" do
     ActionAgent::GithubConnection.create!(
       access_token: "gho_test", github_user_id: 42, login: "octocat",

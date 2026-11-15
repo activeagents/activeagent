@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **A catalog document YAML refuses to load is an invalid document**
+  (`activeagent`, `actionagent`). `Catalog.parse` turned only a syntax
+  error into `Catalog::InvalidDocument`, while safe loading refuses a tag
+  naming a Ruby class (`!ruby/object:...`) or an alias to an undefined
+  anchor with other `Psych` errors. Those escaped the dashboard's catalog
+  import and preview as a 500, and the `catalogs_import` and
+  `catalogs_preview` tools as an internal error. They are now refused like
+  any other invalid catalog: 422 with "the catalog is not valid YAML: ...".
+  What safe loading permits is unchanged.
+
 ## [1.9.8] - 2026-11-12
 
 The dashboard holds a run to its catalog's pass bars: a product's and a
