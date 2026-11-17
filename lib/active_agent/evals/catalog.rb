@@ -81,13 +81,16 @@ module ActiveAgent
       end
 
       # Parses YAML text. Raises InvalidDocument for YAML that is not a
-      # document (a list, a scalar) or that YAML cannot read.
+      # document (a list, a scalar) or that YAML cannot read: a syntax error,
+      # and what safe loading refuses — a tag naming a Ruby class other than
+      # Symbol (Psych::DisallowedClass) or an alias to an undefined anchor
+      # (Psych::BadAlias), which are not Psych::SyntaxError.
       def self.parse(text, name: nil)
         document = YAML.safe_load(text.to_s, aliases: true, permitted_classes: [ Symbol ])
         raise InvalidDocument, "a scenario catalog is a YAML mapping" unless document.is_a?(Hash)
 
         new([ document ], name: name)
-      rescue Psych::SyntaxError => e
+      rescue Psych::Exception => e
         raise InvalidDocument, "the catalog is not valid YAML: #{e.message}"
       end
 

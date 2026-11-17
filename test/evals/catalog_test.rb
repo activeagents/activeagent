@@ -351,6 +351,37 @@ class ActiveAgentEvalsCatalogTest < ActiveSupport::TestCase
     assert_raises(ActiveAgent::Evals::Catalog::NotFound) { ActiveAgent::Evals::Catalog.load(File.join(FIXTURES, "missing.yml")) }
   end
 
+  # The document is read with YAML.safe_load, which refuses a tag naming a
+  # Ruby class and an alias to an anchor the document never defines with
+  # errors of its own, apart from Psych::SyntaxError.
+  test "refuses YAML that safe loading will not read, as an invalid document" do
+    {
+      "--- !ruby/object:Object {}\n" => /Tried to load unspecified class: Object/,
+      "catalog: x\nproducts: [{ key: p, at: !ruby/object:OpenStruct { a: 1 } }]\n" => /unspecified class: OpenStruct/,
+      "catalog: x\nproducts: *undefined\n" => /undefined/
+    }.each do |document, reason|
+      error = assert_raises(ActiveAgent::Evals::Catalog::InvalidDocument, document) { ActiveAgent::Evals::Catalog.parse(document) }
+      assert_match(/\Athe catalog is not valid YAML: /, error.message)
+      assert_match reason, error.message
+    end
+  end
+
+  test "keeps reading the symbols and aliases a catalog may use" do
+    catalog = ActiveAgent::Evals::Catalog.parse(<<~YAML)
+      catalog: x
+      products:
+        - key: p
+          judge: :rules
+          sets:
+            - key: s
+              scenarios:
+                - &first { key: a, prompt: Which tickets are open? }
+                - *first
+    YAML
+
+    assert_equal [ "a" ], catalog.scenarios.map(&:key).uniq
+  end
+
   test "refuses malformed criteria, naming the product or set and the list" do
     refused = {
       "catalog: x\nproducts: [{ key: p, criteria: oops }]" => /criteria of product "p" are not a list or a mapping of lists/,

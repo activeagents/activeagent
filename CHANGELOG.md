@@ -33,6 +33,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   stored only over the delivery's own pair. A worker that stops after the
   provider answered and before the result is stored is still replayed
   again: this is one active replay per pair, not exactly once.
+- **A catalog document YAML refuses to load is an invalid document**
+  (`activeagent`, `actionagent`). `Catalog.parse` turned only a syntax
+  error into `Catalog::InvalidDocument`, while safe loading refuses a tag
+  naming a Ruby class (`!ruby/object:...`) or an alias to an undefined
+  anchor with other `Psych` errors. Those escaped the dashboard's catalog
+  import and preview as a 500, and the `catalogs_import` and
+  `catalogs_preview` tools as an internal error. They are now refused like
+  any other invalid catalog: 422 with "the catalog is not valid YAML: ...".
+  What safe loading permits is unchanged.
 
 ## [1.9.8] - 2026-11-12
 

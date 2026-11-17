@@ -535,6 +535,12 @@ class McpDashboardToolsTest < ActionDispatch::IntegrationTest
     assert_equal true, body.dig("result", "isError")
     assert_match(/product has no key/, body.dig("result", "content", 0, "text"))
     assert_equal(-32602, call_tool("catalogs_import").dig("error", "code"))
+
+    %w[catalogs_import catalogs_preview].each do |tool|
+      body = call_tool(tool, { document: "--- !ruby/object:Object {}\n" })
+      assert_equal true, body.dig("result", "isError"), "#{tool} answers a refused document as a tool error"
+      assert_match(/not valid YAML/, body.dig("result", "content", 0, "text"))
+    end
   end
 
   test "catalog_set_run materializes the set as an evaluation and queues its run" do
