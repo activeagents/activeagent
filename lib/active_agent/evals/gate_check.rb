@@ -45,7 +45,9 @@ module ActiveAgent
       end
 
       # The text a failing assertion prints. The first line counts the gates
-      # not met, or is the one line "every pass gate met" when none is; then
+      # not met, or is the one line "every pass gate met" when none is (a
+      # report whose every row is an ungated group's says that instead: its
+      # rows are met because nothing held them to a bar); then
       # each unmet gate as Gate#to_s; then, after a blank line, the failures
       # to read: for each group with an unmet gate, in gates order, "<group>
       # failures:" over Report#failures_markdown for that group. An unmet All
@@ -59,6 +61,7 @@ module ActiveAgent
         return "no result reached a pass gate; the run evaluated nothing" if all.empty?
 
         unmet = all.reject(&:met?)
+        return "every group the run covered is ungated; no answer was held to a bar" if all.none?(&:gated)
         return "every pass gate met" if unmet.empty?
 
         lines = [ "#{unmet.size} of #{all.size} pass gates not met", *unmet.map { |gate| "- #{gate}" } ]

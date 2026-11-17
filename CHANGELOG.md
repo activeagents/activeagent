@@ -42,6 +42,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `catalogs_preview` tools as an internal error. They are now refused like
   any other invalid catalog: 422 with "the catalog is not valid YAML: ...".
   What safe loading permits is unchanged.
+- **A run of only ungated groups no longer reads as "every gate met"**
+  (`activeagent`). An ungated group's row is met without being held to a
+  bar, so a report whose every result sat in ungated groups said "every
+  pass gate met" (`GateCheck`, `assert_meets_pass_gates`, the RSpec
+  matcher) and `evals run --wait` printed `Gates: every gate met`, even
+  when every answer had failed. The verdict is unchanged, since an ungated
+  group never fails the run, but the message now says that every group
+  covered is ungated and nothing was held to a bar.
 
 ## [1.9.8] - 2026-11-12
 
