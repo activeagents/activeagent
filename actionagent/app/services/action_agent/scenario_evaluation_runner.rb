@@ -82,10 +82,15 @@ module ActionAgent
     end
 
     def call
+      pending = @run || @evaluation.evaluation_runs.create!(status: :pending)
+      # Another worker started this run (a job delivered twice, or handed to
+      # two workers): it is theirs to finish, so nothing here writes to it.
+      return pending.reload unless claim!(pending)
+
+      run = pending
       scenarios = selected_scenarios
       specs = model_specs
-      run = @run || @evaluation.evaluation_runs.create!(status: :pending)
-      run.update!(status: :running, selection: selection_summary(scenarios, specs))
+      run.update!(selection: selection_summary(scenarios, specs))
       record_pass_thresholds!(run)
       ensure_sandbox_live!
 
@@ -290,6 +295,24 @@ module ActionAgent
     end
 
     private
+
+    # Moves the run from pending to running in one conditional update, as
+    # AgentExecutionJob#claim_pending claims an agent run, and returns
+    # whether this runner is the one that did. Of two workers that loaded
+    # the run as pending, only the first to write replays the suite (or fans
+    # it out); the other replays nothing and leaves the run alone. The claim
+    # comes before the selection is read, so a selection that cannot be
+    # resolved fails the run rather than leaving it pending. Nothing is held
+    # over the replays.
+    def claim!(run)
+      now = Time.current
+      claimed = EvaluationRun.where(id: run.id, status: EvaluationRun.statuses[:pending])
+        .update_all(status: EvaluationRun.statuses[:running], updated_at: now)
+      return false if claimed.zero?
+
+      run.reload
+      true
+    end
 
     def fan_out?(adapter)
       ActionAgent.scenario_evaluation_fan_out == true && adapter.nil? && !browser_requested? &&

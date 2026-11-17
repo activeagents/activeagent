@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **An evaluation run is executed by one job** (`actionagent`). The run job
+  read a run's status, then the scenario runner wrote `running`, as two
+  steps, so a job delivered twice, or two workers that both loaded the run
+  as pending, each replayed the whole suite, or with
+  `scenario_evaluation_fan_out` on each enqueued a full set of replay jobs.
+  The runner now moves the run from pending to running in one conditional
+  update, as the execution job claims an agent run, and replays nothing
+  unless it was the one to do so; this covers `ProjectEvaluationJob` too.
+  The claim comes before the selection is read, so a selection that cannot
+  be resolved (an unsupported provider in a re-run's models) now fails the
+  run instead of leaving it pending forever.
+
 ## [1.9.8] - 2026-11-12
 
 The dashboard holds a run to its catalog's pass bars: a product's and a
