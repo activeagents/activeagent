@@ -50,6 +50,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   when every answer had failed. The verdict is unchanged, since an ungated
   group never fails the run, but the message now says that every group
   covered is ungated and nothing was held to a bar.
+- **The RubyLLM provider refuses media it would drop** (`activeagent`). It
+  sends RubyLLM the text of each message and silently left out every other
+  content block, so a message with an image (`image_url`, `image`,
+  `input_image`), audio or a file reached the model as its text alone, or
+  as an empty message, and the model answered as if it had seen it. Such
+  a message now raises `ActiveAgent::Providers::Errors::InvalidRequest`,
+  naming the block types, before any provider call. Blocks that are not
+  media (an earlier turn's reasoning) are still left out, as before.
 
 ## [1.9.8] - 2026-11-12
 

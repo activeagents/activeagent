@@ -637,26 +637,44 @@ class RubyLLMProviderTest < ActiveSupport::TestCase
     response = provider.prompt
 
     assert_not_nil response
+    assert_equal "Hello\nWorld", @fake_provider.last_messages.find { |message| message.role == :user }.content
   end
 
-  test "array content filters non-text blocks" do
+  # The provider sends RubyLLM text only. An image, audio clip or file in
+  # the content would be dropped, and the model would answer as if it had
+  # seen it, so the request is refused before any provider call.
+  [
+    { type: "image_url", image_url: { url: "data:image/png;base64,iVBORw0KGgo=" } },
+    { type: "image", source: { type: "url", url: "https://example.com/cat.png" } },
+    { type: "input_audio", input_audio: { data: "UklGRg==", format: "wav" } },
+    { type: "file", file: { filename: "report.pdf", file_data: "data:application/pdf;base64,JVBERi0=" } },
+    { type: "document", source: { type: "url", url: "https://example.com/report.pdf" } }
+  ].each do |block|
+    test "array content with a #{block[:type]} block is refused, not sent as text alone" do
+      provider = ActiveAgent::Providers::RubyLLMProvider.new(
+        service: "RubyLLM",
+        model: "gpt-4o-mini",
+        messages: [ { role: "user", content: [ block, { type: "text", text: "Describe this" } ] } ]
+      )
+
+      error = assert_raises(ActiveAgent::Providers::Errors::InvalidRequest) { provider.prompt }
+
+      assert_match(/sends text only.*#{block[:type]}/, error.message)
+      assert_equal "RubyLLM", error.provider_tag
+      assert_nil @fake_provider.last_messages, "nothing reached RubyLLM"
+    end
+  end
+
+  test "array content keeps leaving out blocks that are not media" do
     provider = ActiveAgent::Providers::RubyLLMProvider.new(
       service: "RubyLLM",
       model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "user",
-          content: [
-            { type: "image_url", image_url: { url: "data:image/png;base64,..." } },
-            { type: "text", text: "Describe this image" }
-          ]
-        }
-      ]
+      messages: [ { role: "user", content: [ { type: "thinking", thinking: "Earlier reasoning." }, { type: "text", text: "Describe this" } ] } ]
     )
 
-    response = provider.prompt
+    provider.prompt
 
-    assert_not_nil response
+    assert_equal "Describe this", @fake_provider.last_messages.find { |message| message.role == :user }.content
   end
 
   # --- Empty/nil tool_calls ---
