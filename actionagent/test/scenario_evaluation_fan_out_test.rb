@@ -603,6 +603,151 @@ class ActionAgentScenarioEvaluationFanOutTest < ActiveSupport::TestCase
     end
   end
 
+  # The replay job of +run+'s one pair, as the run job enqueued it.
+  def replay_job_arguments
+    job = enqueued_jobs.find { |entry| entry["job_class"] == "ActionAgent::EvaluationReplayJob" }
+    ActiveJob::Arguments.deserialize(job["arguments"])
+  end
+
+  # Runs the block with every replay counted in +calls+ and answered by
+  # +answer+ (a proc given the call's number), without the agent.
+  def counting_replays(calls, answer = ->(_number) { })
+    with_method(ActionAgent::ScenarioEvaluationRunner, :replay, proc { |_task, _spec|
+      calls << :replay
+      answer.call(calls.size)
+      ActiveAgent::Evals::Replay.new(answer: "The data.", duration_ms: 1)
+    }) { yield }
+  end
+
+  test "a delivery that arrives while another is replaying the pair does not replay it again" do
+    evaluation = build_suite
+    run = evaluation.run_later!(keys: [ "tickets_1" ])
+    perform_enqueued_jobs(only: ActionAgent::EvaluationRunJob)
+    args = replay_job_arguments
+    clear_enqueued_jobs
+    calls = []
+    # The duplicate is delivered while the first delivery's provider call
+    # is still out.
+    duplicate = ->(number) { ActionAgent::EvaluationReplayJob.perform_now(*args) if number == 1 }
+
+    counting_replays(calls, duplicate) { ActionAgent::EvaluationReplayJob.perform_now(*args) }
+
+    assert_equal 1, calls.size, "the provider was called by both deliveries"
+    assert_equal 1, run.scenario_results.count
+    deferred = enqueued_jobs.find { |job| job["job_class"] == "ActionAgent::EvaluationReplayJob" }
+    assert deferred, "the duplicate comes back for when the claim expires"
+    assert_in_delta ActionAgent::ScenarioEvaluationRunner::REPLAY_LEASE_DURATION.from_now.to_f,
+      Time.iso8601(deferred["scheduled_at"]).to_f, 5
+    assert_empty run.reload.scores.dig("_fan_out", "replays"), "the stored replay released its claim"
+
+    counting_replays(calls) do
+      travel(ActionAgent::ScenarioEvaluationRunner::REPLAY_LEASE_DURATION + 1.second) { drain }
+    end
+
+    assert_equal 1, calls.size, "the deferred duplicate finds the result stored"
+    assert_equal "complete", run.reload.status
+  end
+
+  test "a redelivery inside a stopped worker's live replay claim replays the pair once the claim expires" do
+    evaluation = build_suite
+    run = evaluation.run_later!(keys: [ "tickets_1" ])
+    perform_enqueued_jobs(only: ActionAgent::EvaluationRunJob)
+    args = replay_job_arguments
+    clear_enqueued_jobs
+    # The first delivery claims the pair, then its worker dies mid-replay.
+    stopped = ActionAgent::ScenarioEvaluationRunner.new(evaluation, run: run)
+    scenario = evaluation.scenarios.find(args[1])
+    assert_nil stopped.send(:claim_replay!, run.reload, stopped.send(:replay_key, scenario, stopped.send(:model_spec_from, args[2])))
+    calls = []
+
+    counting_replays(calls) { ActionAgent::EvaluationReplayJob.perform_now(*args) }
+
+    assert_empty calls, "a live claim is not replayed over"
+    assert_equal 0, run.scenario_results.count
+    retry_job = enqueued_jobs.sole
+    assert_equal "ActionAgent::EvaluationReplayJob", retry_job["job_class"]
+
+    counting_replays(calls) do
+      travel_to(Time.iso8601(retry_job["scheduled_at"]) + 1.second) { drain }
+    end
+
+    assert_equal 1, calls.size
+    assert_equal 1, run.scenario_results.count
+    assert_equal "complete", run.reload.status
+  end
+
+  test "a late replay from a worker whose claim was taken over does not release its successor's claim" do
+    evaluation = build_suite
+    run = evaluation.run_later!(keys: [ "tickets_1" ])
+    perform_enqueued_jobs(only: ActionAgent::EvaluationRunJob)
+    args = replay_job_arguments
+    scenario = evaluation.scenarios.find(args[1])
+    old_owner = ActionAgent::ScenarioEvaluationRunner.new(evaluation, run: run)
+    key = old_owner.send(:replay_key, scenario, old_owner.send(:model_spec_from, args[2]))
+    old_owner.send(:claim_replay!, run.reload, key)
+    successor = ActionAgent::ScenarioEvaluationRunner.new(evaluation, run: run)
+
+    travel(ActionAgent::ScenarioEvaluationRunner::REPLAY_LEASE_DURATION + 1.second) do
+      assert_nil successor.send(:claim_replay!, run.reload, key), "an expired claim is taken over"
+      run.with_lock { old_owner.send(:release_replay!, run, key) }
+    end
+
+    assert_equal successor.instance_variable_get(:@replay_token), run.reload.scores.dig("_fan_out", "replays", key, "token")
+  end
+
+  test "a duplicate delivery's failure leaves the replay another delivery stored" do
+    evaluation = build_suite
+    run = evaluation.run_later!(keys: [ "tickets_1" ])
+    perform_enqueued_jobs(only: ActionAgent::EvaluationRunJob)
+    args = replay_job_arguments
+    ActionAgent::EvaluationReplayJob.perform_now(*args)
+    row = run.scenario_results.sole
+    assert_predicate row, :pending?
+
+    # A second delivery finds the stored replay, and enqueuing its judge fails.
+    ActionAgent::EvaluationJudgeJob.stub(:perform_later, ->(*) { raise ActiveJob::EnqueueError, "queue unavailable" }) do
+      ActionAgent::EvaluationReplayJob.perform_now(*args)
+    end
+
+    row.reload
+    assert_predicate row, :pending?, "the stored replay was turned into the duplicate's error"
+    assert_nil row.error_message
+    drain
+    assert_equal "passed", row.reload.status
+    assert_equal "complete", run.reload.status
+  end
+
+  test "a delivery whose own judge cannot be enqueued stores its replay errored, and the run completes" do
+    evaluation = build_suite
+    run = evaluation.run_later!(keys: [ "tickets_1" ])
+    perform_enqueued_jobs(only: ActionAgent::EvaluationRunJob)
+    args = replay_job_arguments
+
+    ActionAgent::EvaluationJudgeJob.stub(:perform_later, ->(*) { raise ActiveJob::EnqueueError, "queue unavailable" }) do
+      ActionAgent::EvaluationReplayJob.perform_now(*args)
+    end
+
+    row = run.scenario_results.sole
+    assert_equal "errored", row.status
+    assert_match(/queue unavailable/, row.error_message)
+    assert_equal "complete", run.reload.status
+  end
+
+  test "a failure while another delivery holds the pair's replay claim stores nothing over it" do
+    evaluation = build_suite
+    run = evaluation.run_later!(keys: [ "tickets_1" ])
+    perform_enqueued_jobs(only: ActionAgent::EvaluationRunJob)
+    args = replay_job_arguments
+    scenario = evaluation.scenarios.find(args[1])
+    owner = ActionAgent::ScenarioEvaluationRunner.new(evaluation, run: run)
+    owner.send(:claim_replay!, run.reload, owner.send(:replay_key, scenario, owner.send(:model_spec_from, args[2])))
+
+    ActionAgent::ScenarioEvaluationRunner.new(evaluation, run: run).fail_result!(run.reload, args[1], args[2], RuntimeError.new("duplicate failed"))
+
+    assert_equal 0, run.scenario_results.count, "the owner stores the pair's result"
+    assert_equal "running", run.reload.status
+  end
+
   test "a duplicate replay failure cannot interrupt an active scoring owner" do
     evaluation = build_suite
     evaluation.update!(judge_kind: "llm", judge_model: "claude-opus-5",

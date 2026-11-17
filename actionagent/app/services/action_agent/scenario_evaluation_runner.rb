@@ -47,6 +47,7 @@ module ActionAgent
   class ScenarioEvaluationRunner < EvaluationRunnerService
     Evals = ActiveAgent::Evals
     JUDGE_LEASE_DURATION = 30.minutes
+    REPLAY_LEASE_DURATION = 30.minutes
 
     # The providers a candidate model name resolves against. `mock` is the
     # framework's test double, accepted so the test suite can compare cohorts
@@ -178,6 +179,13 @@ module ActionAgent
     # Replays one scenario under one model and stores the answer as a pending
     # result, then enqueues its scoring. A result already stored for the
     # pair (a retried job) is not replayed again.
+    #
+    # The replay is claimed before the agent runs, so a second delivery of
+    # the job (a queue redelivering it, or handing it to two workers) does
+    # not call the provider and the agent's tools a second time. A delivery
+    # that finds the pair claimed comes back when the claim expires (see
+    # #claim_replay!): by then the owner has stored the result, or stopped
+    # and left the pair to it.
     def replay_scenario!(run, scenario_id, spec_value)
       return unless run.running?
 
@@ -185,9 +193,21 @@ module ActionAgent
       spec = model_spec_from(spec_value)
       row = stored_result(run, scenario, spec)
       unless row
+        key = replay_key(scenario, spec)
+        held_until = claim_replay!(run, key)
+        if held_until
+          EvaluationReplayJob.set(wait_until: held_until).perform_later(run.id, scenario.id, spec_value, @selection.to_h)
+          return
+        end
+        return unless @replay_token # the run stopped running
+
         task = Evals::Scenario.from_hash(scenario.as_json_summary)
         replay = fan_out_replay(task, spec)
-        row = run.with_lock { stored_result(run, scenario, spec) || store_replay(run, scenario, task, spec, replay) }
+        row = run.with_lock do
+          stored = stored_result(run, scenario, spec) || store_replay(run, scenario, task, spec, replay).tap { |created| @stored_result_id = created.id }
+          release_replay!(run, key)
+          stored
+        end
       end
       EvaluationJudgeJob.perform_later(row.id, @selection.to_h, run.id) if row.pending?
       row
@@ -232,6 +252,12 @@ module ActionAgent
     # replay (which records its own errors), so the run still completes. A
     # scenario removed from the suite during the run has no result to
     # store; the run completes without it (see #finish_fan_out!).
+    #
+    # Only this delivery's own pair is failed: one with no result yet and
+    # no other delivery replaying it, or the result this runner stored. A
+    # result another delivery stored is that delivery's to score, and a
+    # pair another delivery has claimed is its to store, so a duplicate
+    # delivery's failure cannot turn a good replay into an error.
     def fail_result!(run, scenario_id, spec_value, error)
       return unless run.running?
 
@@ -240,8 +266,15 @@ module ActionAgent
         spec = model_spec_from(spec_value)
         run.with_lock do
           row = stored_result(run, scenario, spec)
-          task = Evals::Scenario.from_hash(scenario.as_json_summary)
-          row ||= store_replay(run, scenario, task, spec, Evals::Replay.failed(error))
+          if row.nil?
+            next if replay_claimed_elsewhere?(run, replay_key(scenario, spec))
+
+            task = Evals::Scenario.from_hash(scenario.as_json_summary)
+            row = store_replay(run, scenario, task, spec, Evals::Replay.failed(error))
+            @stored_result_id = row.id
+          end
+          next unless row.id == @stored_result_id
+
           attributes = { status: :errored, error_message: row.error_message.presence || error_text(error) }
           if scoring_leases?
             # Another replay delivery may fail while this result is being
@@ -425,6 +458,70 @@ module ActionAgent
     # timestamp claim instead of failing every judge job on a missing column.
     def scoring_leases?
       (%w[scoring_token scoring_expires_at] - EvaluationScenarioResult.column_names).empty?
+    end
+
+    # A pair's replay claim, kept with the run's fan-out bookkeeping
+    # (scores["_fan_out"]["replays"]) until the replay is stored, so no
+    # migration is needed. The result row cannot hold it: the row is
+    # created only once there is an answer to store, and nothing makes a
+    # pair's row unique to create it earlier.
+    def replay_key(scenario, spec)
+      "#{scenario.id}:#{spec.provider}/#{spec.model}"
+    end
+
+    # Claims the pair's replay for this runner (its token in @replay_token)
+    # and returns nil, or returns when another delivery's live claim
+    # expires. An expired claim is taken over: its worker stopped, or is
+    # still replaying after REPLAY_LEASE_DURATION, in which case the two
+    # replays overlap and the first to store its answer is kept. A run no
+    # longer running claims nothing (@replay_token stays nil).
+    #
+    # This holds one active replay per pair across ordinary duplicate
+    # deliveries. It is not exactly once: a worker that stops after the
+    # provider answered and before the result is stored is replayed again.
+    def claim_replay!(run, key)
+      @replay_token = nil
+      token = SecureRandom.uuid
+      held_until = nil
+      update_fan_out_state!(run) do |state|
+        now = Time.current
+        replays = state["replays"].is_a?(Hash) ? state["replays"] : {}
+        expires_at = replay_expiry(replays[key])
+        if expires_at && expires_at > now
+          held_until = expires_at
+          next state
+        end
+
+        @replay_token = token
+        state.merge("replays" => replays.merge(key => { "token" => token, "expires_at" => (now + REPLAY_LEASE_DURATION).iso8601(6) }))
+      end
+      held_until
+    end
+
+    # Drops this runner's claim once its replay is stored. A claim another
+    # delivery took over is left to that delivery. Called under the run's
+    # lock, after the store.
+    def release_replay!(run, key)
+      return unless run.running?
+
+      state = fan_out_state(run)
+      replays = state["replays"].is_a?(Hash) ? state["replays"] : {}
+      return unless @replay_token && replays.dig(key, "token") == @replay_token
+
+      scores = run.scores.is_a?(Hash) ? run.scores : {}
+      run.update!(scores: scores.merge("_fan_out" => state.merge("replays" => replays.except(key))))
+    end
+
+    def replay_claimed_elsewhere?(run, key)
+      claim = fan_out_state(run)["replays"].to_h[key]
+      expires_at = replay_expiry(claim)
+      expires_at.present? && expires_at > Time.current && claim["token"] != @replay_token
+    end
+
+    def replay_expiry(claim)
+      Time.iso8601(claim["expires_at"].to_s) if claim.is_a?(Hash)
+    rescue ArgumentError
+      nil
     end
 
     # What Evals::Runner does with a replay that raises: an errored replay,
