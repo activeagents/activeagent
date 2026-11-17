@@ -129,7 +129,9 @@ FAIL
 
 Here the whole run clears 80% and still fails, because the critical group
 is held to 100%. A group with `gated: false` is reported and never fails
-the run. `--json` adds the run's `gates` beside `pass_rate` and `verdict`.
+the run; a run that reached only ungated groups prints `Gates: every group
+reached is ungated (N); nothing was held to a bar.` in place of `every gate
+met`, so add `--min-pass-rate` if such a run should still fail CI. `--json` adds the run's `gates` beside `pass_rate` and `verdict`.
 A run without gates is gated on its status and pass rate alone, as before,
 and without `--wait` or `--min-pass-rate` the command returns once the run
 starts, before any gate exists.

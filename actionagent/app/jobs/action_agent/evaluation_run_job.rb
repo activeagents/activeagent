@@ -3,7 +3,9 @@
 module ActionAgent
   # Executes an evaluation run created by Evaluation#run_later!. The run
   # record already exists (pending), so the dashboard can show it while the
-  # job is queued; the runner marks it running, then complete or failed.
+  # job is queued; the runner claims it as running, then marks it complete
+  # or failed. A job delivered again finds the run claimed and replays
+  # nothing, even when two workers load it as pending at once.
   class EvaluationRunJob < ApplicationJob
     queue_as :agents
 

@@ -247,7 +247,13 @@ module ActiveAgent
       def print_gates(gates, missed)
         unmet = gates.reject { |gate| gate["met"] == true }
         unless missed
-          @out.puts "Gates: every gate met (#{gates.size})."
+          # Ungated rows are met without being held to a bar, so a run that
+          # reached only those says so rather than "every gate met".
+          if gates.none? { |gate| gate["gated"] != false }
+            @out.puts "Gates: every group reached is ungated (#{gates.size}); nothing was held to a bar."
+          else
+            @out.puts "Gates: every gate met (#{gates.size})."
+          end
           return
         end
 
