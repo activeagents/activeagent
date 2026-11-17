@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Schema tools can ask whether a column is set** (`activeagent`). A
+  filter value of `null` means "no filter", so a model had no way to ask
+  for the tickets with no assignee or the requests not yet approved, and
+  hosts wrote sentinel ranges such as `{"after": "2000-01-01"}` into their
+  instructions instead. A filter now takes `{"present": false}` (IS NULL)
+  or `{"present": true}` (IS NOT NULL) on any filterable column, alone or
+  beside a range bound. The tool schema offers it in the range object of
+  nullable date, time and number columns, so foreign keys get it too, and
+  an enum accepts it though it takes no comparison. Anything but true or
+  false is rejected rather than guessed.
+
 ## [1.9.8] - 2026-11-12
 
 The dashboard holds a run to its catalog's pass bars: a product's and a
