@@ -1,6 +1,6 @@
 # Schema tools presence filter — pull request
 
-One PR against `main`: `feat/schema-tools-presence-filter`.
+#718 against `main`: `feat/schema-tools-presence-filter`.
 
 - **What:** `{"present": false}` / `{"present": true}` on any SchemaTools filter, offered in the
   schema on nullable date, time and number columns.

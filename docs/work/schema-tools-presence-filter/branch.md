@@ -2,7 +2,7 @@
 
 | Branch | PR | Base | Scope |
 |---|---|---|---|
-| `feat/schema-tools-presence-filter` | see `pull-request.md` | `main` (after 1.9.8) | `{"present": true\|false}` on SchemaTools filters |
+| `feat/schema-tools-presence-filter` | #718 | `main` (after 1.9.8) | `{"present": true\|false}` on SchemaTools filters |
 
 Files: `lib/active_agent/schema_tools.rb`, `test/schema_tools_test.rb`,
 `docs/actions/tools.md`, `CHANGELOG.md` (`[Unreleased]`).
