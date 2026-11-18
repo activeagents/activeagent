@@ -142,6 +142,7 @@ module ActiveAgent
         when :message_delta
           delta = api_response_chunk[:delta]
           message_stack.last[:stop_reason] = delta[:stop_reason] if delta[:stop_reason]
+          self.stream_finish_reason = delta[:stop_reason] if delta[:stop_reason]
 
         when :message_stop
           # Stream complete

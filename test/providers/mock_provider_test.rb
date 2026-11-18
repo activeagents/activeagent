@@ -172,6 +172,17 @@ class MockProviderTest < ActiveSupport::TestCase
     assert stream_events.any? { |e| e[:type] == :close }
   end
 
+  test "a streamed generation reports why it stopped" do
+    provider = ActiveAgent::Providers::MockProvider.new(
+      service: "Mock",
+      messages: [ { role: "user", content: "hello" } ],
+      stream: true,
+      stream_broadcaster: ->(_message, _delta, _event_type) { }
+    )
+
+    assert_equal "end_turn", provider.prompt.finish_reason
+  end
+
   test "returns appropriate response structure" do
     response = @provider.prompt
 
