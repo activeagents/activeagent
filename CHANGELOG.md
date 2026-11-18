@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`tool_choice` reaches RubyLLM** (`ruby_llm`). The adapter read
+  `tool_choice` only to clear it between turns and never sent it, so
+  `tool_choice: "required"` or a named tool was ignored and a generation
+  could finish without calling a tool. It is now passed as RubyLLM's
+  `tool_prefs`, and still cleared once the tool has been used.
 - **An evaluation run is executed by one job** (`actionagent`). The run job
   read a run's status, then the scenario runner wrote `running`, as two
   steps, so a job delivered twice, or two workers that both loaded the run

@@ -62,6 +62,9 @@ module ActiveAgent
         schema = ruby_llm_schema(parameters[:response_format])
         kwargs[:schema] = schema if schema
 
+        tool_prefs = ruby_llm_tool_prefs(tools)
+        kwargs[:tool_prefs] = tool_prefs if tool_prefs
+
         # RubyLLM 2 renamed params: and exposes a provider-neutral token limit.
         max_tokens = parameters[:max_tokens] || options.max_tokens
         if max_tokens
@@ -304,6 +307,23 @@ module ActiveAgent
       # Inherits default api_response_normalize from BaseProvider.
 
       private
+
+      # Maps the request's tool_choice to RubyLLM's tool_prefs. Without it
+      # the model is free to answer without calling a tool even when the
+      # caller requires one. Nil once ToolChoiceClearing has cleared it, so
+      # a follow-up turn is not forced into another call.
+      #
+      # @param tools [Hash, nil] RubyLLM tools sent with this request
+      # @return [Hash, nil]
+      def ruby_llm_tool_prefs(tools)
+        return nil if tools.blank?
+
+        choice = request.tool_choice
+        choice = (choice[:name] || choice["name"]) if choice.is_a?(Hash)
+        return nil if choice.blank?
+
+        { choice: choice.to_sym }
+      end
 
       def ruby_llm_v2?
         Gem.loaded_specs.fetch("ruby_llm").version.segments.first >= 2

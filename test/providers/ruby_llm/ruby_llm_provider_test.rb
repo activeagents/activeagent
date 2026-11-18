@@ -964,6 +964,42 @@ class RubyLLMProviderTest < ActiveSupport::TestCase
     end
   end
 
+  test "tool_choice required is passed to RubyLLM as tool_prefs" do
+    provider = ActiveAgent::Providers::RubyLLMProvider.new(
+      service: "RubyLLM",
+      model: "gpt-4o-mini",
+      tool_choice: "required",
+      messages: [ { role: "user", content: "weather?" } ],
+      tools: [ tool_definition("get_weather") ],
+      tools_function: ->(_name, **_kwargs) { { temp: 72 } }
+    )
+
+    provider.prompt
+
+    assert_equal({ choice: :required }, @fake_provider.last_kwargs[:tool_prefs])
+  end
+
+  test "tool_choice naming a tool is passed to RubyLLM as that tool" do
+    provider = ActiveAgent::Providers::RubyLLMProvider.new(
+      service: "RubyLLM",
+      model: "gpt-4o-mini",
+      tool_choice: { name: "get_weather" },
+      messages: [ { role: "user", content: "weather?" } ],
+      tools: [ tool_definition("get_weather") ],
+      tools_function: ->(_name, **_kwargs) { { temp: 72 } }
+    )
+
+    provider.prompt
+
+    assert_equal({ choice: :get_weather }, @fake_provider.last_kwargs[:tool_prefs])
+  end
+
+  test "tool_prefs is not passed without a tool_choice" do
+    @provider.prompt
+
+    assert_nil @fake_provider.last_kwargs[:tool_prefs]
+  end
+
   test "max_tokens is not passed when not set" do
     @provider.prompt
 
