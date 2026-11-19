@@ -226,6 +226,43 @@ Time-series charts on the console's metrics page use the optional
 degrade gracefully without it; the React metrics page reads buckets the
 API already aggregated and needs nothing extra.
 
+### When a run's worker is lost
+
+A run goes `pending`, then `running` once one worker claims it, then
+`complete`, `failed`, `awaiting_input` (see [Input requests](#input-requests))
+or `cancelled`. A job delivered twice runs the run once. A worker that dies
+after its claim (a kill, an out-of-memory error, a deploy that does not wait
+for jobs) leaves no result, so each claim takes a lease:
+
+- The claim writes a token and an expiry `config.run_lease_duration` ahead
+  (30 minutes by default). Each LLM or tool call the run makes moves the
+  expiry out again. A resumed run takes a new lease under a new token.
+- A running run whose lease ran out is failed as lost: `error_class` is
+  `ActionAgent::AgentRun::WorkerLost` and the message says so. That happens
+  when the run's page or the run list is read, or when
+  `ActionAgent::AgentRunExpiryJob` runs. The job is not scheduled by default:
+
+```yaml
+# config/recurring.yml
+agent_run_expiry:
+  class: ActionAgent::AgentRunExpiryJob
+  schedule: every 5 minutes
+```
+
+- A lost run is not executed again. Its provider calls may have been billed
+  and its tools may have acted before the worker stopped; run the prompt
+  again as a new run once you have checked. A worker that was only slow,
+  and finishes after its run was failed as lost or cancelled, has its result
+  discarded and a line in the run's log saying so.
+- One provider call longer than the lease, with no other call in between,
+  looks like a lost worker. Raise `config.run_lease_duration` for agents
+  that wait that long; `nil` takes no leases.
+- Cancelling a run does not stop a provider call already in flight; it
+  keeps that call's result from being recorded.
+- A run already running when migration 033 was installed has no lease and
+  is never failed as lost. Cancel it if its worker is gone. Without the
+  migration, runs take no leases and behave as before.
+
 ## Input requests
 
 A dashboard agent can stop partway through a run to ask a person something,
