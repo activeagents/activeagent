@@ -5,7 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.9.9] - 2026-11-18
+
+Schema tools can ask whether a column is set: a filter takes
+`{"present": false}` (IS NULL) or `{"present": true}` (IS NOT NULL), so a
+model can find the tickets with no assignee without a sentinel range in
+the instructions. Around that, fixes to evaluations and providers: an
+evaluation run and a fanned-out replay are each claimed before they
+execute, so a job delivered twice no longer replays the suite or calls
+the provider twice; a catalog document safe loading refuses is a 422
+instead of a 500; a run of only ungated groups no longer reads as "every
+gate met"; and the RubyLLM provider refuses media it would drop.
+
+Upgrading: no migrations. The RubyLLM provider now raises
+`ActiveAgent::Providers::Errors::InvalidRequest` for a message carrying an
+image, audio or a file, where it used to send the text alone; route such
+messages to a provider that takes media.
 
 ### Added
 
