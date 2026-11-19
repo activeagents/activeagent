@@ -618,6 +618,90 @@ class SchemaToolsTest < ActiveSupport::TestCase
       .dig(:parameters, :properties)
     advertised = properties[:published_at][:anyOf].last[:properties].keys.map(&:to_s)
 
-    assert_equal ActiveAgent::SchemaTools::RANGE_OPERATORS.keys.sort, advertised.sort
+    expected = [ *ActiveAgent::SchemaTools::RANGE_OPERATORS.keys, ActiveAgent::SchemaTools::PRESENCE_OPERATOR ]
+    assert_equal expected.sort, advertised.sort
+  end
+
+  # --- Presence filters --------------------------------------------------
+  #
+  # A nil filter value is dropped as "no filter", so before `present` there
+  # was no way to ask for the records where a column is empty; hosts worked
+  # around it with sentinel ranges such as {"after": "2000-01-01"}.
+
+  test "present false matches the records where the column is null" do
+    Post.delete_all
+    draft = Post.create!(title: "Draft", content: "body", user: @alice)
+    Post.create!(title: "Out", content: "body", user: @alice, published_at: 1.day.ago)
+
+    result = DatedPostTools.call("find_posts", published_at: { "present" => false })
+
+    assert_equal [ draft.title ], result[:results].map { |r| r[:title] }
+  end
+
+  test "present true matches the records where the column is set" do
+    Post.delete_all
+    Post.create!(title: "Draft", content: "body", user: @alice)
+    Post.create!(title: "Out", content: "body", user: @alice, published_at: 1.day.ago)
+    Post.create!(title: "Scheduled", content: "body", user: @alice, published_at: 1.day.from_now)
+
+    assert_equal({ count: 2 }, DatedPostTools.call("count_posts", published_at: { "present" => true }))
+  end
+
+  test "present combines with a bound and with an equality filter" do
+    Post.delete_all
+    Post.create!(title: "Draft", content: "body", user: @alice, published: false)
+    Post.create!(title: "Old", content: "body", user: @alice, published_at: 10.days.ago, published: true)
+    Post.create!(title: "Old draft", content: "body", user: @alice, published_at: 10.days.ago, published: false)
+
+    result = DatedPostTools.call(
+      "find_posts", published: true, published_at: { "present" => true, "before" => Time.current.iso8601 }
+    )
+
+    assert_equal [ "Old" ], result[:results].map { |r| r[:title] }
+  end
+
+  test "present accepts the strings a model may send" do
+    Post.delete_all
+    Post.create!(title: "Draft", content: "body", user: @alice)
+
+    assert_equal({ count: 1 }, DatedPostTools.call("count_posts", published_at: { "present" => "false" }))
+    assert_equal({ count: 0 }, DatedPostTools.call("count_posts", published_at: { "present" => "true" }))
+  end
+
+  test "present rejects anything but true or false rather than guessing" do
+    result = DatedPostTools.call("count_posts", published_at: { "present" => "maybe" })
+
+    refute result.key?(:count)
+    assert_match "takes true or false", result[:error]
+    assert DatedPostTools.call("count_posts", published_at: { "present" => nil }).key?(:error)
+  end
+
+  test "present works on columns that are not offered the range form" do
+    Post.delete_all
+    # Written past validation: the dummy model requires content, the column does not.
+    Post.create!(title: "No body", content: "body", user: @alice).update_columns(content: nil, state: nil)
+    Post.create!(title: "Body", content: "body", user: @alice)
+    tools = ActiveAgent::SchemaTools.define(Post, filterable: %i[content state], returns: %i[id title], name: "PresencePostTools")
+
+    assert_equal({ count: 1 }, tools.call("count_posts", content: { "present" => true }))
+    # An enum takes `present` though it takes no comparison.
+    assert_equal({ count: 1 }, tools.call("count_posts", state: { "present" => false }))
+    assert_match "cannot be compared as a range", tools.call("count_posts", state: { "present" => false, "gt" => 1 })[:error]
+  ensure
+    ActiveAgent::SchemaTools.undefine(Post)
+  end
+
+  test "present is offered on nullable range columns only" do
+    properties = DatedPostTools.tool_definitions.find { |d| d[:name] == "find_posts" }
+      .dig(:parameters, :properties)
+    created = ActiveAgent::SchemaTools.define(Post, filterable: %i[created_at], name: "CreatedPostTools")
+      .tool_definitions.find { |d| d[:name] == "find_posts" }.dig(:parameters, :properties, :created_at)
+
+    assert_equal({ type: "boolean" }, properties[:published_at][:anyOf].last[:properties]["present"])
+    assert_match "\"present\": false", properties[:published_at][:description]
+    refute created[:anyOf].last[:properties].key?("present"), "a NOT NULL column is never empty"
+    refute properties[:published].key?(:anyOf), "a boolean column gets no object form for presence either"
+  ensure
+    ActiveAgent::SchemaTools.undefine(Post)
   end
 end

@@ -172,6 +172,8 @@ Three properties make this safe to hand to a model:
 - **Results are capped** (25 by default, 100 at most) with a `truncated` flag, so a `find_*` with no filters cannot select a table into the prompt.
 - **The scope is yours.** `scope { |actor| ... }` receives whatever your host passes as `actor:` and returns the relation to read through; `scope_by_policy` resolves `<Model>Policy::Scope` by name. Omit both and the tools read unscoped — a deliberate choice, not a default.
 
+A filter value is matched for equality, or takes an object: date, time and number columns accept a range (`{ "before": "2026-12-01" }`, `{ "gte": 10, "lt": 20 }`), and any column accepts `{ "present": false }` for the records where it is empty (null) or `{ "present": true }` for those where it is set. A `null` value means "no filter", because models send `null` for the optional parameters they leave out, so "reservations with no guest" is asked as `guest_id: { "present": false }`. The schema offers `present` on the nullable columns that already carry the range form; an unknown comparison or a `present` that is not `true` or `false` comes back as an error rather than as an empty answer.
+
 The tool definitions are ordinary [common-format tools](#common-tools-format-recommended), so an agent offers them with `prompt(tools: ReservationTools.tool_definitions)` and answers each call with `ReservationTools.call(name, actor: current_user, **arguments)`. The [dashboard engine](/framework/dashboard) discovers every class under `app/agent_tools` and offers each generated tool in the agent editor.
 
 Start from the generator rather than a blank file:

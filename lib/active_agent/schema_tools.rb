@@ -83,6 +83,13 @@ module ActiveAgent
       "on_or_before" => :lteq, "on_or_after" => :gteq
     }.freeze
 
+    # Asks whether a column holds a value at all: `{ "present" => false }` is
+    # IS NULL, `{ "present" => true }` IS NOT NULL. A nil filter value cannot
+    # ask it, because nil means "no filter" (models send null for the
+    # optional parameters they leave out), so without this "tickets with no
+    # assignee" or "requests not yet approved" has no filter that says so.
+    PRESENCE_OPERATOR = "present"
+
     # Column names that look like they hold a credential. The schema tools
     # generator never suggests one, and the dashboard never lets one be
     # chosen: reading one back would hand a model a credential, and
@@ -329,7 +336,8 @@ module ActiveAgent
       #
       # A filter value is normally matched for equality. A Hash value instead
       # declares a range — `{ "before" => "2026-01-01" }`, `{ "gte" => 10 }` —
-      # and may carry two bounds at once to express a window.
+      # and may carry two bounds at once to express a window, or asks whether
+      # the column is set at all (`{ "present" => false }`).
       #
       # @api private
       # @raise [UnpermittedAttribute] if any key is not declared filterable,
@@ -389,14 +397,34 @@ module ActiveAgent
         type = @model.type_for_attribute(column)
 
         value.map do |operator, operand|
+          next presence_predicate!(column, arel, operand) if operator.to_s == PRESENCE_OPERATOR
+
           predicate = RANGE_OPERATORS[operator.to_s]
           unless predicate
             raise UnpermittedAttribute,
               "`#{operator}` is not a valid comparison for `#{column}`. " \
-              "Allowed comparisons: #{RANGE_OPERATORS.keys.join(", ")}"
+              "Allowed comparisons: #{[ *RANGE_OPERATORS.keys, PRESENCE_OPERATOR ].join(", ")}"
           end
 
           arel.public_send(predicate, type.cast(operand))
+        end
+      end
+
+      # Builds IS NULL / IS NOT NULL for `{ "present" => ... }`.
+      #
+      # Only true and false (or their strings) are accepted: anything else
+      # would have to be guessed into one of the two, and a wrong guess
+      # answers the opposite question.
+      #
+      # @api private
+      # @raise [UnpermittedAttribute] on any other operand
+      def presence_predicate!(column, arel, operand)
+        case operand.to_s
+        when "true" then arel.not_eq(nil)
+        when "false" then arel.eq(nil)
+        else
+          raise UnpermittedAttribute,
+            "`#{PRESENCE_OPERATOR}` for `#{column}` takes true or false, not #{operand.inspect}"
         end
       end
 
@@ -415,9 +443,12 @@ module ActiveAgent
         return if values.blank?
 
         if value.is_a?(Hash)
+          # Whether it is set at all is a question an enum can answer.
+          return if value.keys.map(&:to_s) == [ PRESENCE_OPERATOR ]
+
           raise UnpermittedAttribute,
             "`#{column}` is an enum and cannot be compared as a range. " \
-            "Allowed values: #{values.keys.join(", ")}"
+            "Allowed values: #{values.keys.join(", ")}, or {\"#{PRESENCE_OPERATOR}\": true|false}"
         end
 
         # An Array is an IN filter, which `where` silently narrows to its
@@ -550,20 +581,28 @@ module ActiveAgent
       # only `{type: "string", format: "date"}` has no way to know it may ask
       # for `before`, and answers date questions with an equality match or no
       # filter at all.
+      #
+      # A nullable column's range object also takes `present`, so "has no
+      # due date" is asked in the same shape as "due before Friday". It is
+      # offered only here, on the columns that already carry an object form,
+      # rather than wrapping every nullable string and enum in one; a call
+      # may still send it for any filterable column.
       def with_range_form(column, scalar)
         operand = scalar.slice(:type, :format)
-        description = scalar[:description]
+        nullable = @model.columns_hash[column.to_s]&.null
+        properties = RANGE_OPERATORS.keys.index_with { operand.dup }
+        properties[PRESENCE_OPERATOR] = { type: "boolean" } if nullable
+
+        description = [ scalar[:description], "Accepts an exact value, or a range object such as " \
+          "{\"before\": ...} / {\"gte\": ...} (#{RANGE_OPERATORS.keys.join(", ")})." ]
+        description << "{\"#{PRESENCE_OPERATOR}\": false} matches records where it is empty (null), " \
+          "{\"#{PRESENCE_OPERATOR}\": true} where it is set." if nullable
 
         {
-          description: [ description, "Accepts an exact value, or a range object such as " \
-            "{\"before\": ...} / {\"gte\": ...} (#{RANGE_OPERATORS.keys.join(", ")})." ].compact.join(" "),
+          description: description.compact.join(" "),
           anyOf: [
             scalar.except(:description),
-            {
-              type: "object",
-              properties: RANGE_OPERATORS.keys.index_with { operand.dup },
-              additionalProperties: false
-            }
+            { type: "object", properties: properties, additionalProperties: false }
           ]
         }
       end
