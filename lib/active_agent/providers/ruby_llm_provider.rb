@@ -62,6 +62,9 @@ module ActiveAgent
         schema = ruby_llm_schema(parameters[:response_format])
         kwargs[:schema] = schema if schema
 
+        tool_prefs = ruby_llm_tool_prefs(tools)
+        kwargs[:tool_prefs] = tool_prefs if tool_prefs
+
         # RubyLLM 2 renamed params: and exposes a provider-neutral token limit.
         max_tokens = parameters[:max_tokens] || options.max_tokens
         if max_tokens
@@ -185,13 +188,17 @@ module ActiveAgent
 
         # Counts arrive in separate chunks (Anthropic sends input at the start
         # and output at the end). They are cumulative for this turn, so merge
-        # reported fields rather than adding each chunk's counts.
+        # reported fields rather than adding each chunk's counts. The total is
+        # stamped after the merge: a later chunk often carries only output, and
+        # its own total would drop the cache already counted.
         if (usage = ruby_llm_usage(chunk))
-          (@stream_response[:usage] ||= {}).merge!(usage) do |field, previous, current|
+          merged = (@stream_response[:usage] ||= {})
+          merged.merge!(usage) do |field, previous, current|
             # Chat Completions synthesizes zero when cache writes are omitted.
             # That cannot erase writes already counted in this turn.
             field == :cache_creation_tokens && current == 0 ? previous : current
           end
+          merged[:total_tokens] = ruby_llm_total_tokens(merged)
         end
         if chunk.respond_to?(:finish_reason) && chunk.finish_reason
           @stream_response[:stop_reason] = ruby_llm_stop_reason(chunk, tool_calls: message[:tool_calls])
@@ -304,6 +311,23 @@ module ActiveAgent
       # Inherits default api_response_normalize from BaseProvider.
 
       private
+
+      # Maps the request's tool_choice to RubyLLM's tool_prefs. Without it
+      # the model is free to answer without calling a tool even when the
+      # caller requires one. Nil once ToolChoiceClearing has cleared it, so
+      # a follow-up turn is not forced into another call.
+      #
+      # @param tools [Hash, nil] RubyLLM tools sent with this request
+      # @return [Hash, nil]
+      def ruby_llm_tool_prefs(tools)
+        return nil if tools.blank?
+
+        choice = request.tool_choice
+        choice = (choice[:name] || choice["name"]) if choice.is_a?(Hash)
+        return nil if choice.blank?
+
+        { choice: choice.to_sym }
+      end
 
       def ruby_llm_v2?
         Gem.loaded_specs.fetch("ruby_llm").version.segments.first >= 2
@@ -538,7 +562,10 @@ module ActiveAgent
         end
 
         usage = ruby_llm_usage(response)
-        hash[:usage] = usage if usage
+        if usage
+          usage[:total_tokens] = ruby_llm_total_tokens(usage)
+          hash[:usage] = usage
+        end
 
         hash[:model] = model_id if model_id
 
@@ -613,7 +640,8 @@ module ActiveAgent
       # none: the message has no Tokens then in ruby_llm 1.x. RubyLLM counts
       # cached tokens apart from the input, so input_tokens leaves them out.
       # A count the provider left out is left out here too, and Usage reads it
-      # as zero.
+      # as zero. Total is not set here: a stream merges these hashes field by
+      # field and stamps the total once the merge is done.
       #
       # @param response [RubyLLM::Message]
       # @return [Hash, nil] Common::Usage attributes
@@ -639,6 +667,18 @@ module ActiveAgent
             output_tokens: response.output_tokens
           }.compact
         end
+      end
+
+      # Every token the response processed. ruby_llm's input excludes cache
+      # reads and writes: OpenAI and Gemini subtract them from the prompt
+      # count, and Anthropic already reports them apart from input_tokens.
+      # Output already includes thinking when that is billed as output, so
+      # reasoning_tokens is not added again.
+      #
+      # @param usage [Hash] fields from {#ruby_llm_usage}, after a stream merge
+      # @return [Integer]
+      def ruby_llm_total_tokens(usage)
+        %i[input_tokens output_tokens cached_tokens cache_creation_tokens].sum { |key| usage[key] || 0 }
       end
     end
   end
