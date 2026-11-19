@@ -37,6 +37,11 @@ messages to a provider that takes media.
 
 ### Fixed
 
+- **A streamed Mock prompt reports why it stopped** (`MockProvider`). The
+  mock emitted `end_turn` in its stream but never recorded it, so
+  `response.finish_reason` was `nil` after a streamed prompt, as it was not
+  for the real providers. The mock now records it like they do.
+
 - **An evaluation run is executed by one job** (`actionagent`). The run job
   read a run's status, then the scenario runner wrote `running`, as two
   steps, so a job delivered twice, or two workers that both loaded the run
