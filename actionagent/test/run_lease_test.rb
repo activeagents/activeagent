@@ -501,6 +501,127 @@ class RunLeaseExpiryTest < ActionDispatch::IntegrationTest
   end
 end
 
+# A host that upgraded the gem without running migration 033: the lease
+# columns are gone from the table, so AgentRun has no execution_token or
+# execution_expires_at attribute at all. Every path that executes, records
+# or reads a run works as it did before leases, and none of them touches
+# the missing columns.
+class RunLeaseWithoutColumnsTest < ActionDispatch::IntegrationTest
+  def setup
+    @connection = ActiveRecord::Base.connection
+    @table = ActionAgent::AgentRun.table_name
+    @connection.remove_index @table, name: lease_index
+    @connection.remove_column @table, :execution_token
+    @connection.remove_column @table, :execution_expires_at
+    ActionAgent::AgentRun.reset_column_information
+
+    @agent = ActionAgent::Agent.create!(name: "Support", provider: "openai", model: "gpt-4o-mini")
+  end
+
+  def teardown
+    @connection.add_column @table, :execution_token, :string unless @connection.column_exists?(@table, :execution_token)
+    @connection.add_column @table, :execution_expires_at, :datetime unless @connection.column_exists?(@table, :execution_expires_at)
+    @connection.add_index @table, [ :status, :execution_expires_at ], name: lease_index unless @connection.index_name_exists?(@table, lease_index)
+    ActionAgent::AgentRun.reset_column_information
+  end
+
+  def lease_index
+    "index_#{@table}_on_status_and_lease"
+  end
+
+  def answer
+    ->(*, **) { { output: "answer", metadata: {}, usage: {} } }
+  end
+
+  test "the schema under test has no lease attributes" do
+    run = @agent.agent_runs.create!(input_prompt: "hi", status: :pending)
+
+    assert_equal false, ActionAgent::AgentRun.execution_leases?
+    assert_raises(NoMethodError) { run.execution_token }
+    assert_nil run.lease_token
+  end
+
+  test "the execution job runs a run to completion" do
+    run = @agent.agent_runs.create!(input_prompt: "hi", status: :pending)
+
+    ActionAgent::AgentExecutionService.stub(:call, answer) do
+      ActionAgent::AgentExecutionJob.perform_now(run.id)
+    end
+
+    run.reload
+    assert run.complete?, "the run ended #{run.status}: #{run.error_message}"
+    assert_equal "answer", run.output
+  end
+
+  test "the execution job records a failure" do
+    run = @agent.agent_runs.create!(input_prompt: "hi", status: :pending)
+
+    ActionAgent::AgentExecutionService.stub(:call, ->(*, **) { raise "provider down" }) do
+      assert_raises(RuntimeError) { ActionAgent::AgentExecutionJob.perform_now(run.id) }
+    end
+
+    assert run.reload.failed?
+    assert_equal "provider down", run.error_message
+  end
+
+  test "the resume job finishes a paused run" do
+    run = @agent.agent_runs.create!(input_prompt: "hi", status: :awaiting_input, started_at: 1.minute.ago)
+    request = ActionAgent::InputRequest.create!(
+      subject: run, kind: "text", prompt: "Where to?", tool_call_id: "call_1", pause_key: "pause_1",
+      status: :answered, answer: "Lisbon", checkpoint: "{}"
+    )
+
+    ActionAgent::AgentExecutionService.stub(:call, answer) do
+      ActionAgent::AgentResumeJob.perform_now(request.id)
+    end
+
+    run.reload
+    assert run.complete?, "the run ended #{run.status}: #{run.error_message}"
+    assert_equal "answer", run.output
+  end
+
+  test "a synchronous test run completes, and a cancel during it still stays" do
+    run = nil
+    ActionAgent::AgentExecutionService.stub(:call, answer) { run = @agent.test_execute("hi") }
+
+    assert run.reload.complete?, "the run ended #{run.status}: #{run.error_message}"
+
+    cancelling = lambda do |_agent, running, **|
+      ActionAgent::AgentRun.find(running.id).cancel!
+      { output: "finished anyway", metadata: {}, usage: {} }
+    end
+    ActionAgent::AgentExecutionService.stub(:call, cancelling) { run = @agent.test_execute("hi") }
+
+    assert run.reload.cancelled?
+    assert_nil run.output
+  end
+
+  test "a progress event is recorded and renews nothing" do
+    run = @agent.agent_runs.create!(input_prompt: "hi", status: :running, started_at: 1.minute.ago)
+
+    run.append_event(eid: "e1", kind: :llm, label: "gpt-4o-mini", status: "started")
+
+    assert_equal "e1", Array(run.reload.logs).last["eid"]
+    assert_equal false, run.renew_lease!
+  end
+
+  test "nothing is expired, and the run's page and the run list still load" do
+    run = @agent.agent_runs.create!(input_prompt: "hi", status: :running, started_at: 2.days.ago)
+
+    assert_equal 0, ActionAgent::AgentRun.expire_lost!
+    assert_equal false, run.expire_if_lost!
+    ActionAgent::AgentRunExpiryJob.perform_now
+
+    get "/activeagents/api/runs/#{run.id}"
+    assert_response :success
+    assert_equal "running", JSON.parse(response.body).dig("run", "status")
+
+    get "/activeagents/api/runs"
+    assert_response :success
+    assert_equal "running", JSON.parse(response.body)["runs"].find { |entry| entry["id"] == run.id }["status"]
+  end
+end
+
 # Two sweeps reach the same lost run at once, each on its own connection.
 class RunLeaseExpiryConcurrencyTest < ActiveSupport::TestCase
   self.use_transactional_tests = false

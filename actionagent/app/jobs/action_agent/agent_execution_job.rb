@@ -14,7 +14,7 @@ module ActionAgent
 
       # This worker's lease: only while the run is still running under it is
       # the result recorded.
-      token = run.execution_token
+      token = run.lease_token
       run.add_log("Starting execution", level: :info)
 
       begin

@@ -503,7 +503,7 @@ module ActionAgent
         **AgentRun.lease_attributes
       )
       run.actor = actor
-      token = run.execution_token
+      token = run.lease_token
 
       begin
         # Build and execute the agent

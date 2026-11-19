@@ -24,7 +24,7 @@ module ActionAgent
       pause = claim_pause(run, request)
       return unless pause
 
-      token = run.execution_token
+      token = run.lease_token
 
       segment_started_at = Time.current
       secrets = pause.select { |paused| paused.kind == "secret" }.filter_map(&:answer)

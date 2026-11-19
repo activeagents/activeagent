@@ -188,6 +188,14 @@ module ActionAgent
       { execution_token: SecureRandom.uuid, execution_expires_at: now + duration }
     end
 
+    # The token of the lease this copy holds, read through the column guard:
+    # nil when the lease columns are not installed (no attribute to read) or
+    # the run holds no lease. What a worker hands #unless_cancelled.
+    # @return [String, nil]
+    def lease_token
+      execution_token if self.class.execution_leases?
+    end
+
     # Pushes the lease's expiry out by ActionAgent.run_lease_duration, while
     # the run is still running under this copy's token. A run that finished,
     # paused, or was taken under another token is left alone. Returns
@@ -195,7 +203,7 @@ module ActionAgent
     # @return [Boolean]
     def renew_lease!(now = Time.current)
       duration = ActionAgent.run_lease_duration
-      return false unless duration && self.class.execution_leases? && execution_token
+      return false unless duration && lease_token
 
       self.class.where(id: id, status: self.class.statuses[:running], execution_token: execution_token)
         .update_all(execution_expires_at: now + duration) == 1
@@ -502,7 +510,7 @@ module ActionAgent
           add_log("Execution finished after cancellation; result discarded", level: :info)
           next false
         end
-        if token && execution_token != token
+        if token && lease_token != token
           add_log("Execution finished after its run was ended or taken by another worker; result discarded", level: :warn)
           next false
         end
