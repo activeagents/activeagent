@@ -5,6 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **OpenRouter embeddings** (`activeagent`). `OpenRouterProvider#embed`
+  raised `NotImplementedError`, though OpenRouter serves an
+  OpenAI-compatible `/embeddings` endpoint. The provider now sends
+  embedding requests there, as the Requesty provider does.
+
+### Fixed
+
+- **RubyLLM totals count cached tokens** (`activeagent`). ruby_llm reports
+  input apart from cache reads and writes, and the provider's
+  `usage.total_tokens` fell back to input plus output, so a prompt that
+  read or wrote the cache was undercounted. The total is now input, output,
+  cache reads and cache writes, as the Anthropic provider already counts
+  it, and a stream totals after its chunks are merged. `total_tokens` for
+  a RubyLLM agent rises on cached prompts; `input_tokens`,
+  `cached_tokens` and `cache_creation_tokens` are unchanged.
+- **`tool_choice` reaches RubyLLM** (`activeagent`). The adapter read
+  `tool_choice` only to clear it between turns and never sent it, so
+  `tool_choice: "required"` or a named tool was ignored and a generation
+  could finish without calling a tool. It is now passed as RubyLLM's
+  `tool_prefs`, and still cleared once the tool has been used.
+- **A streamed Mock prompt reports why it stopped** (`activeagent`). The
+  mock emitted `end_turn` in its stream but never recorded it, so
+  `response.finish_reason` was `nil` after a streamed prompt, as it was not
+  for the real providers. The mock now records it like they do.
+
 ## [1.9.9] - 2026-11-18
 
 Schema tools can ask whether a column is set: a filter takes
@@ -36,11 +65,6 @@ messages to a provider that takes media.
   false is rejected rather than guessed.
 
 ### Fixed
-
-- **A streamed Mock prompt reports why it stopped** (`MockProvider`). The
-  mock emitted `end_turn` in its stream but never recorded it, so
-  `response.finish_reason` was `nil` after a streamed prompt, as it was not
-  for the real providers. The mock now records it like they do.
 
 - **An evaluation run is executed by one job** (`actionagent`). The run job
   read a run's status, then the scenario runner wrote `running`, as two
