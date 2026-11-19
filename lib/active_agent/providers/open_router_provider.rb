@@ -31,7 +31,20 @@ module ActiveAgent
         namespace::RequestType.new
       end
 
+      # @return [ActiveModel::Type::Value]
+      def self.embed_request_type
+        OpenAI::Embedding::RequestType.new
+      end
+
       protected
+
+      # Executes an embedding request via OpenRouter's OpenAI-compatible API.
+      #
+      # @param parameters [Hash]
+      # @return [Hash] symbolized API response
+      def api_embed_execute(parameters)
+        client.embeddings.create(**parameters).as_json.deep_symbolize_keys
+      end
 
       # @see BaseProvider#prepare_prompt_request
       # @return [Request]
