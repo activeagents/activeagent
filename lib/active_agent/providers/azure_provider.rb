@@ -60,6 +60,17 @@ module ActiveAgent
         )
       end
 
+      protected
+
+      # Executes an embedding request against the Azure deployment's
+      # +/embeddings+ endpoint.
+      #
+      # @param parameters [Hash]
+      # @return [Hash] symbolized API response
+      def api_embed_execute(parameters)
+        client.embeddings.create(**parameters).as_json.deep_symbolize_keys
+      end
+
       # Custom OpenAI client for Azure OpenAI Service.
       #
       # Azure uses different authentication headers (api-key instead of Authorization: Bearer)
