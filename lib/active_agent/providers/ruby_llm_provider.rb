@@ -381,12 +381,33 @@ module ActiveAgent
         when String
           content
         when Array
+          refuse_media_blocks!(content)
           content.select { |block| block.is_a?(Hash) && block[:type] == "text" }
                  .map { |block| block[:text] }
                  .join("\n")
         else
           content.to_s
         end
+      end
+
+      # Content block types that carry media rather than text, in the shapes
+      # the OpenAI (Chat and Responses) and Anthropic transforms write.
+      MEDIA_BLOCK_TYPES = %w[image image_url input_image audio input_audio file input_file document video].freeze
+
+      # This provider sends RubyLLM text only, so an image, audio clip or
+      # file would be dropped while the model answered as if it had seen
+      # it. Such a request is refused before any provider call. Other
+      # blocks that are not text (an earlier turn's reasoning) are still
+      # left out.
+      def refuse_media_blocks!(content)
+        types = content.filter_map { |block| block[:type].to_s if block.is_a?(Hash) && MEDIA_BLOCK_TYPES.include?(block[:type].to_s) }.uniq
+        return if types.empty?
+
+        raise Errors::InvalidRequest.new(
+          "The RubyLLM provider sends text only; this message has #{types.join(', ')} content, which it would drop. " \
+          "Send it through a provider that accepts it, or as text.",
+          provider_tag: "RubyLLM"
+        )
       end
 
       # Converts ActiveAgent tool_calls to RubyLLM's ToolCall format.

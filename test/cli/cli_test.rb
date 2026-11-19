@@ -347,6 +347,21 @@ class ActiveAgentCLITest < Minitest::Test
     assert_includes out, "Gates: no gate was reached."
   end
 
+  # An ungated group never fails the run, so the verdict stands; the line
+  # under it no longer claims a gate was met when none held anything.
+  def test_evals_run_says_when_every_group_the_run_reached_is_ungated
+    stub_tool("evaluations_run", run_payload("pending"))
+    ungated = [ gate_row("experimental", "Experimental", 0, 2, 0.8, gated: false) ]
+    stub_tool("evaluation_runs_get", run_payload("complete", passed: 0, evaluated: 2, gates: ungated, gates_met: true))
+
+    code, out, = cli("evals", "run", "7", "--wait")
+
+    assert_equal CLI::EXIT_SUCCESS, code
+    assert_includes out, "Gates: every group reached is ungated (1); nothing was held to a bar."
+    refute_includes out, "every gate met"
+    assert_match(/PASS$/, out)
+  end
+
   def test_evals_run_json_adds_the_gates_and_keeps_the_payload
     stub_tool("evaluations_run", run_payload("pending"))
     stub_tool("evaluation_runs_get", gated_run)

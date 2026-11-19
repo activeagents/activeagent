@@ -243,6 +243,15 @@ For interleaved parallel OpenAI tool calls, use ruby_llm 2.x. ruby_llm 1.16 disc
 
 See [Streaming](/agents/streaming) for ActionCable integration and real-time updates.
 
+## Text-Only Content
+
+The provider sends RubyLLM the text of each message. A message whose
+content holds an image, audio or file block (`image_url`, `image`,
+`input_image`, `input_audio`, `file`, `input_file`, `document`, and the
+like) is refused with `ActiveAgent::Providers::Errors::InvalidRequest`
+before any provider call, rather than sent without it. Use the OpenAI,
+Anthropic or OpenRouter provider for images and files.
+
 ## When to Use RubyLLM vs Direct Providers
 
 **Use RubyLLM when:**
@@ -253,6 +262,7 @@ See [Streaming](/agents/streaming) for ActionCable integration and real-time upd
 
 **Use a direct provider (OpenAI, Anthropic) when:**
 - You need provider-specific features (MCP servers, extended thinking, JSON schema mode)
+- You send images, audio or files (see [Text-Only Content](#text-only-content))
 - You want the tightest integration with a provider's gem SDK
 - You need provider-specific error handling classes
 

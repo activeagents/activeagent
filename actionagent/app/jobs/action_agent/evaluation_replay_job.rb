@@ -8,7 +8,9 @@ module ActionAgent
   #
   # A failure outside the replay is stored as the pair's errored result
   # rather than raised, so the run still completes; a scenario removed from
-  # the suite during the run is left out of it.
+  # the suite during the run is left out of it. The same runner records the
+  # failure, since it knows whether this delivery claimed the pair and
+  # stored its result (see ScenarioEvaluationRunner#fail_result!).
   class EvaluationReplayJob < ApplicationJob
     queue_as :agents
 
@@ -21,7 +23,7 @@ module ActionAgent
         runner.replay_scenario!(run, scenario_id, spec)
       rescue StandardError => e
         Rails.logger.warn("[ActionAgent] evaluation run #{run_id}: replay of scenario #{scenario_id} failed: #{e.class}: #{e.message}")
-        ScenarioEvaluationRunner.new(run.evaluation, selection: selection, run: run).fail_result!(run.reload, scenario_id, spec, e)
+        runner.fail_result!(run.reload, scenario_id, spec, e)
       end
     end
   end

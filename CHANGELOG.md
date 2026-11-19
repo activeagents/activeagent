@@ -20,6 +20,58 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   an enum accepts it though it takes no comparison. Anything but true or
   false is rejected rather than guessed.
 
+### Fixed
+
+- **An evaluation run is executed by one job** (`actionagent`). The run job
+  read a run's status, then the scenario runner wrote `running`, as two
+  steps, so a job delivered twice, or two workers that both loaded the run
+  as pending, each replayed the whole suite, or with
+  `scenario_evaluation_fan_out` on each enqueued a full set of replay jobs.
+  The runner now moves the run from pending to running in one conditional
+  update, as the execution job claims an agent run, and replays nothing
+  unless it was the one to do so; this covers `ProjectEvaluationJob` too.
+  The claim comes before the selection is read, so a selection that cannot
+  be resolved (an unsupported provider in a re-run's models) now fails the
+  run instead of leaving it pending forever.
+- **A fanned-out replay is claimed before the agent runs** (`actionagent`).
+  `EvaluationReplayJob` checked for a stored result, replayed, and only
+  then took the run's lock to store, so two deliveries of one replay job
+  both called the provider (and the agent's tools) and the second answer
+  was dropped. A delivery that failed after another had stored the pair's
+  replay also marked that good result errored. The replay now takes a
+  claim, kept with the run's fan-out bookkeeping (no migration), before
+  the agent runs. A delivery that finds the pair claimed comes back when
+  the claim expires (30 minutes) and replays only if nothing was stored,
+  so a worker that stopped mid-replay is still covered. A failure is
+  stored only over the delivery's own pair. A worker that stops after the
+  provider answered and before the result is stored is still replayed
+  again: this is one active replay per pair, not exactly once.
+- **A catalog document YAML refuses to load is an invalid document**
+  (`activeagent`, `actionagent`). `Catalog.parse` turned only a syntax
+  error into `Catalog::InvalidDocument`, while safe loading refuses a tag
+  naming a Ruby class (`!ruby/object:...`) or an alias to an undefined
+  anchor with other `Psych` errors. Those escaped the dashboard's catalog
+  import and preview as a 500, and the `catalogs_import` and
+  `catalogs_preview` tools as an internal error. They are now refused like
+  any other invalid catalog: 422 with "the catalog is not valid YAML: ...".
+  What safe loading permits is unchanged.
+- **A run of only ungated groups no longer reads as "every gate met"**
+  (`activeagent`). An ungated group's row is met without being held to a
+  bar, so a report whose every result sat in ungated groups said "every
+  pass gate met" (`GateCheck`, `assert_meets_pass_gates`, the RSpec
+  matcher) and `evals run --wait` printed `Gates: every gate met`, even
+  when every answer had failed. The verdict is unchanged, since an ungated
+  group never fails the run, but the message now says that every group
+  covered is ungated and nothing was held to a bar.
+- **The RubyLLM provider refuses media it would drop** (`activeagent`). It
+  sends RubyLLM the text of each message and silently left out every other
+  content block, so a message with an image (`image_url`, `image`,
+  `input_image`), audio or a file reached the model as its text alone, or
+  as an empty message, and the model answered as if it had seen it. Such
+  a message now raises `ActiveAgent::Providers::Errors::InvalidRequest`,
+  naming the block types, before any provider call. Blocks that are not
+  media (an earlier turn's reasoning) are still left out, as before.
+
 ## [1.9.8] - 2026-11-12
 
 The dashboard holds a run to its catalog's pass bars: a product's and a
