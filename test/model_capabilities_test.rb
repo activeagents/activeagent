@@ -11,6 +11,13 @@ class ModelCapabilitiesTest < ActiveSupport::TestCase
     end
   end
 
+  test "region- and provider-prefixed ids resolve to the bare model" do
+    %w[eu.anthropic.claude-sonnet-5-v1:0 us.anthropic.claude-opus-5-v1:0 anthropic.claude-fable-5-v2:0 anthropic/claude-sonnet-5 openai.gpt-5].each do |model|
+      assert_not ActiveAgent::ModelCapabilities.sampling_supported?(model), "expected #{model} to reject sampling"
+    end
+    assert ActiveAgent::ModelCapabilities.sampling_supported?("eu.anthropic.claude-haiku-4-5-v1:0")
+  end
+
   test "OpenAI reasoning models reject sampling params" do
     %w[o1 o1-mini o3-mini o4-mini gpt-5.1 gpt-5].each do |model|
       assert_not ActiveAgent::ModelCapabilities.sampling_supported?(model), "expected #{model} to reject sampling"

@@ -29,6 +29,11 @@ module ActiveAgent
       { pattern: /\Agpt-5/, unsupported: SAMPLING_PARAMS }
     ].freeze
 
+    # Cloud-hosted ids wrap the bare model name, e.g. Bedrock's
+    # "eu.anthropic.claude-sonnet-5-v1:0" or "anthropic.claude-opus-5-v1:0".
+    PROVIDER_PREFIX = /\A(?:[a-z]{2,6}\.)?(?:anthropic|openai)[.\/]/
+    VERSION_SUFFIX = /-v\d+(?::\d+)?\z/
+
     class << self
       # Master switch; on by default. Set false to send parameters through
       # untouched (the vendor then enforces its own rules).
@@ -61,10 +66,19 @@ module ActiveAgent
       def unsupported_params(model)
         return [] if model.nil?
 
+        name = model.to_s
+        bare = normalize_model(name)
+
         (custom_rules + BUILTIN_RULES).each do |rule|
-          return rule[:unsupported] if model.to_s.match?(rule[:pattern])
+          return rule[:unsupported] if name.match?(rule[:pattern]) || bare.match?(rule[:pattern])
         end
         []
+      end
+
+      # Strips the region/provider prefix and "-vN:M" suffix that Bedrock-style
+      # ids add around the bare model name.
+      def normalize_model(name)
+        name.sub(PROVIDER_PREFIX, "").sub(VERSION_SUFFIX, "")
       end
 
       def sampling_supported?(model)
