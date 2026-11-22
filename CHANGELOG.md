@@ -16,6 +16,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A catalog's digest survives its object key order** (`activeagent`). The
+  canonical document sorted the keys of a scenario's extension fields only,
+  so the same catalog written with the objects it otherwise carries — the
+  catalog's, a product's and a set's extension fields, their `criteria`,
+  `pass` bars and `judge`, and a scenario's `params` — in another order
+  hashed differently. Catalog documents live in a JSON column, which hands
+  keys back in its own order (jsonb sorts them), so re-importing a document
+  the dashboard itself exported could preview as a change and write a new
+  digest. Every object in the document is now canonicalized, as
+  `docs/framework/evaluations.md` already said it was. `Catalog#to_h` is
+  unchanged, and a document that was already in canonical order keeps its
+  digest.
 - **RubyLLM totals count cached tokens** (`activeagent`). ruby_llm reports
   input apart from cache reads and writes, and the provider's
   `usage.total_tokens` fell back to input plus output, so a prompt that
