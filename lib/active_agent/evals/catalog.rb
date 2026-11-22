@@ -176,7 +176,7 @@ module ActiveAgent
           "name" => name,
           "description" => description,
           "products" => products.map { |product| product_document(product) }
-        }.merge(metadata))
+        }.merge(canonical(metadata)))
       end
 
       def to_yaml
@@ -389,10 +389,10 @@ module ActiveAgent
           "name" => product.name,
           "description" => product.description,
           "agent" => product.agent,
-          "criteria" => product.criteria,
-          "pass" => product.pass,
+          "criteria" => canonical(product.criteria),
+          "pass" => canonical(product.pass),
           "sets" => product.sets.map { |set| set_document(set) }
-        }.merge(product.metadata))
+        }.merge(canonical(product.metadata)))
       end
 
       def set_document(set)
@@ -400,32 +400,37 @@ module ActiveAgent
           "key" => set.key,
           "name" => set.name,
           "description" => set.description,
-          "judge" => set.judge,
-          "criteria" => set.criteria,
-          "pass" => set.pass,
+          "judge" => canonical(set.judge),
+          "criteria" => canonical(set.criteria),
+          "pass" => canonical(set.pass),
           "scenarios" => set.scenarios.map { |scenario| scenario_document(scenario) }
-        }.merge(set.metadata))
+        }.merge(canonical(set.metadata)))
       end
 
       def scenario_document(scenario)
         compact({
           "key" => scenario.key,
           "prompt" => scenario.prompt,
-          "expect" => scenario.expectations,
+          "expect" => canonical(scenario.expectations),
           "notes" => scenario.notes,
           "tags" => scenario.tags,
-          "params" => scenario.params,
+          "params" => canonical(scenario.params),
           "production_only" => (true if scenario.production_only?)
-        }).merge(canonical_metadata(scenario.metadata.to_h.deep_stringify_keys.except(*SCENARIO_KEYS)))
+        }).merge(canonical(scenario.metadata.to_h.deep_stringify_keys.except(*SCENARIO_KEYS)))
       end
 
       # JSON object storage may reorder keys; array order remains meaningful.
-      def canonical_metadata(value)
+      # Every object the canonical document carries goes through here —
+      # including the catalog's, a product's and a set's own extension fields,
+      # their criteria, pass bars and judge, and a scenario's params — so the
+      # digest fingerprints the same document whatever order the storage
+      # handed the keys back in.
+      def canonical(value)
         case value
         when Hash
-          value.keys.sort.to_h { |key| [ key, canonical_metadata(value[key]) ] }
+          value.keys.sort.to_h { |key| [ key, canonical(value[key]) ] }
         when Array
-          value.map { |entry| canonical_metadata(entry) }
+          value.map { |entry| canonical(entry) }
         else
           value
         end

@@ -58,6 +58,54 @@ class EvalsCatalogMetadataTest < ActiveSupport::TestCase
     assert_not_equal original.digest, ActiveAgent::Evals::Catalog.new(document(reordered)).digest
   end
 
+  # A catalog document is stored in a json column (jsonb on PostgreSQL), which
+  # may hand every object's keys back in another order, and the digest
+  # fingerprints the canonical document. Only a scenario's extension fields
+  # were canonicalized, so the same catalog written with its catalog, product,
+  # set, criteria, pass-block, judge or params object keys in another order
+  # read as two different catalogs: a re-import of the file the dashboard
+  # itself exported looked like a change.
+  test "every object the document carries is canonical, not just a scenario's extensions" do
+    pairs = {
+      "catalog metadata" => [
+        { "catalog" => "support", "owner" => "platform", "region" => "eu", "products" => [ { "key" => "triage" } ] },
+        { "catalog" => "support", "region" => "eu", "owner" => "platform", "products" => [ { "key" => "triage" } ] }
+      ],
+      "product metadata" => [
+        { "catalog" => "support", "products" => [ { "key" => "triage", "lane" => "alpha", "tier" => "gold" } ] },
+        { "catalog" => "support", "products" => [ { "key" => "triage", "tier" => "gold", "lane" => "alpha" } ] }
+      ],
+      "product criteria" => [
+        { "catalog" => "support", "products" => [ { "key" => "triage", "criteria" => { "shared" => [], "strict" => [] } } ] },
+        { "catalog" => "support", "products" => [ { "key" => "triage", "criteria" => { "strict" => [], "shared" => [] } } ] }
+      ],
+      "product pass" => [
+        { "catalog" => "support", "products" => [ { "key" => "triage", "pass" => { "threshold" => 0.8, "min_pass_rate" => 0.9 } } ] },
+        { "catalog" => "support", "products" => [ { "key" => "triage", "pass" => { "min_pass_rate" => 0.9, "threshold" => 0.8 } } ] }
+      ],
+      "set judge" => [
+        { "catalog" => "support", "products" => [ { "key" => "triage", "sets" => [ { "key" => "smoke", "judge" => { "kind" => "rules", "model" => "m" } } ] } ] },
+        { "catalog" => "support", "products" => [ { "key" => "triage", "sets" => [ { "key" => "smoke", "judge" => { "model" => "m", "kind" => "rules" } } ] } ] }
+      ],
+      "scenario params" => [
+        { "catalog" => "support", "products" => [ { "key" => "triage", "sets" => [ { "key" => "smoke", "scenarios" => [ {
+          "key" => "hello", "prompt" => "Say hello.", "params" => { "locale" => "en", "tone" => "terse" }
+        } ] } ] } ] },
+        { "catalog" => "support", "products" => [ { "key" => "triage", "sets" => [ { "key" => "smoke", "scenarios" => [ {
+          "key" => "hello", "prompt" => "Say hello.", "params" => { "tone" => "terse", "locale" => "en" }
+        } ] } ] } ] }
+      ]
+    }
+
+    pairs.each do |place, (first_document, second_document)|
+      first = ActiveAgent::Evals::Catalog.new(first_document)
+      second = ActiveAgent::Evals::Catalog.new(second_document)
+
+      assert_equal first.to_h, second.to_h, place
+      assert_equal first.digest, second.digest, "#{place} keys in another order must read as the same catalog"
+    end
+  end
+
   test "a literal metadata extension can have any YAML value without becoming the serialization container" do
     [ nil, false, 0, [], "opaque" ].each do |value|
       catalog = ActiveAgent::Evals::Catalog.new(document({ "metadata" => value }))
