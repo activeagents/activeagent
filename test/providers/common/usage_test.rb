@@ -26,6 +26,18 @@ module ActiveAgent
           assert_equal 5, usage.audio_tokens
         end
 
+        test "maps OpenAI Chat cache_write_tokens to cache_creation_tokens" do
+          usage = Usage.from_openai_chat(
+            "prompt_tokens" => 100,
+            "completion_tokens" => 25,
+            "total_tokens" => 125,
+            "prompt_tokens_details" => { "cached_tokens" => 20, "cache_write_tokens" => 30 }
+          )
+
+          assert_equal 20, usage.cached_tokens
+          assert_equal 30, usage.cache_creation_tokens
+        end
+
         test "normalizes OpenAI Embedding usage with no output tokens" do
           usage_hash = {
             "prompt_tokens" => 8,

@@ -183,6 +183,7 @@ module ActiveAgent
             input_tokens: usage[:prompt_tokens] || 0,
             output_tokens: usage[:completion_tokens] || 0,
             cached_tokens: prompt_details[:cached_tokens],
+            cache_creation_tokens: prompt_details[:cache_write_tokens],
             reasoning_tokens: completion_details[:reasoning_tokens],
             audio_tokens: audio_sum > 0 ? audio_sum : nil,
             provider_details: usage.slice(:prompt_tokens_details, :completion_tokens_details).compact
