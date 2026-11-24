@@ -61,6 +61,19 @@ class ProjectEvaluationBrowserTest < ActiveSupport::TestCase
     assert recording.reload.completed?
   end
 
+  # A catalog set run against a project (ScenarioSet#run! with project:)
+  # stores the scenarios and models it asked for on the pending run; the
+  # job is what hands them to the replay.
+  test "the run replays only the scenarios and models its selection names" do
+    @run.update!(selection: @run.selection.merge("keys" => [ "late_orders" ], "models" => [ "mock-candidate" ]))
+
+    run = run_project_evaluation
+
+    assert run.complete?, run.error_message
+    assert_equal [ "late_orders" ], run.selection["scenario_keys"]
+    assert_equal [ "mock-candidate" ], run.selection["models"].map { |spec| spec["model"] }
+  end
+
   test "a browser already running is left running, and none starts for a run with no scenarios" do
     start_fake_browser!
 

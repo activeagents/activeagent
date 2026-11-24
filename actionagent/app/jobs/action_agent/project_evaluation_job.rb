@@ -15,6 +15,7 @@ module ActionAgent
 
     POLL_INTERVAL = 10.seconds
     BOOT_WAIT = 1.hour
+    SELECTION_KEYS = %w[keys models].freeze
 
     def perform(project_id, run_id, mount_url = nil)
       run = EvaluationRun.find_by(id: run_id)
@@ -49,7 +50,14 @@ module ActionAgent
         return fail_run(run, "This install replays scenarios through its own adapter, which cannot reach a project's sandbox")
       end
 
-      evaluation.run!(run: run, sandbox_id: sandbox.session_id, browser: true, mount_url: mount_url)
+      evaluation.run!(run: run, **requested_selection(run), sandbox_id: sandbox.session_id, browser: true, mount_url: mount_url)
+    end
+
+    # The scenarios and models the run was started with. A project's own
+    # evaluation stores none; a catalog set run against the project
+    # (ScenarioSet#run!) stores the keys and models it was asked for.
+    def requested_selection(run)
+      run.selection.to_h.slice(*SELECTION_KEYS).symbolize_keys
     end
 
     def fail_run(run, message)
