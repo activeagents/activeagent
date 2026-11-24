@@ -33,6 +33,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   mock emitted `end_turn` in its stream but never recorded it, so
   `response.finish_reason` was `nil` after a streamed prompt, as it was not
   for the real providers. The mock now records it like they do.
+- **Anthropic keeps `cache_control` on a single text block** (`activeagent`).
+  A system prompt or message holding one text block was sent as a bare
+  string, which dropped the block's `cache_control` (or `citations`), so a
+  prompt marked for caching was never cached. Only a block holding nothing
+  but its text is shortened now.
 
 ## [1.9.9] - 2026-11-18
 

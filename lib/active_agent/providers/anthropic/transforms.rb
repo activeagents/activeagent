@@ -567,6 +567,10 @@ module ActiveAgent
           #
           # `[{type: "text", text: "hello"}]` → `"hello"`
           #
+          # A block that carries anything besides its text, such as
+          # cache_control or citations, stays a block: the string form has
+          # nowhere to keep it.
+          #
           # @param msg [Hash] message with :content key
           # @return [void]
           def compress_message_content!(msg)
@@ -574,7 +578,7 @@ module ActiveAgent
             return unless content.is_a?(Array)
 
             # Single text block → string shorthand
-            if content.one? && content.first.is_a?(Hash) && content.first[:type] == "text"
+            if content.one? && plain_text_block?(content.first)
               msg[:content] = content.first[:text]
             end
           end
@@ -639,11 +643,19 @@ module ActiveAgent
             return system unless system.is_a?(Array)
 
             # Single text block → string shorthand
-            if system.one? && system.first.is_a?(Hash) && system.first[:type] == "text"
+            if system.one? && plain_text_block?(system.first)
               system.first[:text]
             else
               system
             end
+          end
+
+          # True for a text block holding nothing but its text.
+          #
+          # @param block [Object]
+          # @return [Boolean]
+          def plain_text_block?(block)
+            block.is_a?(Hash) && block[:type] == "text" && block.except(:type, :text).compact.empty?
           end
         end
       end
