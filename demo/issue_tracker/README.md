@@ -69,8 +69,13 @@ route through the tools.
 1. **Traces**: one row per message. Expand the "Assign #14" trace: the prompt
    span, the model call, `tool.find_users` with its input and output, tokens
    and cost.
-2. **Interactions**: the same four turns as a conversation.
-3. Optional: **Run Agents** runs the same agent from the dashboard, with the
+2. On the same trace, read the efficiency numbers out loud: input tokens,
+   the context pressure bar, the cost, and model time against tool time.
+   `find_issues` returns every issue's description, which is a large
+   part of each tool result. That sets up the slide on what
+   traces tell you to cut.
+3. **Interactions**: the same four turns as a conversation.
+4. Optional: **Run Agents** runs the same agent from the dashboard, with the
    conversation editable.
 
 ### 3. Evaluate it on what people asked (about 6 minutes)
