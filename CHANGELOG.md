@@ -33,6 +33,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   mock emitted `end_turn` in its stream but never recorded it, so
   `response.finish_reason` was `nil` after a streamed prompt, as it was not
   for the real providers. The mock now records it like they do.
+- **A Symbol `tool_choice` is cleared under RubyLLM** (`activeagent`). The
+  provider sends `tool_choice: :required` or `{ name: :get_weather }` to
+  RubyLLM, but the checks that clear a forced choice once the tool has run
+  compared Strings, so a Symbol choice forced every turn into another tool
+  call until `max_tool_turns` stopped it. Both forms are now cleared after
+  the tool is used, as the String forms already were.
 
 ## [1.9.9] - 2026-11-18
 
