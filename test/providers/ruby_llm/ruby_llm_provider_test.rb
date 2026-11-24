@@ -538,6 +538,58 @@ class RubyLLMProviderTest < ActiveSupport::TestCase
     end
   end
 
+  # ruby_llm_tool_prefs sends a Symbol tool_choice on to RubyLLM, so the
+  # clearing checks have to recognise it too: otherwise every turn is
+  # forced into another tool call until max_tool_turns stops the loop.
+  [
+    [ "required", :required ],
+    [ "naming a tool", { name: :get_weather } ]
+  ].each do |label, tool_choice|
+    test "a Symbol tool_choice #{label} is cleared once the tool is used" do
+      forcing_provider = Class.new(FakeProvider) do
+        attr_reader :tool_prefs_per_turn
+
+        def initialize
+          @tool_prefs_per_turn = []
+        end
+
+        # Calls the tool whenever tool_prefs forces one, as a model would.
+        def complete(messages, **kwargs)
+          @tool_prefs_per_turn << kwargs[:tool_prefs]
+
+          if kwargs[:tool_prefs]
+            id = "call_#{@tool_prefs_per_turn.size}"
+            reply("", tool_calls: {
+              id => ::RubyLLM::ToolCall.new(id: id, name: "get_weather", arguments: '{"location":"NYC"}')
+            })
+          else
+            reply("72F in NYC.")
+          end
+        end
+      end.new
+
+      with_custom_provider(forcing_provider) do
+        provider = ActiveAgent::Providers::RubyLLMProvider.new(
+          service: "RubyLLM",
+          model: "gpt-4o-mini",
+          tool_choice: tool_choice,
+          max_tool_turns: 3,
+          messages: [ { role: "user", content: "weather?" } ],
+          tools: [ tool_definition("get_weather") ],
+          tools_function: ->(_name, **_kwargs) { { temp: 72 } }
+        )
+
+        provider.prompt
+
+        assert_equal 2, forcing_provider.tool_prefs_per_turn.size
+        assert forcing_provider.tool_prefs_per_turn.first
+        assert_nil forcing_provider.tool_prefs_per_turn.last
+        assert_nil provider.send(:request).tool_choice
+      end
+    end
+  end
+
+
   # --- System messages ---
 
   test "handles system instructions" do

@@ -265,19 +265,21 @@ module ActiveAgent
 
       # Returns true if tool_choice forces any tool to be used.
       #
-      # Handles both string ("required") and hash ({name: "..."}) formats.
+      # Accepts "required" or :required, as ruby_llm_tool_prefs does.
       #
       # @return [Boolean]
       def tool_choice_forces_required?
-        request.tool_choice == "required"
+        request.tool_choice.to_s == "required"
       end
 
-      # Returns [true, name] if tool_choice forces a specific tool.
+      # Returns [true, name] if tool_choice forces a specific tool. The name
+      # is a String, like the names extract_used_function_names returns,
+      # whether the choice gave it as a String or a Symbol.
       #
       # @return [Array<Boolean, String|nil>]
       def tool_choice_forces_specific?
         if request.tool_choice.is_a?(Hash)
-          [ true, request.tool_choice[:name] ]
+          [ true, request.tool_choice[:name]&.to_s ]
         else
           [ false, nil ]
         end
