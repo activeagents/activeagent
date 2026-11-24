@@ -605,6 +605,66 @@ class SchemaToolsTest < ActiveSupport::TestCase
     refute result.key?(:count)
   end
 
+  # A bound the column's type cannot read casts to nil (`published_at <
+  # NULL`, zero rows) or, on a number column, to 0; an empty range object
+  # adds no condition at all. Each answered as if the filter had applied.
+  test "a range bound that is not a date is rejected rather than matching nothing" do
+    Post.delete_all
+    Post.create!(title: "Old", content: "body", user: @alice, published_at: 10.days.ago)
+
+    [ "yesterday", "", nil ].each do |operand|
+      result = DatedPostTools.call("count_posts", published_at: { "before" => operand })
+
+      refute result.key?(:count), "#{operand.inspect} must not be answered as a count"
+      assert_match(/not a valid `published_at`/, result[:error])
+    end
+  end
+
+  test "a range bound that is not a number is rejected rather than read as 0" do
+    tools = ActiveAgent::SchemaTools.define(User, filterable: %i[age], returns: %i[id name], name: "AgedUserTools")
+
+    [ "thirty", "", nil, true ].each do |operand|
+      result = tools.call("count_users", age: { "gt" => operand })
+
+      refute result.key?(:count), "#{operand.inspect} must not be answered as a count"
+      assert_match(/not a valid `age`/, result[:error])
+    end
+
+    assert_equal({ count: 2 }, tools.call("count_users", age: { "gt" => 26 }))
+    assert_equal({ count: 2 }, tools.call("count_users", age: { "gt" => "26" }))
+    assert_equal({ count: 1 }, tools.call("count_users", age: { "lte" => "25.0" }))
+    assert_equal({ count: 3 }, tools.call("count_users", age: { "gt" => "-1" }))
+  ensure
+    ActiveAgent::SchemaTools.undefine(User)
+  end
+
+  test "an empty range object is rejected rather than matching everything" do
+    Post.delete_all
+    Post.create!(title: "Old", content: "body", user: @alice, published_at: 10.days.ago)
+    Post.create!(title: "Draft", content: "body", user: @alice)
+
+    result = DatedPostTools.call("count_posts", published_at: {})
+
+    refute result.key?(:count)
+    assert_match(/names no comparison/, result[:error])
+  end
+
+  test "a comparison on a column not offered the range form is rejected" do
+    Post.delete_all
+    Post.create!(title: "Alpha", content: "body", user: @alice, published: true)
+    tools = ActiveAgent::SchemaTools.define(Post, filterable: %i[title published], returns: %i[id title], name: "PlainPostTools")
+
+    [ { title: { "gt" => "A" } }, { published: { "gt" => false } } ].each do |filter|
+      result = tools.call("count_posts", **filter)
+
+      refute result.key?(:count), "#{filter.inspect} must not be answered as a count"
+      assert_match(/cannot be compared as a range/, result[:error])
+    end
+    assert_equal({ count: 1 }, tools.call("count_posts", title: { "present" => true }))
+  ensure
+    ActiveAgent::SchemaTools.undefine(Post)
+  end
+
   test "range filters are offered on comparable columns only" do
     properties = DatedPostTools.tool_definitions.find { |d| d[:name] == "find_posts" }
       .dig(:parameters, :properties)

@@ -73,6 +73,11 @@ module ActiveAgent
     # question nobody asked.
     RANGE_FILTERABLE_TYPES = %i[date datetime time integer float decimal].freeze
 
+    # The range-filterable types whose bound must be a number, and the
+    # strings accepted as one ("42", "-3.5").
+    NUMERIC_TYPES = %i[integer float decimal].freeze
+    NUMERIC_BOUND = /\A-?\d+(?:\.\d+)?\z/
+
     # The comparison operators a range filter may use, mapped to the Arel
     # predicate that builds them. Names are the ones models reach for
     # unprompted (`before`/`after` for dates, `lt`/`gte` for numbers), so a
@@ -388,11 +393,21 @@ module ActiveAgent
       # Rails silently turns `where(col: { "before" => x })` into `col = NULL`,
       # which matches nothing and reports zero rather than failing — the worst
       # outcome for an agent, which reads it as a truthful empty answer. So an
-      # unknown operator is rejected loudly here instead.
+      # unknown operator is rejected loudly here instead, and so is anything
+      # else that would answer without filtering as asked: an empty object
+      # (no condition at all), a comparison on a column not offered the range
+      # form, and a bound the column's type cannot read.
       #
       # @api private
-      # @raise [UnpermittedAttribute] on an unknown operator
+      # @raise [UnpermittedAttribute] on an empty range, an unknown operator,
+      #   a column that is not range-filterable, or an unreadable bound
       def range_predicates!(column, value)
+        if value.empty?
+          raise UnpermittedAttribute,
+            "The range object for `#{column}` names no comparison. " \
+            "Use one of: #{[ *RANGE_OPERATORS.keys, PRESENCE_OPERATOR ].join(", ")}"
+        end
+
         arel = @model.arel_table[column]
         type = @model.type_for_attribute(column)
 
@@ -406,8 +421,38 @@ module ActiveAgent
               "Allowed comparisons: #{[ *RANGE_OPERATORS.keys, PRESENCE_OPERATOR ].join(", ")}"
           end
 
-          arel.public_send(predicate, type.cast(operand))
+          unless range_filterable?(column)
+            raise UnpermittedAttribute,
+              "`#{column}` cannot be compared as a range. " \
+              "Match it by an exact value, or ask {\"#{PRESENCE_OPERATOR}\": true|false}"
+          end
+
+          arel.public_send(predicate, range_bound!(column, type, operand))
         end
+      end
+
+      # Casts a range bound to the column's type, refusing one it cannot read.
+      #
+      # ActiveModel casts what it cannot read to nil for a date or time
+      # (`published_at < NULL`, which matches nothing) and to 0 for a number
+      # ("thirty".to_i), so either would answer a question the model did
+      # not ask. A number column therefore takes only a number or a numeric
+      # string.
+      #
+      # @api private
+      # @raise [UnpermittedAttribute] on a bound the column's type cannot read
+      def range_bound!(column, type, operand)
+        bound = type.cast(operand)
+        readable = NUMERIC_TYPES.include?(type.type) ? numeric_bound?(operand) : !bound.nil?
+        return bound if readable
+
+        raise UnpermittedAttribute,
+          "#{operand.inspect} is not a valid `#{column}` to compare against"
+      end
+
+      # @api private
+      def numeric_bound?(operand)
+        operand.is_a?(Numeric) || (operand.is_a?(String) && operand.match?(NUMERIC_BOUND))
       end
 
       # Builds IS NULL / IS NOT NULL for `{ "present" => ... }`.
