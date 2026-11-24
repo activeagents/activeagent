@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 require "test_helper"
-require_relative "../../../lib/active_agent/providers/anthropic/transforms"
+require_relative "../../../lib/active_agent/providers/anthropic_provider"
 
 module Providers
   module Anthropic
@@ -437,6 +437,43 @@ module Providers
         result =  transforms.compress_content(hash)
 
         assert_equal "You are helpful", result[:system]
+      end
+
+      # A single text block that carries more than its text (cache_control,
+      # citations) cannot become a bare string without losing that field.
+      test "compress_content keeps a single text block that carries cache_control" do
+        block = { type: "text", text: "Long reference document", cache_control: { type: "ephemeral" } }
+        hash = {
+          system: [ block.dup ],
+          messages: [ { role: "user", content: [ block.dup ] } ]
+        }
+
+        result = transforms.compress_content(hash)
+
+        assert_equal [ block ], result[:system]
+        assert_equal [ block ], result[:messages][0][:content]
+      end
+
+      test "compress_content still compresses a single text block whose other fields are nil" do
+        hash = { system: [ { type: "text", text: "You are helpful", cache_control: nil } ] }
+
+        result = transforms.compress_content(hash)
+
+        assert_equal "You are helpful", result[:system]
+      end
+
+      test "a request keeps cache_control on a single system and message text block" do
+        system_block  = { type: "text", text: "You are helpful", cache_control: { type: "ephemeral" } }
+        message_block = { type: "text", text: "Long reference document", cache_control: { type: "ephemeral" } }
+
+        serialized = ActiveAgent::Providers::Anthropic::Request.new(
+          model: "claude-sonnet-4-5",
+          system: [ system_block ],
+          messages: [ { role: "user", content: [ message_block ] } ]
+        ).serialize
+
+        assert_equal [ system_block ], serialized[:system]
+        assert_equal [ message_block ], serialized[:messages][0][:content]
       end
 
       test "compress_content leaves multi-block content as array" do
