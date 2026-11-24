@@ -1,6 +1,37 @@
-development:
+# Providers the tracker's agents and the dashboard can run on.
+#
+# The dashboard counts a provider as available when it has an access_token
+# here (or a key added under Settings -> Provider API Keys). Put the keys in
+# .env, which is git-ignored:
+#
+#   ANTHROPIC_API_KEY=sk-ant-...
+#   OPENAI_API_KEY=sk-...        # optional: a second model to compare against
+
+default: &default
+  anthropic:
+    service: "Anthropic"
+    access_token: <%= ENV["ANTHROPIC_API_KEY"] %>
+    # bin/rehearse points this at the scripted stand-in (script/rehearsal_provider.rb).
+    base_url: <%= ENV.fetch("ANTHROPIC_BASE_URL", "https://api.anthropic.com") %>
+    model: <%= ENV.fetch("SNAG_MODEL", "claude-haiku-4-5") %>
   openai:
     service: "OpenAI"
-    api_key: <%= Rails.application.credentials.dig(:openai, :api_key) %>
+    access_token: <%= ENV["OPENAI_API_KEY"] %>
     model: "gpt-4o-mini"
-    temperature: 0.7
+  # Traces from agents run in the tracker's own code are stored in this app's
+  # database, where the mounted dashboard reads them.
+  telemetry:
+    enabled: true
+    local_storage: true
+
+development:
+  <<: *default
+
+test:
+  <<: *default
+  mock:
+    service: "Mock"
+    model: "mock-model"
+
+production:
+  <<: *default

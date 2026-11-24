@@ -10,7 +10,8 @@
     <%= javascript_importmap_tags %>
   </head>
 
-  <body>
+  <% assistant = render("shared/assistant") %>
+  <body class="<%= yield :body_class %>">
     <header class="topbar">
       <%= link_to root_path, class: "brand" do %>
         <span class="brand-mark">◆</span> Snag
@@ -32,6 +33,6 @@
 
     <main class="page"><%= yield %></main>
 
-    <%= render "shared/assistant" %>
+    <%= assistant %>
   </body>
 </html>
