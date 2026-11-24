@@ -33,6 +33,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   mock emitted `end_turn` in its stream but never recorded it, so
   `response.finish_reason` was `nil` after a streamed prompt, as it was not
   for the real providers. The mock now records it like they do.
+- **A catalog set run against a project keeps its selection** (`actionagent`).
+  Running a set with `project_id` stored the requested `keys` and `models`,
+  but `ProjectEvaluationJob` did not pass them on, so the run replayed every
+  enabled scenario under the agent's own model. It now replays the ones
+  asked for.
 
 ## [1.9.9] - 2026-11-18
 
