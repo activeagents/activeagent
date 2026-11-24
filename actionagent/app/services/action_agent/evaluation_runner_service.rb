@@ -660,7 +660,7 @@ module ActionAgent
 
     def global_provider_token?(name)
       config = ActiveAgent.configuration[name]
-      config.respond_to?(:[]) && config[:access_token].present?
+      config.respond_to?(:[]) && (config[:access_token].presence || config[:api_key]).present?
     end
 
     # The evaluated agent owner's credential for +name+ (Settings ->

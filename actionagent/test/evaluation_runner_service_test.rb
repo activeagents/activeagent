@@ -52,6 +52,8 @@ class ActionAgentEvaluationRunnerServiceTest < ActiveSupport::TestCase
     assert_equal :openrouter, judge_provider_for_owner
 
     assert_equal :openai, judge_provider_for_owner(config: { openai: { access_token: "sk-host-config" } })
+    # config/active_agent.yml as the install generator writes it names the key api_key.
+    assert_equal :openai, judge_provider_for_owner(config: { openai: { api_key: "sk-host-config" } })
   ensure
     ActionAgent::ProviderKey.delete_all
   end

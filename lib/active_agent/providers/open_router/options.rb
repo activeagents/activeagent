@@ -123,9 +123,11 @@ module ActiveAgent
             end
           end
 
-          # Finally check ActionMailer options as fallback
-          if defined?(Rails) && Rails.application&.config&.action_mailer&.default_url_options
-            options = Rails.application.config.action_mailer.default_url_options
+          # Finally check ActionMailer options as fallback. An app that does
+          # not load Action Mailer has no such setting to ask for.
+          mailer = Rails.application&.config.try(:action_mailer) if defined?(Rails)
+          if mailer&.default_url_options
+            options = mailer.default_url_options
             host = options[:host]
             port = options[:port]
             protocol = options[:protocol] || "https"

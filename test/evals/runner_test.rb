@@ -228,6 +228,40 @@ class EvalsRunnerTest < ActiveSupport::TestCase
     assert_equal({ "score_task" => 1, "recommend" => 1 }, calls)
   end
 
+  def test_the_runner_hands_the_judge_the_replays_tool_calls
+    seen = []
+    judge = fake_judge { |_instructions, prompt| seen << prompt; '{"score": 0.9}' }
+    ActiveAgent::Evals::Runner.new(
+      scenarios: [ scenario("count_1", "How many open issues are there?", group: "backlog") ], models: [ spec("test-model") ],
+      judge: judge, available_tools: [ "count_issues" ], refine_faults: false,
+      replay: ->(*) { replay(answer: "There are 19.", tool_calls: [ { name: "count_issues", arguments: { status: "open" }, detail: '{"count":19}' } ]) }
+    ).call
+
+    assert_includes seen.first, %(- count_issues: {"status":"open"}\n  returned: {"count":19})
+  end
+
+  def test_a_judge_whose_score_task_takes_no_tool_calls_is_called_as_before
+    legacy = Class.new do
+      attr_reader :asked
+
+      def score_task(scenario:, answer:)
+        @asked = [ scenario.key, answer ]
+        0.9
+      end
+
+      def label = "legacy"
+    end.new
+
+    report = ActiveAgent::Evals::Runner.new(
+      scenarios: [ scenario("count_1", "How many open issues are there?", group: "backlog") ], models: [ spec("test-model") ],
+      judge: legacy, refine_faults: false,
+      replay: ->(*) { replay(answer: "There are 19.", tool_calls: [ { name: "count_issues" } ]) }
+    ).call
+
+    assert_equal [ "count_1", "There are 19." ], legacy.asked
+    assert_equal 0.9, report.results.first.scores["task_completion"]
+  end
+
   def test_a_replay_meeting_its_expectations_is_judged_and_refined_with_failed_ones_ungraded
     task = scenario("order_1", "Where is order ABC-123?", group: "orders", tools: [ "lookup_order" ], contains: [ "ABC-123" ])
     calls = Hash.new(0)

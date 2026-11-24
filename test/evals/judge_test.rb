@@ -24,6 +24,41 @@ class EvalsJudgeTest < ActiveSupport::TestCase
     assert seen.all? { |prompt| prompt.include?("Must not: invent a submitter name.") }, "the rubric's last clause never reached the judge"
   end
 
+  def test_the_task_judge_is_shown_the_tool_calls_behind_an_answer
+    seen = []
+    judge = fake_judge { |_instructions, prompt| seen << prompt; '{"score": 0.9}' }
+    calls = replay(answer: "There are 19 open issues.",
+                   tool_calls: [ { name: "count_issues", arguments: { status: "open" }, detail: '{"count":19}' },
+                                 { name: "find_users", arguments: {}, error: true } ]).tool_calls
+
+    judge.score_task(scenario: task, answer: "There are 19 open issues.", tool_calls: calls)
+
+    assert_includes seen.last, "Before answering, the assistant called these tools"
+    assert_includes seen.last, %(- count_issues: {"status":"open"}\n  returned: {"count":19})
+    assert_includes seen.last, "- find_users (errored): {}"
+  end
+
+  def test_the_task_judge_is_told_when_no_tool_was_called_and_nothing_when_it_was_not_given_the_calls
+    seen = []
+    judge = fake_judge { |_instructions, prompt| seen << prompt; '{"score": 0.9}' }
+
+    judge.score_task(scenario: task, answer: "It shipped.", tool_calls: [])
+    judge.score_task(scenario: task, answer: "It shipped.")
+
+    assert_includes seen.first, "called these tools (their results are the data it had):\n(none)"
+    assert_not_includes seen.last, "called these tools"
+  end
+
+  def test_a_long_tool_result_is_cut_short_for_the_judge
+    seen = []
+    judge = fake_judge { |_instructions, prompt| seen << prompt; '{"score": 0.9}' }
+    calls = replay(answer: "Found them.", tool_calls: [ { name: "find_issues", arguments: {}, detail: "x" * 5_000 } ]).tool_calls
+
+    judge.score_task(scenario: task, answer: "Found them.", tool_calls: calls)
+
+    assert_operator seen.last.count("x"), :<=, ActiveAgent::Evals::Judge::TOOL_RESULT_LIMIT
+  end
+
   def test_scores_are_json_numbers_including_exponent_notation
     { '{"score": 9e-2}' => 0.09, '{"score": 0.7}' => 0.7,
       '{"score": -0.2}' => 0.0, '{"score": 2}' => 1.0 }.each do |content, expected|

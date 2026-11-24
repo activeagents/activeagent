@@ -52,4 +52,41 @@ class AgentExecutionServiceTest < ActiveSupport::TestCase
 
     assert_nil run.reload.error_message
   end
+
+  test "a provider configured with api_key, as the install generator writes it, can run agents" do
+    ActionAgent::ProviderKey.delete_all
+
+    ActiveAgent.stub(:configuration, { openai: { api_key: "sk-host-config" }, anthropic: { access_token: "sk-ant-host" } }) do
+      assert_equal %w[openai anthropic], ActionAgent::AgentExecutionService.available_providers(nil)
+    end
+    ActiveAgent.stub(:configuration, { openai: { api_key: "" } }) do
+      assert_empty ActionAgent::AgentExecutionService.available_providers(nil)
+    end
+  end
+
+  # solid_agent stores a tool row from the provider's own message, which for
+  # an OpenAI-format provider carries no tool name. The service knows which
+  # tool it ran, and completes the row instead of leaving it anonymous.
+  test "a tool row stored without its name is completed from the run's own record" do
+    agent, run = build_run
+    service = ActionAgent::AgentExecutionService.new(agent, run)
+    context = ActionAgent::AgentContext.create!(contextable: agent, agent_name: "A", action_name: "ask")
+    row = context.messages.create!(role: "tool", tool_call_id: "call_1", content: '{"count":19}')
+    named = context.add_tool_message(tool_call_id: "call_2", tool_name: "kept_name", result: "{}", arguments: { "a" => 1 })
+    response = Struct.new(:messages).new([
+      Struct.new(:role, :tool_call_id, :content).new("tool", "call_1", '{"count":19}'),
+      Struct.new(:role, :tool_call_id, :content).new("tool", "call_2", "{}")
+    ])
+    service.instance_variable_set(:@tool_invocations, [
+      { tool_call_id: "call_1", name: "count_issues", arguments: { "status" => "open" }, duration_ms: 4.2 },
+      { tool_call_id: "call_2", name: "other_name", arguments: { "b" => 2 }, duration_ms: 1.0 }
+    ])
+
+    service.stub(:conversation_context, context) { service.send(:persist_tool_messages, response) }
+
+    assert_equal 2, context.messages.where(role: "tool").count, "no second row is written for a call already stored"
+    assert_equal [ "count_issues", { "status" => "open" }, 4.2 ],
+                 [ row.reload.tool_name, row.tool_arguments, row.metadata["duration_ms"] ]
+    assert_equal [ "kept_name", { "a" => 1 } ], [ named.reload.tool_name, named.tool_arguments ]
+  end
 end

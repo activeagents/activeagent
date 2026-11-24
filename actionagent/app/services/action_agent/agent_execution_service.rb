@@ -1055,12 +1055,19 @@ module ActionAgent
 
       tool_messages.each_with_index do |message, index|
         tool_call_id = message.respond_to?(:tool_call_id) ? message.tool_call_id : nil
-        next if tool_call_id.present? && context.messages.exists?(role: "tool", tool_call_id: tool_call_id)
 
         # Provider tool messages often carry no name (Ollama's don't); fall
         # back to the service's own invocation record.
         invocation = tool_invocation_for(tool_call_id, index)
         name = (message.name if message.respond_to?(:name)).presence || invocation&.dig(:name)
+
+        existing = context.messages.find_by(role: "tool", tool_call_id: tool_call_id) if tool_call_id.present?
+        if existing
+          # solid_agent stored the row from the provider's message, which for
+          # an OpenAI-format provider names no tool: fill in what it lacks.
+          name_tool_message(existing, name, invocation)
+          next
+        end
 
         context.add_tool_message(
           tool_call_id: tool_call_id,
@@ -1078,6 +1085,18 @@ module ActionAgent
     # person and left the run paused.
     def completed_tool_invocations
       @tool_invocations.reject { |invocation| invocation[:awaiting_input] }
+    end
+
+    # Completes a tool row another writer stored without the tool's name,
+    # arguments or timing. Values already there are kept.
+    def name_tool_message(message, name, invocation)
+      updates = {}
+      updates[:tool_name] = name if message.tool_name.blank? && name.present?
+      updates[:tool_arguments] = invocation[:arguments] if message.tool_arguments.blank? && invocation&.dig(:arguments).present?
+      if invocation&.dig(:duration_ms) && !message.metadata.to_h.key?("duration_ms")
+        updates[:metadata] = message.metadata.to_h.merge("duration_ms" => invocation[:duration_ms])
+      end
+      message.update!(updates) if updates.any?
     end
 
     # The invocation record for a response's tool message: by tool call id
@@ -1163,7 +1182,9 @@ module ActionAgent
       if name.to_s == "ollama"
         config[:host].present?
       else
-        config[:access_token].present?
+        # Both spellings: the framework's providers take either, and the
+        # install generator's config/active_agent.yml writes api_key.
+        (config[:access_token].presence || config[:api_key]).present?
       end
     rescue ProviderCredentials::Unresolved
       raise

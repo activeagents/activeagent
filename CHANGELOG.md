@@ -16,6 +16,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The evaluation judge sees an answer's tool calls** (`activeagent`).
+  `Judge#score_task` graded the answer alone against a rubric that rewards
+  "specific, tool-backed data", so a correct answer read from a tool
+  ("There are 19 open issues.") was scored as a guess and failed on task
+  completion. It now takes `tool_calls:` (`Replay#tool_calls`) and shows
+  the judge each call, its arguments and the start of its result; the
+  runner passes them. A judge whose `score_task` takes no `tool_calls:` is
+  called as before. Expect task-completion scores to rise for answers that
+  were backed by tools.
+- **OpenRouter in an app without Action Mailer** (`activeagent`). Resolving
+  the site URL asked `Rails.application.config.action_mailer`
+  unconditionally, so every OpenRouter generation raised `NoMethodError` in
+  an app generated with `--skip-action-mailer`. The mailer's
+  `default_url_options` are now read only where Action Mailer is loaded.
+- **Provider keys written as `api_key` run dashboard agents**
+  (`actionagent`). A dashboard run and the evaluation judge counted a
+  provider in `config/active_agent.yml` as configured only under
+  `access_token`, though the framework's providers take either spelling
+  and `rails generate active_agent:install` writes `api_key`. Both
+  spellings now count.
+- **Tool rows keep their tool's name on OpenAI-format providers**
+  (`actionagent`). When solid_agent stored a run's tool message first, the
+  dashboard skipped the row as already written, leaving `tool_name` and
+  `tool_arguments` empty for providers whose tool messages carry no name
+  (OpenAI, OpenRouter). The row is now completed from the run's own record
+  of the call.
 - **RubyLLM totals count cached tokens** (`activeagent`). ruby_llm reports
   input apart from cache reads and writes, and the provider's
   `usage.total_tokens` fell back to input plus output, so a prompt that

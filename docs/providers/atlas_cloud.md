@@ -11,7 +11,7 @@ The Atlas Cloud provider connects Active Agent to Atlas Cloud's OpenAI-compatibl
 Atlas Cloud uses the `openai` gem:
 
 ```bash
-bundle add openai
+bundle add openai --version "~> 0.34"
 ```
 
 ## Configuration

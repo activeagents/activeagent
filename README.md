@@ -41,36 +41,40 @@ when you want it; see [Dashboard & Dev Console](#dashboard--dev-console).
 
 Add the generation provider gem you want to use:
 
+The OpenAI-compatible providers support the `openai` gem `~> 0.34`. An
+unpinned `bundle add openai` installs a newer major version, which they
+refuse to load, so name the version:
+
 ```bash
 # OpenAI
-bundle add openai
+bundle add openai --version "~> 0.34"
 
 # Anthropic
 bundle add anthropic
 
 # Atlas Cloud (uses OpenAI-compatible API)
-bundle add openai
+bundle add openai --version "~> 0.34"
 
 # Ollama (uses OpenAI-compatible API)
-bundle add openai
+bundle add openai --version "~> 0.34"
 
 # OpenRouter (uses OpenAI-compatible API)
-bundle add openai
+bundle add openai --version "~> 0.34"
 
 # Requesty (uses OpenAI-compatible API)
-bundle add openai
+bundle add openai --version "~> 0.34"
 
 # Opper (uses OpenAI-compatible API)
-bundle add openai
+bundle add openai --version "~> 0.34"
 
 # Cheaper Inference (uses OpenAI-compatible API)
-bundle add openai
+bundle add openai --version "~> 0.34"
 
 # Runcrate (uses OpenAI-compatible API)
-bundle add openai
+bundle add openai --version "~> 0.34"
 
 # DeepSeek (uses OpenAI-compatible API)
-bundle add openai
+bundle add openai --version "~> 0.34"
 
 # RubyLLM (unified API for 15+ providers)
 bundle add ruby_llm

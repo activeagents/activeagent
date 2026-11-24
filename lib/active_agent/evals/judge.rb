@@ -45,6 +45,8 @@ module ActiveAgent
       # are its grading rubric, a "Must not…" clause tends to come last, and a
       # judge that never saw it recommends against it.
       NOTES_LIMIT = 1_500
+      # The most of one tool result the task-completion prompt quotes.
+      TOOL_RESULT_LIMIT = 600
 
       def initialize(label:, &generate)
         raise ArgumentError, "Judge.new needs a block that returns the model's completion" unless generate
@@ -78,7 +80,13 @@ module ActiveAgent
 
       # Scores how well `answer` accomplishes the scenario's task, 0.0..1.0 —
       # the single-criterion judgement for a scenario with no criteria of its own.
-      def score_task(scenario:, answer:)
+      #
+      # `tool_calls` is the replay's record of what the agent called before it
+      # answered (`Replay#tool_calls`). The rubric rewards tool-backed data,
+      # which the judge can only recognise when it is shown the calls: without
+      # them "There are 19 open issues." reads as a guess, however it was
+      # reached. Omit it and the judge grades the answer alone, as before.
+      def score_task(scenario:, answer:, tool_calls: nil)
         return nil if answer.blank?
 
         parse_score(ask(SCORE_INSTRUCTIONS, <<~PROMPT, :score))
@@ -87,6 +95,7 @@ module ActiveAgent
           #{scenario.prompt}
           ---
           #{"Context for the evaluator: #{scenario.notes.truncate(NOTES_LIMIT)}\n" if scenario.notes.present?}
+          #{tool_evidence(tool_calls)}
           The assistant answered:
           ---
           #{answer.to_s.truncate(4_000)}
@@ -234,6 +243,24 @@ module ActiveAgent
         else
           warn(message)
         end
+      end
+
+      # What the agent called and what came back, for the task-completion
+      # prompt. Results are cut short: the judge needs to see that the answer
+      # has a source, not to re-read every row.
+      def tool_evidence(tool_calls)
+        return "" if tool_calls.nil?
+
+        calls = Array(tool_calls).map do |call|
+          line = "- #{call['name']}#{' (errored)' if call['error']}: #{call['arguments'].to_json.truncate(200)}"
+          detail = call["detail"].to_s
+          detail.present? ? "#{line}\n  returned: #{detail.truncate(TOOL_RESULT_LIMIT)}" : line
+        end
+
+        <<~EVIDENCE
+          Before answering, the assistant called these tools (their results are the data it had):
+          #{calls.join("\n").presence || '(none)'}
+        EVIDENCE
       end
 
       def parse_score(content)

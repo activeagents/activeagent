@@ -25,7 +25,7 @@ Add your provider gem:
 ::: code-group
 
 ```bash [OpenAI]
-bundle add openai
+bundle add openai --version "~> 0.34"
 ```
 
 ```bash [Anthropic]

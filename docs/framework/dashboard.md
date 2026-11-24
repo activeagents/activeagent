@@ -53,12 +53,16 @@ Deploying this beyond your laptop — for a team, or as the trace sink for
 a fleet of apps? See
 [Self-Hosted Observability](/framework/self-hosted-observability).
 
-Then enable telemetry with local storage in `config/active_agent.yml`:
+Then enable telemetry with local storage in `config/active_agent.yml`,
+under each environment that should record traces. A file keyed by
+environment is read one environment at a time, so a `telemetry:` block at
+the top level of such a file is ignored:
 
 ```yaml
-telemetry:
-  enabled: true
-  local_storage: true
+development:
+  telemetry:
+    enabled: true
+    local_storage: true
 ```
 
 That's it. Run any agent and open `/activeagents` — each generation

@@ -132,7 +132,7 @@ module ActiveAgent
         replay ||= run_replay(scenario, spec)
         scores = @scorer.score(scenario, replay)
         if judge_task? && replay.answer.present? && judge_answer?(scores)
-          scores["task_completion"] = @judge.score_task(scenario: scenario, answer: replay.answer)
+          scores["task_completion"] = score_task(scenario, replay)
         end
         score = Scorer.mean(scores)
 
@@ -156,6 +156,18 @@ module ActiveAgent
       end
 
       private
+
+      # Hands the judge the replay's tool calls with the answer, so an answer
+      # read from a tool is not graded as a guess. A judge written before
+      # `score_task` took them (a host's own, or a test double) is called as
+      # it always was.
+      def score_task(scenario, replay)
+        parameters = @judge.method(:score_task).parameters
+        takes_tool_calls = parameters.any? { |type, name| type == :keyrest || (%i[key keyreq].include?(type) && name == :tool_calls) }
+        return @judge.score_task(scenario: scenario, answer: replay.answer) unless takes_tool_calls
+
+        @judge.score_task(scenario: scenario, answer: replay.answer, tool_calls: replay.tool_calls)
+      end
 
       def evaluate_with_context(scenario, spec, trial:)
         return evaluate(scenario, spec, trial: trial) unless @around_evaluation
