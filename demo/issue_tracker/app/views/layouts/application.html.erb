@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title><%= content_for(:title) || "Snag" %></title>
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <%= csrf_meta_tags %>
+    <%= csp_meta_tag %>
+    <link rel="icon" href="/icon.svg" type="image/svg+xml">
+    <%= stylesheet_link_tag :app, "data-turbo-track": "reload" %>
+    <%= javascript_importmap_tags %>
+  </head>
+
+  <body>
+    <header class="topbar">
+      <%= link_to root_path, class: "brand" do %>
+        <span class="brand-mark">◆</span> Snag
+      <% end %>
+      <nav class="topnav">
+        <%= link_to "Issues", issues_path %>
+        <%= link_to "New issue", new_issue_path %>
+        <%= render "shared/agent_nav" %>
+      </nav>
+      <%= form_with url: session_path, method: :patch, class: "whoami" do |form| %>
+        <label for="user_id">Signed in as</label>
+        <%= form.select :user_id, User.order(:name).pluck(:name, :id), { selected: current_user&.id },
+              onchange: "this.form.requestSubmit()", id: "user_id" %>
+      <% end %>
+    </header>
+
+    <% if notice %><p class="flash flash-notice"><%= notice %></p><% end %>
+    <% if alert %><p class="flash flash-alert"><%= alert %></p><% end %>
+
+    <main class="page"><%= yield %></main>
+
+    <%= render "shared/assistant" %>
+  </body>
+</html>

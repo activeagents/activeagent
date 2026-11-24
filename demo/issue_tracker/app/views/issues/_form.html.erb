@@ -1,0 +1,26 @@
+<%= form_with model: issue, class: "issue-form" do |form| %>
+  <% if issue.errors.any? %>
+    <ul class="errors">
+      <% issue.errors.full_messages.each do |message| %><li><%= message %></li><% end %>
+    </ul>
+  <% end %>
+
+  <label>Title <%= form.text_field :title, required: true, maxlength: 140, autofocus: true %></label>
+  <label>Description <%= form.text_area :body, rows: 8 %></label>
+
+  <div class="form-row">
+    <label>Status <%= form.select :status, Issue::STATUSES.map { [ _1.humanize, _1 ] } %></label>
+    <label>Priority <%= form.select :priority, Issue::PRIORITIES.map { [ _1.humanize, _1 ] } %></label>
+    <label>Component <%= form.select :component, Issue::COMPONENTS.map { [ _1.humanize, _1 ] }, include_blank: "None" %></label>
+    <label>Assignee <%= form.select :assignee_id, User.order(:name).pluck(:name, :id), include_blank: "Unassigned" %></label>
+  </div>
+
+  <% if issue.persisted? %>
+    <label>Duplicate of (issue number) <%= form.number_field :duplicate_of_id, min: 1 %></label>
+  <% end %>
+
+  <div class="actions">
+    <%= form.submit issue.persisted? ? "Save changes" : "File issue", class: "button" %>
+    <%= link_to "Cancel", issue.persisted? ? issue : issues_path, class: "button button-quiet" %>
+  </div>
+<% end %>
