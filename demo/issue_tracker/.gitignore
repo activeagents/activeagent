@@ -5,6 +5,8 @@
 !/log/.keep
 !/tmp/.keep
 !/storage/.keep
-/.env*
+/.env
+/.env.*
+!/.env.example
 /config/*.key
 /public/assets

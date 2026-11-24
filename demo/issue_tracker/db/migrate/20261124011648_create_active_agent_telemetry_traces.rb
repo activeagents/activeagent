@@ -27,8 +27,8 @@ class CreateActiveAgentTelemetryTraces < ActiveRecord::Migration[8.1]
 
     add_index :active_agent_telemetry_traces, :trace_id, unique: true
     add_index :active_agent_telemetry_traces, :status
-    add_index :active_agent_telemetry_traces, [:agent_class, :agent_action]
-    add_index :active_agent_telemetry_traces, [:service_name, :environment]
+    add_index :active_agent_telemetry_traces, [ :agent_class, :agent_action ]
+    add_index :active_agent_telemetry_traces, [ :service_name, :environment ]
     add_index :active_agent_telemetry_traces, :created_at
   end
 
