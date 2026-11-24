@@ -13,7 +13,6 @@ AllCops:
   SuggestExtensions: false
   Exclude:
     - "test/dummy/tmp/**/*"
-    - "demo/**/db/schema.rb"
     - "node_modules/**/*"
     - "vendor/**/*"
     - "lib/generators/**/templates/**/*"
