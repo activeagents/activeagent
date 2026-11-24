@@ -33,6 +33,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   mock emitted `end_turn` in its stream but never recorded it, so
   `response.finish_reason` was `nil` after a streamed prompt, as it was not
   for the real providers. The mock now records it like they do.
+- **Schema tools refuse a range filter that cannot apply** (`activeagent`).
+  A bound the column cannot read (`{"before" => "yesterday"}`,
+  `{"gt" => "thirty"}`, a blank or `nil` bound), an empty range object, and
+  a comparison on a string or boolean column were each answered as if they
+  had filtered: zero rows, every row, or a comparison with 0. Each now
+  returns the tool's error, as an unknown comparison already did.
 
 ## [1.9.9] - 2026-11-18
 
