@@ -109,10 +109,18 @@ module ActiveAgent
 
         input = parameters[:input]
         inputs = input.is_a?(Array) ? input : [ input ]
+        input_tokens = nil
 
         data = inputs.map.with_index do |text, index|
           embedding_model = ruby_llm_v2? ? @ruby_llm_model : model_id
           embedding = @ruby_llm_provider.embed(text, model: embedding_model, dimensions: parameters[:dimensions])
+          count = if ruby_llm_v2?
+            embedding.tokens&.input
+          else
+            # RubyLLM 1.x also uses zero when the provider omitted usage.
+            embedding.input_tokens if embedding.input_tokens&.positive?
+          end
+          input_tokens = (input_tokens || 0) + count if count
 
           {
             object: "embedding",
@@ -121,11 +129,13 @@ module ActiveAgent
           }
         end
 
-        {
+        response = {
           object: :list,
           data: data,
           model: model_id
         }
+        response[:usage] = { input_tokens: input_tokens, total_tokens: input_tokens } if input_tokens
+        response
       end
 
       # Processes streaming chunks from RubyLLM.
