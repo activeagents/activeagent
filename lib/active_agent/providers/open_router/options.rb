@@ -30,7 +30,7 @@ module ActiveAgent
       class Options < ActiveAgent::Providers::OpenAI::Options
         # @!attribute base_url
         #   @return [String] API endpoint (default: "https://openrouter.ai/api/v1")
-        attribute :base_url, :string, as: "https://openrouter.ai/api/v1"
+        attribute :base_url, :string, fallback: "https://openrouter.ai/api/v1"
 
         # @!attribute app_name
         #   @return [String] application name for X-Title header (default: "ActiveAgent" or Rails app name)
