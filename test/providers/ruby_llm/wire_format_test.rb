@@ -307,6 +307,38 @@ class RubyLLMWireFormatTest < ActiveSupport::TestCase
     assert_equal [ 0.1, 0.2, 0.3 ], response.data.first[:embedding]
     assert_equal "text-embedding-3-small", bodies.last["model"]
     assert_equal 3, bodies.last["dimensions"]
+    assert_equal 2, response.usage&.input_tokens
+    assert_equal 2, response.usage.total_tokens
+  end
+
+  test "sums reported embedding tokens across a batch" do
+    reply = { object: "list", model: "text-embedding-3-small",
+      data: [ { object: "embedding", index: 0, embedding: [ 0.1, 0.2, 0.3 ] } ] }
+    bodies = stub_responses("https://api.openai.com/v1/embeddings",
+      reply.merge(usage: { prompt_tokens: 2, total_tokens: 2 }),
+      reply,
+      reply.merge(usage: { prompt_tokens: 5, total_tokens: 5 }))
+
+    response = ActiveAgent::Providers::RubyLLMProvider.new(
+      service: "RubyLLM", model: "text-embedding-3-small", input: [ "hello", "hi", "good morning" ]
+    ).embed
+
+    assert_equal [ "hello", "hi", "good morning" ], bodies.map { |body| body["input"] }
+    assert_equal [ 0, 1, 2 ], response.data.map { |item| item[:index] }
+    assert_equal 7, response.usage&.input_tokens
+    assert_equal 7, response.usage.total_tokens
+  end
+
+  test "leaves embedding usage unset when no count is reported" do
+    stub_responses("https://api.openai.com/v1/embeddings",
+      { object: "list", model: "text-embedding-3-small",
+        data: [ { object: "embedding", index: 0, embedding: [ 0.1, 0.2, 0.3 ] } ] })
+
+    response = ActiveAgent::Providers::RubyLLMProvider.new(
+      service: "RubyLLM", model: "text-embedding-3-small", input: "hello"
+    ).embed
+
+    assert_nil response.usage
   end
 
   test "preserves token usage from the real RubyLLM response" do
