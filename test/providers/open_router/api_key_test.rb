@@ -32,6 +32,21 @@ module Providers
       # Options
       # =====================================================================
 
+      test "serializes a custom endpoint set through uri_base" do
+        options = ActiveAgent::Providers::OpenRouter::Options.new(
+          api_key: "test-api-key",
+          uri_base: "https://proxy.example.test/v1"
+        )
+
+        assert_equal "https://proxy.example.test/v1", options.serialize[:base_url]
+      end
+
+      test "serializes the default endpoint without an override" do
+        options = ActiveAgent::Providers::OpenRouter::Options.new(api_key: "test-api-key")
+
+        assert_equal "https://openrouter.ai/api/v1", options.serialize[:base_url]
+      end
+
       test "keeps an explicit api_key when no environment key is set" do
         with_key_env do
           options = ActiveAgent::Providers::OpenRouter::Options.new(api_key: "sk-or-explicit")
