@@ -16,6 +16,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **RubyLLM keeps a tool's `input_schema`** (`activeagent`). A tool
+  defined with `input_schema` instead of `parameters` reached ruby_llm with
+  an empty schema, so the model was told the tool takes no arguments. The
+  provider now accepts either key, as the OpenAI providers do.
 - **RubyLLM totals count cached tokens** (`activeagent`). ruby_llm reports
   input apart from cache reads and writes, and the provider's
   `usage.total_tokens` fell back to input plus output, so a prompt that
