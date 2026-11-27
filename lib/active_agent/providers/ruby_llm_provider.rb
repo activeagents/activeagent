@@ -365,11 +365,12 @@ module ActiveAgent
       def build_ruby_llm_messages(parameters)
         messages = []
 
-        # Add system instructions
-        if parameters[:instructions].present?
+        # Add system instructions, one message each: RubyLLM takes only a
+        # String as content, and instructions may be an Array
+        Array(parameters[:instructions]).compact_blank.each do |instruction|
           messages << ::RubyLLM::Message.new(
             role: :system,
-            content: parameters[:instructions]
+            content: instruction
           )
         end
 

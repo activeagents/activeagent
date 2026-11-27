@@ -44,6 +44,26 @@ class RubyLLMWireFormatTest < ActiveSupport::TestCase
     RubyLLM.config.openai_protocol = @original_openai_protocol if RubyLLM.config.respond_to?(:openai_protocol)
   end
 
+  # --- Instructions ---
+
+  test "sends OpenAI each of an array of instructions as its own system message" do
+    bodies = stub_responses(OPENAI_ENDPOINT, openai_response(content: "Hi"))
+
+    weather_provider(model: "gpt-4o-mini", instructions: [ "Be brief.", "Answer in French." ]).prompt
+
+    system = bodies.first["messages"].reject { |message| message["role"] == "user" }
+    assert_equal [ "Be brief.", "Answer in French." ], system.map { |message| message["content"] }
+  end
+
+  test "sends Anthropic each of an array of instructions as its own system block" do
+    bodies = stub_responses(ANTHROPIC_ENDPOINT,
+      anthropic_response(content: [ { type: "text", text: "Hi" } ]))
+
+    weather_provider(model: "claude-haiku-4-5", instructions: [ "Be brief.", "Answer in French." ]).prompt
+
+    assert_equal [ "Be brief.", "Answer in French." ], bodies.first["system"].map { |block| block["text"] }
+  end
+
   # --- Tool calls ---
 
   test "sends OpenAI the arguments of the tool call it made, as the JSON it sent" do

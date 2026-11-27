@@ -16,6 +16,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Array instructions work with RubyLLM** (`activeagent`). An agent whose
+  `instructions` were an array raised `ArgumentError: Message content must
+  be a String` before any request. Each entry is now sent as its own system
+  message.
 - **RubyLLM totals count cached tokens** (`activeagent`). ruby_llm reports
   input apart from cache reads and writes, and the provider's
   `usage.total_tokens` fell back to input plus output, so a prompt that
