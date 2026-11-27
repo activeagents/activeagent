@@ -314,6 +314,23 @@ class RubyLLMProviderTest < ActiveSupport::TestCase
     end
   end
 
+  test "a tool schema given as input_schema reaches ruby_llm" do
+    schema = { type: "object", properties: { location: { type: "string" } }, required: [ "location" ] }
+    flat = { name: "get_weather", description: "Weather", input_schema: schema }
+    nested = { type: "function", function: { name: "get_forecast", input_schema: schema } }
+
+    ActiveAgent::Providers::RubyLLMProvider.new(
+      service: "RubyLLM",
+      model: "gpt-4o-mini",
+      messages: [ { role: "user", content: "weather?" } ],
+      tools: [ flat, nested ]
+    ).prompt
+
+    tools = @fake_provider.last_kwargs[:tools]
+    assert_equal schema, tools["get_weather"].parameters
+    assert_equal schema, tools["get_forecast"].parameters
+  end
+
   test "tool call response sets stop_reason to tool_use" do
     tool_call_provider = Class.new(FakeProvider) do
       def initialize

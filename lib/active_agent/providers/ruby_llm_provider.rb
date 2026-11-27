@@ -519,7 +519,7 @@ module ActiveAgent
           proxy = RubyLLM::ToolProxy.new(
             name: func[:name],
             description: func[:description] || "",
-            parameters: func[:parameters] || {}
+            parameters: func[:parameters] || func[:input_schema] || {}
           )
           hash[proxy.name] = proxy
         end
